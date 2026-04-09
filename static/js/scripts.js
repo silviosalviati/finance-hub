@@ -4,6 +4,13 @@
 let token = null;
 let currentUser = null;
 let session = { queries: 0 };
+let qbDatasetValidationTimer = null;
+let qbIsLoading = false;
+const qbDatasetValidationState = {
+  status: "idle",
+  datasetHint: "",
+  projectId: "",
+};
 
 // ─────────────────────────────────────
 // Utils
@@ -207,6 +214,141 @@ function hideQBProgress() {
   progress.style.display = "none";
   fill.style.width = "8%";
   step.textContent = "Preparando...";
+}
+
+function syncQBGenerateButtonState() {
+  const btn = document.getElementById("qb-btn");
+  const dataset = document.getElementById("qb-dataset")?.value.trim() || "";
+  const projectId = document.getElementById("qb-project")?.value.trim() || "";
+
+  if (!btn) return;
+
+  let blockedByDataset = false;
+  if (dataset) {
+    blockedByDataset =
+      qbDatasetValidationState.status !== "valid" ||
+      qbDatasetValidationState.datasetHint !== dataset ||
+      qbDatasetValidationState.projectId !== projectId;
+  }
+
+  btn.disabled = qbIsLoading || blockedByDataset;
+}
+
+function setQBDatasetValidationStatus(kind, message) {
+  const statusEl = document.getElementById("qb-dataset-status");
+  const indicatorEl = document.getElementById("qb-dataset-indicator");
+
+  if (statusEl) {
+    statusEl.className = "qb-dataset-status";
+    statusEl.textContent = "";
+  }
+
+  if (indicatorEl) {
+    indicatorEl.className = "qb-dataset-indicator";
+    indicatorEl.textContent = "●";
+  }
+
+  if (kind === "idle") {
+    syncQBGenerateButtonState();
+    return;
+  }
+
+  if (statusEl) {
+    statusEl.classList.add(kind);
+    statusEl.textContent = message;
+  }
+
+  if (indicatorEl) {
+    indicatorEl.classList.add(kind);
+    indicatorEl.textContent = kind === "ok" ? "✓" : kind === "checking" ? "…" : "✕";
+  }
+
+  syncQBGenerateButtonState();
+}
+
+async function validateQBDatasetHint() {
+  const projectId = document.getElementById("qb-project")?.value.trim() || "";
+  const datasetHint = document.getElementById("qb-dataset")?.value.trim() || "";
+
+  qbDatasetValidationState.datasetHint = datasetHint;
+  qbDatasetValidationState.projectId = projectId;
+
+  if (!datasetHint) {
+    qbDatasetValidationState.status = "idle";
+    setQBDatasetValidationStatus("idle", "");
+    return;
+  }
+
+  if (!projectId) {
+    qbDatasetValidationState.status = "invalid";
+    setQBDatasetValidationStatus(
+      "error",
+      "Informe o Project ID antes de validar o dataset.",
+    );
+    return;
+  }
+
+  qbDatasetValidationState.status = "checking";
+  setQBDatasetValidationStatus("checking", "Validando dataset no BigQuery e Data Catalog...");
+
+  try {
+    const res = await fetch("/api/agents/query_build/validate-dataset", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        project_id: projectId,
+        dataset_hint: datasetHint,
+      }),
+    });
+
+    if (res.status === 401) {
+      doLogout();
+      return;
+    }
+
+    const payload = await res.json();
+    if (!res.ok) {
+      throw new Error(payload?.detail || "Falha na validacao do dataset.");
+    }
+
+    const currentDataset = document.getElementById("qb-dataset")?.value.trim() || "";
+    const currentProject = document.getElementById("qb-project")?.value.trim() || "";
+    if (currentDataset !== datasetHint || currentProject !== projectId) {
+      return;
+    }
+
+    if (payload.valid) {
+      qbDatasetValidationState.status = "valid";
+      qbDatasetValidationState.datasetHint = datasetHint;
+      qbDatasetValidationState.projectId = projectId;
+      const count = Number(payload.table_count || 0);
+      setQBDatasetValidationStatus(
+        "ok",
+        `Dataset validado: ${count} tabela(s) encontrada(s) com metadados de negocio acessiveis.`,
+      );
+    } else {
+      qbDatasetValidationState.status = "invalid";
+      setQBDatasetValidationStatus(
+        "error",
+        payload.message || "Dataset nao validado para uso no Query Build.",
+      );
+    }
+  } catch (err) {
+    qbDatasetValidationState.status = "invalid";
+    setQBDatasetValidationStatus(
+      "error",
+      prettifyErrorMessage(err.message || "Erro ao validar dataset."),
+    );
+  }
+}
+
+function scheduleQBDatasetValidation() {
+  if (qbDatasetValidationTimer) {
+    clearTimeout(qbDatasetValidationTimer);
+  }
+  qbDatasetValidationTimer = setTimeout(() => {
+    validateQBDatasetHint();
+  }, 1000);
 }
 
 function loadExampleQuery() {
@@ -562,6 +704,19 @@ async function runQueryBuild() {
     return;
   }
 
+  if (datasetHint) {
+    const isValidDataset =
+      qbDatasetValidationState.status === "valid" &&
+      qbDatasetValidationState.datasetHint === datasetHint &&
+      qbDatasetValidationState.projectId === projectId;
+    if (!isValidDataset) {
+      showQBError(
+        "Valide o Dataset hint no BigQuery/Data Catalog antes de gerar SQL.",
+      );
+      return;
+    }
+  }
+
   showQBError("");
   setQBLoading(true);
   setQBProgress("Validando entrada...", 12);
@@ -759,7 +914,8 @@ function setQBLoading(on) {
   const spinner = document.getElementById("qb-spinner");
   const text = document.getElementById("qb-btn-text");
 
-  if (btn) btn.disabled = on;
+  qbIsLoading = on;
+  syncQBGenerateButtonState();
   if (spinner) spinner.style.display = on ? "block" : "none";
   if (text)
     text.textContent = on ? "Gerando SQL..." : "Gerar SQL com Query Build";
@@ -799,12 +955,14 @@ function loadExampleQBRequest() {
   const request = document.getElementById("qb-request");
 
   if (project && !project.value.trim()) project.value = "seu-projeto-gcp";
-  if (dataset && !dataset.value.trim()) dataset.value = "finance_dw.sales";
+  if (dataset && !dataset.value.trim()) dataset.value = "inteligencia_negocios";
   if (request) {
     request.value =
       "Quero as 20 maiores vendas dos ultimos 30 dias por regiao, com ticket medio e variacao percentual versus mes anterior.";
     request.focus();
   }
+
+  scheduleQBDatasetValidation();
 }
 
 function renderQA(d) {
@@ -1317,6 +1475,42 @@ document.getElementById("qb-request")?.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.key === "Enter") {
     runQueryBuild();
   }
+});
+
+document.getElementById("qb-dataset")?.addEventListener("input", () => {
+  const datasetHint = document.getElementById("qb-dataset")?.value.trim() || "";
+
+  if (!datasetHint) {
+    qbDatasetValidationState.status = "idle";
+    setQBDatasetValidationStatus("idle", "");
+    return;
+  }
+
+  qbDatasetValidationState.status = "checking";
+  setQBDatasetValidationStatus(
+    "checking",
+    "Aguardando pausa na digitacao para validar...",
+  );
+  scheduleQBDatasetValidation();
+});
+
+document.getElementById("qb-dataset")?.addEventListener("blur", () => {
+  validateQBDatasetHint();
+});
+
+document.getElementById("qb-project")?.addEventListener("input", () => {
+  const datasetHint = document.getElementById("qb-dataset")?.value.trim() || "";
+  if (!datasetHint) {
+    syncQBGenerateButtonState();
+    return;
+  }
+
+  qbDatasetValidationState.status = "checking";
+  setQBDatasetValidationStatus(
+    "checking",
+    "Project alterado. Validando dataset novamente...",
+  );
+  scheduleQBDatasetValidation();
 });
 
 // ─────────────────────────────────────

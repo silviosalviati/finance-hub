@@ -1311,13 +1311,19 @@
                 </div>
 
                 <div class="qfield">
-                  <label for="qb-dataset">Dataset hint (opcional)</label>
+                  <label for="qb-dataset"
+                    >Dataset hint (opcional)
+                    <span id="qb-dataset-indicator" class="qb-dataset-indicator"
+                      >●</span
+                    ></label
+                  >
                   <input
                     type="text"
                     id="qb-dataset"
-                    placeholder="ex: finance_dw.sales"
+                    placeholder="ex: inteligencia_negocios"
                     autocomplete="off"
                   />
+                  <p id="qb-dataset-status" class="qb-dataset-status"></p>
                 </div>
 
                 <div class="qfield">

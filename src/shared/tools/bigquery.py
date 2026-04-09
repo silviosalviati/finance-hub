@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import re
 from functools import lru_cache
+from typing import Any
 
 from google.cloud import bigquery
+from google.cloud import datacatalog_v1
 from google.cloud.exceptions import GoogleCloudError
+from google.api_core.exceptions import NotFound
 from google.oauth2 import service_account
 
 from src.shared.config import BQ_COST_PER_TB_USD, GCP_CREDENTIALS_PATH, GCP_PROJECT_ID
@@ -34,6 +37,103 @@ def _get_client(project_id: str | None) -> bigquery.Client:
         project=resolved_project_id,
         credentials=credentials,
     )
+
+
+def _parse_dataset_hint(project_id: str, dataset_hint: str) -> tuple[str, str]:
+    cleaned = dataset_hint.strip().strip("`")
+    if not cleaned:
+        raise ValueError("Dataset hint nao pode ser vazio.")
+
+    parts = cleaned.split(".")
+    if len(parts) == 1:
+        return project_id, parts[0]
+    if len(parts) == 2:
+        return parts[0], parts[1]
+
+    raise ValueError(
+        "Dataset hint invalido. Use apenas 'dataset' ou 'project.dataset'."
+    )
+
+
+def validate_dataset_for_query_build(project_id: str, dataset_hint: str) -> dict[str, Any]:
+    resolved_project = _resolve_project_id(project_id)
+    dataset_project, dataset_id = _parse_dataset_hint(resolved_project, dataset_hint)
+    dataset_ref = f"{dataset_project}.{dataset_id}"
+
+    bigquery_ok = False
+    datacatalog_ok = False
+    table_count = 0
+    datacatalog_error: str | None = None
+
+    try:
+        client = _get_client(dataset_project)
+        client.get_dataset(dataset_ref)
+        bigquery_ok = True
+        table_count = sum(1 for _ in client.list_tables(dataset_ref))
+    except NotFound:
+        return {
+            "valid": False,
+            "project_id": dataset_project,
+            "dataset_id": dataset_id,
+            "dataset_ref": dataset_ref,
+            "bigquery_ok": False,
+            "datacatalog_ok": False,
+            "table_count": 0,
+            "message": "Dataset nao encontrado no BigQuery.",
+        }
+    except GoogleCloudError as exc:
+        return {
+            "valid": False,
+            "project_id": dataset_project,
+            "dataset_id": dataset_id,
+            "dataset_ref": dataset_ref,
+            "bigquery_ok": False,
+            "datacatalog_ok": False,
+            "table_count": 0,
+            "message": f"Falha ao validar dataset no BigQuery: {exc}",
+        }
+
+    linked_resource = (
+        f"//bigquery.googleapis.com/projects/{dataset_project}/datasets/{dataset_id}"
+    )
+
+    try:
+        catalog_client = datacatalog_v1.DataCatalogClient(credentials=_get_base_credentials())
+        entry = catalog_client.lookup_entry(
+            request={"linked_resource": linked_resource}
+        )
+        datacatalog_ok = bool(getattr(entry, "name", ""))
+    except NotFound:
+        datacatalog_ok = False
+    except Exception as exc:
+        datacatalog_ok = False
+        datacatalog_error = str(exc)
+
+    valid = bigquery_ok and datacatalog_ok
+    if valid:
+        message = (
+            f"Dataset validado: {table_count} tabela(s) encontrada(s) com metadados acessiveis."
+        )
+    elif datacatalog_error:
+        message = (
+            "Dataset existe no BigQuery, mas nao foi possivel validar metadados no Data Catalog: "
+            f"{datacatalog_error}"
+        )
+    else:
+        message = (
+            "Dataset existe no BigQuery, mas nao esta indexado/visivel no Data Catalog."
+        )
+
+    return {
+        "valid": valid,
+        "project_id": dataset_project,
+        "dataset_id": dataset_id,
+        "dataset_ref": dataset_ref,
+        "bigquery_ok": bigquery_ok,
+        "datacatalog_ok": datacatalog_ok,
+        "table_count": table_count,
+        "message": message,
+    }
 
 
 def _build_error_result(message: str) -> DryRunResult:
@@ -124,5 +224,6 @@ __all__ = [
     "dry_run_query",
     "get_table_schema",
     "get_schemas_for_query",
+    "validate_dataset_for_query_build",
     "format_bytes",
 ]

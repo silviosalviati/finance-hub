@@ -49,6 +49,13 @@ Arquivos de referencia:
 - saida: query construida, explicacao, dry-run e recomendacoes de uso eficiente
 - rota principal: `POST /api/agents/query_build/analyze`
 
+Validacao de dataset (novo fluxo):
+
+- validacao previa no backend contra BigQuery e Data Catalog
+- bloqueio preventivo do botao de gerar SQL quando dataset informado nao estiver validado
+- feedback visual na UI (carregando, valido com check, invalido com alerta)
+- mensagem de retorno com quantidade de tabelas detectadas
+
 ### Document Build
 
 - placeholder para evolucao futura
@@ -155,6 +162,7 @@ Agentes:
 - `GET /api/runtime-llm`
 - `POST /analyze` (atalho para Query Analyzer)
 - `POST /api/agents/{agent_id}/analyze`
+- `POST /api/agents/query_build/validate-dataset`
 - `GET /api/agents/{agent_id}/checkpoint`
 
 ## Frontend
@@ -164,6 +172,13 @@ Arquivos principais:
 - [static/index.html](static/index.html)
 - [static/css/style.css](static/css/style.css)
 - [static/js/scripts.js](static/js/scripts.js)
+
+No Query Build, o campo `Dataset hint` possui validacao assincrona:
+
+- dispara ao sair do campo (onBlur)
+- dispara apos pausa de digitacao (~1s)
+- mostra status de validacao em tempo real
+- evita envio para LLM quando dataset nao estiver validado
 
 ## Testes
 

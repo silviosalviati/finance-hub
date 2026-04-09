@@ -2102,6 +2102,69 @@ textarea {
   gap: 4px;
 }
 
+.qb-dataset-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin-left: 4px;
+  font-size: 8px;
+  color: #9ca3af;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  vertical-align: middle;
+}
+
+.qb-dataset-indicator.checking {
+  color: #0f172a;
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.qb-dataset-indicator.ok {
+  color: #065f46;
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.qb-dataset-indicator.error {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.qb-dataset-status {
+  display: none;
+  margin-top: 5px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.qb-dataset-status.checking {
+  display: block;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+}
+
+.qb-dataset-status.ok {
+  display: block;
+  color: #065f46;
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+}
+
+.qb-dataset-status.error {
+  display: block;
+  color: #991b1b;
+  background: #fff1f2;
+  border: 1px solid #fecaca;
+}
+
 .qa-error {
   display: none;
   background: var(--rose-bg);

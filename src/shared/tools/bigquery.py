@@ -112,7 +112,8 @@ def validate_dataset_for_query_build(project_id: str, dataset_hint: str) -> dict
     valid = bigquery_ok and datacatalog_ok
     if valid:
         message = (
-            f"Dataset validado: {table_count} tabela(s) encontrada(s) com metadados acessiveis."
+            "Perfeito! Dataset validado com sucesso. "
+            f"Encontramos {table_count} tabela(s) com metadados prontos para uso."
         )
     elif datacatalog_error:
         message = (

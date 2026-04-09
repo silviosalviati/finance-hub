@@ -1323,7 +1323,25 @@
                     placeholder="ex: inteligencia_negocios"
                     autocomplete="off"
                   />
-                  <p id="qb-dataset-status" class="qb-dataset-status"></p>
+                  <div
+                    id="qb-dataset-status"
+                    class="qb-dataset-status"
+                    aria-live="polite"
+                  >
+                    <div class="qb-dataset-status-head">
+                      <span
+                        id="qb-dataset-status-icon"
+                        class="qb-dataset-status-icon"
+                        >•</span
+                      >
+                      <span
+                        id="qb-dataset-status-title"
+                        class="qb-dataset-status-title"
+                      ></span>
+                    </div>
+                    <p id="qb-dataset-status-text" class="qb-dataset-status-text"></p>
+                    <div id="qb-dataset-status-meta" class="qb-dataset-status-meta"></div>
+                  </div>
                 </div>
 
                 <div class="qfield">

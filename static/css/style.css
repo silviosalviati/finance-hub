@@ -2137,11 +2137,57 @@ textarea {
 
 .qb-dataset-status {
   display: none;
-  margin-top: 5px;
+  margin-top: 7px;
   font-size: 10.5px;
   line-height: 1.45;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+}
+
+.qb-dataset-status-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qb-dataset-status-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid #d1d5db;
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.qb-dataset-status-title {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.qb-dataset-status-text {
+  margin: 4px 0 0;
+}
+
+.qb-dataset-status-meta {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.qb-dataset-chip {
+  font-size: 9.5px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #f8fafc;
+  color: #334155;
 }
 
 .qb-dataset-status.checking {
@@ -2149,6 +2195,13 @@ textarea {
   color: #334155;
   background: #f8fafc;
   border: 1px solid #cbd5e1;
+  border-left-color: #94a3b8;
+}
+
+.qb-dataset-status.checking .qb-dataset-status-icon {
+  border-color: #94a3b8;
+  background: #e2e8f0;
+  color: #334155;
 }
 
 .qb-dataset-status.ok {
@@ -2156,6 +2209,19 @@ textarea {
   color: #065f46;
   background: #ecfdf5;
   border: 1px solid #86efac;
+  border-left-color: #16a34a;
+}
+
+.qb-dataset-status.ok .qb-dataset-status-icon {
+  border-color: #6ee7b7;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.qb-dataset-status.ok .qb-dataset-chip {
+  border-color: #6ee7b7;
+  background: #d1fae5;
+  color: #065f46;
 }
 
 .qb-dataset-status.error {
@@ -2163,6 +2229,19 @@ textarea {
   color: #991b1b;
   background: #fff1f2;
   border: 1px solid #fecaca;
+  border-left-color: #dc2626;
+}
+
+.qb-dataset-status.error .qb-dataset-status-icon {
+  border-color: #fca5a5;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.qb-dataset-status.error .qb-dataset-chip {
+  border-color: #fecaca;
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .qa-error {

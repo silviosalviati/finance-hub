@@ -293,15 +293,15 @@ function setQBDatasetValidationStatus(kind, payload = {}) {
 
   if (statusMetaEl && kind === "ok") {
     const chips = [];
+    if (datasetHint) {
+      chips.push(`<span class="qb-dataset-chip">🗂️ ${datasetHint}</span>`);
+    }
     if (!Number.isNaN(tableCount)) {
       chips.push(
         `<span class="qb-dataset-chip">📊 ${tableCount} tabelas</span>`,
       );
     }
-    if (datasetHint) {
-      chips.push(`<span class="qb-dataset-chip">🗂️ ${datasetHint}</span>`);
-    }
-    chips.push('<span class="qb-dataset-chip">✅ Metadados OK</span>');
+    chips.push('<span class="qb-dataset-chip">✅ Metadados</span>');
     statusMetaEl.innerHTML = chips.join(" ");
   }
 

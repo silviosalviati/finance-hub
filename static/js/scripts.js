@@ -697,7 +697,8 @@ function renderQB(data) {
     builtSql.textContent = data.generated_sql || "Nenhum SQL foi retornado.";
   }
   if (qbOptSec) qbOptSec.style.display = data.generated_sql ? "block" : "none";
-  if (qbOptEmpty) qbOptEmpty.style.display = data.generated_sql ? "none" : "flex";
+  if (qbOptEmpty)
+    qbOptEmpty.style.display = data.generated_sql ? "none" : "flex";
   if (optTab) optTab.classList.add("has-data");
 
   if (builtTab) builtTab.classList.add("has-data");
@@ -718,7 +719,8 @@ function renderQB(data) {
       )
       .join("");
   }
-  if (qbRecSec) qbRecSec.style.display = recommendations.length ? "block" : "none";
+  if (qbRecSec)
+    qbRecSec.style.display = recommendations.length ? "block" : "none";
   if (recsTab) recsTab.classList.add("has-data");
 
   if (dryRun) {

@@ -8,3 +8,4 @@ pydantic>=2.9.0
 rich>=13.9.0
 python-dotenv>=1.0.0
 bcrypt>=4.1.0
+google-cloud-datacatalog>=3.30.0

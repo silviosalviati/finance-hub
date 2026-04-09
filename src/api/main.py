@@ -19,7 +19,7 @@ from src.api.routes.agents import router as agents_router
 from src.api.routes.auth import router as auth_router
 from src.shared.config import ALLOWED_ORIGINS, print_runtime_summary, validate_runtime_config
 
-app = FastAPI(title="Finance Hub IA", version="3.0.0")
+app = FastAPI(title="Finance Hub IA ", version="3.0.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(

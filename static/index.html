@@ -1,0 +1,1680 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Finance Hub IA · Porto Seguro</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <section id="screen-config" class="screen">
+        <div class="config-wrapper"></div>
+      </section>
+    </main>
+
+    <!-- ══ LOGIN SCREEN ══ -->
+    <section id="screen-login" class="screen active" aria-label="Tela de login">
+      <div class="login-bg-text">FQ</div>
+      <div class="login-vela-bg" aria-hidden="true"><i></i><i></i><i></i></div>
+
+      <div class="login-card">
+        <div class="login-logo">
+          <img
+            src="/static/img/logo_senha.png"
+            alt="Porto Seguro"
+            class="porto-logo-img"
+          />
+        </div>
+
+        <div class="login-title">Finance Hub IA</div>
+        <div class="login-desc">
+          Plataforma de Bots IA para análise, otimização e apoio técnico em
+          dados financeiros.
+        </div>
+
+        <div id="login-error" class="login-error" role="alert"></div>
+
+        <div class="login-field">
+          <label for="inp-user">Matrícula</label>
+          <input
+            type="text"
+            id="inp-user"
+            placeholder="ex: F0123456"
+            autocomplete="username"
+          />
+        </div>
+
+        <div class="login-field">
+          <label for="inp-pass">Senha</label>
+          <input
+            type="password"
+            id="inp-pass"
+            placeholder="••••••••"
+            autocomplete="current-password"
+          />
+        </div>
+
+        <button class="btn-login-submit" id="btn-login" onclick="doLogin()">
+          <div class="spinner" id="login-spinner"></div>
+          <span id="login-btn-text">Entrar</span>
+        </button>
+
+        <div class="login-footer">
+          Porto Seguro Holding · Uso interno restrito
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PORTAL SCREEN ══ -->
+    <section id="screen-portal" class="screen" aria-label="Portal principal">
+      <!-- TOPBAR -->
+      <header class="topbar">
+        <div class="vela" aria-hidden="true"><i></i><i></i><i></i></div>
+
+        <div class="brand-logo">
+          <img src="/static/img/portoseguro.png" alt="Porto Seguro" />
+        </div>
+
+        <div class="tsep" aria-hidden="true"></div>
+
+        <div class="app-title">
+          Finance Hub IA
+          <svg
+            class="app-bot-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 8v-2m0 0a2 2 0 100-4 2 2 0 000 4zm0 0v2" />
+            <path d="M19 13a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <path d="M9 12h6M9 15h6" />
+          </svg>
+        </div>
+
+        <div class="topbar-right">
+          <div class="topbar-user">
+            <div class="avatar" id="top-avatar">--</div>
+            <span class="topbar-name" id="top-name">Carregando...</span>
+          </div>
+
+          <button class="btn-logout" onclick="doLogout()">
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            Sair
+          </button>
+        </div>
+      </header>
+
+      <!-- SUBBAR -->
+      <nav class="subbar" aria-label="Navegação secundária">
+        <div class="snav active" onclick="navTo('home')">Bots IA</div>
+        <div class="snav" onclick="navTo('hist')">Histórico</div>
+        <div class="snav" onclick="navTo('analytics')">Analytics</div>
+      </nav>
+
+      <!-- BODY -->
+      <div class="body-wrap">
+        <!-- SIDEBAR -->
+        <aside class="sidebar" aria-label="Menu lateral">
+          <div class="sidebar-section">
+            <div class="shead">Menu</div>
+
+            <div class="nitem active" id="nav-home" onclick="navTo('home')">
+              <div class="nicon">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#003087"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="3" y="3" width="7" height="7" />
+                  <rect x="14" y="3" width="7" height="7" />
+                  <rect x="14" y="14" width="7" height="7" />
+                  <rect x="3" y="14" width="7" height="7" />
+                </svg>
+              </div>
+              Bots IA
+              <span class="nbadge">4</span>
+            </div>
+
+            <div class="nitem" id="nav-hist" onclick="navTo('hist')">
+              <div class="nicon">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#3D5276"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </div>
+              Histórico
+            </div>
+
+            <div class="nitem" id="nav-analytics" onclick="navTo('analytics')">
+              <div class="nicon">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#3D5276"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M18 20V10M12 20V4M6 20v-6" />
+                </svg>
+              </div>
+              Analytics
+            </div>
+          </div>
+
+          <div class="sdiv"></div>
+
+          <div class="sidebar-section">
+            <div class="shead">Recentes</div>
+
+            <div class="nitem" id="nav-qa" onclick="navTo('qa')">
+              <div class="nicon">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#3D5276"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+              </div>
+              Query Analyzer
+            </div>
+
+            <div class="nitem" id="nav-qb" onclick="navTo('qb')">
+              <div class="nicon">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#3D5276"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="16 18 22 12 16 6" />
+                  <polyline points="8 6 2 12 8 18" />
+                </svg>
+              </div>
+              Query Build
+            </div>
+          </div>
+
+          <div class="suser">
+            <div class="upic" id="sb-avatar">--</div>
+            <div>
+              <div class="uname" id="sb-name">--</div>
+              <div class="urole">Gerência de Dados & Analytics</div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- MAIN -->
+        <main class="main">
+          <!-- ── HOME VIEW ── -->
+          <section class="view active" id="view-home">
+            <div class="stats-row">
+              <div class="stat-card">
+                <div class="stico" style="background: var(--porto-sky)">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#003087"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect x="3" y="11" width="18" height="10" rx="2" />
+                    <path d="M12 11V7" />
+                    <circle cx="12" cy="5" r="2" />
+                    <path d="M8 15h.01M12 15h.01M16 15h.01" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="stval">4</div>
+                  <div class="stlbl">Bots ativos</div>
+                </div>
+              </div>
+
+              <div class="stat-card">
+                <div class="stico" style="background: var(--emerald-bg)">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#059669"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                  </svg>
+                </div>
+                <div>
+                  <div
+                    class="stval"
+                    id="s-queries"
+                    style="color: var(--emerald)"
+                  >
+                    0
+                  </div>
+                  <div class="stlbl">Análises (sessão)</div>
+                </div>
+              </div>
+
+              <div class="stat-card">
+                <div class="stico" style="background: var(--teal-bg)">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#0891B2"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M18 20V10M12 20V4M6 20v-6" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="stval" style="color: var(--teal)">0¢</div>
+                  <div class="stlbl">Custo dry-run</div>
+                </div>
+              </div>
+
+              <div class="stat-card">
+                <div class="stico" style="background: var(--violet-bg)">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#6D28D9"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v6l4 2" />
+                  </svg>
+                </div>
+                <div>
+                  <div
+                    class="stval"
+                    id="s-lasttime"
+                    style="color: var(--violet)"
+                  >
+                    --:--
+                  </div>
+                  <div class="stlbl">Último acesso</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="view-hd">
+              <div>
+                <div class="view-title">Painel de Bots IA</div>
+                <div class="view-sub">
+                  Selecione um agente para iniciar sua sessão
+                </div>
+              </div>
+
+              <div class="search-wrap">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="color: var(--ink3); flex-shrink: 0"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Buscar bot..."
+                  oninput="filterBots(this.value)"
+                />
+              </div>
+            </div>
+
+            <section class="bot-showcase" aria-label="Vitrine de bots">
+              <div class="bot-showcase-main">
+                <div class="bot-showcase-top">
+                  <span class="bot-showcase-badge" id="showcase-status"
+                    >Disponível</span
+                  >
+                </div>
+
+                <div class="bot-showcase-content">
+                  <div class="bot-showcase-label">Bot em destaque</div>
+                  <h2 id="showcase-title">Query Analyzer</h2>
+                  <p id="showcase-desc">
+                    Analisa queries BigQuery, identifica anti-padrões e sugere
+                    otimizações com estimativa de custo real. Ideal para
+                    acelerar diagnósticos e ganhos de performance.
+                  </p>
+
+                  <div class="bot-showcase-tags" id="showcase-tags"></div>
+                </div>
+
+                <div class="bot-showcase-dots" id="showcase-dots"></div>
+              </div>
+            </section>
+            <div class="bot-grid">
+              <!-- Query Analyzer -->
+              <article class="bot-card bc-qa" onclick="navTo('qa')">
+                <div class="bhead">
+                  <div class="biw bi-porto">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#003087"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      <path d="M8 11h6M11 8v6" />
+                    </svg>
+                  </div>
+                  <span class="bstatus st-live">Disponivel</span>
+                </div>
+
+                <div>
+                  <div class="bname">Query Analyzer</div>
+                  <div class="bdesc">
+                    Analisa queries BigQuery, detecta anti-padrões e gera versão
+                    otimizada com estimativa de custo real via dry-run.
+                  </div>
+                </div>
+
+                <div class="bfoot">
+                  <div class="btags">
+                    <span class="tag">BigQuery</span>
+                    <span class="tag">Power BI</span>
+                    <span class="tag">SQL</span>
+                  </div>
+
+                  <button class="btn-open">
+                    Abrir
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </article>
+
+              <!-- Document Build -->
+              <article
+                class="bot-card bc-doc"
+                onclick="
+                  openDev(
+                    'Document Build',
+                    'Gera documentação técnica a partir de queries SQL e pipelines.',
+                    [
+                      'Análise de queries',
+                      'Geração de markdown',
+                      'Exportar para Confluence',
+                    ],
+                    'Q2 2025',
+                  )
+                "
+              >
+                <div class="bhead">
+                  <div class="biw bi-teal">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#0891B2"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+                      />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                  </div>
+                  <span class="bstatus st-beta">Em andamento</span>
+                </div>
+
+                <div>
+                  <div class="bname">Document Build</div>
+                  <div class="bdesc">
+                    Gera documentação técnica automaticamente a partir de
+                    queries SQL, pipelines e modelos de dados financeiros.
+                  </div>
+                </div>
+
+                <div class="bfoot">
+                  <div class="btags">
+                    <span class="tag">Docs</span>
+                    <span class="tag">Pipeline</span>
+                    <span class="tag">DataOps</span>
+                  </div>
+
+                  <button class="btn-open">
+                    Abrir
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </article>
+
+              <!-- Slot vazio -->
+              <article class="bot-card soon">
+                <div class="soon-center">
+                  <div class="soon-ico">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#8096B2"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                  </div>
+                  <div class="soon-lbl">Em breve</div>
+                </div>
+
+                <div class="bfoot">
+                  <div></div>
+                  <span class="btn-soon-label">Disponível Q2 2025</span>
+                </div>
+              </article>
+
+              <!-- Query Build -->
+              <article class="bot-card bc-qb" onclick="navTo('qb')">
+                <div class="bhead">
+                  <div class="biw bi-violet">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#6D28D9"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <polyline points="16 18 22 12 16 6" />
+                      <polyline points="8 6 2 12 8 18" />
+                    </svg>
+                  </div>
+                  <span class="bstatus st-live">Disponivel</span>
+                </div>
+
+                <div>
+                  <div class="bname">Query Build</div>
+                  <div class="bdesc">
+                    Constrói queries BigQuery a partir de linguagem natural.
+                    Descreva a análise e receba o SQL pronto para uso.
+                  </div>
+                </div>
+
+                <div class="bfoot">
+                  <div class="btags">
+                    <span class="tag">NL2SQL</span>
+                    <span class="tag">BigQuery</span>
+                    <span class="tag">IA</span>
+                  </div>
+
+                  <button class="btn-open">
+                    Abrir
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </article>
+
+              <!-- Finance AuditorIA -->
+              <article
+                class="bot-card bc-audit"
+                onclick="
+                  openDev(
+                    'Finance AuditorIA',
+                    'Audita pipelines verificando conformidade e consistência de KPIs.',
+                    [
+                      'Rastreabilidade Gold/Silver',
+                      'Verificação de KPIs',
+                      'Relatório de compliance',
+                    ],
+                    'Q3 2025',
+                  )
+                "
+              >
+                <div class="bhead">
+                  <div class="biw bi-emerald">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#059669"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      <polyline points="9 12 11 14 15 10" />
+                    </svg>
+                  </div>
+                  <span class="bstatus st-live">Disponivel</span>
+                </div>
+
+                <div>
+                  <div class="bname">Finance AuditorIA</div>
+                  <div class="bdesc">
+                    Audita pipelines e queries financeiras verificando
+                    conformidade, rastreabilidade e consistência de KPIs
+                    Gold/Silver.
+                  </div>
+                </div>
+
+                <div class="bfoot">
+                  <div class="btags">
+                    <span class="tag">Auditoria</span>
+                    <span class="tag">KPIs</span>
+                    <span class="tag">Compliance</span>
+                  </div>
+
+                  <button class="btn-open">
+                    Abrir
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </article>
+
+              <!-- Slot vazio -->
+              <article class="bot-card soon">
+                <div class="soon-center">
+                  <div class="soon-ico">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#8096B2"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                  </div>
+                  <div class="soon-lbl">Em breve</div>
+                </div>
+
+                <div class="bfoot">
+                  <div></div>
+                  <span class="btn-soon-label">Disponível Q4 2025</span>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <!-- ── HISTORY VIEW ── -->
+          <section class="view" id="view-hist">
+            <div class="view-hd">
+              <div>
+                <div class="view-title">Histórico de Análises</div>
+                <div class="view-sub">
+                  Acompanhe todas as análises realizadas com o Query Analyzer
+                </div>
+              </div>
+            </div>
+            <div class="hist-container">
+              <div class="hist-list" id="hist-list">
+                <!-- History items will be populated here -->
+              </div>
+            </div>
+          </section>
+
+          <!-- ── QUERY ANALYZER VIEW ── -->
+          <section class="view" id="view-qa" style="padding: 0">
+            <div class="qa-topbar">
+              <button class="btn-back" onclick="navTo('home')">
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M19 12H5M12 5l-7 7 7 7" />
+                </svg>
+                Voltar
+              </button>
+
+              <div class="breadcrumb">
+                <span onclick="navTo('home')" style="cursor: pointer"
+                  >Painel</span
+                >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+                <span class="cur">Query Analyzer</span>
+              </div>
+            </div>
+
+            <div class="qa-hero">
+              <div class="qa-hero-icon">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#003087"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  <path d="M8 11h6M11 8v6" />
+                </svg>
+              </div>
+
+              <div>
+                <div class="qa-hero-title">Query Analyzer</div>
+                <div class="qa-hero-desc">
+                  Analisa queries BigQuery, detecta anti-padrões e gera versão
+                  otimizada com custo real via dry-run.
+                </div>
+              </div>
+
+              <div class="qa-hero-right">
+                <span class="qa-hero-tag">BigQuery</span>
+                <span class="qa-hero-tag">Power BI</span>
+                <span class="qa-hero-tag">SQL</span>
+                <div class="qa-live-badge">
+                  <div class="qa-live-dot"></div>
+                  Disponivel
+                </div>
+              </div>
+            </div>
+
+            <div class="qa-body">
+              <!-- Form -->
+              <div class="qa-form">
+                <div class="qlabel">Modelo ativo</div>
+                <div class="qa-model">
+                  <div class="qa-model-ico">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                      <circle
+                        cx="8"
+                        cy="8"
+                        r="2.5"
+                        stroke="#003087"
+                        stroke-width="1.5"
+                      />
+                      <path
+                        d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M3.5 12.5l1.4-1.4M11.1 4.9l1.4-1.4"
+                        stroke="#003087"
+                        stroke-width="1.1"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="qa-model-name" id="qa-model-name">
+                      Carregando modelo...
+                    </div>
+                    <div class="qa-model-sub" id="qa-model-sub">
+                      LLM em uso no backend
+                    </div>
+                  </div>
+                </div>
+
+                <div class="sdiv"></div>
+
+                <div class="qlabel">Configuração</div>
+
+                <div class="qfield">
+                  <label for="qa-project">Project ID — GCP</label>
+                  <input
+                    type="text"
+                    id="qa-project"
+                    placeholder="porto-analytics-prod"
+                    autocomplete="off"
+                  />
+                </div>
+
+                <div class="qfield">
+                  <label for="qa-query">Query SQL</label>
+                  <textarea
+                    id="qa-query"
+                    placeholder="SELECT *&#10;FROM `projeto.dataset.tabela`&#10;WHERE ...&#10;ORDER BY data"
+                  ></textarea>
+                  <p class="qhint">
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                      <circle
+                        cx="6"
+                        cy="6"
+                        r="5"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                      />
+                      <path
+                        d="M6 5.5v3M6 4h.01"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                    Ctrl+Enter para analisar
+                  </p>
+                </div>
+
+                <div id="qa-error" class="qa-error" role="alert"></div>
+
+                <button class="btn-analyze" id="qa-btn" onclick="runAnalyze()">
+                  <div class="spinner" id="qa-spinner"></div>
+                  <span id="qa-btn-text">Analisar com Query Analyzer</span>
+                </button>
+
+                <div id="qa-progress" class="qa-progress" style="display: none">
+                  <div class="qa-progress-head">
+                    <span class="qa-progress-title">Processando análise</span>
+                    <span class="qa-progress-step" id="qa-progress-step"
+                      >Preparando...</span
+                    >
+                  </div>
+                  <div class="qa-progress-track">
+                    <div
+                      class="qa-progress-fill"
+                      id="qa-progress-fill"
+                      style="width: 8%"
+                    ></div>
+                  </div>
+                </div>
+
+                <div id="qa-last-run" class="qa-last-run" style="display: none">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v6l4 2" />
+                  </svg>
+                  Última análise:
+                  <strong id="qa-last-time">--:--</strong>
+                  &nbsp;·&nbsp; Score:
+                  <strong id="qa-last-score">—</strong>
+                </div>
+              </div>
+
+              <!-- Results -->
+              <div class="qa-results-wrap">
+                <div class="qa-empty" id="qa-empty" style="height: 100%">
+                  <div class="qa-empty-ico">
+                    <svg
+                      width="22"
+                      height="22"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#003087"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <polygon
+                        points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"
+                      />
+                    </svg>
+                  </div>
+
+                  <h3>Aguardando análise</h3>
+                  <p>
+                    Cole uma query SQL no editor ao lado e clique em Analisar
+                  </p>
+
+                  <div class="qa-empty-steps">
+                    <div class="qa-empty-step">
+                      <div class="qa-empty-step-n">1</div>
+                      Informe o Project ID do GCP
+                    </div>
+                    <div class="qa-empty-step">
+                      <div class="qa-empty-step-n">2</div>
+                      Cole sua query SQL no editor
+                    </div>
+                    <div class="qa-empty-step">
+                      <div class="qa-empty-step-n">3</div>
+                      Clique em Analisar com Query Analyzer
+                    </div>
+                  </div>
+
+                  <button class="btn-example-query" type="button">
+                    Usar query de exemplo
+                  </button>
+                </div>
+
+                <div
+                  id="qa-tabs-area"
+                  style="
+                    display: none;
+                    flex-direction: column;
+                    height: 100%;
+                    overflow: hidden;
+                  "
+                >
+                  <div class="qa-tabs-bar">
+                    <div
+                      class="qa-tab active"
+                      onclick="switchTab('score')"
+                      id="tab-score"
+                    >
+                      Score
+                    </div>
+                    <div
+                      class="qa-tab"
+                      onclick="switchTab('antipatterns')"
+                      id="tab-antipatterns"
+                    >
+                      Anti-padrões
+                      <span class="qa-tab-count" id="tab-ap-count">0</span>
+                    </div>
+                    <div
+                      class="qa-tab"
+                      onclick="switchTab('optimized')"
+                      id="tab-optimized"
+                    >
+                      Query otimizada
+                    </div>
+                    <div
+                      class="qa-tab"
+                      onclick="switchTab('recs')"
+                      id="tab-recs"
+                    >
+                      Recomendações
+                    </div>
+                  </div>
+
+                  <div class="qa-tab-panels">
+                    <!-- SCORE TAB -->
+                    <div class="qa-tab-panel active" id="panel-score">
+                      <div class="res-card">
+                        <div class="score-inner">
+                          <div class="grade-block" id="q-grade-block">
+                            <span class="grade-ltr" id="q-grade-ltr">—</span>
+                            <span class="grade-sub">Grau</span>
+                          </div>
+
+                          <div class="score-body">
+                            <div class="score-top">
+                              <span class="score-big" id="q-score-big">—</span>
+                              <span class="score-of">/ 100</span>
+                              <span class="score-tag">Eficiência da query</span>
+                            </div>
+
+                            <div class="score-bar">
+                              <div
+                                class="score-fill"
+                                id="q-score-fill"
+                                style="width: 0%"
+                              ></div>
+                            </div>
+
+                            <div class="score-txt" id="q-summary"></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="tiles" id="q-tiles" style="display: none">
+                        <div class="tile">
+                          <div class="tile-lbl">Bytes originais</div>
+                          <div
+                            class="tile-val"
+                            id="q-borig"
+                            style="color: var(--rose)"
+                          >
+                            —
+                          </div>
+                          <div class="tile-sub" id="q-corig">—</div>
+                        </div>
+
+                        <div class="tile">
+                          <div class="tile-lbl">Bytes otimizados</div>
+                          <div
+                            class="tile-val"
+                            id="q-bopt"
+                            style="color: var(--emerald)"
+                          >
+                            —
+                          </div>
+                          <div class="tile-sub" id="q-copt">—</div>
+                        </div>
+
+                        <div class="tile">
+                          <div class="tile-lbl">Economia</div>
+                          <div class="tile-val tv-A" id="q-sav">—</div>
+                          <div class="tile-sub" id="q-savusd">—</div>
+                        </div>
+                      </div>
+
+                      <div
+                        class="sec-card"
+                        id="q-sav-sec"
+                        style="display: none"
+                      >
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Redução de processamento
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="sav-tile">
+                            <div class="sav-row">
+                              <span class="sav-lbl">Economia estimada</span>
+                              <span class="sav-pct" id="q-sav-big">—</span>
+                            </div>
+                            <div class="sav-track">
+                              <div
+                                class="sav-fill"
+                                id="q-sav-fill"
+                                style="width: 0%"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- ANTI-PADRÕES TAB -->
+                    <div class="qa-tab-panel" id="panel-antipatterns">
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Anti-padrões detectados
+                          </div>
+                          <span class="sec-badge" id="q-ap-count"></span>
+                        </div>
+                        <div class="sec-body">
+                          <div class="ap-list" id="q-ap-list"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- QUERY OTIMIZADA TAB -->
+                    <div class="qa-tab-panel" id="panel-optimized">
+                      <div id="q-opt-empty" class="qa-opt-empty">
+                        <div class="qa-opt-empty-ico">
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <polyline points="16 18 22 12 16 6" />
+                            <polyline points="8 6 2 12 8 18" />
+                          </svg>
+                        </div>
+                        <div class="qa-opt-empty-title">
+                          Nenhuma otimização necessária
+                        </div>
+                        <div class="qa-opt-empty-text">
+                          A query já está eficiente ou não há problemas
+                          corrigíveis.
+                        </div>
+                      </div>
+
+                      <div
+                        class="sec-card"
+                        id="q-opt-sec"
+                        style="display: none"
+                      >
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Query otimizada pelo Query
+                            Analyzer
+                          </div>
+                        </div>
+                        <div class="sec-body" style="padding: 10px 12px">
+                          <div class="sql-wrap">
+                            <div class="sql-bar">
+                              <div class="sql-dots">
+                                <span></span><span></span><span></span>
+                              </div>
+                              <span class="sql-fname">optimized.sql</span>
+                              <button class="copy-btn" onclick="copySQL()">
+                                Copiar SQL
+                              </button>
+                            </div>
+                            <pre id="q-opt-query"></pre>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- RECOMENDAÇÕES TAB -->
+                    <div class="qa-tab-panel" id="panel-recs">
+                      <div
+                        class="sec-card"
+                        id="q-rec-sec"
+                        style="display: none"
+                      >
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Recomendações
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="rec-list" id="q-rec-list"></div>
+                        </div>
+                      </div>
+
+                      <div
+                        class="sec-card"
+                        id="q-tips-sec"
+                        style="display: none"
+                      >
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Dicas Power BI
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div id="q-tips-list"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── QUERY BUILD VIEW ── -->
+          <section class="view" id="view-qb" style="padding: 0">
+            <div class="qa-topbar">
+              <button class="btn-back" onclick="navTo('home')">
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M19 12H5M12 5l-7 7 7 7" />
+                </svg>
+                Voltar
+              </button>
+
+              <div class="breadcrumb">
+                <span onclick="navTo('home')" style="cursor: pointer"
+                  >Painel</span
+                >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+                <span class="cur">Query Build</span>
+              </div>
+            </div>
+
+            <div class="qa-hero">
+              <div class="qa-hero-icon">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#003087"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="16 18 22 12 16 6" />
+                  <polyline points="8 6 2 12 8 18" />
+                </svg>
+              </div>
+
+              <div>
+                <div class="qa-hero-title">Query Build</div>
+                <div class="qa-hero-desc">
+                  Gere SQL BigQuery a partir de linguagem natural e valide custo
+                  estimado com dry-run.
+                </div>
+              </div>
+
+              <div class="qa-hero-right">
+                <span class="qa-hero-tag">NL2SQL</span>
+                <span class="qa-hero-tag">BigQuery</span>
+                <span class="qa-hero-tag">IA</span>
+              </div>
+            </div>
+
+            <div class="qa-body">
+              <div class="qa-form">
+                <div class="qlabel">Modelo ativo</div>
+                <div class="qa-model">
+                  <div class="qa-model-ico">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                      <circle
+                        cx="8"
+                        cy="8"
+                        r="2.5"
+                        stroke="#003087"
+                        stroke-width="1.5"
+                      />
+                      <path
+                        d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M3.5 12.5l1.4-1.4M11.1 4.9l1.4-1.4"
+                        stroke="#003087"
+                        stroke-width="1.1"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="qa-model-name" id="qb-model-name">
+                      Carregando modelo...
+                    </div>
+                    <div class="qa-model-sub" id="qb-model-sub">
+                      LLM em uso no backend
+                    </div>
+                  </div>
+                </div>
+
+                <div class="sdiv"></div>
+
+                <div class="qlabel">Configuração</div>
+
+                <div class="qfield">
+                  <label for="qb-project">Project ID — GCP</label>
+                  <input
+                    type="text"
+                    id="qb-project"
+                    placeholder="porto-analytics-prod"
+                    autocomplete="off"
+                  />
+                </div>
+
+                <div class="qfield">
+                  <label for="qb-dataset">Dataset hint (opcional)</label>
+                  <input
+                    type="text"
+                    id="qb-dataset"
+                    placeholder="ex: finance_dw.sales"
+                    autocomplete="off"
+                  />
+                </div>
+
+                <div class="qfield">
+                  <label for="qb-request"
+                    >Solicitação em linguagem natural</label
+                  >
+                  <textarea
+                    id="qb-request"
+                    placeholder="Ex: Quero as 20 maiores vendas dos últimos 30 dias por região, com ticket médio e crescimento vs mês anterior."
+                  ></textarea>
+                  <p class="qhint">
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                      <circle
+                        cx="6"
+                        cy="6"
+                        r="5"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                      />
+                      <path
+                        d="M6 5.5v3M6 4h.01"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                    Ctrl+Enter para gerar SQL
+                  </p>
+                </div>
+
+                <div id="qb-error" class="qa-error" role="alert"></div>
+
+                <button
+                  class="btn-analyze"
+                  id="qb-btn"
+                  onclick="runQueryBuild()"
+                >
+                  <div class="spinner" id="qb-spinner"></div>
+                  <span id="qb-btn-text">Gerar SQL com Query Build</span>
+                </button>
+
+                <div id="qb-progress" class="qa-progress" style="display: none">
+                  <div class="qa-progress-head">
+                    <span class="qa-progress-title">Processando análise</span>
+                    <span class="qa-progress-step" id="qb-progress-step"
+                      >Preparando...</span
+                    >
+                  </div>
+                  <div class="qa-progress-track">
+                    <div
+                      class="qa-progress-fill"
+                      id="qb-progress-fill"
+                      style="width: 8%"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="qa-results-wrap">
+                <div class="qa-empty" id="qb-empty" style="height: 100%">
+                  <div class="qa-empty-ico">
+                    <svg
+                      width="22"
+                      height="22"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#003087"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <polyline points="16 18 22 12 16 6" />
+                      <polyline points="8 6 2 12 8 18" />
+                    </svg>
+                  </div>
+                  <h3>Aguardando solicitação</h3>
+                  <p>
+                    Descreva a necessidade em linguagem natural para gerar SQL
+                    automaticamente.
+                  </p>
+                  <button
+                    class="btn-example-query"
+                    type="button"
+                    onclick="loadExampleQBRequest()"
+                  >
+                    Usar exemplo de solicitação
+                  </button>
+                </div>
+
+                <div
+                  id="qb-tabs-area"
+                  style="
+                    display: none;
+                    flex-direction: column;
+                    height: 100%;
+                    overflow: hidden;
+                  "
+                >
+                  <div class="qa-tabs-bar">
+                    <div
+                      class="qa-tab active"
+                      id="qb-tab-score"
+                      onclick="switchQBTab('score')"
+                    >
+                      Score
+                    </div>
+                    <div
+                      class="qa-tab"
+                      id="qb-tab-premises"
+                      onclick="switchQBTab('premises')"
+                    >
+                      Query construída
+                    </div>
+                    <div
+                      class="qa-tab"
+                      id="qb-tab-optimized"
+                      onclick="switchQBTab('optimized')"
+                    >
+                      Query otimizada
+                    </div>
+                    <div
+                      class="qa-tab"
+                      id="qb-tab-recs"
+                      onclick="switchQBTab('recs')"
+                    >
+                      Recomendações
+                    </div>
+                  </div>
+
+                  <div class="qa-tab-panels">
+                    <!-- SCORE TAB -->
+                    <div class="qa-tab-panel active" id="qb-panel-score">
+                      <div class="res-card">
+                        <div class="score-inner">
+                          <div class="grade-block" id="qb-grade-block">
+                            <span class="grade-ltr" id="qb-grade-ltr">—</span>
+                            <span class="grade-sub">Grau</span>
+                          </div>
+
+                          <div class="score-body">
+                            <div class="score-top">
+                              <span class="score-big" id="qb-score-big">—</span>
+                              <span class="score-of">/ 100</span>
+                              <span class="score-tag"
+                                  >Qualidade da construção</span
+                              >
+                            </div>
+
+                            <div class="score-bar">
+                              <div
+                                class="score-fill"
+                                id="qb-score-fill"
+                                style="width: 0%"
+                              ></div>
+                            </div>
+
+                            <div class="score-txt" id="qb-summary"></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="tiles" id="qb-tiles" style="display: none">
+                        <div class="tile">
+                          <div class="tile-lbl">Bytes estimados</div>
+                          <div
+                            class="tile-val"
+                            id="qb-borig"
+                            style="color: var(--rose)"
+                          >
+                            —
+                          </div>
+                          <div class="tile-sub" id="qb-corig">—</div>
+                        </div>
+
+                        <div class="tile">
+                          <div class="tile-lbl">Bytes validados</div>
+                          <div
+                            class="tile-val"
+                            id="qb-bopt"
+                            style="color: var(--emerald)"
+                          >
+                            —
+                          </div>
+                          <div class="tile-sub" id="qb-copt">—</div>
+                        </div>
+
+                        <div class="tile">
+                          <div class="tile-lbl">Nível de qualidade</div>
+                          <div class="tile-val tv-A" id="qb-sav">—</div>
+                          <div class="tile-sub" id="qb-savusd">—</div>
+                        </div>
+                      </div>
+
+                      <div
+                        class="sec-card"
+                        id="qb-sav-sec"
+                        style="display: none"
+                      >
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Aderência de contexto
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="sav-tile">
+                            <div class="sav-row">
+                              <span class="sav-lbl">Confiança estimada</span>
+                              <span class="sav-pct" id="qb-sav-big">—</span>
+                            </div>
+                            <div class="sav-track">
+                              <div
+                                class="sav-fill"
+                                id="qb-sav-fill"
+                                style="width: 0%"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- QUERY CONSTRUIDA TAB -->
+                    <div class="qa-tab-panel" id="qb-panel-premises">
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Query construída
+                          </div>
+                        </div>
+                        <div class="sec-body" style="padding: 10px 12px">
+                          <div class="sql-wrap">
+                            <div class="sql-bar">
+                              <div class="sql-dots">
+                                <span></span><span></span><span></span>
+                              </div>
+                              <span class="sql-fname">query_construida.sql</span>
+                              <button class="copy-btn" onclick="copyQBBuiltSQL()">
+                                Copiar SQL
+                              </button>
+                            </div>
+                            <pre id="qb-built-sql"></pre>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- QUERY OTIMIZADA TAB -->
+                    <div class="qa-tab-panel" id="qb-panel-optimized">
+                      <div id="qb-opt-empty" class="qa-opt-empty">
+                        <div class="qa-opt-empty-ico">
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <polyline points="16 18 22 12 16 6" />
+                            <polyline points="8 6 2 12 8 18" />
+                          </svg>
+                        </div>
+                        <div class="qa-opt-empty-title">Nenhum SQL gerado</div>
+                        <div class="qa-opt-empty-text">
+                          Detalhe melhor a solicitação para gerar uma query.
+                        </div>
+                      </div>
+
+                      <div
+                        class="sec-card"
+                        id="qb-opt-sec"
+                        style="display: none"
+                      >
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Query otimizada pelo Query
+                            Build
+                          </div>
+                        </div>
+                        <div class="sec-body" style="padding: 10px 12px">
+                          <div class="sql-wrap">
+                            <div class="sql-bar">
+                              <div class="sql-dots">
+                                <span></span><span></span><span></span>
+                              </div>
+                              <span class="sql-fname">query_build.sql</span>
+                              <button class="copy-btn" onclick="copyQBSQL()">
+                                Copiar SQL
+                              </button>
+                            </div>
+                            <pre id="qb-generated-sql"></pre>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- RECOMENDAÇÕES TAB -->
+                    <div class="qa-tab-panel" id="qb-panel-recs">
+                      <div
+                        class="sec-card"
+                        id="qb-rec-sec"
+                        style="display: none"
+                      >
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Recomendações
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="rec-list" id="qb-recs-list"></div>
+                        </div>
+                      </div>
+
+                      <div
+                        class="sec-card"
+                        id="qb-tips-sec"
+                        style="display: none"
+                      >
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Validação no BigQuery
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div id="qb-dryrun"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── DEV VIEW ── -->
+          <section class="view" id="view-dev">
+            <div class="dev-card" id="dev-card">
+              <div class="dev-ico" id="dev-ico"></div>
+              <div class="dev-title" id="dev-title">Em desenvolvimento</div>
+              <div class="dev-desc" id="dev-desc"></div>
+              <div class="dev-timeline" id="dev-timeline"></div>
+              <button class="btn-back-dev" onclick="navTo('home')">
+                Voltar ao painel
+              </button>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <footer>
+        <strong>Finance Hub IA</strong> · Porto Seguro Holding — Gerência de
+        Dados & Analytics
+      </footer>
+    </section>
+
+    <script src="/static/js/scripts.js"></script>
+  </body>
+</html>

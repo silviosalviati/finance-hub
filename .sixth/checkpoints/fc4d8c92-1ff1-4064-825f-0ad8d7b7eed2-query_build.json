@@ -1,0 +1,25 @@
+{
+  "saved_at": "2026-04-08T03:25:12.954891",
+  "payload": {
+    "request_text": "Quero as 20 maiores vendas dos ultimos 30 dias por regiao, com ticket medio e variacao percentual versus mes anterior.",
+    "generated_sql": "SELECT regiao, SUM(valor_venda) AS total_vendas, COUNT(DISTINCT venda_id) / COUNT(DISTINCT cliente_id) AS ticket_medio, \n       LAG(SUM(valor_venda)) OVER (PARTITION BY regiao ORDER BY data_venda) AS total_vendas_mes_anterior, \n       ((SUM(valor_venda) - LAG(SUM(valor_venda)) OVER (PARTITION BY regiao ORDER BY data_venda)) / LAG(SUM(valor_venda)) OVER (PARTITION BY regiao ORDER BY data_venda)) * 100 AS variacao_percentual_mes_anterior \nFROM `seu-projeto-gcp.finance_dw.sales` \nWHERE data_venda >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) \nGROUP BY regiao \nORDER BY total_vendas DESC \nLIMIT 20;",
+    "explanation": "Seleciona as 20 maiores regiões com base no total de vendas nos últimos 30 dias, calcula o ticket médio e a variação percentual em comparação com o mesmo período do mês anterior.",
+    "assumptions": [
+      "valor_venda é o campo que armazena o valor da venda",
+      "venda_id é o identificador único de cada venda",
+      "cliente_id é o identificador único de cada cliente",
+      "data_venda é o campo que armazena a data da venda"
+    ],
+    "warnings": [
+      "A consulta assume que há dados suficientes para calcular a variação percentual. Se não houver dados do mês anterior, a variação percentual será NULL.",
+      "Dry-run retornou erro: 400 POST https://bigquery.googleapis.com/bigquery/v2/projects/seu-projeto-gcp/jobs?prettyPrint=false: ProjectId must be non-empty\n\nLocation: None\nJob ID: e686404d-9275-42bb-9244-8e6ced826417\n"
+    ],
+    "dry_run": {
+      "bytes_processed": 0,
+      "estimated_cost_usd": 0.0,
+      "error": "400 POST https://bigquery.googleapis.com/bigquery/v2/projects/seu-projeto-gcp/jobs?prettyPrint=false: ProjectId must be non-empty\n\nLocation: None\nJob ID: e686404d-9275-42bb-9244-8e6ced826417\n"
+    },
+    "status": "ok",
+    "error": null
+  }
+}

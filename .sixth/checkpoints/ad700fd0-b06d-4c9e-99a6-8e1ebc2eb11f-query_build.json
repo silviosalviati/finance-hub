@@ -1,0 +1,22 @@
+{
+  "saved_at": "2026-04-08T03:32:24.148406",
+  "payload": {
+    "request_text": "Quero as 20 maiores vendas dos ultimos 30 dias por regiao, com ticket medio e variacao percentual versus mes anterior.",
+    "generated_sql": "WITH recent_sales AS (\n  SELECT \n    DATE_TRUNC(SALE_DATE, DAY) AS sale_date, \n    REGIONS.region AS region, \n    SUM(SALE_AMOUNT) AS total_sales, \n    COUNT(DISTINCT SALES_ID) AS num_sales, \n    AVG(SALE_AMOUNT) OVER (PARTITION BY REGIONS.region) AS avg_ticket\n  FROM `seu-projeto-gcp.finance_dw.sales` \n  WHERE SALE_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)\n  GROUP BY 1, 2\n),\nprevious_month_sales AS (\n  SELECT \n    DATE_TRUNC(SALE_DATE, MONTH) AS sale_date, \n    REGIONS.region AS region, \n    SUM(SALE_AMOUNT) AS total_sales, \n    COUNT(DISTINCT SALES_ID) AS num_sales, \n    AVG(SALE_AMOUNT) OVER (PARTITION BY REGIONS.region) AS avg_ticket\n  FROM `seu-projeto-gcp.finance_dw.sales` \n  WHERE SALE_DATE >= DATE_TRUNC(CURRENT_DATE() - INTERVAL 31 DAY, MONTH) AND SALE_DATE < DATE_TRUNC(CURRENT_DATE(), MONTH)\n  GROUP BY 1, 2\n)\nSELECT \n  rs.region, \n  rs.sale_date AS recent_sale_date, \n  rs.total_sales AS recent_total_sales, \n  pm.total_sales AS previous_month_total_sales, \n  rs.avg_ticket AS recent_avg_ticket, \n  pm.avg_ticket AS previous_month_avg_ticket, \n  ((rs.total_sales - pm.total_sales) / pm.total_sales) * 100 AS sales_variation_percentage\nFROM recent_sales rs\nJOIN previous_month_sales pm ON rs.region = pm.region AND DATE_TRUNC(rs.sale_date, MONTH) = DATE_TRUNC(pm.sale_date, MONTH)\nORDER BY rs.total_sales DESC\nLIMIT 20",
+    "explanation": "A query utiliza duas CTEs (Common Table Expressions) para calcular as vendas recentes e do mês anterior. Em seguida, une as duas CTEs para calcular a variação percentual e seleciona as 20 regiões com maiores vendas recentes.",
+    "assumptions": [
+      "A tabela `finance_dw.sales` contém os campos `SALE_DATE`, `SALE_AMOUNT`, `SALES_ID` e `REGIONS.region`. A coluna `SALE_DATE` é do tipo DATE. A coluna `SALES_ID` é única para cada venda. A coluna `REGIONS.region` contém o nome da região da venda."
+    ],
+    "warnings": [
+      "A query assume que o mês anterior é calculado corretamente com base na data atual. Se a data atual estiver em um dia do mês, o mês anterior será calculado corretamente. Se a data atual estiver em um dia do mês, o mês anterior será calculado corretamente.",
+      "Dry-run retornou erro: 400 POST https://bigquery.googleapis.com/bigquery/v2/projects/seu-projeto-gcp/jobs?prettyPrint=false: ProjectId must be non-empty\n\nLocation: None\nJob ID: 2e30d81f-e1cc-4815-8a05-063bd33ffb46\n"
+    ],
+    "dry_run": {
+      "bytes_processed": 0,
+      "estimated_cost_usd": 0.0,
+      "error": "400 POST https://bigquery.googleapis.com/bigquery/v2/projects/seu-projeto-gcp/jobs?prettyPrint=false: ProjectId must be non-empty\n\nLocation: None\nJob ID: 2e30d81f-e1cc-4815-8a05-063bd33ffb46\n"
+    },
+    "status": "ok",
+    "error": null
+  }
+}

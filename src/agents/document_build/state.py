@@ -1,0 +1,1 @@
+"""Document Build state placeholder."""

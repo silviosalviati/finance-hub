@@ -1,0 +1,41 @@
+{
+  "saved_at": "2026-04-08T02:51:51.617431",
+  "payload": {
+    "efficiency_score": 55,
+    "grade": "D",
+    "summary": "A análise da query BigQuery para Power BI revelou dois anti-padrões, resultando em um score de eficiência de 55/100 (D), indicando que há espaço para melhorias significativas. Isso pode levar a custos e performance inferiores. A melhoria alcançada consiste em identificar áreas onde otimizações podem ser feitas para aumentar a eficiência da query e, consequentemente, reduzir custos e melhorar o desempenho.",
+    "antipatterns": [
+      {
+        "pattern": "SELECT *",
+        "description": "O uso de SELECT * é geralmente evitado pois pode ser ineficiente e não transparente, pois não especifica quais colunas estão sendo selecionadas.",
+        "severity": "MEDIUM",
+        "line_hint": null,
+        "suggestion": "Escolha explicitamente as colunas que você precisa."
+      },
+      {
+        "pattern": "ORDER BY sem LIMIT",
+        "description": "O ORDER BY sem LIMIT pode ser ineficiente, especialmente em tabelas grandes, pois ordena todos os registros.",
+        "severity": "HIGH",
+        "line_hint": null,
+        "suggestion": "Adicione um LIMIT para limitar o número de registros retornados."
+      }
+    ],
+    "optimized_query": "-- Otimização: Removendo SELECT * e especificando as colunas necessárias\n-- Otimização: Adicionando LIMIT para evitar ordenar todos os registros\n\nSELECT\n  coluna1,\n  coluna2,\n  coluna3,\n  -- Adicione aqui todas as colunas necessárias\n  data\nFROM `projeto.dataset.tabela`\nWHERE data >= '2024-01-01'\nORDER BY data DESC\nLIMIT 10000",
+    "bytes_original": 0,
+    "bytes_optimized": 0,
+    "cost_original_usd": 0.0,
+    "cost_optimized_usd": 0.0,
+    "bytes_saved": null,
+    "cost_saved_usd": null,
+    "savings_pct": null,
+    "recommendations": [
+      "Escolha explicitamente as colunas que você precisa.",
+      "Adicione um LIMIT para limitar o número de registros retornados."
+    ],
+    "power_bi_tips": [
+      "No Power BI, projete apenas as colunas exibidas no dashboard - evite SELECT *.",
+      "ORDER BY sem LIMIT e inutil em muitos cenarios de consumo no Power BI."
+    ],
+    "dry_run_error": "400 POST https://bigquery.googleapis.com/bigquery/v2/projects/seu-projeto-gcp/jobs?prettyPrint=false: ProjectId must be non-empty\n\nLocation: None\nJob ID: 9215d712-7f8b-4c1d-87b5-4cdaff0f72e0\n"
+  }
+}

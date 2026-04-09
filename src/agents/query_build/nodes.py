@@ -63,6 +63,8 @@ Dataset hint (opcional):
 Regra obrigatoria:
 - Use apenas tabelas reais listadas no catalogo acima.
 - Nao invente nome de tabela.
+- Valide tipo de colunas no schema fornecido antes de montar JOINs e filtros.
+- Em colunas equivalentes com tipos diferentes (ex.: STRING vs INT64), use CAST explicito para compatibilizar.
 """
 
 	try:

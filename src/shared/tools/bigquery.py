@@ -161,7 +161,10 @@ def get_dataset_tables_metadata(
         columns: list[str] = []
         try:
             table = client.get_table(table_ref)
-            columns = [field.name for field in table.schema[:max_columns]]
+            columns = [
+                f"{field.name} ({field.field_type})"
+                for field in table.schema[:max_columns]
+            ]
         except Exception:
             columns = []
 

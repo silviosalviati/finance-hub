@@ -828,7 +828,7 @@
                   </div>
                 </div>
 
-                <div class="sdiv"></div>
+                <div class="sdiv qform-divider"></div>
 
                 <div class="qlabel">Configuração</div>
 
@@ -1296,7 +1296,7 @@
                   </div>
                 </div>
 
-                <div class="sdiv"></div>
+                <div class="sdiv qform-divider"></div>
 
                 <div class="qlabel">Configuração</div>
 
@@ -1312,7 +1312,7 @@
 
                 <div class="qfield">
                   <label for="qb-dataset"
-                    >Dataset hint (opcional)
+                    >Dataset hint (obrigatorio)
                     <span id="qb-dataset-indicator" class="qb-dataset-indicator"
                       >●</span
                     ></label
@@ -1321,6 +1321,7 @@
                     type="text"
                     id="qb-dataset"
                     placeholder="ex: inteligencia_negocios"
+                    required
                     autocomplete="off"
                   />
                   <div
@@ -1339,8 +1340,14 @@
                         class="qb-dataset-status-title"
                       ></span>
                     </div>
-                    <p id="qb-dataset-status-text" class="qb-dataset-status-text"></p>
-                    <div id="qb-dataset-status-meta" class="qb-dataset-status-meta"></div>
+                    <p
+                      id="qb-dataset-status-text"
+                      class="qb-dataset-status-text"
+                    ></p>
+                    <div
+                      id="qb-dataset-status-meta"
+                      class="qb-dataset-status-meta"
+                    ></div>
                   </div>
                 </div>
 
@@ -1460,7 +1467,7 @@
                       id="qb-tab-optimized"
                       onclick="switchQBTab('optimized')"
                     >
-                      Query otimizada
+                      Amostra de dados
                     </div>
                     <div
                       class="qa-tab"
@@ -1593,7 +1600,7 @@
                       </div>
                     </div>
 
-                    <!-- QUERY OTIMIZADA TAB -->
+                    <!-- AMOSTRA DE DADOS TAB -->
                     <div class="qa-tab-panel" id="qb-panel-optimized">
                       <div id="qb-opt-empty" class="qa-opt-empty">
                         <div class="qa-opt-empty-ico">
@@ -1611,9 +1618,12 @@
                             <polyline points="8 6 2 12 8 18" />
                           </svg>
                         </div>
-                        <div class="qa-opt-empty-title">Nenhum SQL gerado</div>
+                        <div class="qa-opt-empty-title">
+                          Nenhuma amostra disponível
+                        </div>
                         <div class="qa-opt-empty-text">
-                          Detalhe melhor a solicitação para gerar uma query.
+                          Gere e valide a query para visualizar uma pequena
+                          amostra dos dados.
                         </div>
                       </div>
 
@@ -1624,22 +1634,21 @@
                       >
                         <div class="sec-head">
                           <div class="sec-ttl">
-                            <span class="dot"></span>Query otimizada pelo Query
-                            Build
+                            <span class="dot"></span>Amostra de dados da query
+                            executada
                           </div>
                         </div>
                         <div class="sec-body" style="padding: 10px 12px">
-                          <div class="sql-wrap">
-                            <div class="sql-bar">
-                              <div class="sql-dots">
-                                <span></span><span></span><span></span>
-                              </div>
-                              <span class="sql-fname">query_build.sql</span>
-                              <button class="copy-btn" onclick="copyQBSQL()">
-                                Copiar SQL
-                              </button>
-                            </div>
-                            <pre id="qb-generated-sql"></pre>
+                          <div
+                            id="qb-sample-note"
+                            class="qhint"
+                            style="margin-bottom: 8px"
+                          ></div>
+                          <div id="qb-sample-wrap" class="qb-sample-wrap">
+                            <table class="qb-sample-table">
+                              <thead id="qb-sample-head"></thead>
+                              <tbody id="qb-sample-body"></tbody>
+                            </table>
                           </div>
                         </div>
                       </div>

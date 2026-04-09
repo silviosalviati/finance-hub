@@ -10,7 +10,12 @@ from google.cloud.exceptions import GoogleCloudError
 from google.api_core.exceptions import NotFound
 from google.oauth2 import service_account
 
-from src.shared.config import BQ_COST_PER_TB_USD, GCP_CREDENTIALS_PATH, GCP_PROJECT_ID
+from src.shared.config import (
+    BQ_COST_PER_TB_USD,
+    BYTES_WARNING_THRESHOLD,
+    GCP_CREDENTIALS_PATH,
+    GCP_PROJECT_ID,
+)
 from src.shared.tools.schemas import DryRunResult
 from src.shared.utils.formatting import format_bytes
 
@@ -137,6 +142,48 @@ def validate_dataset_for_query_build(project_id: str, dataset_hint: str) -> dict
     }
 
 
+def get_dataset_tables_metadata(
+    project_id: str,
+    dataset_hint: str,
+    max_tables: int = 20,
+    max_columns: int = 15,
+) -> dict[str, Any]:
+    resolved_project = _resolve_project_id(project_id)
+    dataset_project, dataset_id = _parse_dataset_hint(resolved_project, dataset_hint)
+    dataset_ref = f"{dataset_project}.{dataset_id}"
+
+    client = _get_client(dataset_project)
+    client.get_dataset(dataset_ref)
+
+    tables_info: list[dict[str, Any]] = []
+    for table_item in client.list_tables(dataset_ref):
+        table_ref = f"{dataset_project}.{dataset_id}.{table_item.table_id}"
+        columns: list[str] = []
+        try:
+            table = client.get_table(table_ref)
+            columns = [field.name for field in table.schema[:max_columns]]
+        except Exception:
+            columns = []
+
+        tables_info.append(
+            {
+                "table_id": table_item.table_id,
+                "full_name": table_ref,
+                "columns": columns,
+            }
+        )
+
+        if len(tables_info) >= max_tables:
+            break
+
+    return {
+        "project_id": dataset_project,
+        "dataset_id": dataset_id,
+        "dataset_ref": dataset_ref,
+        "tables": tables_info,
+    }
+
+
 def _build_error_result(message: str) -> DryRunResult:
     return DryRunResult(
         bytes_processed=0,
@@ -187,6 +234,60 @@ def dry_run_query(query: str, project_id: str | None) -> DryRunResult:
         return _build_error_result(f"Erro inesperado no dry-run: {exc}")
 
 
+def fetch_query_sample(
+    query: str,
+    project_id: str | None,
+    limit: int = 10,
+) -> dict[str, Any]:
+    if not query or not query.strip():
+        return {
+            "columns": [],
+            "rows": [],
+            "error": "Query vazia para amostra de dados.",
+        }
+
+    safe_limit = max(1, min(limit, 10))
+    normalized_query = _normalize_query_for_subquery(query)
+    sample_query = f"SELECT * FROM ({normalized_query}) LIMIT {safe_limit}"
+
+    try:
+        client = _get_client(project_id)
+        job_config = bigquery.QueryJobConfig(
+            use_query_cache=False,
+            maximum_bytes_billed=BYTES_WARNING_THRESHOLD,
+        )
+        job = client.query(sample_query, job_config=job_config)
+        result = job.result(max_results=safe_limit)
+
+        rows = [dict(row.items()) for row in result]
+        columns = list(rows[0].keys()) if rows else []
+
+        return {
+            "columns": columns,
+            "rows": rows,
+            "error": None,
+        }
+    except GoogleCloudError as exc:
+        return {
+            "columns": [],
+            "rows": [],
+            "error": f"Falha ao buscar amostra de dados: {exc}",
+        }
+    except Exception as exc:
+        return {
+            "columns": [],
+            "rows": [],
+            "error": f"Erro inesperado na amostra de dados: {exc}",
+        }
+
+
+def _normalize_query_for_subquery(query: str) -> str:
+    cleaned = query.strip()
+    while cleaned.endswith(";"):
+        cleaned = cleaned[:-1].rstrip()
+    return cleaned
+
+
 def get_table_schema(table_ref: str, project_id: str | None) -> str:
     try:
         client = _get_client(project_id)
@@ -225,6 +326,8 @@ __all__ = [
     "dry_run_query",
     "get_table_schema",
     "get_schemas_for_query",
+    "fetch_query_sample",
     "validate_dataset_for_query_build",
+    "get_dataset_tables_metadata",
     "format_bytes",
 ]

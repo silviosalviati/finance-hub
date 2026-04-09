@@ -9,12 +9,42 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.agents.query_build.prompts import QUERY_BUILD_SYSTEM_PROMPT
 from src.agents.query_build.state import QueryBuildState
-from src.shared.tools.bigquery import dry_run_query
+from src.shared.tools.bigquery import (
+	fetch_query_sample,
+	dry_run_query,
+	get_dataset_tables_metadata,
+)
 
 SQL_FENCE_PATTERN = r"```sql\s*([\s\S]+?)\s*```"
+TABLE_REF_PATTERN = r"`?([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)`?"
 
 
 def generate_sql_from_request(state: QueryBuildState, llm: BaseChatModel) -> dict[str, Any]:
+	dataset_tables: list[str] = []
+	dataset_context = ""
+	dataset_warning: str | None = None
+
+	if state.dataset_hint:
+		try:
+			metadata = get_dataset_tables_metadata(state.project_id, state.dataset_hint)
+			dataset_tables = [item["full_name"] for item in metadata.get("tables", [])]
+
+			if dataset_tables:
+				lines = [
+					"Catalogo real de tabelas disponiveis no dataset (use somente estas tabelas):"
+				]
+				for item in metadata.get("tables", []):
+					columns = item.get("columns") or []
+					cols = ", ".join(columns) if columns else "(colunas nao carregadas)"
+					lines.append(f"- {item['full_name']} | colunas: {cols}")
+				dataset_context = "\n".join(lines)
+			else:
+				dataset_warning = (
+					"Dataset informado nao retornou tabelas visiveis para o service account."
+				)
+		except Exception as exc:
+			dataset_warning = f"Nao foi possivel carregar tabelas reais do dataset: {exc}"
+
 	user_prompt = f"""
 Solicitacao do usuario:
 {state.request_text}
@@ -24,6 +54,12 @@ Project ID:
 
 Dataset hint (opcional):
 {state.dataset_hint or '(nao informado)'}
+
+{dataset_context or 'Catalogo de tabelas indisponivel para esta solicitacao.'}
+
+Regra obrigatoria:
+- Use apenas tabelas reais listadas no catalogo acima.
+- Nao invente nome de tabela.
 """
 
 	try:
@@ -43,16 +79,44 @@ Dataset hint (opcional):
 				"warnings": ["Tente detalhar tabelas, campos e periodo esperado."],
 			}
 
+		generated_sql = _extract_sql(sql)
+		warnings = _safe_list(parsed.get("warnings"))
+		assumptions = _safe_list(parsed.get("assumptions"))
+
+		if dataset_warning:
+			warnings.append(dataset_warning)
+
+		if dataset_tables:
+			invalid_refs = _find_invalid_table_references(generated_sql, dataset_tables)
+			if invalid_refs:
+				return {
+					"error": (
+						"A SQL gerada referenciou tabela(s) fora do dataset validado: "
+						+ ", ".join(invalid_refs)
+					),
+					"warnings": warnings
+					+ [
+						"Refine a pergunta citando os nomes das tabelas disponiveis no dataset.",
+					],
+					"assumptions": assumptions,
+					"dataset_tables": dataset_tables,
+					"dataset_tables_context": dataset_context,
+				}
+
 		return {
-			"generated_sql": _extract_sql(sql),
+			"generated_sql": generated_sql,
 			"explanation": str(parsed.get("explanation") or ""),
-			"assumptions": _safe_list(parsed.get("assumptions")),
-			"warnings": _safe_list(parsed.get("warnings")),
+			"assumptions": assumptions,
+			"warnings": warnings,
+			"dataset_tables": dataset_tables,
+			"dataset_tables_context": dataset_context,
 		}
 	except Exception as exc:
 		return {
 			"error": f"Falha ao gerar SQL: {exc}",
 			"warnings": ["Verifique se a solicitacao possui contexto suficiente."],
+			"dataset_tables": dataset_tables,
+			"dataset_tables_context": dataset_context,
 		}
 
 
@@ -69,6 +133,29 @@ def dry_run_generated_sql(state: QueryBuildState) -> dict[str, Any]:
 	return {
 		"dry_run_generated": result,
 		"warnings": warnings,
+	}
+
+
+def fetch_generated_sample(state: QueryBuildState) -> dict[str, Any]:
+	if state.error or not state.generated_sql:
+		return {
+			"sample_columns": [],
+			"sample_rows": [],
+			"sample_error": "Nao foi possivel executar amostra de dados sem SQL valida.",
+		}
+
+	if state.dry_run_generated and state.dry_run_generated.error:
+		return {
+			"sample_columns": [],
+			"sample_rows": [],
+			"sample_error": "Dry-run falhou; amostra de dados nao foi executada.",
+		}
+
+	sample = fetch_query_sample(state.generated_sql, state.project_id, limit=10)
+	return {
+		"sample_columns": sample.get("columns") or [],
+		"sample_rows": sample.get("rows") or [],
+		"sample_error": sample.get("error"),
 	}
 
 
@@ -107,3 +194,11 @@ def _extract_sql(raw: str) -> str:
 	if sql_match:
 		return sql_match.group(1).strip()
 	return raw.strip()
+
+
+def _find_invalid_table_references(sql: str, allowed_tables: list[str]) -> list[str]:
+	allowed = {table.lower() for table in allowed_tables}
+	found = {ref.lower() for ref in re.findall(TABLE_REF_PATTERN, sql)}
+
+	invalid = sorted(found - allowed)
+	return invalid

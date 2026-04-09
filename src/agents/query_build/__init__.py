@@ -55,6 +55,11 @@ class QueryBuildAgent(BaseAgent):
 				"estimated_cost_usd": dry.estimated_cost_usd if dry else None,
 				"error": dry.error if dry else None,
 			},
+			"sample_data": {
+				"columns": final_state.get("sample_columns") or [],
+				"rows": final_state.get("sample_rows") or [],
+				"error": final_state.get("sample_error"),
+			},
 			"status": "ok" if final_state.get("generated_sql") else "error",
 			"error": final_state.get("error"),
 		}

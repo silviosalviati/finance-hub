@@ -7,7 +7,10 @@ from typing import Any
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from src.agents.query_build.prompts import QUERY_BUILD_SYSTEM_PROMPT
+from src.agents.query_build.prompts import (
+	QUERY_BUILD_REVIEWER_PROMPT,
+	QUERY_BUILD_SYSTEM_PROMPT,
+)
 from src.agents.query_build.state import QueryBuildState
 from src.shared.tools.bigquery import (
 	fetch_query_sample,
@@ -134,6 +137,64 @@ def dry_run_generated_sql(state: QueryBuildState) -> dict[str, Any]:
 		"dry_run_generated": result,
 		"warnings": warnings,
 	}
+
+
+def review_and_optimize_sql(state: QueryBuildState, llm: BaseChatModel) -> dict[str, Any]:
+	if state.error or not state.generated_sql:
+		return {}
+
+	context = state.dataset_tables_context or ""
+	review_prompt = f"""
+SQL atual:
+{state.generated_sql}
+
+Contexto adicional:
+{context or '(sem contexto adicional)'}
+
+Regras obrigatorias:
+- Nao altere o significado de negocio da query.
+- Preserve as tabelas reais do dataset validado.
+- Remova redundancias, simplifique blocos e mantenha single scan.
+- Use NULLIF em divisoes.
+"""
+
+	try:
+		response = llm.invoke(
+			[
+				SystemMessage(content=QUERY_BUILD_REVIEWER_PROMPT),
+				HumanMessage(content=review_prompt),
+			]
+		)
+		reviewed_raw = _extract_message_content(response)
+		reviewed_sql = _extract_sql(reviewed_raw)
+
+		if not reviewed_sql:
+			return {
+				"warnings": list(state.warnings)
+				+ ["Reviewer nao retornou SQL valida; mantendo versao original."],
+			}
+
+		if state.dataset_tables:
+			invalid_refs = _find_invalid_table_references(reviewed_sql, state.dataset_tables)
+			if invalid_refs:
+				return {
+					"warnings": list(state.warnings)
+					+ [
+						"Reviewer propôs tabela fora do dataset; mantendo SQL original: "
+						+ ", ".join(invalid_refs),
+					],
+				}
+
+		return {
+			"generated_sql": reviewed_sql,
+			"warnings": list(state.warnings)
+			+ ["SQL revisada por no de otimizacao antes do dry-run."],
+		}
+	except Exception as exc:
+		return {
+			"warnings": list(state.warnings)
+			+ [f"Falha no reviewer SQL; mantendo versao original: {exc}"],
+		}
 
 
 def fetch_generated_sample(state: QueryBuildState) -> dict[str, Any]:

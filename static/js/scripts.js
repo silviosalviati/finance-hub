@@ -4,7 +4,6 @@
 let token = null;
 let currentUser = null;
 let session = { queries: 0 };
-const QA_FIXED_PROJECT_ID = "silviosalviati";
 let qaDatasetValidationTimer = null;
 let qaIsLoading = false;
 const qaDatasetValidationState = {
@@ -68,6 +67,28 @@ function authHeaders() {
     "Content-Type": "application/json",
     Authorization: "Bearer " + token,
   };
+}
+
+function enforceQAConfigReadOnly() {
+  const projectEl = document.getElementById("qa-project");
+  const datasetEl = document.getElementById("qa-dataset");
+
+  [projectEl, datasetEl].forEach((el) => {
+    if (!el) return;
+
+    el.readOnly = true;
+    el.setAttribute("readonly", "readonly");
+    el.tabIndex = -1;
+
+    const blockEdit = (event) => {
+      event.preventDefault();
+    };
+
+    el.onkeydown = blockEdit;
+    el.onbeforeinput = blockEdit;
+    el.onpaste = blockEdit;
+    el.ondrop = blockEdit;
+  });
 }
 
 function showScreen(id) {
@@ -140,41 +161,6 @@ function setUserUI(name, username) {
   if (topName) topName.textContent = safeName;
   if (sbAvatar) sbAvatar.textContent = initials || "--";
   if (sbName) sbName.textContent = safeName;
-}
-
-async function setRuntimeModelInfo() {
-  const modelNameEl = document.getElementById("qa-model-name");
-  const modelSubEl = document.getElementById("qa-model-sub");
-  const qbModelNameEl = document.getElementById("qb-model-name");
-  const qbModelSubEl = document.getElementById("qb-model-sub");
-
-  if (modelNameEl) modelNameEl.textContent = "Carregando modelo...";
-  if (modelSubEl) modelSubEl.textContent = "LLM em uso no backend";
-  if (qbModelNameEl) qbModelNameEl.textContent = "Carregando modelo...";
-  if (qbModelSubEl) qbModelSubEl.textContent = "LLM em uso no backend";
-
-  if (!modelNameEl && !qbModelNameEl) return;
-
-  try {
-    const res = await fetch("/api/runtime-llm");
-    if (!res.ok) throw new Error("Falha ao buscar LLM ativa");
-
-    const data = await res.json();
-    if (modelNameEl) modelNameEl.textContent = data?.model || "não definido";
-    if (modelSubEl)
-      modelSubEl.textContent = data?.provider_label || "Provider desconhecido";
-    if (qbModelNameEl)
-      qbModelNameEl.textContent = data?.model || "não definido";
-    if (qbModelSubEl)
-      qbModelSubEl.textContent =
-        data?.provider_label || "Provider desconhecido";
-  } catch (err) {
-    console.warn("Não foi possível carregar a LLM ativa:", err);
-    if (modelNameEl) modelNameEl.textContent = "não definido";
-    if (modelSubEl) modelSubEl.textContent = "Provider indisponível";
-    if (qbModelNameEl) qbModelNameEl.textContent = "não definido";
-    if (qbModelSubEl) qbModelSubEl.textContent = "Provider indisponível";
-  }
 }
 
 function setQAProgress(stepText, pct) {
@@ -309,14 +295,18 @@ function setQADatasetValidationStatus(kind, payload = {}) {
       chips.push(`<span class="qb-dataset-chip">🗂️ ${datasetHint}</span>`);
     }
     if (!Number.isNaN(tableCount)) {
-      chips.push(`<span class="qb-dataset-chip">📊 ${tableCount} tabelas</span>`);
+      chips.push(
+        `<span class="qb-dataset-chip">📊 ${tableCount} tabelas</span>`,
+      );
     }
     if (!Number.isNaN(queryTableCount)) {
       chips.push(
         `<span class="qb-dataset-chip">🔎 ${queryTableCount} usadas na query</span>`,
       );
     }
-    chips.push('<span class="qb-dataset-chip">✅ BigQuery + Data Catalog/Dataplex</span>');
+    chips.push(
+      '<span class="qb-dataset-chip">✅ BigQuery + Data Catalog/Dataplex</span>',
+    );
     statusMetaEl.innerHTML = chips.join(" ");
   }
 
@@ -338,19 +328,15 @@ async function validateQAQueryContext() {
   const query = document.getElementById("qa-query")?.value.trim() || "";
   const projectEl = document.getElementById("qa-project");
   const datasetEl = document.getElementById("qa-dataset");
-  const currentProject = QA_FIXED_PROJECT_ID;
-
-  if (projectEl) {
-    projectEl.value = QA_FIXED_PROJECT_ID;
-  }
+  const currentProject = projectEl?.value.trim() || "";
 
   qaDatasetValidationState.queryText = query;
 
   if (!query) {
     qaDatasetValidationState.status = "idle";
-    qaDatasetValidationState.projectId = QA_FIXED_PROJECT_ID;
+    qaDatasetValidationState.projectId = "";
     qaDatasetValidationState.datasetHint = "";
-    if (projectEl) projectEl.value = QA_FIXED_PROJECT_ID;
+    if (projectEl) projectEl.value = "";
     if (datasetEl) datasetEl.value = "";
     setQADatasetValidationStatus("idle");
     return;
@@ -359,20 +345,24 @@ async function validateQAQueryContext() {
   qaDatasetValidationState.status = "checking";
   setQADatasetValidationStatus("checking", {
     title: "Validando contexto da query",
-    message: "Detectando dataset/tabelas e conferindo BigQuery + Data Catalog/Dataplex...",
+    message:
+      "Detectando dataset/tabelas e conferindo BigQuery + Data Catalog/Dataplex...",
   });
 
   const querySnapshot = query;
 
   try {
-    const res = await fetch("/api/agents/query_analyzer/validate-query-context", {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({
-        query: querySnapshot,
-        project_id: currentProject || null,
-      }),
-    });
+    const res = await fetch(
+      "/api/agents/query_analyzer/validate-query-context",
+      {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          query: querySnapshot,
+          project_id: currentProject || null,
+        }),
+      },
+    );
 
     if (res.status === 401) {
       doLogout();
@@ -384,13 +374,18 @@ async function validateQAQueryContext() {
       throw new Error(payload?.detail || "Falha na validacao da query.");
     }
 
-    const currentQuery = document.getElementById("qa-query")?.value.trim() || "";
+    const currentQuery =
+      document.getElementById("qa-query")?.value.trim() || "";
     if (currentQuery !== querySnapshot) {
       return;
     }
 
-    const detectedProject = QA_FIXED_PROJECT_ID;
-    const detectedDataset = (payload.dataset_hint || payload.dataset_id || "").trim();
+    const detectedProject = (payload.project_id || "").trim();
+    const detectedDataset = (
+      payload.dataset_hint ||
+      payload.dataset_id ||
+      ""
+    ).trim();
     if (projectEl) projectEl.value = detectedProject;
     if (datasetEl) datasetEl.value = detectedDataset;
 
@@ -411,7 +406,9 @@ async function validateQAQueryContext() {
       qaDatasetValidationState.status = "invalid";
       setQADatasetValidationStatus("error", {
         title: "Contexto nao validado",
-        message: payload.message || "Nao foi possivel validar dataset e tabelas da query.",
+        message:
+          payload.message ||
+          "Nao foi possivel validar dataset e tabelas da query.",
       });
     }
   } catch (err) {
@@ -625,20 +622,6 @@ function scheduleQBDatasetValidation() {
   qbDatasetValidationTimer = setTimeout(() => {
     validateQBDatasetHint();
   }, 1000);
-}
-
-function loadExampleQuery() {
-  const query = document.getElementById("qa-query");
-
-  if (query) {
-    query.value = `SELECT
-  *
-FROM \`projeto.dataset.tabela\`
-WHERE data >= '2024-01-01'
-ORDER BY data DESC`;
-    query.focus();
-    scheduleQAQueryValidation();
-  }
 }
 
 function resetQATabsDataState() {
@@ -888,7 +871,7 @@ function openDev(name, desc, features, eta) {
 // ─────────────────────────────────────
 async function runAnalyze() {
   const query = document.getElementById("qa-query")?.value.trim() || "";
-  let project_id = QA_FIXED_PROJECT_ID;
+  let project_id = document.getElementById("qa-project")?.value.trim() || "";
   let dataset_hint = document.getElementById("qa-dataset")?.value.trim() || "";
   const errEl = document.getElementById("qa-error");
   const qaEmpty = document.getElementById("qa-empty");
@@ -909,7 +892,7 @@ async function runAnalyze() {
 
   if (!isContextValid) {
     await validateQAQueryContext();
-    project_id = QA_FIXED_PROJECT_ID;
+    project_id = document.getElementById("qa-project")?.value.trim() || "";
     dataset_hint = document.getElementById("qa-dataset")?.value.trim() || "";
     isContextValid =
       qaDatasetValidationState.status === "valid" &&
@@ -1291,22 +1274,6 @@ function copyQBBuiltSQL() {
   if (!sql) return;
 
   navigator.clipboard.writeText(sql);
-}
-
-function loadExampleQBRequest() {
-  const project = document.getElementById("qb-project");
-  const dataset = document.getElementById("qb-dataset");
-  const request = document.getElementById("qb-request");
-
-  if (project && !project.value.trim()) project.value = "seu-projeto-gcp";
-  if (dataset && !dataset.value.trim()) dataset.value = "inteligencia_negocios";
-  if (request) {
-    request.value =
-      "Quero as 20 maiores vendas dos ultimos 30 dias por regiao, com ticket medio e variacao percentual versus mes anterior.";
-    request.focus();
-  }
-
-  scheduleQBDatasetValidation();
 }
 
 function renderQA(d) {
@@ -1803,13 +1770,6 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-document.addEventListener("click", (e) => {
-  const target = e.target.closest(".btn-example-query");
-  if (target) {
-    loadExampleQuery();
-  }
-});
-
 document.getElementById("qa-query")?.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.key === "Enter") {
     runAnalyze();
@@ -1885,9 +1845,7 @@ window.addEventListener("load", function init() {
   try {
     showScreen("screen-login");
     document.getElementById("inp-user")?.focus();
-    const qaProject = document.getElementById("qa-project");
-    if (qaProject) qaProject.value = QA_FIXED_PROJECT_ID;
-    setRuntimeModelInfo();
+    enforceQAConfigReadOnly();
 
     // Remover event listeners dos botões que foram removidos
     renderShowcase();

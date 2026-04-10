@@ -928,8 +928,8 @@ async function runAnalyze() {
   }
 
   const query = document.getElementById("qa-query")?.value.trim() || "";
-  let project_id = "";
-  let dataset_hint = "";
+  let project_id = document.getElementById("qa-project")?.value.trim() || "";
+  let dataset_hint = document.getElementById("qa-dataset")?.value.trim() || "";
   const errEl = document.getElementById("qa-error");
   const qaEmpty = document.getElementById("qa-empty");
   const qaTabsArea = document.getElementById("qa-tabs-area");
@@ -943,21 +943,29 @@ async function runAnalyze() {
   }
 
   setQALoading(true);
-  setQAProgress("Validando contexto no Dataplex...", 12);
+  const contextAlreadyValidated =
+    qaDatasetValidationState.status === "valid" &&
+    qaDatasetValidationState.projectId === project_id &&
+    qaDatasetValidationState.datasetHint === dataset_hint &&
+    qaDatasetValidationState.queryText === query;
 
-  const validation = await validateQAQueryContext();
-  project_id = validation?.projectId || "";
-  dataset_hint = validation?.datasetHint || "";
+  if (!contextAlreadyValidated) {
+    setQAProgress("Validando contexto no Dataplex...", 12);
 
-  if (!validation?.valid || !project_id || !dataset_hint) {
-    showQAError(
-      validation?.message ||
-        "Valide dataset e tabelas da query (formato projeto.dataset.tabela) antes de analisar.",
-    );
-    hideQAProgress();
-    setQALoading(false);
-    qaAnalyzeInFlight = false;
-    return;
+    const validation = await validateQAQueryContext();
+    project_id = validation?.projectId || "";
+    dataset_hint = validation?.datasetHint || "";
+
+    if (!validation?.valid || !project_id || !dataset_hint) {
+      showQAError(
+        validation?.message ||
+          "Valide dataset e tabelas da query (formato projeto.dataset.tabela) antes de analisar.",
+      );
+      hideQAProgress();
+      setQALoading(false);
+      qaAnalyzeInFlight = false;
+      return;
+    }
   }
 
   setQAProgress("Validando entrada...", 18);

@@ -18,6 +18,7 @@ class AgentState(BaseModel):
 
     antipatterns: list[QueryAntiPattern] = Field(default_factory=list)
     needs_optimization: bool = False
+    optimization_feedback: list[str] = Field(default_factory=list)
 
     optimized_query: Optional[str] = None
     dry_run_optimized: Optional[DryRunResult] = None
@@ -26,4 +27,4 @@ class AgentState(BaseModel):
 
     error: Optional[str] = None
     iteration: int = 0
-    max_iterations: int = 2
+    max_iterations: int = 3

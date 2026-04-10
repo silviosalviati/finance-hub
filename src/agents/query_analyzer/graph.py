@@ -28,6 +28,17 @@ def should_optimize(state: AgentState) -> Literal["optimize_query", "generate_re
     return "generate_report"
 
 
+def should_reoptimize(state: AgentState) -> Literal["optimize_query", "generate_report"]:
+    needs_opt = getattr(state, "needs_optimization", False)
+    iter_count = getattr(state, "iteration", 0)
+    max_iters = getattr(state, "max_iterations", 3)
+
+    if needs_opt and iter_count < max_iters:
+        return "optimize_query"
+
+    return "generate_report"
+
+
 def build_graph(llm: BaseChatModel):
     workflow = StateGraph(AgentState)
 
@@ -52,7 +63,14 @@ def build_graph(llm: BaseChatModel):
     )
 
     workflow.add_edge("optimize_query", "validate_optimized")
-    workflow.add_edge("validate_optimized", "generate_report")
+    workflow.add_conditional_edges(
+        "validate_optimized",
+        should_reoptimize,
+        {
+            "optimize_query": "optimize_query",
+            "generate_report": "generate_report",
+        },
+    )
     workflow.add_edge("generate_report", END)
 
     return workflow.compile()

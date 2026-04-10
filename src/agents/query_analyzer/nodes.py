@@ -96,9 +96,13 @@ ANTIPADROES POSSIVEIS:
     forced_antipatterns = _build_forced_antipatterns(structure)
     antipatterns = _merge_antipatterns(antipatterns, forced_antipatterns)
 
+    needs_optimization = bool(antipatterns)
+    if dry and not dry.error and dry.bytes_processed > BYTES_WARNING_THRESHOLD:
+        needs_optimization = True
+
     return {
         "antipatterns": antipatterns,
-        "needs_optimization": bool(antipatterns),
+        "needs_optimization": needs_optimization,
     }
 
 
@@ -106,6 +110,9 @@ def optimize_query(state: AgentState, llm: BaseChatModel) -> dict:
     antipatterns_text = _build_antipatterns_text(state.antipatterns)
     cost_info = _build_optimization_cost_context(state.dry_run_original)
     is_complex_analytical = _is_complex_analytical_query(state)
+    optimization_feedback = "\n".join(
+        f"- {item}" for item in (state.optimization_feedback or [])
+    )
 
     gold_layer_note = ""
     if is_complex_analytical:
@@ -127,8 +134,8 @@ REGRAS ABSOLUTAS - nunca viole nenhuma delas:
 3. Preserve TODOS os JOINs necessarios
 4. Preserve TODA a logica de datas, periodos e granularidade temporal
 5. Preserve TODOS os filtros WHERE e HAVING
-6. Se SELECT * e schema desconhecido: MANTENHA o SELECT *
-7. Em queries de camada Gold/analitica: foque em particoes, UNION ALL e CTEs
+6. Remova SELECT * sempre que possivel e projete apenas colunas necessarias
+7. Sempre que possivel, aplique filtro por particao/data para evitar full scan
 8. O resultado DEVE ser identico ao original
 9. Adicione comentarios -- explicando cada otimizacao
 10. Responda APENAS com o SQL otimizado
@@ -146,6 +153,10 @@ Anti-padroes identificados para corrigir:
 Contexto de custo (BigQuery dry-run):
 
 {cost_info}
+
+Feedback da iteracao anterior (quando houver):
+
+{optimization_feedback or '(primeira tentativa de otimizacao)'}
 """
 
     response = llm.invoke(
@@ -169,7 +180,51 @@ def validate_optimized(state: AgentState) -> dict:
         return {}
 
     result = dry_run_query(state.optimized_query, state.project_id)
-    return {"dry_run_optimized": result}
+    feedback: list[str] = []
+    needs_optimization = False
+
+    if result.error:
+        needs_optimization = True
+        feedback.append(f"Dry-run da query otimizada falhou: {result.error}")
+    else:
+        optimized_structure = _inspect_query_structure(state.optimized_query)
+
+        if optimized_structure["has_star"]:
+            needs_optimization = True
+            feedback.append("A query otimizada ainda usa SELECT *.")
+
+        if optimized_structure["has_cross_join"]:
+            needs_optimization = True
+            feedback.append("A query otimizada ainda possui CROSS JOIN.")
+
+        if optimized_structure["has_order_without_limit"]:
+            needs_optimization = True
+            feedback.append("A query otimizada manteve ORDER BY sem LIMIT.")
+
+        dry_orig = state.dry_run_original
+        if dry_orig and not dry_orig.error and dry_orig.bytes_processed > 0:
+            if result.bytes_processed >= dry_orig.bytes_processed:
+                needs_optimization = True
+                feedback.append(
+                    "A query otimizada nao reduziu bytes processados em relacao a original."
+                )
+            else:
+                savings_pct = (
+                    (dry_orig.bytes_processed - result.bytes_processed)
+                    / dry_orig.bytes_processed
+                    * 100
+                )
+                if savings_pct < 5:
+                    needs_optimization = True
+                    feedback.append(
+                        "A economia de bytes ficou abaixo de 5%; busque reduzir full scan e leituras desnecessarias."
+                    )
+
+    return {
+        "dry_run_optimized": result,
+        "needs_optimization": needs_optimization,
+        "optimization_feedback": feedback,
+    }
 
 
 def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
@@ -417,6 +472,18 @@ def _is_complex_analytical_query(state: AgentState) -> bool:
     )
 
 
+def _inspect_query_structure(query: str) -> dict[str, bool]:
+    query_upper = query.upper()
+    return {
+        "has_star": bool(re.search(r"\bSELECT\s+\*", query_upper)),
+        "has_order_without_limit": bool(
+            re.search(r"ORDER\s+BY", query_upper)
+            and not re.search(r"LIMIT\s+\d+", query_upper)
+        ),
+        "has_cross_join": bool(re.search(r"CROSS\s+JOIN", query_upper)),
+    }
+
+
 def _generate_summary(
     llm: BaseChatModel,
     state: AgentState,
@@ -447,16 +514,50 @@ Query processava: {format_bytes(dry_orig.bytes_processed) if dry_orig else 'N/A'
 def _calculate_score(state: AgentState) -> int:
     score = 100
 
+    dry_orig = state.dry_run_original
+    dry_opt = state.dry_run_optimized
+    penalty_multiplier = 1.0
+
+    if (
+        dry_orig
+        and dry_opt
+        and not dry_orig.error
+        and not dry_opt.error
+        and dry_opt.bytes_processed < dry_orig.bytes_processed
+    ):
+        penalty_multiplier = 0.5
+
     for antipattern in state.antipatterns:
         severity = (antipattern.severity or "").strip().lower()
-        score -= SEVERITY_PENALTY.get(severity, 10)
+        score -= int(SEVERITY_PENALTY.get(severity, 10) * penalty_multiplier)
 
-    dry = state.dry_run_original
+    dry = dry_opt if (dry_opt and not dry_opt.error) else dry_orig
     if dry and not dry.error:
         if dry.bytes_processed > BYTES_CRITICAL_THRESHOLD:
             score -= 20
         elif dry.bytes_processed > BYTES_WARNING_THRESHOLD:
             score -= 10
+
+    if (
+        dry_orig
+        and dry_opt
+        and not dry_orig.error
+        and not dry_opt.error
+        and dry_orig.bytes_processed > 0
+    ):
+        savings_pct = (
+            (dry_orig.bytes_processed - dry_opt.bytes_processed)
+            / dry_orig.bytes_processed
+            * 100
+        )
+        if savings_pct >= 50:
+            score += 15
+        elif savings_pct >= 30:
+            score += 10
+        elif savings_pct >= 15:
+            score += 6
+        elif savings_pct >= 5:
+            score += 3
 
     return max(0, min(100, score))
 

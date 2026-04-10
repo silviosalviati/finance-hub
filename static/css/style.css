@@ -1468,24 +1468,24 @@ textarea {
 .hist-key-metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  padding: 16px 20px;
+  gap: 8px;
+  padding: 12px 18px;
   border-bottom: 1px solid var(--border2);
   background: var(--bg);
 }
 
 .hist-key-metric {
   text-align: center;
-  padding: 8px;
+  padding: 4px;
 }
 
 .hist-key-metric-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--ink3);
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1500,9 +1500,9 @@ textarea {
 
 .hist-key-metric-value {
   font-family: var(--display);
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 800;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 .hist-key-metric-subtext {

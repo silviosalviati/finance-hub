@@ -66,7 +66,7 @@ Observacao: atualmente o registry em runtime registra Query Analyzer, Query Buil
 ## Fluxo Tecnico
 
 1. Frontend envia requisicao para a API com token Bearer (quando endpoint exige autenticacao).
-2. Rotas validam payload e sessao.
+2. Rotas validam payload, sessao e contexto (dataset/tabelas) quando aplicavel.
 3. Registry resolve o agente por `agent_id`.
 4. Agente executa seu fluxo (LangGraph nos agentes implementados).
 5. Ferramentas compartilhadas fazem dry-run, metadados e amostragem no BigQuery.
@@ -94,8 +94,23 @@ Saida principal:
 - score e grade de eficiencia
 - antipadroes e recomendacoes
 - query otimizada
+- otimizações aplicadas (aba dedicada no frontend)
 - bytes/custo original vs otimizado
 - dicas de uso para Power BI
+
+## Validacao de Contexto no Query Analyzer
+
+Endpoint backend:
+
+- `POST /api/agents/query_analyzer/validate-query-context`
+
+Comportamento atual:
+
+- extrai tabelas da query no formato `project.dataset.tabela`
+- exige apenas um dataset por analise
+- valida dataset no BigQuery e metadados no Data Catalog/Dataplex
+- valida existencia das tabelas referenciadas
+- frontend libera o botao de analise somente apos validacao com sucesso
 
 ## Query Build (implementado)
 
@@ -249,6 +264,7 @@ Protegidos por sessao:
 - `POST /analyze`
 - `POST /api/agents/{agent_id}/analyze`
 - `POST /api/agents/query_build/validate-dataset`
+- `POST /api/agents/query_analyzer/validate-query-context`
 - `GET /api/agents/{agent_id}/checkpoint`
 
 ## Frontend
@@ -264,7 +280,10 @@ Comportamentos atuais relevantes:
 - login e sessao com token Bearer
 - exibicao da LLM ativa via `/api/runtime-llm`
 - barras de progresso para Query Analyzer e Query Build
-- validacao assincrona de `dataset_hint` no Query Build (onBlur e debounce)
+- Query Analyzer com `Project ID` e `Dataset hint` em modo somente leitura
+- validacao assincrona do contexto da query no Query Analyzer (input + debounce)
+- validacao assincrona de `dataset_hint` no Query Build (input, blur e debounce)
+- aba `Otimizacoes aplicadas` no resultado do Query Analyzer
 
 ## Testes
 

@@ -3043,6 +3043,19 @@ pre {
   padding-right: 10px;
 }
 
+#view-db {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+#view-db .qa-body {
+  overflow: auto;
+}
+
+#view-db .qa-results-wrap {
+  overflow: visible;
+}
+
 .db-canvas-hero {
   border: 1px solid var(--porto-sky2);
   background: linear-gradient(145deg, #f8fbff 0%, #eef5ff 100%);
@@ -3054,8 +3067,8 @@ pre {
 }
 
 .db-canvas-list {
-  max-height: 260px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   padding-right: 4px;
 }
 

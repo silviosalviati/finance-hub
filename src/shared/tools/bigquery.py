@@ -142,124 +142,6 @@ def validate_dataset_for_query_build(project_id: str, dataset_hint: str) -> dict
     }
 
 
-def validate_query_context_for_query_analyzer(
-    query: str,
-    project_id: str | None = None,
-) -> dict[str, Any]:
-    normalized_query = (query or "").strip()
-    if not normalized_query:
-        raise ValueError("Query nao pode ser vazia.")
-
-    table_refs = sorted({ref for ref in re.findall(TABLE_PATTERN, normalized_query)})
-    if not table_refs:
-        return {
-            "valid": False,
-            "project_id": "",
-            "dataset_id": "",
-            "dataset_hint": "",
-            "dataset_ref": "",
-            "table_count": 0,
-            "matched_tables": [],
-            "missing_tables": [],
-            "message": (
-                "Nao foi possivel identificar tabelas totalmente qualificadas na query. "
-                "Use o formato `project.dataset.tabela`."
-            ),
-        }
-
-    parsed = [table_ref.split(".") for table_ref in table_refs]
-    projects_in_query = {parts[0] for parts in parsed}
-    datasets_in_query = {(parts[0], parts[1]) for parts in parsed}
-
-    if len(datasets_in_query) != 1:
-        return {
-            "valid": False,
-            "project_id": "",
-            "dataset_id": "",
-            "dataset_hint": "",
-            "dataset_ref": "",
-            "table_count": 0,
-            "matched_tables": [],
-            "missing_tables": [],
-            "message": (
-                "A query referencia mais de um dataset. "
-                "Use apenas um dataset por analise."
-            ),
-        }
-
-    dataset_project, dataset_id = next(iter(datasets_in_query))
-    resolved_project = _resolve_project_id((project_id or dataset_project).strip())
-
-    if projects_in_query != {resolved_project}:
-        return {
-            "valid": False,
-            "project_id": resolved_project,
-            "dataset_id": dataset_id,
-            "dataset_hint": dataset_id,
-            "dataset_ref": f"{resolved_project}.{dataset_id}",
-            "table_count": 0,
-            "matched_tables": [],
-            "missing_tables": [],
-            "message": (
-                "As tabelas da query usam project diferente do Project ID detectado. "
-                "Padronize o project para validar a analise."
-            ),
-        }
-
-    dataset_validation = validate_dataset_for_query_build(
-        project_id=resolved_project,
-        dataset_hint=dataset_id,
-    )
-    if not dataset_validation.get("valid"):
-        return {
-            **dataset_validation,
-            "dataset_hint": dataset_id,
-            "matched_tables": [],
-            "missing_tables": [],
-        }
-
-    metadata = get_dataset_tables_metadata(
-        project_id=resolved_project,
-        dataset_hint=dataset_id,
-        max_tables=200,
-        max_columns=1,
-    )
-    available_table_ids = {
-        item.get("table_id", "").strip().lower()
-        for item in metadata.get("tables", [])
-        if item.get("table_id")
-    }
-
-    query_table_ids = sorted({parts[2].strip().lower() for parts in parsed})
-    missing_tables = sorted([table for table in query_table_ids if table not in available_table_ids])
-    matched_tables = sorted([table for table in query_table_ids if table in available_table_ids])
-
-    if missing_tables:
-        return {
-            **dataset_validation,
-            "valid": False,
-            "dataset_hint": dataset_id,
-            "matched_tables": matched_tables,
-            "missing_tables": missing_tables,
-            "message": (
-                "Dataset validado, mas a query referencia tabela(s) nao encontrada(s): "
-                + ", ".join(missing_tables)
-            ),
-        }
-
-    return {
-        **dataset_validation,
-        "valid": True,
-        "dataset_hint": dataset_id,
-        "matched_tables": matched_tables,
-        "missing_tables": [],
-        "message": (
-            "Perfeito! Dataset e tabelas da query validados no BigQuery e Data Catalog. "
-            "Ja pode executar o Query Analyzer."
-        ),
-    }
-
-
 def get_dataset_tables_metadata(
     project_id: str,
     dataset_hint: str,
@@ -279,10 +161,7 @@ def get_dataset_tables_metadata(
         columns: list[str] = []
         try:
             table = client.get_table(table_ref)
-            columns = [
-                f"{field.name} ({field.field_type})"
-                for field in table.schema[:max_columns]
-            ]
+            columns = [field.name for field in table.schema[:max_columns]]
         except Exception:
             columns = []
 
@@ -449,7 +328,6 @@ __all__ = [
     "get_schemas_for_query",
     "fetch_query_sample",
     "validate_dataset_for_query_build",
-    "validate_query_context_for_query_analyzer",
     "get_dataset_tables_metadata",
     "format_bytes",
 ]

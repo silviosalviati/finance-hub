@@ -4,6 +4,7 @@
 let token = null;
 let currentUser = null;
 let session = { queries: 0 };
+const QA_FIXED_PROJECT_ID = "silviosalviati";
 let qaDatasetValidationTimer = null;
 let qaIsLoading = false;
 const qaDatasetValidationState = {
@@ -337,15 +338,19 @@ async function validateQAQueryContext() {
   const query = document.getElementById("qa-query")?.value.trim() || "";
   const projectEl = document.getElementById("qa-project");
   const datasetEl = document.getElementById("qa-dataset");
-  const currentProject = projectEl?.value.trim() || "";
+  const currentProject = QA_FIXED_PROJECT_ID;
+
+  if (projectEl) {
+    projectEl.value = QA_FIXED_PROJECT_ID;
+  }
 
   qaDatasetValidationState.queryText = query;
 
   if (!query) {
     qaDatasetValidationState.status = "idle";
-    qaDatasetValidationState.projectId = "";
+    qaDatasetValidationState.projectId = QA_FIXED_PROJECT_ID;
     qaDatasetValidationState.datasetHint = "";
-    if (projectEl) projectEl.value = "";
+    if (projectEl) projectEl.value = QA_FIXED_PROJECT_ID;
     if (datasetEl) datasetEl.value = "";
     setQADatasetValidationStatus("idle");
     return;
@@ -384,7 +389,7 @@ async function validateQAQueryContext() {
       return;
     }
 
-    const detectedProject = (payload.project_id || "").trim();
+    const detectedProject = QA_FIXED_PROJECT_ID;
     const detectedDataset = (payload.dataset_hint || payload.dataset_id || "").trim();
     if (projectEl) projectEl.value = detectedProject;
     if (datasetEl) datasetEl.value = detectedDataset;
@@ -883,7 +888,7 @@ function openDev(name, desc, features, eta) {
 // ─────────────────────────────────────
 async function runAnalyze() {
   const query = document.getElementById("qa-query")?.value.trim() || "";
-  let project_id = document.getElementById("qa-project")?.value.trim() || "";
+  let project_id = QA_FIXED_PROJECT_ID;
   let dataset_hint = document.getElementById("qa-dataset")?.value.trim() || "";
   const errEl = document.getElementById("qa-error");
   const qaEmpty = document.getElementById("qa-empty");
@@ -904,7 +909,7 @@ async function runAnalyze() {
 
   if (!isContextValid) {
     await validateQAQueryContext();
-    project_id = document.getElementById("qa-project")?.value.trim() || "";
+    project_id = QA_FIXED_PROJECT_ID;
     dataset_hint = document.getElementById("qa-dataset")?.value.trim() || "";
     isContextValid =
       qaDatasetValidationState.status === "valid" &&
@@ -1880,6 +1885,8 @@ window.addEventListener("load", function init() {
   try {
     showScreen("screen-login");
     document.getElementById("inp-user")?.focus();
+    const qaProject = document.getElementById("qa-project");
+    if (qaProject) qaProject.value = QA_FIXED_PROJECT_ID;
     setRuntimeModelInfo();
 
     // Remover event listeners dos botões que foram removidos

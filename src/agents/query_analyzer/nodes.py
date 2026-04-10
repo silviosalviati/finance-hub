@@ -700,20 +700,22 @@ def _generate_power_bi_tips(state: AgentState) -> list[str]:
 
     if structure.get("has_star"):
         tips.append(
-            "No Power BI, projete apenas as colunas exibidas no dashboard - evite SELECT *."
+            "No desenvolvimento do dashboard, modele consultas com colunas estritamente necessarias (evite SELECT *) para reduzir tempo de refresh e consumo de capacidade."
         )
 
     if structure.get("has_order_without_limit"):
         tips.append(
-            "ORDER BY sem LIMIT e inutil em muitos cenarios de consumo no Power BI."
+            "Evite ORDER BY sem necessidade no dataset do dashboard; priorize ordenacao no visual e preserve a consulta base enxuta."
         )
 
-    if not tips:
-        tips.append(
-            "Use DirectQuery com filtro de particao para dashboards de series temporais."
-        )
-        tips.append(
-            "Considere materializar agregacoes frequentes em scheduled queries."
-        )
+    tips.extend(
+        [
+            "Adote modelo estrela (fato + dimensoes) com relacionamentos simples para melhorar desempenho e clareza das medidas DAX.",
+            "Crie medidas reutilizaveis e padronizadas (nomenclatura e formato) para garantir consistencia de KPI entre paginas e dashboards.",
+            "Use refresh incremental e filtros por data/particao no backend para evitar full scan em atualizacoes.",
+            "Otimize UX: limite visuais por pagina, mantenha hierarquia visual clara e use navegacao orientada a perguntas de negocio.",
+            "Implemente governanca: RLS, dicionario de metricas e validacao de qualidade de dados antes da publicacao.",
+        ]
+    )
 
     return tips

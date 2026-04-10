@@ -457,6 +457,10 @@ async function validateQAQueryContext() {
 }
 
 function scheduleQAQueryValidation() {
+  if (qaAnalyzeInFlight || qaIsLoading) {
+    return;
+  }
+
   if (qaDatasetValidationTimer) {
     clearTimeout(qaDatasetValidationTimer);
   }
@@ -917,6 +921,12 @@ async function runAnalyze() {
   }
 
   qaAnalyzeInFlight = true;
+
+  if (qaDatasetValidationTimer) {
+    clearTimeout(qaDatasetValidationTimer);
+    qaDatasetValidationTimer = null;
+  }
+
   const query = document.getElementById("qa-query")?.value.trim() || "";
   let project_id = "";
   let dataset_hint = "";
@@ -1842,6 +1852,10 @@ document.getElementById("qa-query")?.addEventListener("keydown", (e) => {
 });
 
 document.getElementById("qa-query")?.addEventListener("input", () => {
+  if (qaAnalyzeInFlight || qaIsLoading) {
+    return;
+  }
+
   qaDatasetValidationState.status = "checking";
   setQADatasetValidationStatus("checking", {
     title: "Aguardando sua digitacao",
@@ -1851,11 +1865,22 @@ document.getElementById("qa-query")?.addEventListener("input", () => {
 });
 
 document.getElementById("qa-query")?.addEventListener("blur", () => {
+  if (qaAnalyzeInFlight || qaIsLoading) {
+    return;
+  }
+
   validateQAQueryContext();
 });
 
 document.getElementById("qa-query")?.addEventListener("paste", () => {
+  if (qaAnalyzeInFlight || qaIsLoading) {
+    return;
+  }
+
   setTimeout(() => {
+    if (qaAnalyzeInFlight || qaIsLoading) {
+      return;
+    }
     validateQAQueryContext();
   }, 0);
 });

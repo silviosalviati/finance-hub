@@ -4,6 +4,14 @@
 let token = null;
 let currentUser = null;
 let session = { queries: 0 };
+let qaDatasetValidationTimer = null;
+let qaIsLoading = false;
+const qaDatasetValidationState = {
+  status: "idle",
+  datasetHint: "",
+  projectId: "",
+  queryText: "",
+};
 let qbDatasetValidationTimer = null;
 let qbIsLoading = false;
 const qbDatasetValidationState = {
@@ -216,6 +224,209 @@ function hideQBProgress() {
   step.textContent = "Preparando...";
 }
 
+function syncQAAnalyzeButtonState() {
+  const btn = document.getElementById("qa-btn");
+  const query = document.getElementById("qa-query")?.value.trim() || "";
+  const projectId = document.getElementById("qa-project")?.value.trim() || "";
+  const datasetHint = document.getElementById("qa-dataset")?.value.trim() || "";
+
+  if (!btn) return;
+
+  const blockedByValidation =
+    !query ||
+    !projectId ||
+    !datasetHint ||
+    qaDatasetValidationState.status !== "valid" ||
+    qaDatasetValidationState.projectId !== projectId ||
+    qaDatasetValidationState.datasetHint !== datasetHint ||
+    qaDatasetValidationState.queryText !== query;
+
+  btn.disabled = qaIsLoading || blockedByValidation;
+}
+
+function setQADatasetValidationStatus(kind, payload = {}) {
+  const statusEl = document.getElementById("qa-dataset-status");
+  const indicatorEl = document.getElementById("qa-dataset-indicator");
+  const statusIconEl = document.getElementById("qa-dataset-status-icon");
+  const statusTitleEl = document.getElementById("qa-dataset-status-title");
+  const statusTextEl = document.getElementById("qa-dataset-status-text");
+  const statusMetaEl = document.getElementById("qa-dataset-status-meta");
+  const datasetHint = document.getElementById("qa-dataset")?.value.trim() || "";
+  const title = payload.title || "";
+  const message = payload.message || "";
+  const tableCount = Number(payload.tableCount ?? NaN);
+  const queryTableCount = Number(payload.queryTableCount ?? NaN);
+
+  if (statusEl) {
+    statusEl.className = "qb-dataset-status";
+  }
+
+  if (statusTitleEl) statusTitleEl.textContent = "";
+  if (statusTextEl) statusTextEl.textContent = "";
+  if (statusMetaEl) statusMetaEl.innerHTML = "";
+
+  if (statusIconEl) {
+    statusIconEl.textContent = "•";
+  }
+
+  if (indicatorEl) {
+    indicatorEl.className = "qb-dataset-indicator";
+    indicatorEl.textContent = "●";
+  }
+
+  if (kind === "idle") {
+    syncQAAnalyzeButtonState();
+    return;
+  }
+
+  if (statusEl) {
+    statusEl.classList.add(kind);
+  }
+
+  if (statusTitleEl) {
+    statusTitleEl.textContent =
+      title ||
+      (kind === "ok"
+        ? "Dataset pronto para analise"
+        : kind === "checking"
+          ? "Validando contexto da query"
+          : "Validacao pendente");
+  }
+
+  if (statusTextEl) {
+    statusTextEl.textContent = message;
+  }
+
+  if (statusIconEl) {
+    statusIconEl.textContent =
+      kind === "ok" ? "✓" : kind === "checking" ? "…" : "!";
+  }
+
+  if (statusMetaEl && kind === "ok") {
+    const chips = [];
+    if (datasetHint) {
+      chips.push(`<span class="qb-dataset-chip">🗂️ ${datasetHint}</span>`);
+    }
+    if (!Number.isNaN(tableCount)) {
+      chips.push(`<span class="qb-dataset-chip">📊 ${tableCount} tabelas</span>`);
+    }
+    if (!Number.isNaN(queryTableCount)) {
+      chips.push(
+        `<span class="qb-dataset-chip">🔎 ${queryTableCount} usadas na query</span>`,
+      );
+    }
+    chips.push('<span class="qb-dataset-chip">✅ BigQuery + Data Catalog/Dataplex</span>');
+    statusMetaEl.innerHTML = chips.join(" ");
+  }
+
+  if (statusMetaEl && kind === "error") {
+    statusMetaEl.innerHTML =
+      '<span class="qb-dataset-chip">⚠️ Revise o formato projeto.dataset.tabela</span>';
+  }
+
+  if (indicatorEl) {
+    indicatorEl.classList.add(kind);
+    indicatorEl.textContent =
+      kind === "ok" ? "✓" : kind === "checking" ? "…" : "✕";
+  }
+
+  syncQAAnalyzeButtonState();
+}
+
+async function validateQAQueryContext() {
+  const query = document.getElementById("qa-query")?.value.trim() || "";
+  const projectEl = document.getElementById("qa-project");
+  const datasetEl = document.getElementById("qa-dataset");
+  const currentProject = projectEl?.value.trim() || "";
+
+  qaDatasetValidationState.queryText = query;
+
+  if (!query) {
+    qaDatasetValidationState.status = "idle";
+    qaDatasetValidationState.projectId = "";
+    qaDatasetValidationState.datasetHint = "";
+    if (projectEl) projectEl.value = "";
+    if (datasetEl) datasetEl.value = "";
+    setQADatasetValidationStatus("idle");
+    return;
+  }
+
+  qaDatasetValidationState.status = "checking";
+  setQADatasetValidationStatus("checking", {
+    title: "Validando contexto da query",
+    message: "Detectando dataset/tabelas e conferindo BigQuery + Data Catalog/Dataplex...",
+  });
+
+  const querySnapshot = query;
+
+  try {
+    const res = await fetch("/api/agents/query_analyzer/validate-query-context", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        query: querySnapshot,
+        project_id: currentProject || null,
+      }),
+    });
+
+    if (res.status === 401) {
+      doLogout();
+      return;
+    }
+
+    const payload = await res.json();
+    if (!res.ok) {
+      throw new Error(payload?.detail || "Falha na validacao da query.");
+    }
+
+    const currentQuery = document.getElementById("qa-query")?.value.trim() || "";
+    if (currentQuery !== querySnapshot) {
+      return;
+    }
+
+    const detectedProject = (payload.project_id || "").trim();
+    const detectedDataset = (payload.dataset_hint || payload.dataset_id || "").trim();
+    if (projectEl) projectEl.value = detectedProject;
+    if (datasetEl) datasetEl.value = detectedDataset;
+
+    if (payload.valid) {
+      qaDatasetValidationState.status = "valid";
+      qaDatasetValidationState.projectId = detectedProject;
+      qaDatasetValidationState.datasetHint = detectedDataset;
+      qaDatasetValidationState.queryText = querySnapshot;
+      setQADatasetValidationStatus("ok", {
+        title: "Contexto validado",
+        message: payload.message || "Query validada. Ja pode analisar.",
+        tableCount: Number(payload.table_count || 0),
+        queryTableCount: Array.isArray(payload.matched_tables)
+          ? payload.matched_tables.length
+          : 0,
+      });
+    } else {
+      qaDatasetValidationState.status = "invalid";
+      setQADatasetValidationStatus("error", {
+        title: "Contexto nao validado",
+        message: payload.message || "Nao foi possivel validar dataset e tabelas da query.",
+      });
+    }
+  } catch (err) {
+    qaDatasetValidationState.status = "invalid";
+    setQADatasetValidationStatus("error", {
+      title: "Falha na validacao",
+      message: prettifyErrorMessage(err.message || "Erro ao validar query."),
+    });
+  }
+}
+
+function scheduleQAQueryValidation() {
+  if (qaDatasetValidationTimer) {
+    clearTimeout(qaDatasetValidationTimer);
+  }
+  qaDatasetValidationTimer = setTimeout(() => {
+    validateQAQueryContext();
+  }, 1000);
+}
+
 function syncQBGenerateButtonState() {
   const btn = document.getElementById("qb-btn");
   const dataset = document.getElementById("qb-dataset")?.value.trim() || "";
@@ -412,12 +623,7 @@ function scheduleQBDatasetValidation() {
 }
 
 function loadExampleQuery() {
-  const project = document.getElementById("qa-project");
   const query = document.getElementById("qa-query");
-
-  if (project && !project.value.trim()) {
-    project.value = "seu-projeto-gcp";
-  }
 
   if (query) {
     query.value = `SELECT
@@ -426,6 +632,7 @@ FROM \`projeto.dataset.tabela\`
 WHERE data >= '2024-01-01'
 ORDER BY data DESC`;
     query.focus();
+    scheduleQAQueryValidation();
   }
 }
 
@@ -676,7 +883,8 @@ function openDev(name, desc, features, eta) {
 // ─────────────────────────────────────
 async function runAnalyze() {
   const query = document.getElementById("qa-query")?.value.trim() || "";
-  const project_id = document.getElementById("qa-project")?.value.trim() || "";
+  let project_id = document.getElementById("qa-project")?.value.trim() || "";
+  let dataset_hint = document.getElementById("qa-dataset")?.value.trim() || "";
   const errEl = document.getElementById("qa-error");
   const qaEmpty = document.getElementById("qa-empty");
   const qaTabsArea = document.getElementById("qa-tabs-area");
@@ -688,8 +896,27 @@ async function runAnalyze() {
     return;
   }
 
-  if (!project_id) {
-    showQAError("Preencha o Project ID do GCP.");
+  let isContextValid =
+    qaDatasetValidationState.status === "valid" &&
+    qaDatasetValidationState.projectId === project_id &&
+    qaDatasetValidationState.datasetHint === dataset_hint &&
+    qaDatasetValidationState.queryText === query;
+
+  if (!isContextValid) {
+    await validateQAQueryContext();
+    project_id = document.getElementById("qa-project")?.value.trim() || "";
+    dataset_hint = document.getElementById("qa-dataset")?.value.trim() || "";
+    isContextValid =
+      qaDatasetValidationState.status === "valid" &&
+      qaDatasetValidationState.projectId === project_id &&
+      qaDatasetValidationState.datasetHint === dataset_hint &&
+      qaDatasetValidationState.queryText === query;
+  }
+
+  if (!project_id || !dataset_hint || !isContextValid) {
+    showQAError(
+      "Valide dataset e tabelas da query (formato projeto.dataset.tabela) antes de analisar.",
+    );
     return;
   }
 
@@ -709,7 +936,7 @@ async function runAnalyze() {
     const res = await fetch("/analyze", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ query, project_id }),
+      body: JSON.stringify({ query, project_id, dataset_hint }),
     });
 
     if (res.status === 401) {
@@ -1522,7 +1749,8 @@ function setQALoading(on) {
   const qaLastRun = document.getElementById("qa-last-run");
   const qaLastTime = document.getElementById("qa-last-time");
 
-  if (btn) btn.disabled = on;
+  qaIsLoading = on;
+  syncQAAnalyzeButtonState();
   if (spinner) spinner.style.display = on ? "block" : "none";
   if (text) {
     text.textContent = on ? "Analisando..." : "Analisar com Query Analyzer";
@@ -1583,6 +1811,25 @@ document.getElementById("qa-query")?.addEventListener("keydown", (e) => {
   }
 });
 
+document.getElementById("qa-query")?.addEventListener("input", () => {
+  qaDatasetValidationState.status = "checking";
+  setQADatasetValidationStatus("checking", {
+    title: "Aguardando sua digitacao",
+    message: "Vamos validar automaticamente apos 1 segundo de pausa.",
+  });
+  scheduleQAQueryValidation();
+});
+
+document.getElementById("qa-query")?.addEventListener("blur", () => {
+  validateQAQueryContext();
+});
+
+document.getElementById("qa-query")?.addEventListener("paste", () => {
+  setTimeout(() => {
+    validateQAQueryContext();
+  }, 0);
+});
+
 document.getElementById("qb-request")?.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.key === "Enter") {
     runQueryBuild();
@@ -1638,6 +1885,9 @@ window.addEventListener("load", function init() {
     // Remover event listeners dos botões que foram removidos
     renderShowcase();
     startShowcaseAutoplay();
+    setQADatasetValidationStatus("idle");
+    syncQAAnalyzeButtonState();
+    syncQBGenerateButtonState();
     console.log("✅ Inicialização concluída!");
   } catch (error) {
     console.error("❌ Erro na inicialização:", error);

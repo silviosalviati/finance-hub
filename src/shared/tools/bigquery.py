@@ -142,6 +142,113 @@ def validate_dataset_for_query_build(project_id: str, dataset_hint: str) -> dict
     }
 
 
+def validate_query_context_for_query_analyzer(
+    query: str,
+    project_id: str | None = None,
+) -> dict[str, Any]:
+    normalized_query = (query or "").strip()
+    if not normalized_query:
+        raise ValueError("Query nao pode ser vazia.")
+
+    table_refs = sorted({ref.strip() for ref in re.findall(TABLE_PATTERN, normalized_query)})
+    if not table_refs:
+        return {
+            "valid": False,
+            "project_id": "",
+            "dataset_id": "",
+            "dataset_hint": "",
+            "dataset_ref": "",
+            "table_count": 0,
+            "matched_tables": [],
+            "missing_tables": [],
+            "message": (
+                "Nao foi possivel identificar tabelas no formato project.dataset.tabela."
+            ),
+        }
+
+    split_refs = [table_ref.split(".") for table_ref in table_refs]
+    datasets_found = {(parts[0], parts[1]) for parts in split_refs}
+    if len(datasets_found) != 1:
+        return {
+            "valid": False,
+            "project_id": "",
+            "dataset_id": "",
+            "dataset_hint": "",
+            "dataset_ref": "",
+            "table_count": 0,
+            "matched_tables": [],
+            "missing_tables": [],
+            "message": "A query deve referenciar apenas um dataset por analise.",
+        }
+
+    query_project_id, dataset_id = next(iter(datasets_found))
+    resolved_project_id = _resolve_project_id(project_id or query_project_id)
+
+    if query_project_id != resolved_project_id:
+        return {
+            "valid": False,
+            "project_id": resolved_project_id,
+            "dataset_id": dataset_id,
+            "dataset_hint": dataset_id,
+            "dataset_ref": f"{resolved_project_id}.{dataset_id}",
+            "table_count": 0,
+            "matched_tables": [],
+            "missing_tables": [],
+            "message": "Project ID da query diferente do Project ID detectado.",
+        }
+
+    dataset_validation = validate_dataset_for_query_build(
+        project_id=resolved_project_id,
+        dataset_hint=dataset_id,
+    )
+    if not dataset_validation.get("valid"):
+        return {
+            **dataset_validation,
+            "dataset_hint": dataset_id,
+            "matched_tables": [],
+            "missing_tables": [],
+        }
+
+    query_table_ids = sorted({parts[2].strip() for parts in split_refs})
+    matched_tables: list[str] = []
+    missing_tables: list[str] = []
+    client = _get_client(resolved_project_id)
+
+    for table_id in query_table_ids:
+        table_ref = f"{resolved_project_id}.{dataset_id}.{table_id}"
+        try:
+            client.get_table(table_ref)
+            matched_tables.append(table_id)
+        except NotFound:
+            missing_tables.append(table_id)
+        except GoogleCloudError:
+            missing_tables.append(table_id)
+
+    if missing_tables:
+        return {
+            **dataset_validation,
+            "valid": False,
+            "dataset_hint": dataset_id,
+            "matched_tables": matched_tables,
+            "missing_tables": missing_tables,
+            "message": (
+                "Dataset validado, mas a query referencia tabela(s) inexistente(s): "
+                + ", ".join(missing_tables)
+            ),
+        }
+
+    return {
+        **dataset_validation,
+        "valid": True,
+        "dataset_hint": dataset_id,
+        "matched_tables": matched_tables,
+        "missing_tables": [],
+        "message": (
+            "Perfeito! Dataset e tabelas da query validados no BigQuery e no Data Catalog/Dataplex."
+        ),
+    }
+
+
 def get_dataset_tables_metadata(
     project_id: str,
     dataset_hint: str,
@@ -328,6 +435,7 @@ __all__ = [
     "get_schemas_for_query",
     "fetch_query_sample",
     "validate_dataset_for_query_build",
+    "validate_query_context_for_query_analyzer",
     "get_dataset_tables_metadata",
     "format_bytes",
 ]

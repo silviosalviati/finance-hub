@@ -6,7 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from src.api.dependencies import get_checkpointer, get_current_user, get_registry
-from src.shared.tools.bigquery import validate_dataset_for_query_build
+from src.shared.tools.bigquery import (
+    validate_dataset_for_query_build,
+    validate_query_context_for_query_analyzer,
+)
 
 router = APIRouter(tags=["agents"])
 
@@ -20,6 +23,11 @@ class AnalyzeRequest(BaseModel):
 class ValidateDatasetRequest(BaseModel):
     project_id: str
     dataset_hint: str
+
+
+class ValidateAnalyzerContextRequest(BaseModel):
+    query: str
+    project_id: str | None = None
 
 
 @router.get("/api/runtime-llm")
@@ -107,6 +115,28 @@ async def validate_query_build_dataset(
         return validate_dataset_for_query_build(
             project_id=project_id,
             dataset_hint=dataset_hint,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/api/agents/query_analyzer/validate-query-context")
+async def validate_query_analyzer_context(
+    req: ValidateAnalyzerContextRequest,
+    _session: dict[str, Any] = Depends(get_current_user),
+):
+    query = req.query.strip()
+    project_id = req.project_id.strip() if req.project_id else None
+
+    if not query:
+        raise HTTPException(status_code=400, detail="Query nao pode ser vazia.")
+
+    try:
+        return validate_query_context_for_query_analyzer(
+            query=query,
+            project_id=project_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

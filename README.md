@@ -275,6 +275,20 @@ Arquivos principais:
 - [static/css/style.css](static/css/style.css)
 - [static/js/scripts.js](static/js/scripts.js)
 
+## Telas do Sistema
+
+### Tela inicial
+
+![Preview da tela inicial](static/img/previews/home.svg)
+
+### Query Analyzer
+
+![Preview do Query Analyzer](static/img/previews/query-analyzer.svg)
+
+### Query Build
+
+![Preview do Query Build](static/img/previews/query-build.svg)
+
 Comportamentos atuais relevantes:
 
 - login e sessao com token Bearer

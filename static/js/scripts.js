@@ -6,6 +6,7 @@ let currentUser = null;
 let session = { queries: 0 };
 let qaDatasetValidationTimer = null;
 let qaIsLoading = false;
+let qaAnalyzeInFlight = false;
 const qaDatasetValidationState = {
   status: "idle",
   datasetHint: "",
@@ -660,9 +661,11 @@ function scheduleQBDatasetValidation() {
 }
 
 function resetQATabsDataState() {
-  ["tab-antipatterns", "tab-optimized", "tab-applied", "tab-recs"].forEach((id) => {
-    document.getElementById(id)?.classList.remove("has-data");
-  });
+  ["tab-antipatterns", "tab-optimized", "tab-applied", "tab-recs"].forEach(
+    (id) => {
+      document.getElementById(id)?.classList.remove("has-data");
+    },
+  );
 
   const tabApCount = document.getElementById("tab-ap-count");
   if (tabApCount) {
@@ -909,6 +912,11 @@ function openDev(name, desc, features, eta) {
 // Query Analyzer
 // ─────────────────────────────────────
 async function runAnalyze() {
+  if (qaAnalyzeInFlight) {
+    return;
+  }
+
+  qaAnalyzeInFlight = true;
   const query = document.getElementById("qa-query")?.value.trim() || "";
   let project_id = "";
   let dataset_hint = "";
@@ -920,8 +928,12 @@ async function runAnalyze() {
 
   if (!query) {
     showQAError("Cole uma query SQL antes de analisar.");
+    qaAnalyzeInFlight = false;
     return;
   }
+
+  setQALoading(true);
+  setQAProgress("Validando contexto no Dataplex...", 12);
 
   const validation = await validateQAQueryContext();
   project_id = validation?.projectId || "";
@@ -932,11 +944,13 @@ async function runAnalyze() {
       validation?.message ||
         "Valide dataset e tabelas da query (formato projeto.dataset.tabela) antes de analisar.",
     );
+    hideQAProgress();
+    setQALoading(false);
+    qaAnalyzeInFlight = false;
     return;
   }
 
-  setQALoading(true);
-  setQAProgress("Validando entrada...", 12);
+  setQAProgress("Validando entrada...", 18);
   resetQATabsDataState();
   resetQAResultPanels();
 
@@ -985,6 +999,7 @@ async function runAnalyze() {
     setTimeout(() => {
       hideQAProgress();
       setQALoading(false);
+      qaAnalyzeInFlight = false;
     }, 350);
   }
 }

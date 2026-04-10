@@ -277,23 +277,23 @@ Arquivos principais:
 
 ## Telas do Sistema
 
-Fluxo real da interface (sem mock):
+### Login
 
-1. **Login**
-   - Acesso inicial por matricula e senha.
-   - Endpoint: `POST /api/login`.
+![Tela de login](static/img/screens/login.png)
 
-2. **Portal (Bots IA)**
-   - Tela inicial apos autenticacao, com cards dos bots e navegacao para Historico e Analytics.
-   - Arquivo base: [static/index.html](static/index.html).
+### Portal (Bots IA)
 
-3. **Query Analyzer**
-   - Analise de SQL existente com score, antipadroes, query otimizada e aba de otimizacoes aplicadas.
-   - Campos `Project ID` e `Dataset hint` permanecem bloqueados e preenchidos pela validacao de contexto da query.
+![Tela inicial do portal](static/img/screens/home.png)
 
-4. **Query Build**
-   - Geracao de SQL a partir de linguagem natural, com dry-run e amostra de dados.
-   - Exige validacao de dataset antes da execucao.
+### Query Analyzer
+
+![Tela do Query Analyzer](static/img/screens/query-analyzer.png)
+
+### Query Build
+
+![Tela do Query Build](static/img/screens/query-build.png)
+
+Observacao: as imagens acima sao capturas reais da interface atual para documentacao visual.
 
 Comportamentos atuais relevantes:
 

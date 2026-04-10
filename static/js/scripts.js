@@ -950,22 +950,13 @@ async function runAnalyze() {
     qaDatasetValidationState.queryText === query;
 
   if (!contextAlreadyValidated) {
-    setQAProgress("Validando contexto no Dataplex...", 12);
-
-    const validation = await validateQAQueryContext();
-    project_id = validation?.projectId || "";
-    dataset_hint = validation?.datasetHint || "";
-
-    if (!validation?.valid || !project_id || !dataset_hint) {
-      showQAError(
-        validation?.message ||
-          "Valide dataset e tabelas da query (formato projeto.dataset.tabela) antes de analisar.",
-      );
-      hideQAProgress();
-      setQALoading(false);
-      qaAnalyzeInFlight = false;
-      return;
-    }
+    showQAError(
+      "Valide dataset e tabelas inserindo/atualizando a query SQL antes de analisar.",
+    );
+    hideQAProgress();
+    setQALoading(false);
+    qaAnalyzeInFlight = false;
+    return;
   }
 
   setQAProgress("Validando entrada...", 18);
@@ -1870,27 +1861,6 @@ document.getElementById("qa-query")?.addEventListener("input", () => {
     message: "Vamos validar automaticamente apos 1 segundo de pausa.",
   });
   scheduleQAQueryValidation();
-});
-
-document.getElementById("qa-query")?.addEventListener("blur", () => {
-  if (qaAnalyzeInFlight || qaIsLoading) {
-    return;
-  }
-
-  validateQAQueryContext();
-});
-
-document.getElementById("qa-query")?.addEventListener("paste", () => {
-  if (qaAnalyzeInFlight || qaIsLoading) {
-    return;
-  }
-
-  setTimeout(() => {
-    if (qaAnalyzeInFlight || qaIsLoading) {
-      return;
-    }
-    validateQAQueryContext();
-  }, 0);
 });
 
 document.getElementById("qb-request")?.addEventListener("keydown", (e) => {

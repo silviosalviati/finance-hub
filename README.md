@@ -277,17 +277,23 @@ Arquivos principais:
 
 ## Telas do Sistema
 
-### Tela inicial
+Fluxo real da interface (sem mock):
 
-![Preview da tela inicial](static/img/previews/home.svg)
+1. **Login**
+   - Acesso inicial por matricula e senha.
+   - Endpoint: `POST /api/login`.
 
-### Query Analyzer
+2. **Portal (Bots IA)**
+   - Tela inicial apos autenticacao, com cards dos bots e navegacao para Historico e Analytics.
+   - Arquivo base: [static/index.html](static/index.html).
 
-![Preview do Query Analyzer](static/img/previews/query-analyzer.svg)
+3. **Query Analyzer**
+   - Analise de SQL existente com score, antipadroes, query otimizada e aba de otimizacoes aplicadas.
+   - Campos `Project ID` e `Dataset hint` permanecem bloqueados e preenchidos pela validacao de contexto da query.
 
-### Query Build
-
-![Preview do Query Build](static/img/previews/query-build.svg)
+4. **Query Build**
+   - Geracao de SQL a partir de linguagem natural, com dry-run e amostra de dados.
+   - Exige validacao de dataset antes da execucao.
 
 Comportamentos atuais relevantes:
 

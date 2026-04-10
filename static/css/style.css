@@ -677,6 +677,11 @@ textarea {
   min-height: 0;
 }
 
+#view-hist {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 /* ─────────────────────────────────────
    HOME
 ───────────────────────────────────── */

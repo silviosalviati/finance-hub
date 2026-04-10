@@ -1235,9 +1235,33 @@ function renderDocumentBuild(data) {
   const checklistCount = document.getElementById("db-checklist-count");
   const structureList = document.getElementById("db-structure-list");
   const markdown = document.getElementById("db-markdown");
+  const canvasOverview = document.getElementById("db-canvas-overview");
+  const canvasTable = document.getElementById("db-canvas-table");
+  const canvasFrequency = document.getElementById("db-canvas-frequency");
+  const canvasProject = document.getElementById("db-canvas-project");
+  const canvasFlow = document.getElementById("db-canvas-flow");
+  const canvasRules = document.getElementById("db-canvas-rules");
+  const canvasGovernance = document.getElementById("db-canvas-governance");
   const checklistList = document.getElementById("db-checklist-list");
   const nextStepsSec = document.getElementById("db-next-steps-sec");
   const nextStepsList = document.getElementById("db-next-steps-list");
+  const typingNotes = Array.isArray(data.typing_notes) ? data.typing_notes : [];
+  const pendingTechnical = Array.isArray(data.pending_technical)
+    ? data.pending_technical
+    : [];
+  const dataDictionary = Array.isArray(data.data_dictionary)
+    ? data.data_dictionary
+    : [];
+  const governance =
+    data && typeof data.governance === "object" && data.governance
+      ? data.governance
+      : {};
+  const governanceAspects = Array.isArray(governance.aspect_types)
+    ? governance.aspect_types
+    : [];
+  const governanceReaders = Array.isArray(governance.readers)
+    ? governance.readers
+    : [];
 
   if (docType) docType.textContent = data.doc_type || "—";
   if (sectionCount) sectionCount.textContent = String(sections.length);
@@ -1280,6 +1304,92 @@ function renderDocumentBuild(data) {
     nextStepsSec.style.display = nextSteps.length ? "block" : "none";
   if (nextStepsList && nextSteps.length) {
     nextStepsList.innerHTML = nextSteps
+      .map(
+        (item, i) =>
+          `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span>${item}</div>`,
+      )
+      .join("");
+  }
+
+  if (canvasOverview) {
+    const objective = data.objective || "Objetivo não informado.";
+    const summaryText = data.summary || "Resumo não informado.";
+    canvasOverview.innerHTML = `
+      <strong>Objetivo:</strong> ${objective}<br/>
+      <strong>Resumo:</strong> ${summaryText}
+    `;
+  }
+
+  if (canvasTable) {
+    canvasTable.textContent = data.table_name || "não informado";
+  }
+
+  if (canvasFrequency) {
+    canvasFrequency.textContent = data.frequency || "não informado";
+  }
+
+  if (canvasProject) {
+    canvasProject.textContent =
+      data.metadata?.project_id || data.project_id || "não informado";
+  }
+
+  if (canvasFlow) {
+    const flowItems = [
+      `Origem: ${data.metadata?.dataset_hint || "dataset não informado"}`,
+      "Processamento: Transformação em BigQuery/Dataform",
+      `Destino: ${data.table_path || "tabela alvo não informada"}`,
+    ];
+
+    canvasFlow.innerHTML = flowItems
+      .map(
+        (item, i) =>
+          `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span>${item}</div>`,
+      )
+      .join("");
+  }
+
+  if (canvasRules) {
+    const ruleItems = [];
+    if (typingNotes.length) {
+      typingNotes.forEach((item) => ruleItems.push(item));
+    }
+
+    if (dataDictionary.length) {
+      const highlights = dataDictionary.slice(0, 3).map((row) => {
+        const col = row.column || "coluna";
+        const typ = row.type || "tipo";
+        return `${col} (${typ}) - ${row.business_rule || "sem regra"}`;
+      });
+      highlights.forEach((item) => ruleItems.push(item));
+    }
+
+    if (!ruleItems.length) {
+      ruleItems.push("Sem regras de tipagem detalhadas.");
+    }
+
+    canvasRules.innerHTML = ruleItems
+      .map(
+        (item, i) =>
+          `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span>${item}</div>`,
+      )
+      .join("");
+  }
+
+  if (canvasGovernance) {
+    const govItems = [];
+    if (governanceAspects.length) {
+      govItems.push(`Aspect Types: ${governanceAspects.join(", ")}`);
+    }
+    if (governanceReaders.length) {
+      govItems.push(`Leitores: ${governanceReaders.join(", ")}`);
+    }
+    pendingTechnical.forEach((item) => govItems.push(item));
+
+    if (!govItems.length) {
+      govItems.push("Governança não detalhada no documento.");
+    }
+
+    canvasGovernance.innerHTML = govItems
       .map(
         (item, i) =>
           `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span>${item}</div>`,
@@ -1337,8 +1447,50 @@ function showDBError(message) {
 
 function copyDBDocument() {
   const content = document.getElementById("db-markdown")?.textContent || "";
+  const btn = document.getElementById("db-copy-btn");
   if (!content) return;
-  navigator.clipboard.writeText(content);
+
+  copyTextWithFallback(content)
+    .then(() => {
+      if (!btn) return;
+      const old = btn.textContent;
+      btn.textContent = "✓ Copiado!";
+      btn.style.color = "#34D399";
+      setTimeout(() => {
+        btn.textContent = old || "Copiar Markdown";
+        btn.style.color = "";
+      }, 1800);
+    })
+    .catch(() => {
+      showDBError("Não foi possível copiar automaticamente. Tente novamente.");
+    });
+}
+
+function copyTextWithFallback(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const temp = document.createElement("textarea");
+      temp.value = text;
+      temp.setAttribute("readonly", "");
+      temp.style.position = "absolute";
+      temp.style.left = "-9999px";
+      document.body.appendChild(temp);
+      temp.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(temp);
+      if (!ok) {
+        reject(new Error("copy-failed"));
+        return;
+      }
+      resolve();
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
 
 function renderQB(data) {

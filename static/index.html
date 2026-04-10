@@ -1915,6 +1915,13 @@
                     </div>
                     <div
                       class="qa-tab"
+                      id="db-tab-canvas"
+                      onclick="switchDBTab('canvas')"
+                    >
+                      Documento Canvas
+                    </div>
+                    <div
+                      class="qa-tab"
                       id="db-tab-checklist"
                       onclick="switchDBTab('checklist')"
                     >
@@ -2020,6 +2027,7 @@
                               </div>
                               <span class="sql-fname">documentacao.md</span>
                               <button
+                                id="db-copy-btn"
                                 class="copy-btn"
                                 onclick="copyDBDocument()"
                               >
@@ -2028,6 +2036,70 @@
                             </div>
                             <pre id="db-markdown"></pre>
                           </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="qa-tab-panel" id="db-panel-canvas">
+                      <div class="res-card">
+                        <div class="score-body">
+                          <div class="score-top">
+                            <span class="score-tag">Canvas visual do documento</span>
+                          </div>
+                          <div class="score-txt" id="db-canvas-overview"></div>
+                        </div>
+                      </div>
+
+                      <div class="tiles" id="db-canvas-tiles" style="display: grid">
+                        <div class="tile">
+                          <div class="tile-lbl">Tabela alvo</div>
+                          <div class="tile-val" id="db-canvas-table" style="color: var(--porto)">—</div>
+                          <div class="tile-sub">Ativo principal</div>
+                        </div>
+
+                        <div class="tile">
+                          <div class="tile-lbl">Frequência</div>
+                          <div class="tile-val" id="db-canvas-frequency" style="color: var(--teal)">—</div>
+                          <div class="tile-sub">Atualização</div>
+                        </div>
+
+                        <div class="tile">
+                          <div class="tile-lbl">Project</div>
+                          <div class="tile-val" id="db-canvas-project" style="color: var(--emerald)">—</div>
+                          <div class="tile-sub">Contexto GCP</div>
+                        </div>
+                      </div>
+
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Fluxo macro
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="rec-list" id="db-canvas-flow"></div>
+                        </div>
+                      </div>
+
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Regras e tipagem
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="rec-list" id="db-canvas-rules"></div>
+                        </div>
+                      </div>
+
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Governança e pendências
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="rec-list" id="db-canvas-governance"></div>
                         </div>
                       </div>
                     </div>

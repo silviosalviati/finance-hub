@@ -3032,6 +3032,11 @@ pre {
   word-break: break-word;
 }
 
+#db-markdown {
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+}
+
 /* RECS */
 .rec-list {
   display: flex;

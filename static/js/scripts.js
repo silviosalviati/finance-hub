@@ -339,7 +339,12 @@ async function validateQAQueryContext() {
     if (projectEl) projectEl.value = "";
     if (datasetEl) datasetEl.value = "";
     setQADatasetValidationStatus("idle");
-    return;
+    return {
+      valid: false,
+      projectId: "",
+      datasetHint: "",
+      message: "Cole uma query SQL antes de analisar.",
+    };
   }
 
   qaDatasetValidationState.status = "checking";
@@ -366,7 +371,12 @@ async function validateQAQueryContext() {
 
     if (res.status === 401) {
       doLogout();
-      return;
+      return {
+        valid: false,
+        projectId: "",
+        datasetHint: "",
+        message: "Sessao expirada. Faca login novamente.",
+      };
     }
 
     const payload = await res.json();
@@ -377,7 +387,12 @@ async function validateQAQueryContext() {
     const currentQuery =
       document.getElementById("qa-query")?.value.trim() || "";
     if (currentQuery !== querySnapshot) {
-      return;
+      return {
+        valid: false,
+        projectId: "",
+        datasetHint: "",
+        message: "A query foi alterada durante a validacao. Tente novamente.",
+      };
     }
 
     const detectedProject = (payload.project_id || "").trim();
@@ -402,6 +417,12 @@ async function validateQAQueryContext() {
           ? payload.matched_tables.length
           : 0,
       });
+      return {
+        valid: true,
+        projectId: detectedProject,
+        datasetHint: detectedDataset,
+        message: payload.message || "Contexto validado.",
+      };
     } else {
       qaDatasetValidationState.status = "invalid";
       setQADatasetValidationStatus("error", {
@@ -410,6 +431,14 @@ async function validateQAQueryContext() {
           payload.message ||
           "Nao foi possivel validar dataset e tabelas da query.",
       });
+      return {
+        valid: false,
+        projectId: detectedProject,
+        datasetHint: detectedDataset,
+        message:
+          payload.message ||
+          "Nao foi possivel validar dataset e tabelas da query.",
+      };
     }
   } catch (err) {
     qaDatasetValidationState.status = "invalid";
@@ -417,6 +446,12 @@ async function validateQAQueryContext() {
       title: "Falha na validacao",
       message: prettifyErrorMessage(err.message || "Erro ao validar query."),
     });
+    return {
+      valid: false,
+      projectId: "",
+      datasetHint: "",
+      message: prettifyErrorMessage(err.message || "Erro ao validar query."),
+    };
   }
 }
 
@@ -871,8 +906,8 @@ function openDev(name, desc, features, eta) {
 // ─────────────────────────────────────
 async function runAnalyze() {
   const query = document.getElementById("qa-query")?.value.trim() || "";
-  let project_id = document.getElementById("qa-project")?.value.trim() || "";
-  let dataset_hint = document.getElementById("qa-dataset")?.value.trim() || "";
+  let project_id = "";
+  let dataset_hint = "";
   const errEl = document.getElementById("qa-error");
   const qaEmpty = document.getElementById("qa-empty");
   const qaTabsArea = document.getElementById("qa-tabs-area");
@@ -884,26 +919,14 @@ async function runAnalyze() {
     return;
   }
 
-  let isContextValid =
-    qaDatasetValidationState.status === "valid" &&
-    qaDatasetValidationState.projectId === project_id &&
-    qaDatasetValidationState.datasetHint === dataset_hint &&
-    qaDatasetValidationState.queryText === query;
+  const validation = await validateQAQueryContext();
+  project_id = validation?.projectId || "";
+  dataset_hint = validation?.datasetHint || "";
 
-  if (!isContextValid) {
-    await validateQAQueryContext();
-    project_id = document.getElementById("qa-project")?.value.trim() || "";
-    dataset_hint = document.getElementById("qa-dataset")?.value.trim() || "";
-    isContextValid =
-      qaDatasetValidationState.status === "valid" &&
-      qaDatasetValidationState.projectId === project_id &&
-      qaDatasetValidationState.datasetHint === dataset_hint &&
-      qaDatasetValidationState.queryText === query;
-  }
-
-  if (!project_id || !dataset_hint || !isContextValid) {
+  if (!validation?.valid || !project_id || !dataset_hint) {
     showQAError(
-      "Valide dataset e tabelas da query (formato projeto.dataset.tabela) antes de analisar.",
+      validation?.message ||
+        "Valide dataset e tabelas da query (formato projeto.dataset.tabela) antes de analisar.",
     );
     return;
   }

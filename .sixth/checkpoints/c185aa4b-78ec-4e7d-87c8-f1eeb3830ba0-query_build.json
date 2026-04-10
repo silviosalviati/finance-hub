@@ -1,0 +1,36 @@
+{
+  "saved_at": "2026-04-09T03:18:10.103109",
+  "payload": {
+    "request_text": "Qual é a minha margem de lucro por canal de venda neste mês, considerando o valor líquido menos o custo operacional, e qual vendedor trouxe o maior ROI?",
+    "generated_sql": "SELECT canal_venda, vendedor_responsavel, SUM(valor_liquido - custo_operacional) AS margem_de_lucro FROM silviosalviati.inteligencia_negocios.faturamento_detalhado WHERE DATE(data_faturamento) >= DATE_TRUNC(CURRENT_DATE(), MONTH) GROUP BY canal_venda, vendedor_responsavel ORDER BY canal_venda, margem_de_lucro DESC LIMIT 1;",
+    "explanation": "A consulta seleciona a margem de lucro por canal de venda e vendedor, filtrando apenas as transações do mês atual. Em seguida, agrupa os resultados por canal de venda e vendedor, calculando a margem de lucro total para cada grupo. O resultado é ordenado por canal de venda e margem de lucro em ordem decrescente, e o primeiro registro de cada canal de venda é selecionado para identificar o vendedor com o maior ROI.",
+    "assumptions": [
+      "A margem de lucro é calculada como valor líquido menos custo operacional. A ROI é assumida como sendo diretamente proporcional à margem de lucro, pois não há dados específicos para calcular ROI. A consulta retorna apenas o vendedor com o maior ROI por canal de venda, não considerando ROI total entre canais de venda."
+    ],
+    "warnings": [
+      "A consulta retorna apenas o vendedor com o maior ROI por canal de venda, não considerando ROI total entre canais de venda. Para obter o vendedor com o maior ROI total, seria necessário uma consulta mais complexa que considerasse a margem de lucro total de todos os canais de venda."
+    ],
+    "dry_run": {
+      "bytes_processed": 12015,
+      "estimated_cost_usd": 0.0,
+      "error": null
+    },
+    "sample_data": {
+      "columns": [
+        "canal_venda",
+        "vendedor_responsavel",
+        "margem_de_lucro"
+      ],
+      "rows": [
+        {
+          "canal_venda": "APP",
+          "vendedor_responsavel": "Vendedor 4",
+          "margem_de_lucro": 21432.75
+        }
+      ],
+      "error": null
+    },
+    "status": "ok",
+    "error": null
+  }
+}

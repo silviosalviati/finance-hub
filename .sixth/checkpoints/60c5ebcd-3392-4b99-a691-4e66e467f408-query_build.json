@@ -1,0 +1,24 @@
+{
+  "saved_at": "2026-04-09T02:52:43.220914",
+  "payload": {
+    "request_text": "Qual é a minha margem de lucro por canal de venda neste mês, considerando o valor líquido menos o custo operacional, e qual vendedor trouxe o maior ROI?",
+    "generated_sql": "SELECT vendedor, canal_de_venda, SUM(liquido - custo_operacional) AS margem_de_lucro, SUM(liquido / custo_operacional) AS roi, ROW_NUMBER() OVER (ORDER BY SUM(liquido / custo_operacional) DESC) AS rank_roi FROM `silviosalviati.inteligencia_negocios.vendas` WHERE data_venda >= DATE_TRUNC(CURRENT_DATE(), MONTH) GROUP BY vendedor, canal_de_venda ORDER BY rank_roi LIMIT 1;",
+    "explanation": "A consulta seleciona a margem de lucro e ROI por vendedor e canal de venda, filtrando apenas as vendas do mês atual. O ROI é calculado como o valor líquido dividido pelo custo operacional. O resultado é ordenado pelo ROI em ordem decrescente e o vendedor com o maior ROI é retornado.",
+    "assumptions": [
+      "A tabela 'vendas' contém os campos 'vendedor', 'canal_de_venda', 'liquido', 'custo_operacional' e 'data_venda'.",
+      "A coluna 'data_venda' contém as datas completas das vendas."
+    ],
+    "warnings": [
+      "A consulta assume que a margem de lucro é calculada como 'liquido - custo_operacional'. Se a margem de lucro for calculada de outra forma, a consulta deve ser ajustada.",
+      "A consulta retorna apenas o vendedor com o maior ROI. Se houver empate, apenas um será retornado.",
+      "Dry-run retornou erro: 404 POST https://bigquery.googleapis.com/bigquery/v2/projects/silviosalviati/jobs?prettyPrint=false: Not found: Table silviosalviati:inteligencia_negocios.vendas was not found in location US\n\nLocation: None\nJob ID: cac413b3-da27-4a6b-b97f-69c37b10e514\n"
+    ],
+    "dry_run": {
+      "bytes_processed": 0,
+      "estimated_cost_usd": 0.0,
+      "error": "404 POST https://bigquery.googleapis.com/bigquery/v2/projects/silviosalviati/jobs?prettyPrint=false: Not found: Table silviosalviati:inteligencia_negocios.vendas was not found in location US\n\nLocation: None\nJob ID: cac413b3-da27-4a6b-b97f-69c37b10e514\n"
+    },
+    "status": "ok",
+    "error": null
+  }
+}

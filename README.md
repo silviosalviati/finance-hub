@@ -1,80 +1,158 @@
 ﻿# Finance Hub
 
-Plataforma de assistentes de dados com backend FastAPI e frontend web para fluxos de SQL no BigQuery.
+Plataforma de assistentes de dados com backend FastAPI, frontend web e fluxos baseados em LangGraph para SQL no BigQuery.
 
 ## Objetivo
 
-O projeto centraliza assistentes para:
+Centralizar assistentes de dados para:
 
 - analisar e otimizar queries existentes (Query Analyzer)
-- construir queries a partir de linguagem natural (Query Build)
-- evoluir novos agentes de dados (ex.: Document Build, Finance Auditor)
+- construir SQL a partir de linguagem natural (Query Build)
+- manter trilha de evolucao para novos agentes (Document Build e Finance Auditor)
 
-## Arquitetura
+## Arquitetura Atual
 
 ```text
 bot-query/
 ├── src/
-│   ├── api/                 # FastAPI app, rotas e dependencias
-│   ├── agents/              # Agentes por dominio
-│   ├── core/                # Contratos base, registry e checkpoint
-│   └── shared/              # Config, ferramentas BigQuery/LLM e utilitarios
-├── static/                  # Frontend (HTML/CSS/JS)
-├── tests/                   # Testes automatizados
-├── scripts/                 # Automacoes de dev/publish
-├── requirements.txt
-└── README.md
+│   ├── api/
+│   │   ├── main.py                  # app FastAPI, startup, CORS e static files
+│   │   ├── dependencies.py          # sessao, auth, registry de agentes e checkpointer
+│   │   └── routes/
+│   │       ├── auth.py              # login, logout e /me
+│   │       └── agents.py            # endpoints de agentes, runtime LLM e checkpoints
+│   ├── agents/
+│   │   ├── query_analyzer/          # agente implementado (LangGraph)
+│   │   ├── query_build/             # agente implementado (LangGraph)
+│   │   ├── document_build/          # placeholder (retorna not_implemented)
+│   │   └── finance_auditor/         # placeholder de pacote/grafo
+│   ├── core/
+│   │   ├── base_agent.py            # contrato base de agentes
+│   │   ├── registry.py              # registro e resolucao de agentes
+│   │   └── checkpointer.py          # checkpoint em arquivo com TTL
+│   └── shared/
+│       ├── config.py                # leitura/validacao de variaveis de ambiente
+│       ├── tools/
+│       │   ├── llm.py               # criacao da LLM conforme provider
+│       │   ├── bigquery.py          # dry-run, schema, sample e validacao de dataset
+│       │   └── schemas.py
+│       └── utils/
+├── static/                          # portal HTML/CSS/JS
+├── tests/                           # testes de agentes e utilitarios
+├── scripts/publish.ps1              # fluxo local de commit + push
+└── requirements.txt
 ```
 
 Arquivos de referencia:
 
 - [src/api/main.py](src/api/main.py)
-- [src/api/routes/agents.py](src/api/routes/agents.py)
-- [src/api/routes/auth.py](src/api/routes/auth.py)
 - [src/api/dependencies.py](src/api/dependencies.py)
-- [src/shared/config.py](src/shared/config.py)
-- [scripts/publish.ps1](scripts/publish.ps1)
+- [src/core/base_agent.py](src/core/base_agent.py)
+- [src/core/registry.py](src/core/registry.py)
+- [src/core/checkpointer.py](src/core/checkpointer.py)
+- [src/shared/tools/bigquery.py](src/shared/tools/bigquery.py)
 
-## Modulos de Agentes
+## Agentes e Status
 
-### Query Analyzer
+| Agente          | ID                | Status                          | Registro no runtime |
+| --------------- | ----------------- | ------------------------------- | ------------------- |
+| Query Analyzer  | `query_analyzer`  | Implementado                    | Sim                 |
+| Query Build     | `query_build`     | Implementado                    | Sim                 |
+| Document Build  | `document_build`  | Placeholder (`not_implemented`) | Sim                 |
+| Finance Auditor | `finance_auditor` | Placeholder de pacote/grafo     | Nao                 |
 
-- entrada: SQL existente + project_id
-- saida: score, diagnostico, query otimizada, recomendacoes e custo estimado
-- rota principal: `POST /analyze`
+Observacao: atualmente o registry em runtime registra Query Analyzer, Query Build e Document Build.
 
-### Query Build
+## Fluxo Tecnico
 
-- entrada: solicitacao em linguagem natural + project_id + dataset_hint opcional
-- saida: query construida, explicacao, dry-run e recomendacoes de uso eficiente
-- rota principal: `POST /api/agents/query_build/analyze`
+1. Frontend envia requisicao para a API com token Bearer (quando endpoint exige autenticacao).
+2. Rotas validam payload e sessao.
+3. Registry resolve o agente por `agent_id`.
+4. Agente executa seu fluxo (LangGraph nos agentes implementados).
+5. Ferramentas compartilhadas fazem dry-run, metadados e amostragem no BigQuery.
+6. Resultado final pode ser persistido em checkpoint por sessao.
 
-Validacao de dataset (novo fluxo):
+## Query Analyzer (implementado)
 
-- validacao previa no backend contra BigQuery e Data Catalog
-- bloqueio preventivo do botao de gerar SQL quando dataset informado nao estiver validado
-- feedback visual na UI (carregando, valido com check, invalido com alerta)
-- mensagem de retorno com quantidade de tabelas detectadas
+Entrada:
 
-### Document Build
+- `query`
+- `project_id`
+- `dataset_hint` (opcional)
 
-- placeholder para evolucao futura
+Pipeline de alto nivel:
 
-## Fluxo Tecnico (alto nivel)
+1. parse estrutural da query
+2. dry-run do SQL original
+3. deteccao de antipadroes
+4. tentativa de otimizacao
+5. validacao da query otimizada
+6. geracao do relatorio final
 
-1. Frontend envia request para API.
-2. API valida sessao e payload.
-3. Registry resolve o agente.
-4. Agente executa grafo (LangGraph) com LLM compartilhada.
-5. Ferramentas de BigQuery executam dry-run/custo.
-6. Resultado e checkpoint sao retornados/salvos.
+Saida principal:
+
+- score e grade de eficiencia
+- antipadroes e recomendacoes
+- query otimizada
+- bytes/custo original vs otimizado
+- dicas de uso para Power BI
+
+## Query Build (implementado)
+
+Entrada:
+
+- `query` (pedido em linguagem natural)
+- `project_id`
+- `dataset_hint` (opcional, recomendado)
+
+Pipeline de alto nivel:
+
+1. gera SQL com contexto de tabelas reais do dataset
+2. revisa/otimiza SQL gerada
+3. executa dry-run
+4. coleta amostra de dados
+
+Saida principal:
+
+- SQL gerada
+- explicacao e premissas
+- warnings de validacao
+- dry-run (bytes/custo/erro)
+- sample de colunas/linhas
+
+## Validacao de Dataset no Query Build
+
+Endpoint backend:
+
+- `POST /api/agents/query_build/validate-dataset`
+
+Comportamento atual:
+
+- valida existencia do dataset no BigQuery
+- tenta validar metadados no Data Catalog
+- retorna `valid`, `table_count` e mensagem de status
+- frontend bloqueia a geracao da SQL quando dataset nao foi validado
+
+## Autenticacao e Sessao
+
+- login via `POST /api/login`
+- sessoes em memoria com TTL configuravel (`SESSION_TTL_HOURS`)
+- acesso protegido via header `Authorization: Bearer <token>`
+- logout via `POST /api/logout`
+
+## Checkpoints
+
+- checkpoints salvos em `.sixth/checkpoints`
+- chave: `<token>-<agent_id>`
+- TTL de checkpoint: 24h (configuracao atual do `FileCheckpointer`)
+- consulta via `GET /api/agents/{agent_id}/checkpoint`
 
 ## Requisitos
 
 - Python 3.10+
 - ambiente virtual ativo
-- credenciais GCP validas para BigQuery
-- acesso a um provider de LLM (OpenAI, Vertex AI ou Hugging Face)
+- credenciais GCP validas para BigQuery/Data Catalog
+- provider de LLM suportado (`openai`, `vertexai` ou `huggingface`)
 
 ## Instalacao
 
@@ -86,24 +164,37 @@ pip install -r requirements.txt
 
 ## Variaveis de Ambiente
 
-Preencha [.env](.env) com as variaveis usadas em [src/shared/config.py](src/shared/config.py):
+Configure o arquivo `.env` com base em [src/shared/config.py](src/shared/config.py).
 
 Obrigatorias:
 
-- `LLM_PROVIDER` (`openai`, `vertexai` ou `huggingface`)
+- `LLM_PROVIDER`
 - `GCP_PROJECT_ID`
 - `GOOGLE_APPLICATION_CREDENTIALS`
 
-Opcional por provider:
+Provider OpenAI:
 
-- OpenAI: `OPENAI_API_KEY`, `OPENAI_MODEL`
-- Vertex: `VERTEXAI_PROJECT`, `VERTEXAI_LOCATION`, `VERTEXAI_MODEL`
-- Hugging Face: `HF_API_TOKEN`, `HF_MODEL_ID`, `HF_ENDPOINT_URL`, `HF_MAX_NEW_TOKENS`, `HF_TEMPERATURE`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL` (default atual: `gpt-4o`)
 
-Sessao e runtime:
+Provider Vertex AI:
+
+- `VERTEXAI_PROJECT`
+- `VERTEXAI_LOCATION`
+- `VERTEXAI_MODEL`
+
+Provider Hugging Face:
+
+- `HF_API_TOKEN`
+- `HF_MODEL_ID`
+- `HF_ENDPOINT_URL` (opcional)
+- `HF_MAX_NEW_TOKENS`
+- `HF_TEMPERATURE`
+
+Sessao e limites:
 
 - `SESSION_TTL_HOURS`
-- `ALLOWED_ORIGINS` (lista separada por virgula)
+- `ALLOWED_ORIGINS` (csv)
 - `BQ_COST_PER_TB_USD`
 - `BYTES_WARNING_THRESHOLD`
 - `BYTES_CRITICAL_THRESHOLD`
@@ -124,21 +215,19 @@ GOOGLE_APPLICATION_CREDENTIALS=secrets/credentials.json
 APP_USERS=analista:$2b$12$hash_bcrypt_aqui:Analista Dados
 ```
 
-## Como executar
-
-Opcao recomendada:
+## Execucao
 
 ```powershell
 uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Opcao alternativa:
+Alternativa:
 
 ```powershell
 python src/api/main.py
 ```
 
-Acesse no navegador:
+Portal local:
 
 - http://localhost:8000
 
@@ -149,18 +238,15 @@ Publicos:
 - `GET /`
 - `GET /health`
 - `GET /favicon.ico`
-
-Autenticacao:
-
 - `POST /api/login`
+- `GET /api/runtime-llm`
+
+Protegidos por sessao:
+
 - `POST /api/logout`
 - `GET /api/me`
-
-Agentes:
-
 - `GET /api/agents`
-- `GET /api/runtime-llm`
-- `POST /analyze` (atalho para Query Analyzer)
+- `POST /analyze`
 - `POST /api/agents/{agent_id}/analyze`
 - `POST /api/agents/query_build/validate-dataset`
 - `GET /api/agents/{agent_id}/checkpoint`
@@ -173,12 +259,12 @@ Arquivos principais:
 - [static/css/style.css](static/css/style.css)
 - [static/js/scripts.js](static/js/scripts.js)
 
-No Query Build, o campo `Dataset hint` possui validacao assincrona:
+Comportamentos atuais relevantes:
 
-- dispara ao sair do campo (onBlur)
-- dispara apos pausa de digitacao (~1s)
-- mostra status de validacao em tempo real
-- evita envio para LLM quando dataset nao estiver validado
+- login e sessao com token Bearer
+- exibicao da LLM ativa via `/api/runtime-llm`
+- barras de progresso para Query Analyzer e Query Build
+- validacao assincrona de `dataset_hint` no Query Build (onBlur e debounce)
 
 ## Testes
 
@@ -188,42 +274,31 @@ Executar:
 pytest -q
 ```
 
-Testes atuais:
+Suites atuais:
 
 - [tests/agents/test_query_analyzer.py](tests/agents/test_query_analyzer.py)
 - [tests/agents/test_query_build.py](tests/agents/test_query_build.py)
 - [tests/agents/test_document_build.py](tests/agents/test_document_build.py)
 - [tests/shared/test_bigquery_tools.py](tests/shared/test_bigquery_tools.py)
 
-## Processo de Commit e Publicacao
+## Script de Publicacao Local
 
-Padrao recomendado (commit + push automaticos):
+Com testes:
 
 ```powershell
 .\scripts\publish.ps1 -Message "feat: descricao da alteracao"
 ```
 
-Pulando testes (somente quando necessario):
+Sem testes:
 
 ```powershell
 .\scripts\publish.ps1 -Message "chore: ajuste rapido" -SkipTests
 ```
 
-Esse script executa:
+O script executa:
 
-1. validacao da branch atual
-2. `pytest -q` (padrao)
+1. validacao de repositorio e branch atual
+2. `pytest -q` (quando `-SkipTests` nao for informado)
 3. `git add -A`
 4. `git commit -m "..."`
 5. `git push origin <branch-atual>`
-
-## Checkpoints e Arquivos Locais
-
-- checkpoints de agentes sao salvos em `.sixth/checkpoints`
-- em ambiente de desenvolvimento, revise se deseja versionar esse diretorio
-
-## Roadmap Curto
-
-- ampliar cobertura de testes por fluxo de agente
-- adicionar observabilidade de custo e latencia por request
-- evoluir Document Build e Finance Auditor

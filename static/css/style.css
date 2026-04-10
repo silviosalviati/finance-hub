@@ -1348,7 +1348,8 @@ textarea {
 ───────────────────────────────────── */
 .hist-container {
   position: relative;
-  max-width: 1200px;
+  width: min(90%, 1680px);
+  max-width: none;
   margin: 0 auto;
 }
 

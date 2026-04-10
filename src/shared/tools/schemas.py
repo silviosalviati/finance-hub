@@ -41,3 +41,4 @@ class OptimizationReport(BaseModel):
     savings_pct: Optional[float] = None
     recommendations: list[str] = Field(default_factory=list)
     power_bi_tips: list[str] = Field(default_factory=list)
+    applied_optimizations: list[str] = Field(default_factory=list)

@@ -71,6 +71,7 @@ class QueryAnalyzerAgent(BaseAgent):
             "savings_pct": report.savings_pct,
             "recommendations": report.recommendations,
             "power_bi_tips": report.power_bi_tips,
+            "applied_optimizations": report.applied_optimizations,
             "dry_run_error": dry_orig.error if dry_orig else None,
         }
 

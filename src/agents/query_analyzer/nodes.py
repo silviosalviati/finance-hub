@@ -137,7 +137,7 @@ REGRAS ABSOLUTAS - nunca viole nenhuma delas:
 6. Remova SELECT * sempre que possivel e projete apenas colunas necessarias
 7. Sempre que possivel, aplique filtro por particao/data para evitar full scan
 8. O resultado DEVE ser identico ao original
-9. Adicione comentarios -- explicando cada otimizacao
+9. NUNCA adicione comentarios no SQL final
 10. Responda APENAS com o SQL otimizado
 {gold_layer_note}"""
 
@@ -167,7 +167,7 @@ Feedback da iteracao anterior (quando houver):
     )
 
     raw = _extract_message_content(response)
-    optimized = _extract_sql_from_response(raw)
+    optimized = _sanitize_optimized_sql(_extract_sql_from_response(raw))
 
     return {
         "optimized_query": optimized,
@@ -259,6 +259,8 @@ def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
     if not recommendations:
         recommendations = ["Query esta seguindo boas praticas do BigQuery."]
 
+    applied_optimizations = _build_applied_optimizations(state)
+
     report = OptimizationReport(
         efficiency_score=score,
         grade=grade,
@@ -270,6 +272,7 @@ def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
         savings_pct=savings_pct,
         recommendations=recommendations,
         power_bi_tips=power_bi_tips,
+        applied_optimizations=applied_optimizations,
     )
 
     return {"report": report}
@@ -307,6 +310,28 @@ def _strip_code_fences(raw: str) -> str:
     cleaned = re.sub(r"^```(?:json|sql)?\s*", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s*```$", "", cleaned)
     return cleaned.strip()
+
+
+def _remove_sql_comments(sql: str) -> str:
+    without_block = re.sub(r"/\*[\s\S]*?\*/", "", sql)
+    without_line = re.sub(r"--[^\n\r]*", "", without_block)
+    return without_line
+
+
+def _sanitize_optimized_sql(sql: str) -> str:
+    no_comments = _remove_sql_comments(sql)
+    lines = [line.rstrip() for line in no_comments.splitlines()]
+
+    compact: list[str] = []
+    previous_blank = False
+    for line in lines:
+        is_blank = not line.strip()
+        if is_blank and previous_blank:
+            continue
+        compact.append(line)
+        previous_blank = is_blank
+
+    return "\n".join(compact).strip()
 
 
 def _extract_sql_from_response(raw: str) -> str:
@@ -482,6 +507,67 @@ def _inspect_query_structure(query: str) -> dict[str, bool]:
         ),
         "has_cross_join": bool(re.search(r"CROSS\s+JOIN", query_upper)),
     }
+
+
+def _extract_limit_values(sql: str) -> list[int]:
+    values: list[int] = []
+    for match in re.finditer(r"\bLIMIT\s+(\d+)\b", sql, flags=re.IGNORECASE):
+        try:
+            values.append(int(match.group(1)))
+        except Exception:
+            continue
+    return values
+
+
+def _build_applied_optimizations(state: AgentState) -> list[str]:
+    items: list[str] = []
+
+    if state.antipatterns:
+        for ap in state.antipatterns:
+            suggestion = (ap.suggestion or "").strip()
+            if suggestion:
+                items.append(suggestion)
+
+    optimized_query = state.optimized_query or ""
+    if optimized_query:
+        if "--" not in optimized_query and "/*" not in optimized_query:
+            items.append("Comentarios removidos da query otimizada para SQL final limpo.")
+
+        limits = _extract_limit_values(optimized_query)
+        if limits:
+            max_limit = max(limits)
+            if max_limit >= 100000:
+                items.append(
+                    f"LIMIT extremo detectado ({max_limit}). Avalie se esse volume e realmente necessario para evitar consumo excessivo de slots."
+                )
+            else:
+                items.append(
+                    "LIMIT revisado para manter volume de retorno controlado e reduzir varredura desnecessaria."
+                )
+
+    if state.dry_run_original and state.dry_run_optimized:
+        dry_orig = state.dry_run_original
+        dry_opt = state.dry_run_optimized
+        if not dry_orig.error and not dry_opt.error and dry_orig.bytes_processed > 0:
+            pct = (
+                (dry_orig.bytes_processed - dry_opt.bytes_processed)
+                / dry_orig.bytes_processed
+                * 100
+            )
+            items.append(f"Reducao estimada de bytes processados: {pct:.1f}%.")
+
+    dedup: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        normalized = item.strip().lower()
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            dedup.append(item.strip())
+
+    if not dedup:
+        return ["Nenhuma otimização relevante foi necessária para esta query."]
+
+    return dedup
 
 
 def _generate_summary(

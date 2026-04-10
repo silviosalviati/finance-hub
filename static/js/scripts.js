@@ -660,7 +660,7 @@ function scheduleQBDatasetValidation() {
 }
 
 function resetQATabsDataState() {
-  ["tab-antipatterns", "tab-optimized", "tab-recs"].forEach((id) => {
+  ["tab-antipatterns", "tab-optimized", "tab-applied", "tab-recs"].forEach((id) => {
     document.getElementById(id)?.classList.remove("has-data");
   });
 
@@ -678,6 +678,7 @@ function resetQAResultPanels() {
   const qTipsSec = document.getElementById("q-tips-sec");
   const qOptSec = document.getElementById("q-opt-sec");
   const qOptEmpty = document.getElementById("q-opt-empty");
+  const qAppliedSec = document.getElementById("q-applied-sec");
 
   if (qTiles) qTiles.style.display = "none";
   if (qSavSec) qSavSec.style.display = "none";
@@ -685,6 +686,7 @@ function resetQAResultPanels() {
   if (qTipsSec) qTipsSec.style.display = "none";
   if (qOptSec) qOptSec.style.display = "none";
   if (qOptEmpty) qOptEmpty.style.display = "flex";
+  if (qAppliedSec) qAppliedSec.style.display = "none";
 
   const qApList = document.getElementById("q-ap-list");
   const qRecList = document.getElementById("q-rec-list");
@@ -692,6 +694,7 @@ function resetQAResultPanels() {
   const qOptQuery = document.getElementById("q-opt-query");
   const qSummary = document.getElementById("q-summary");
   const qApCount = document.getElementById("q-ap-count");
+  const qAppliedList = document.getElementById("q-applied-list");
 
   if (qApList) qApList.innerHTML = "";
   if (qRecList) qRecList.innerHTML = "";
@@ -699,6 +702,7 @@ function resetQAResultPanels() {
   if (qOptQuery) qOptQuery.textContent = "";
   if (qSummary) qSummary.textContent = "";
   if (qApCount) qApCount.textContent = "";
+  if (qAppliedList) qAppliedList.innerHTML = "";
 
   const scoreFill = document.getElementById("q-score-fill");
   const savFill = document.getElementById("q-sav-fill");
@@ -1438,6 +1442,29 @@ function renderQA(d) {
   } else {
     if (qOptSec) qOptSec.style.display = "none";
     if (qOptEmpty) qOptEmpty.style.display = "flex";
+  }
+
+  // Applied optimizations
+  const appliedTab = document.getElementById("tab-applied");
+  const qAppliedSec = document.getElementById("q-applied-sec");
+  const qAppliedList = document.getElementById("q-applied-list");
+  const appliedOptimizations = Array.isArray(d.applied_optimizations)
+    ? d.applied_optimizations
+    : [];
+
+  if (appliedOptimizations.length) {
+    if (appliedTab) appliedTab.classList.add("has-data");
+    if (qAppliedSec) qAppliedSec.style.display = "block";
+    if (qAppliedList) {
+      qAppliedList.innerHTML = appliedOptimizations
+        .map(
+          (item, i) =>
+            `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span>${item}</div>`,
+        )
+        .join("");
+    }
+  } else {
+    if (qAppliedSec) qAppliedSec.style.display = "none";
   }
 
   // Recommendations

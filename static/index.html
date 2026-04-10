@@ -799,37 +799,6 @@
             <div class="qa-body">
               <!-- Form -->
               <div class="qa-form">
-                <div class="qlabel">Modelo ativo</div>
-                <div class="qa-model">
-                  <div class="qa-model-ico">
-                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                      <circle
-                        cx="8"
-                        cy="8"
-                        r="2.5"
-                        stroke="#003087"
-                        stroke-width="1.5"
-                      />
-                      <path
-                        d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M3.5 12.5l1.4-1.4M11.1 4.9l1.4-1.4"
-                        stroke="#003087"
-                        stroke-width="1.1"
-                        stroke-linecap="round"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <div class="qa-model-name" id="qa-model-name">
-                      Carregando modelo...
-                    </div>
-                    <div class="qa-model-sub" id="qa-model-sub">
-                      LLM em uso no backend
-                    </div>
-                  </div>
-                </div>
-
-                <div class="sdiv qform-divider"></div>
-
                 <div class="qlabel">Configuração</div>
 
                 <div class="qfield">
@@ -837,7 +806,6 @@
                   <input
                     type="text"
                     id="qa-project"
-                    value="silviosalviati"
                     placeholder="Detectado automaticamente pela query"
                     readonly
                     tabindex="-1"
@@ -996,10 +964,6 @@
                       Clique em Analisar com Query Analyzer
                     </div>
                   </div>
-
-                  <button class="btn-example-query" type="button">
-                    Usar query de exemplo
-                  </button>
                 </div>
 
                 <div
@@ -1033,6 +997,13 @@
                       id="tab-optimized"
                     >
                       Query otimizada
+                    </div>
+                    <div
+                      class="qa-tab"
+                      onclick="switchTab('applied')"
+                      id="tab-applied"
+                    >
+                      Otimizações aplicadas
                     </div>
                     <div
                       class="qa-tab"
@@ -1203,6 +1174,24 @@
                       </div>
                     </div>
 
+                    <!-- OTIMIZAÇÕES APLICADAS TAB -->
+                    <div class="qa-tab-panel" id="panel-applied">
+                      <div
+                        class="sec-card"
+                        id="q-applied-sec"
+                        style="display: none"
+                      >
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Otimizações aplicadas
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="rec-list" id="q-applied-list"></div>
+                        </div>
+                      </div>
+                    </div>
+
                     <!-- RECOMENDAÇÕES TAB -->
                     <div class="qa-tab-panel" id="panel-recs">
                       <div
@@ -1312,37 +1301,6 @@
 
             <div class="qa-body">
               <div class="qa-form">
-                <div class="qlabel">Modelo ativo</div>
-                <div class="qa-model">
-                  <div class="qa-model-ico">
-                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                      <circle
-                        cx="8"
-                        cy="8"
-                        r="2.5"
-                        stroke="#003087"
-                        stroke-width="1.5"
-                      />
-                      <path
-                        d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M3.5 12.5l1.4-1.4M11.1 4.9l1.4-1.4"
-                        stroke="#003087"
-                        stroke-width="1.1"
-                        stroke-linecap="round"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <div class="qa-model-name" id="qb-model-name">
-                      Carregando modelo...
-                    </div>
-                    <div class="qa-model-sub" id="qb-model-sub">
-                      LLM em uso no backend
-                    </div>
-                  </div>
-                </div>
-
-                <div class="sdiv qform-divider"></div>
-
                 <div class="qlabel">Configuração</div>
 
                 <div class="qfield">
@@ -1474,13 +1432,6 @@
                     Descreva a necessidade em linguagem natural para gerar SQL
                     automaticamente.
                   </p>
-                  <button
-                    class="btn-example-query"
-                    type="button"
-                    onclick="loadExampleQBRequest()"
-                  >
-                    Usar exemplo de solicitação
-                  </button>
                 </div>
 
                 <div

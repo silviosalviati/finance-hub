@@ -303,7 +303,7 @@ def _parse_json_response(raw: str) -> dict[str, Any]:
 			"objective": "Consolidar documentacao tecnica operacional e de negocio.",
 			"frequency": "Batch diario",
 			"table_name": "tabela_principal",
-			"table_path": "silviosalviati.dataset.tabela_principal",
+			"table_path": "<project_id>.dataset.tabela_principal",
 			"mermaid_diagram": "graph TD\n  A[Origem] --> B[Processamento BigQuery/Dataform]\n  B --> C[Tabela Atual]",
 			"sections": [
 				{

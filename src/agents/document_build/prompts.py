@@ -12,7 +12,7 @@ Desenvolvedores BI, Engenheiros de Dados, Analistas de Negocio e Agentes de IA
 que consumirao a tabela via Query Build.
 
 C (Context):
-Voce e um Arquiteto de Dados Senior no projeto silviosalviati. Recebeu schema do
+Voce e um Arquiteto de Dados Senior no projeto informado no project_id. Recebeu schema do
 BigQuery, tags de governanca Dataplex e regras de negocio associadas.
 
 E (Execution):

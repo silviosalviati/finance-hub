@@ -521,40 +521,74 @@ def _extract_limit_values(sql: str) -> list[int]:
 
 def _build_applied_optimizations(state: AgentState) -> list[str]:
     items: list[str] = []
+    original_query = state.original_query or ""
+    optimized_query = state.optimized_query or ""
+
+    if original_query and optimized_query:
+        original_structure = _inspect_query_structure(original_query)
+        optimized_structure = _inspect_query_structure(optimized_query)
+
+        if original_structure["has_star"] and not optimized_structure["has_star"]:
+            items.append(
+                "Melhoria aplicada: remoção de SELECT * com projeção de colunas necessárias, reduzindo leitura de dados e consumo de slots."
+            )
+
+        if original_structure["has_cross_join"] and not optimized_structure["has_cross_join"]:
+            items.append(
+                "Melhoria aplicada: eliminação de CROSS JOIN sem filtro, evitando explosão combinatória e alto uso de slots."
+            )
+
+        if (
+            original_structure["has_order_without_limit"]
+            and not optimized_structure["has_order_without_limit"]
+        ):
+            items.append(
+                "Melhoria aplicada: ajuste de ORDER BY sem LIMIT para reduzir ordenação global desnecessária e custo de execução."
+            )
 
     if state.antipatterns:
         for ap in state.antipatterns:
             suggestion = (ap.suggestion or "").strip()
             if suggestion:
-                items.append(suggestion)
-
-    optimized_query = state.optimized_query or ""
-    if optimized_query:
-        if "--" not in optimized_query and "/*" not in optimized_query:
-            items.append("Comentarios removidos da query otimizada para SQL final limpo.")
-
-        limits = _extract_limit_values(optimized_query)
-        if limits:
-            max_limit = max(limits)
-            if max_limit >= 100000:
                 items.append(
-                    f"LIMIT extremo detectado ({max_limit}). Avalie se esse volume e realmente necessario para evitar consumo excessivo de slots."
+                    f"Critério considerado: {ap.pattern}. Ação tomada: {suggestion}"
                 )
-            else:
-                items.append(
-                    "LIMIT revisado para manter volume de retorno controlado e reduzir varredura desnecessaria."
-                )
+
+    if optimized_query and "--" not in optimized_query and "/*" not in optimized_query:
+        items.append(
+            "SQL final higienizada: comentários removidos para entrega de query otimizada limpa e pronta para execução."
+        )
+
+    limits = _extract_limit_values(optimized_query)
+    if limits:
+        max_limit = max(limits)
+        if max_limit >= 100000:
+            items.append(
+                f"Critério de custo/slot: LIMIT extremo detectado ({max_limit}); manter esse volume pode aumentar consumo de slots e custo total."
+            )
+        else:
+            items.append(
+                "Critério de custo/slot: LIMIT em faixa controlada para evitar varredura e processamento excessivos."
+            )
 
     if state.dry_run_original and state.dry_run_optimized:
         dry_orig = state.dry_run_original
         dry_opt = state.dry_run_optimized
         if not dry_orig.error and not dry_opt.error and dry_orig.bytes_processed > 0:
-            pct = (
-                (dry_orig.bytes_processed - dry_opt.bytes_processed)
-                / dry_orig.bytes_processed
-                * 100
+            bytes_saved = max(0, dry_orig.bytes_processed - dry_opt.bytes_processed)
+            pct = bytes_saved / dry_orig.bytes_processed * 100
+            cost_saved = max(0.0, dry_orig.estimated_cost_usd - dry_opt.estimated_cost_usd)
+            items.append(
+                "Impacto estimado (dry-run): "
+                f"{pct:.1f}% de redução de bytes processados "
+                f"({format_bytes(bytes_saved)} a menos), "
+                f"economia aproximada de USD {cost_saved:.4f}."
             )
-            items.append(f"Reducao estimada de bytes processados: {pct:.1f}%.")
+
+    if not items:
+        items.append(
+            "Critérios avaliados: redução de bytes processados, diminuição de operações custosas (sort/join), preservação de KPIs e manutenção do resultado final."
+        )
 
     dedup: list[str] = []
     seen: set[str] = set()

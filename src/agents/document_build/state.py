@@ -16,15 +16,20 @@ class DocumentBuildState(BaseModel):
 	audience: str = ""
 	objective: str = ""
 	frequency: str = ""
+	table_name: str = ""
+	table_path: str = ""
+	mermaid_diagram: str = ""
 
 	sections: list[dict[str, str]] = Field(default_factory=list)
 	data_dictionary: list[dict[str, str]] = Field(default_factory=list)
+	typing_notes: list[str] = Field(default_factory=list)
 	assumptions: list[str] = Field(default_factory=list)
 	risks: list[str] = Field(default_factory=list)
 	acceptance_checklist: list[str] = Field(default_factory=list)
 	next_steps: list[str] = Field(default_factory=list)
 	warnings: list[str] = Field(default_factory=list)
 	governance: dict[str, Any] = Field(default_factory=dict)
+	pending_technical: list[str] = Field(default_factory=list)
 
 	metadata: dict[str, Any] = Field(default_factory=dict)
 	markdown_document: str = ""

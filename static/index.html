@@ -837,9 +837,53 @@
                   <input
                     type="text"
                     id="qa-project"
-                    placeholder="porto-analytics-prod"
+                    placeholder="Detectado automaticamente pela query"
+                    readonly
+                    tabindex="-1"
                     autocomplete="off"
                   />
+                </div>
+
+                <div class="qfield">
+                  <label for="qa-dataset"
+                    >Dataset hint (obrigatorio)
+                    <span id="qa-dataset-indicator" class="qb-dataset-indicator"
+                      >●</span
+                    ></label
+                  >
+                  <input
+                    type="text"
+                    id="qa-dataset"
+                    placeholder="Detectado automaticamente pela query"
+                    readonly
+                    tabindex="-1"
+                    autocomplete="off"
+                  />
+                  <div
+                    id="qa-dataset-status"
+                    class="qb-dataset-status"
+                    aria-live="polite"
+                  >
+                    <div class="qb-dataset-status-head">
+                      <span
+                        id="qa-dataset-status-icon"
+                        class="qb-dataset-status-icon"
+                        >•</span
+                      >
+                      <span
+                        id="qa-dataset-status-title"
+                        class="qb-dataset-status-title"
+                      ></span>
+                    </div>
+                    <p
+                      id="qa-dataset-status-text"
+                      class="qb-dataset-status-text"
+                    ></p>
+                    <div
+                      id="qa-dataset-status-meta"
+                      class="qb-dataset-status-meta"
+                    ></div>
+                  </div>
                 </div>
 
                 <div class="qfield">

@@ -320,6 +320,8 @@ def dry_run_query(query: str, project_id: str | None) -> DryRunResult:
         )
 
         job = client.query(query, job_config=job_config)
+        # Garantimos que os metadados do dry-run estejam populados antes do calculo.
+        job.result()
 
         bytes_processed = job.total_bytes_processed or 0
         bytes_billed = job.total_bytes_billed or bytes_processed

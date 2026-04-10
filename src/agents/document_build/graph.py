@@ -1,5 +1,31 @@
-"""Document Build graph placeholder."""
+from __future__ import annotations
+
+from functools import partial
+
+from langchain_core.language_models import BaseChatModel
+from langgraph.graph import END, START, StateGraph
+
+from src.agents.document_build.nodes import (
+    finalize_document_markdown,
+    generate_document_structure,
+    parse_document_request,
+)
+from src.agents.document_build.state import DocumentBuildState
 
 
-def build_graph(*_args, **_kwargs):
-    raise NotImplementedError("Document Build ainda nao foi implementado.")
+def build_graph(llm: BaseChatModel):
+    workflow = StateGraph(DocumentBuildState)
+
+    workflow.add_node("parse_document_request", parse_document_request)
+    workflow.add_node(
+        "generate_document_structure",
+        partial(generate_document_structure, llm=llm),
+    )
+    workflow.add_node("finalize_document_markdown", finalize_document_markdown)
+
+    workflow.add_edge(START, "parse_document_request")
+    workflow.add_edge("parse_document_request", "generate_document_structure")
+    workflow.add_edge("generate_document_structure", "finalize_document_markdown")
+    workflow.add_edge("finalize_document_markdown", END)
+
+    return workflow.compile()

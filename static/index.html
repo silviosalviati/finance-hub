@@ -223,6 +223,27 @@
               Query Analyzer
             </div>
 
+            <div class="nitem" id="nav-db" onclick="navTo('db')">
+              <div class="nicon">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#3D5276"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="8" y1="13" x2="16" y2="13" />
+                  <line x1="8" y1="17" x2="16" y2="17" />
+                </svg>
+              </div>
+              Document Build
+            </div>
+
             <div class="nitem" id="nav-qb" onclick="navTo('qb')">
               <div class="nicon">
                 <svg
@@ -467,18 +488,7 @@
               <!-- Document Build -->
               <article
                 class="bot-card bc-doc"
-                onclick="
-                  openDev(
-                    'Document Build',
-                    'Gera documentação técnica a partir de queries SQL e pipelines.',
-                    [
-                      'Análise de queries',
-                      'Geração de markdown',
-                      'Exportar para Confluence',
-                    ],
-                    'Q2 2025',
-                  )
-                "
+                onclick="navTo('db')"
               >
                 <div class="bhead">
                   <div class="biw bi-teal">
@@ -498,7 +508,7 @@
                       <line x1="16" y1="17" x2="8" y2="17" />
                     </svg>
                   </div>
-                  <span class="bstatus st-beta">Em andamento</span>
+                  <span class="bstatus st-live">Disponivel</span>
                 </div>
 
                 <div>
@@ -1679,6 +1689,307 @@
                         </div>
                         <div class="sec-body">
                           <div id="qb-dryrun"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── DOCUMENT BUILD VIEW ── -->
+          <section class="view" id="view-db" style="padding: 0">
+            <div class="qa-topbar">
+              <button class="btn-back" onclick="navTo('home')">
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M19 12H5M12 5l-7 7 7 7" />
+                </svg>
+                Voltar
+              </button>
+
+              <div class="breadcrumb">
+                <span onclick="navTo('home')" style="cursor: pointer"
+                  >Painel</span
+                >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+                <span class="cur">Document Build</span>
+              </div>
+            </div>
+
+            <div class="qa-hero">
+              <div class="qa-hero-icon">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#003087"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="8" y1="13" x2="16" y2="13" />
+                  <line x1="8" y1="17" x2="16" y2="17" />
+                </svg>
+              </div>
+
+              <div>
+                <div class="qa-hero-title">Document Build</div>
+                <div class="qa-hero-desc">
+                  Gera documentação técnica estruturada em Markdown para
+                  pipelines, queries e regras de negócio.
+                </div>
+              </div>
+
+              <div class="qa-hero-right">
+                <span class="qa-hero-tag">Docs</span>
+                <span class="qa-hero-tag">DataOps</span>
+                <span class="qa-hero-tag">Governança</span>
+                <div class="qa-live-badge">
+                  <div class="qa-live-dot"></div>
+                  Disponivel
+                </div>
+              </div>
+            </div>
+
+            <div class="qa-body">
+              <div class="qa-form">
+                <div class="qlabel">Configuração</div>
+
+                <div class="qfield">
+                  <label for="db-project">Project ID — GCP</label>
+                  <input
+                    type="text"
+                    id="db-project"
+                    placeholder="porto-analytics-prod"
+                    autocomplete="off"
+                  />
+                </div>
+
+                <div class="qfield">
+                  <label for="db-dataset">Dataset hint (opcional)</label>
+                  <input
+                    type="text"
+                    id="db-dataset"
+                    placeholder="ex: inteligencia_negocios"
+                    autocomplete="off"
+                  />
+                </div>
+
+                <div class="qfield">
+                  <label for="db-request">Contexto para documentação</label>
+                  <textarea
+                    id="db-request"
+                    placeholder="Ex: Documentar pipeline de vendas diarias para Power BI, com fontes, regras de negócio, KPIs, riscos e checklist de homologação."
+                  ></textarea>
+                  <p class="qhint">
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                      <circle
+                        cx="6"
+                        cy="6"
+                        r="5"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                      />
+                      <path
+                        d="M6 5.5v3M6 4h.01"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                    Ctrl+Enter para gerar documentação
+                  </p>
+                </div>
+
+                <div id="db-error" class="qa-error" role="alert"></div>
+
+                <button class="btn-analyze" id="db-btn" onclick="runDocumentBuild()">
+                  <div class="spinner" id="db-spinner"></div>
+                  <span id="db-btn-text">Gerar com Document Build</span>
+                </button>
+
+                <div id="db-progress" class="qa-progress" style="display: none">
+                  <div class="qa-progress-head">
+                    <span class="qa-progress-title">Processando documentação</span>
+                    <span class="qa-progress-step" id="db-progress-step">Preparando...</span>
+                  </div>
+                  <div class="qa-progress-track">
+                    <div class="qa-progress-fill" id="db-progress-fill" style="width: 8%"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="qa-results-wrap">
+                <div class="qa-empty" id="db-empty" style="height: 100%">
+                  <div class="qa-empty-ico">
+                    <svg
+                      width="22"
+                      height="22"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#003087"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="8" y1="13" x2="16" y2="13" />
+                      <line x1="8" y1="17" x2="16" y2="17" />
+                    </svg>
+                  </div>
+                  <h3>Aguardando contexto</h3>
+                  <p>
+                    Informe o cenário técnico para gerar documentação completa
+                    com seções, checklist e próximos passos.
+                  </p>
+                </div>
+
+                <div
+                  id="db-tabs-area"
+                  style="
+                    display: none;
+                    flex-direction: column;
+                    height: 100%;
+                    overflow: hidden;
+                  "
+                >
+                  <div class="qa-tabs-bar">
+                    <div class="qa-tab active" id="db-tab-score" onclick="switchDBTab('score')">
+                      Resumo
+                    </div>
+                    <div class="qa-tab" id="db-tab-structure" onclick="switchDBTab('structure')">
+                      Estrutura
+                    </div>
+                    <div class="qa-tab" id="db-tab-document" onclick="switchDBTab('document')">
+                      Documento
+                    </div>
+                    <div class="qa-tab" id="db-tab-checklist" onclick="switchDBTab('checklist')">
+                      Checklist
+                    </div>
+                  </div>
+
+                  <div class="qa-tab-panels">
+                    <div class="qa-tab-panel active" id="db-panel-score">
+                      <div class="res-card">
+                        <div class="score-inner">
+                          <div class="grade-block" id="db-grade-block">
+                            <span class="grade-ltr" id="db-grade-ltr">—</span>
+                            <span class="grade-sub">Qualidade</span>
+                          </div>
+
+                          <div class="score-body">
+                            <div class="score-top">
+                              <span class="score-big" id="db-score-big">—</span>
+                              <span class="score-of">/ 100</span>
+                              <span class="score-tag">Prontidão da documentação</span>
+                            </div>
+
+                            <div class="score-bar">
+                              <div class="score-fill" id="db-score-fill" style="width: 0%"></div>
+                            </div>
+
+                            <div class="score-txt" id="db-summary"></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="tiles" id="db-tiles" style="display: grid">
+                        <div class="tile">
+                          <div class="tile-lbl">Tipo</div>
+                          <div class="tile-val" id="db-doc-type" style="color: var(--teal)">—</div>
+                          <div class="tile-sub">Documento</div>
+                        </div>
+
+                        <div class="tile">
+                          <div class="tile-lbl">Seções</div>
+                          <div class="tile-val" id="db-sections-count" style="color: var(--porto)">0</div>
+                          <div class="tile-sub">Estrutura gerada</div>
+                        </div>
+
+                        <div class="tile">
+                          <div class="tile-lbl">Checklist</div>
+                          <div class="tile-val" id="db-checklist-count" style="color: var(--emerald)">0</div>
+                          <div class="tile-sub">Itens acionáveis</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="qa-tab-panel" id="db-panel-structure">
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Estrutura técnica
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="rec-list" id="db-structure-list"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="qa-tab-panel" id="db-panel-document">
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Documento em Markdown
+                          </div>
+                        </div>
+                        <div class="sec-body" style="padding: 10px 12px">
+                          <div class="sql-wrap">
+                            <div class="sql-bar">
+                              <div class="sql-dots"><span></span><span></span><span></span></div>
+                              <span class="sql-fname">documentacao.md</span>
+                              <button class="copy-btn" onclick="copyDBDocument()">Copiar Markdown</button>
+                            </div>
+                            <pre id="db-markdown"></pre>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="qa-tab-panel" id="db-panel-checklist">
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Checklist de entrega
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="rec-list" id="db-checklist-list"></div>
+                        </div>
+                      </div>
+
+                      <div class="sec-card" id="db-next-steps-sec" style="display: none">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Próximos passos
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="rec-list" id="db-next-steps-list"></div>
                         </div>
                       </div>
                     </div>

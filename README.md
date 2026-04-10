@@ -8,7 +8,8 @@ Centralizar assistentes de dados para:
 
 - analisar e otimizar queries existentes (Query Analyzer)
 - construir SQL a partir de linguagem natural (Query Build)
-- manter trilha de evolucao para novos agentes (Document Build e Finance Auditor)
+- elaborar documentacao tecnica automatizada (Document Build)
+- manter trilha de evolucao para novos agentes (Finance Auditor)
 
 ## Arquitetura Atual
 
@@ -24,7 +25,7 @@ bot-query/
 │   ├── agents/
 │   │   ├── query_analyzer/          # agente implementado (LangGraph)
 │   │   ├── query_build/             # agente implementado (LangGraph)
-│   │   ├── document_build/          # placeholder (retorna not_implemented)
+│   │   ├── document_build/          # agente implementado (LangGraph)
 │   │   └── finance_auditor/         # placeholder de pacote/grafo
 │   ├── core/
 │   │   ├── base_agent.py            # contrato base de agentes
@@ -58,7 +59,7 @@ Arquivos de referencia:
 | --------------- | ----------------- | ------------------------------- | ------------------- |
 | Query Analyzer  | `query_analyzer`  | Implementado                    | Sim                 |
 | Query Build     | `query_build`     | Implementado                    | Sim                 |
-| Document Build  | `document_build`  | Placeholder (`not_implemented`) | Sim                 |
+| Document Build  | `document_build`  | Implementado                    | Sim                 |
 | Finance Auditor | `finance_auditor` | Placeholder de pacote/grafo     | Nao                 |
 
 Observacao: atualmente o registry em runtime registra Query Analyzer, Query Build e Document Build.
@@ -134,6 +135,29 @@ Saida principal:
 - warnings de validacao
 - dry-run (bytes/custo/erro)
 - sample de colunas/linhas
+
+## Document Build (implementado)
+
+Entrada:
+
+- `query` (contexto tecnico para documentacao)
+- `project_id`
+- `dataset_hint` (opcional)
+
+Pipeline de alto nivel:
+
+1. classifica o tipo de documento a partir do contexto
+2. gera estrutura tecnica com secoes, premissas, riscos e checklist
+3. consolida documento final em Markdown
+4. calcula score de qualidade documental
+
+Saida principal:
+
+- `title`, `doc_type`, `summary`
+- secoes tecnicas estruturadas
+- checklist de aceitacao e proximos passos
+- `markdown_document` pronto para copiar/publicar
+- `quality_score` da documentacao
 
 ## Validacao de Dataset no Query Build
 
@@ -303,6 +327,7 @@ Comportamentos atuais relevantes:
 - Query Analyzer com `Project ID` e `Dataset hint` em modo somente leitura
 - validacao assincrona do contexto da query no Query Analyzer (input + debounce)
 - validacao assincrona de `dataset_hint` no Query Build (input, blur e debounce)
+- tela dedicada para Document Build com geracao de Markdown
 - aba `Otimizacoes aplicadas` no resultado do Query Analyzer
 
 ## Testes

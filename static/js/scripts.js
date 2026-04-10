@@ -15,6 +15,7 @@ const qaDatasetValidationState = {
 };
 let qbDatasetValidationTimer = null;
 let qbIsLoading = false;
+let dbIsLoading = false;
 const qbDatasetValidationState = {
   status: "idle",
   datasetHint: "",
@@ -204,6 +205,30 @@ function hideQBProgress() {
   const progress = document.getElementById("qb-progress");
   const fill = document.getElementById("qb-progress-fill");
   const step = document.getElementById("qb-progress-step");
+
+  if (!progress || !fill || !step) return;
+
+  progress.style.display = "none";
+  fill.style.width = "8%";
+  step.textContent = "Preparando...";
+}
+
+function setDBProgress(stepText, pct) {
+  const progress = document.getElementById("db-progress");
+  const step = document.getElementById("db-progress-step");
+  const fill = document.getElementById("db-progress-fill");
+
+  if (!progress || !step || !fill) return;
+
+  progress.style.display = "flex";
+  step.textContent = stepText;
+  fill.style.width = `${pct}%`;
+}
+
+function hideDBProgress() {
+  const progress = document.getElementById("db-progress");
+  const fill = document.getElementById("db-progress-fill");
+  const step = document.getElementById("db-progress-step");
 
   if (!progress || !fill || !step) return;
 
@@ -836,6 +861,7 @@ function navTo(view) {
   const mapping = {
     home: "view-home",
     qa: "view-qa",
+    db: "view-db",
     qb: "view-qb",
     dev: "view-dev",
     hist: "view-hist",
@@ -856,11 +882,13 @@ function navTo(view) {
     document.querySelectorAll(".snav")[2]?.classList.add("active");
   } else if (view === "qa") {
     document.getElementById("nav-qa")?.classList.add("active");
+  } else if (view === "db") {
+    document.getElementById("nav-db")?.classList.add("active");
   } else if (view === "qb") {
     document.getElementById("nav-qb")?.classList.add("active");
   }
 
-  if (view === "qa" || view === "qb") {
+  if (view === "qa" || view === "qb" || view === "db") {
     updateLastAccess();
   }
 }
@@ -1096,6 +1124,213 @@ async function runQueryBuild() {
       setQBLoading(false);
     }, 350);
   }
+}
+
+async function runDocumentBuild() {
+  const requestText = document.getElementById("db-request")?.value.trim() || "";
+  const projectId = document.getElementById("db-project")?.value.trim() || "";
+  const datasetHint = document.getElementById("db-dataset")?.value.trim() || "";
+  const dbEmpty = document.getElementById("db-empty");
+  const dbTabsArea = document.getElementById("db-tabs-area");
+
+  if (!requestText) {
+    showDBError("Descreva o contexto antes de gerar a documentação.");
+    return;
+  }
+
+  if (!projectId) {
+    showDBError("Preencha o Project ID do GCP.");
+    return;
+  }
+
+  showDBError("");
+  setDBLoading(true);
+  setDBProgress("Validando entrada...", 14);
+
+  if (dbEmpty) dbEmpty.style.display = "none";
+  if (dbTabsArea) dbTabsArea.style.display = "none";
+
+  try {
+    setTimeout(() => setDBProgress("Estruturando documentação...", 38), 180);
+    setTimeout(() => setDBProgress("Gerando conteúdo técnico...", 64), 520);
+    setTimeout(() => setDBProgress("Consolidando markdown...", 86), 980);
+
+    const res = await fetch("/api/agents/document_build/analyze", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        query: requestText,
+        project_id: projectId,
+        dataset_hint: datasetHint || null,
+      }),
+    });
+
+    if (res.status === 401) {
+      doLogout();
+      return;
+    }
+
+    if (!res.ok) {
+      const e = await res.json();
+      throw new Error(e.detail || "Erro ao gerar documentação");
+    }
+
+    const data = await res.json();
+    if (data.status === "error") {
+      throw new Error(data.error || "Não foi possível gerar a documentação.");
+    }
+
+    setDBProgress("Finalizando apresentação...", 100);
+    renderDocumentBuild(data);
+  } catch (e) {
+    showDBError(prettifyErrorMessage(e.message));
+    if (dbTabsArea && dbTabsArea.style.display === "none" && dbEmpty) {
+      dbEmpty.style.display = "flex";
+    }
+  } finally {
+    setTimeout(() => {
+      hideDBProgress();
+      setDBLoading(false);
+    }, 350);
+  }
+}
+
+function renderDocumentBuild(data) {
+  const empty = document.getElementById("db-empty");
+  const tabsArea = document.getElementById("db-tabs-area");
+  if (empty) empty.style.display = "none";
+  if (tabsArea) tabsArea.style.display = "block";
+
+  const score = Number(data.quality_score || 0);
+  const grade = score >= 90 ? "A" : score >= 75 ? "B" : score >= 60 ? "C" : "D";
+
+  const summary = document.getElementById("db-summary");
+  const gradeBlock = document.getElementById("db-grade-block");
+  const gradeLtr = document.getElementById("db-grade-ltr");
+  const scoreBig = document.getElementById("db-score-big");
+  const scoreFill = document.getElementById("db-score-fill");
+
+  if (gradeBlock) gradeBlock.className = `grade-block gb-${grade}`;
+  if (gradeLtr) gradeLtr.textContent = grade;
+  if (scoreBig) scoreBig.textContent = String(score);
+  if (scoreFill) {
+    scoreFill.className = `score-fill sf-${grade}`;
+    setTimeout(() => {
+      scoreFill.style.width = `${score}%`;
+    }, 80);
+  }
+  if (summary) summary.textContent = data.summary || "Documentação gerada sem resumo detalhado.";
+
+  const sections = Array.isArray(data.sections) ? data.sections : [];
+  const checklist = Array.isArray(data.acceptance_checklist)
+    ? data.acceptance_checklist
+    : [];
+  const nextSteps = Array.isArray(data.next_steps) ? data.next_steps : [];
+  const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+
+  const docType = document.getElementById("db-doc-type");
+  const sectionCount = document.getElementById("db-sections-count");
+  const checklistCount = document.getElementById("db-checklist-count");
+  const structureList = document.getElementById("db-structure-list");
+  const markdown = document.getElementById("db-markdown");
+  const checklistList = document.getElementById("db-checklist-list");
+  const nextStepsSec = document.getElementById("db-next-steps-sec");
+  const nextStepsList = document.getElementById("db-next-steps-list");
+
+  if (docType) docType.textContent = data.doc_type || "—";
+  if (sectionCount) sectionCount.textContent = String(sections.length);
+  if (checklistCount) checklistCount.textContent = String(checklist.length);
+
+  if (structureList) {
+    const baseItems = sections.map((section, i) => {
+      const title = section.title || `Seção ${i + 1}`;
+      const content = section.content || "Sem conteúdo.";
+      return `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span><strong>${title}:</strong> ${content}</div>`;
+    });
+
+    const warningItems = warnings.map(
+      (w) => `<div class="rec-item" style="border-color:#fecaca;background:var(--rose-bg);color:var(--rose)">⚠ ${w}</div>`,
+    );
+
+    structureList.innerHTML = [...baseItems, ...warningItems].join("") ||
+      '<div class="rec-item">Nenhuma seção retornada.</div>';
+  }
+
+  if (markdown) {
+    markdown.textContent = data.markdown_document || "Nenhum markdown retornado.";
+  }
+
+  if (checklistList) {
+    checklistList.innerHTML = checklist.length
+      ? checklist
+          .map(
+            (item, i) =>
+              `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span>${item}</div>`,
+          )
+          .join("")
+      : '<div class="rec-item">Checklist não informado.</div>';
+  }
+
+  if (nextStepsSec) nextStepsSec.style.display = nextSteps.length ? "block" : "none";
+  if (nextStepsList && nextSteps.length) {
+    nextStepsList.innerHTML = nextSteps
+      .map(
+        (item, i) =>
+          `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span>${item}</div>`,
+      )
+      .join("");
+  }
+
+  switchDBTab("score");
+}
+
+function switchDBTab(name) {
+  document.querySelectorAll('[id^="db-tab-"]').forEach((t) => {
+    t.classList.remove("active");
+  });
+
+  document.querySelectorAll('[id^="db-panel-"]').forEach((p) => {
+    p.classList.remove("active");
+  });
+
+  const tab = document.getElementById("db-tab-" + name);
+  const panel = document.getElementById("db-panel-" + name);
+
+  if (tab) tab.classList.add("active");
+  if (panel) panel.classList.add("active");
+}
+
+function setDBLoading(on) {
+  const btn = document.getElementById("db-btn");
+  const spinner = document.getElementById("db-spinner");
+  const text = document.getElementById("db-btn-text");
+
+  dbIsLoading = on;
+  if (btn) btn.disabled = on;
+  if (spinner) spinner.style.display = on ? "block" : "none";
+  if (text) {
+    text.textContent = on ? "Gerando documentação..." : "Gerar com Document Build";
+  }
+}
+
+function showDBError(message) {
+  const box = document.getElementById("db-error");
+  if (!box) return;
+
+  if (!message) {
+    box.style.display = "none";
+    box.textContent = "";
+    return;
+  }
+
+  box.textContent = "⚠ " + message;
+  box.style.display = "block";
+}
+
+function copyDBDocument() {
+  const content = document.getElementById("db-markdown")?.textContent || "";
+  if (!content) return;
+  navigator.clipboard.writeText(content);
 }
 
 function renderQB(data) {
@@ -1869,6 +2104,12 @@ document.getElementById("qb-request")?.addEventListener("keydown", (e) => {
   }
 });
 
+document.getElementById("db-request")?.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.key === "Enter") {
+    runDocumentBuild();
+  }
+});
+
 document.getElementById("qb-dataset")?.addEventListener("input", () => {
   const datasetHint = document.getElementById("qb-dataset")?.value.trim() || "";
 
@@ -1941,18 +2182,8 @@ const showcaseBots = [
     description:
       "Gera documentação técnica automaticamente a partir de queries SQL, pipelines e modelos de dados financeiros.",
     tags: ["Docs", "Pipeline", "DataOps"],
-    status: "Em Andamento",
-    action: () =>
-      openDev(
-        "Document Build",
-        "Gera documentação técnica a partir de queries SQL e pipelines.",
-        [
-          "Análise de queries",
-          "Geração de markdown",
-          "Exportar para Confluence",
-        ],
-        "Q2 2025",
-      ),
+    status: "Disponivel",
+    action: () => navTo("db"),
   },
   {
     name: "Query Build",

@@ -3038,9 +3038,17 @@ pre {
 }
 
 .db-canvas-panel {
+  overflow: hidden;
+}
+
+.db-canvas-scroll {
+  max-height: min(58vh, 520px);
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .db-canvas-hero {

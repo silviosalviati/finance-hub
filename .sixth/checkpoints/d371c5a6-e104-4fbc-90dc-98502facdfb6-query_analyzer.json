@@ -1,0 +1,25 @@
+{
+  "saved_at": "2026-04-10T02:31:33.298240",
+  "payload": {
+    "efficiency_score": 100,
+    "grade": "A",
+    "summary": "A análise da query BigQuery para Power BI não apresentou nenhum anti-padrão e obteve uma pontuação de eficiência máxima de 100/100, indicando que a query está otimizada e eficiente. Embora não haja economia estimada calculada, isso sugere que a query não possui overhead desnecessário, o que não impacta negativamente o custo ou a performance.",
+    "antipatterns": [],
+    "optimized_query": null,
+    "bytes_original": 1300122,
+    "bytes_optimized": null,
+    "cost_original_usd": 6e-06,
+    "cost_optimized_usd": null,
+    "bytes_saved": null,
+    "cost_saved_usd": null,
+    "savings_pct": null,
+    "recommendations": [
+      "Query esta seguindo boas praticas do BigQuery."
+    ],
+    "power_bi_tips": [
+      "Use DirectQuery com filtro de particao para dashboards de series temporais.",
+      "Considere materializar agregacoes frequentes em scheduled queries."
+    ],
+    "dry_run_error": null
+  }
+}

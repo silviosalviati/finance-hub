@@ -55,12 +55,12 @@ Arquivos de referencia:
 
 ## Agentes e Status
 
-| Agente          | ID                | Status                          | Registro no runtime |
-| --------------- | ----------------- | ------------------------------- | ------------------- |
-| Query Analyzer  | `query_analyzer`  | Implementado                    | Sim                 |
-| Query Build     | `query_build`     | Implementado                    | Sim                 |
-| Document Build  | `document_build`  | Implementado                    | Sim                 |
-| Finance Auditor | `finance_auditor` | Placeholder de pacote/grafo     | Nao                 |
+| Agente          | ID                | Status                      | Registro no runtime |
+| --------------- | ----------------- | --------------------------- | ------------------- |
+| Query Analyzer  | `query_analyzer`  | Implementado                | Sim                 |
+| Query Build     | `query_build`     | Implementado                | Sim                 |
+| Document Build  | `document_build`  | Implementado                | Sim                 |
+| Finance Auditor | `finance_auditor` | Placeholder de pacote/grafo | Nao                 |
 
 Observacao: atualmente o registry em runtime registra Query Analyzer, Query Build e Document Build.
 

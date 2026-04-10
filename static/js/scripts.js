@@ -1219,7 +1219,9 @@ function renderDocumentBuild(data) {
       scoreFill.style.width = `${score}%`;
     }, 80);
   }
-  if (summary) summary.textContent = data.summary || "Documentação gerada sem resumo detalhado.";
+  if (summary)
+    summary.textContent =
+      data.summary || "Documentação gerada sem resumo detalhado.";
 
   const sections = Array.isArray(data.sections) ? data.sections : [];
   const checklist = Array.isArray(data.acceptance_checklist)
@@ -1249,15 +1251,18 @@ function renderDocumentBuild(data) {
     });
 
     const warningItems = warnings.map(
-      (w) => `<div class="rec-item" style="border-color:#fecaca;background:var(--rose-bg);color:var(--rose)">⚠ ${w}</div>`,
+      (w) =>
+        `<div class="rec-item" style="border-color:#fecaca;background:var(--rose-bg);color:var(--rose)">⚠ ${w}</div>`,
     );
 
-    structureList.innerHTML = [...baseItems, ...warningItems].join("") ||
+    structureList.innerHTML =
+      [...baseItems, ...warningItems].join("") ||
       '<div class="rec-item">Nenhuma seção retornada.</div>';
   }
 
   if (markdown) {
-    markdown.textContent = data.markdown_document || "Nenhum markdown retornado.";
+    markdown.textContent =
+      data.markdown_document || "Nenhum markdown retornado.";
   }
 
   if (checklistList) {
@@ -1271,7 +1276,8 @@ function renderDocumentBuild(data) {
       : '<div class="rec-item">Checklist não informado.</div>';
   }
 
-  if (nextStepsSec) nextStepsSec.style.display = nextSteps.length ? "block" : "none";
+  if (nextStepsSec)
+    nextStepsSec.style.display = nextSteps.length ? "block" : "none";
   if (nextStepsList && nextSteps.length) {
     nextStepsList.innerHTML = nextSteps
       .map(
@@ -1309,7 +1315,9 @@ function setDBLoading(on) {
   if (btn) btn.disabled = on;
   if (spinner) spinner.style.display = on ? "block" : "none";
   if (text) {
-    text.textContent = on ? "Gerando documentação..." : "Gerar com Document Build";
+    text.textContent = on
+      ? "Gerando documentação..."
+      : "Gerar com Document Build";
   }
 }
 

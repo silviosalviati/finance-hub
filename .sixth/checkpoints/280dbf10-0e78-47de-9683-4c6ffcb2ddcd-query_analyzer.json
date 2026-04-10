@@ -1,0 +1,68 @@
+{
+  "saved_at": "2026-04-10T03:20:22.082106",
+  "payload": {
+    "efficiency_score": 10,
+    "grade": "F",
+    "summary": "A análise da query BigQuery para Power BI revelou quatro anti-padrões, resultando em um baixo score de eficiência de 10/100 (F), indicando que a query não está otimizada. Isso pode levar a custos elevados e performance ruim. A melhoria alcançada após a otimização seria significativa, embora não seja possível quantificar exatamente sem correções específicas e testes posteriores.",
+    "antipatterns": [
+      {
+        "pattern": "ORDER BY sem LIMIT",
+        "description": "A consulta ordena os resultados sem especificar um limite, o que pode resultar em desempenho ruim, especialmente em tabelas grandes.",
+        "severity": "MEDIUM",
+        "line_hint": null,
+        "suggestion": "Adicione um LIMIT para limitar o número de linhas retornadas."
+      },
+      {
+        "pattern": "JOIN em coluna não clusterizada",
+        "description": "O JOIN é feito na coluna `id_cliente`, que não está clusterizada. Isso pode resultar em desempenho ruim, pois a BigQuery pode precisar realizar um JOIN completo.",
+        "severity": "HIGH",
+        "line_hint": null,
+        "suggestion": "Clusterize a tabela `silviosalviati.inteligencia_negocios.faturamento_detalhado` pela coluna `id_cliente` ou use uma coluna clusterizada para o JOIN."
+      },
+      {
+        "pattern": "Função não-determinística em WHERE",
+        "description": "A função `LOWER()` é usada em um filtro WHERE, o que pode resultar em desempenho ruim, pois a BigQuery não pode otimizar adequadamente consultas com funções não-determinísticas.",
+        "severity": "MEDIUM",
+        "line_hint": null,
+        "suggestion": "Evite usar funções não-determinísticas em filtros WHERE. Se necessário, considere usar uma função de agregação ou um filtro em uma subquery."
+      },
+      {
+        "pattern": "Acesso a coluna não encontrada",
+        "description": "O erro de dry-run indica que a coluna `id_cliente` não foi encontrada na tabela `t1`. Isso pode ser devido a um erro de digitação ou a uma coluna ausente.",
+        "severity": "HIGH",
+        "line_hint": null,
+        "suggestion": "Verifique se a coluna `id_cliente` existe na tabela `silviosalviati.inteligencia_negocios.faturamento_detalhado`."
+      }
+    ],
+    "optimized_query": "SELECT\n    t1.id_cliente,\n    t2.segmento_cliente,\n    COUNT(*) OVER () AS total_clientes,\n    SUM(t1.valor_liquido) OVER (ORDER BY t1.data_faturamento) AS acumulado,\n    (t1.valor_liquido - t1.custo_operacional) / NULLIF(t1.valor_liquido, 0) + (t1.valor_liquido - t1.custo_operacional) / 2 AS calculo_redundante\nFROM\n    `silviosalviati.inteligencia_negocios.faturamento_detalhado` AS t1\nLEFT JOIN\n    `silviosalviati.inteligencia_negocios.perfil_comportamental_clientes` AS t2\n    ON t1.id_cliente = t2.id_cliente\nWHERE\n    t1.canal_venda LIKE '%e-commerce%'\n    OR t1.transacao_id IS NOT NULL\nORDER BY\n    t1.data_faturamento",
+    "bytes_original": 0,
+    "bytes_optimized": 0,
+    "cost_original_usd": 0.0,
+    "cost_optimized_usd": 0.0,
+    "bytes_saved": null,
+    "cost_saved_usd": null,
+    "savings_pct": null,
+    "recommendations": [
+      "Adicione um LIMIT para limitar o número de linhas retornadas.",
+      "Clusterize a tabela `silviosalviati.inteligencia_negocios.faturamento_detalhado` pela coluna `id_cliente` ou use uma coluna clusterizada para o JOIN.",
+      "Evite usar funções não-determinísticas em filtros WHERE. Se necessário, considere usar uma função de agregação ou um filtro em uma subquery.",
+      "Verifique se a coluna `id_cliente` existe na tabela `silviosalviati.inteligencia_negocios.faturamento_detalhado`."
+    ],
+    "power_bi_tips": [
+      "Evite ORDER BY sem necessidade no dataset do dashboard; priorize ordenacao no visual e preserve a consulta base enxuta.",
+      "Adote modelo estrela (fato + dimensoes) com relacionamentos simples para melhorar desempenho e clareza das medidas DAX.",
+      "Crie medidas reutilizaveis e padronizadas (nomenclatura e formato) para garantir consistencia de KPI entre paginas e dashboards.",
+      "Use refresh incremental e filtros por data/particao no backend para evitar full scan em atualizacoes.",
+      "Otimize UX: limite visuais por pagina, mantenha hierarquia visual clara e use navegacao orientada a perguntas de negocio.",
+      "Implemente governanca: RLS, dicionario de metricas e validacao de qualidade de dados antes da publicacao."
+    ],
+    "applied_optimizations": [
+      "Critério considerado: ORDER BY sem LIMIT. Ação tomada: Adicione um LIMIT para limitar o número de linhas retornadas.",
+      "Critério considerado: JOIN em coluna não clusterizada. Ação tomada: Clusterize a tabela `silviosalviati.inteligencia_negocios.faturamento_detalhado` pela coluna `id_cliente` ou use uma coluna clusterizada para o JOIN.",
+      "Critério considerado: Função não-determinística em WHERE. Ação tomada: Evite usar funções não-determinísticas em filtros WHERE. Se necessário, considere usar uma função de agregação ou um filtro em uma subquery.",
+      "Critério considerado: Acesso a coluna não encontrada. Ação tomada: Verifique se a coluna `id_cliente` existe na tabela `silviosalviati.inteligencia_negocios.faturamento_detalhado`.",
+      "SQL final higienizada: comentários removidos para entrega de query otimizada limpa e pronta para execução."
+    ],
+    "dry_run_error": "400 POST https://bigquery.googleapis.com/bigquery/v2/projects/silviosalviati/jobs?prettyPrint=false: Name id_cliente not found inside t1 at [11:11]\n\nLocation: None\nJob ID: 9fa182c5-2e1a-47c7-9f5a-6bb4a126b50d\n"
+  }
+}

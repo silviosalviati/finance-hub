@@ -235,7 +235,9 @@
                   stroke-linecap="round"
                   stroke-linejoin="round"
                 >
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <path
+                    d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+                  />
                   <polyline points="14 2 14 8 20 8" />
                   <line x1="8" y1="13" x2="16" y2="13" />
                   <line x1="8" y1="17" x2="16" y2="17" />
@@ -486,10 +488,7 @@
               </article>
 
               <!-- Document Build -->
-              <article
-                class="bot-card bc-doc"
-                onclick="navTo('db')"
-              >
+              <article class="bot-card bc-doc" onclick="navTo('db')">
                 <div class="bhead">
                   <div class="biw bi-teal">
                     <svg
@@ -1747,7 +1746,9 @@
                   stroke-linecap="round"
                   stroke-linejoin="round"
                 >
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <path
+                    d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+                  />
                   <polyline points="14 2 14 8 20 8" />
                   <line x1="8" y1="13" x2="16" y2="13" />
                   <line x1="8" y1="17" x2="16" y2="17" />
@@ -1825,18 +1826,30 @@
 
                 <div id="db-error" class="qa-error" role="alert"></div>
 
-                <button class="btn-analyze" id="db-btn" onclick="runDocumentBuild()">
+                <button
+                  class="btn-analyze"
+                  id="db-btn"
+                  onclick="runDocumentBuild()"
+                >
                   <div class="spinner" id="db-spinner"></div>
                   <span id="db-btn-text">Gerar com Document Build</span>
                 </button>
 
                 <div id="db-progress" class="qa-progress" style="display: none">
                   <div class="qa-progress-head">
-                    <span class="qa-progress-title">Processando documentação</span>
-                    <span class="qa-progress-step" id="db-progress-step">Preparando...</span>
+                    <span class="qa-progress-title"
+                      >Processando documentação</span
+                    >
+                    <span class="qa-progress-step" id="db-progress-step"
+                      >Preparando...</span
+                    >
                   </div>
                   <div class="qa-progress-track">
-                    <div class="qa-progress-fill" id="db-progress-fill" style="width: 8%"></div>
+                    <div
+                      class="qa-progress-fill"
+                      id="db-progress-fill"
+                      style="width: 8%"
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -1854,7 +1867,9 @@
                       stroke-linecap="round"
                       stroke-linejoin="round"
                     >
-                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                      <path
+                        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+                      />
                       <polyline points="14 2 14 8 20 8" />
                       <line x1="8" y1="13" x2="16" y2="13" />
                       <line x1="8" y1="17" x2="16" y2="17" />
@@ -1877,16 +1892,32 @@
                   "
                 >
                   <div class="qa-tabs-bar">
-                    <div class="qa-tab active" id="db-tab-score" onclick="switchDBTab('score')">
+                    <div
+                      class="qa-tab active"
+                      id="db-tab-score"
+                      onclick="switchDBTab('score')"
+                    >
                       Resumo
                     </div>
-                    <div class="qa-tab" id="db-tab-structure" onclick="switchDBTab('structure')">
+                    <div
+                      class="qa-tab"
+                      id="db-tab-structure"
+                      onclick="switchDBTab('structure')"
+                    >
                       Estrutura
                     </div>
-                    <div class="qa-tab" id="db-tab-document" onclick="switchDBTab('document')">
+                    <div
+                      class="qa-tab"
+                      id="db-tab-document"
+                      onclick="switchDBTab('document')"
+                    >
                       Documento
                     </div>
-                    <div class="qa-tab" id="db-tab-checklist" onclick="switchDBTab('checklist')">
+                    <div
+                      class="qa-tab"
+                      id="db-tab-checklist"
+                      onclick="switchDBTab('checklist')"
+                    >
                       Checklist
                     </div>
                   </div>
@@ -1904,11 +1935,17 @@
                             <div class="score-top">
                               <span class="score-big" id="db-score-big">—</span>
                               <span class="score-of">/ 100</span>
-                              <span class="score-tag">Prontidão da documentação</span>
+                              <span class="score-tag"
+                                >Prontidão da documentação</span
+                              >
                             </div>
 
                             <div class="score-bar">
-                              <div class="score-fill" id="db-score-fill" style="width: 0%"></div>
+                              <div
+                                class="score-fill"
+                                id="db-score-fill"
+                                style="width: 0%"
+                              ></div>
                             </div>
 
                             <div class="score-txt" id="db-summary"></div>
@@ -1919,19 +1956,37 @@
                       <div class="tiles" id="db-tiles" style="display: grid">
                         <div class="tile">
                           <div class="tile-lbl">Tipo</div>
-                          <div class="tile-val" id="db-doc-type" style="color: var(--teal)">—</div>
+                          <div
+                            class="tile-val"
+                            id="db-doc-type"
+                            style="color: var(--teal)"
+                          >
+                            —
+                          </div>
                           <div class="tile-sub">Documento</div>
                         </div>
 
                         <div class="tile">
                           <div class="tile-lbl">Seções</div>
-                          <div class="tile-val" id="db-sections-count" style="color: var(--porto)">0</div>
+                          <div
+                            class="tile-val"
+                            id="db-sections-count"
+                            style="color: var(--porto)"
+                          >
+                            0
+                          </div>
                           <div class="tile-sub">Estrutura gerada</div>
                         </div>
 
                         <div class="tile">
                           <div class="tile-lbl">Checklist</div>
-                          <div class="tile-val" id="db-checklist-count" style="color: var(--emerald)">0</div>
+                          <div
+                            class="tile-val"
+                            id="db-checklist-count"
+                            style="color: var(--emerald)"
+                          >
+                            0
+                          </div>
                           <div class="tile-sub">Itens acionáveis</div>
                         </div>
                       </div>
@@ -1960,9 +2015,16 @@
                         <div class="sec-body" style="padding: 10px 12px">
                           <div class="sql-wrap">
                             <div class="sql-bar">
-                              <div class="sql-dots"><span></span><span></span><span></span></div>
+                              <div class="sql-dots">
+                                <span></span><span></span><span></span>
+                              </div>
                               <span class="sql-fname">documentacao.md</span>
-                              <button class="copy-btn" onclick="copyDBDocument()">Copiar Markdown</button>
+                              <button
+                                class="copy-btn"
+                                onclick="copyDBDocument()"
+                              >
+                                Copiar Markdown
+                              </button>
                             </div>
                             <pre id="db-markdown"></pre>
                           </div>
@@ -1982,7 +2044,11 @@
                         </div>
                       </div>
 
-                      <div class="sec-card" id="db-next-steps-sec" style="display: none">
+                      <div
+                        class="sec-card"
+                        id="db-next-steps-sec"
+                        style="display: none"
+                      >
                         <div class="sec-head">
                           <div class="sec-ttl">
                             <span class="dot"></span>Próximos passos

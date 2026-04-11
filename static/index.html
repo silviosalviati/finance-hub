@@ -1778,31 +1778,27 @@
               <div class="qa-form">
                 <div class="qlabel">Configuração</div>
 
-                <div class="qfield">
-                  <label for="db-project">Project ID — GCP</label>
-                  <input
-                    type="text"
-                    id="db-project"
-                    placeholder="porto-analytics-prod"
-                    autocomplete="off"
-                  />
-                </div>
+                <div class="db-guide-box" role="note" aria-label="Como usar o Document Build">
+                  <div class="db-guide-title">Como usar o Document Build</div>
+                  <p class="db-guide-sub">Use os 4 blocos abaixo no campo de contexto:</p>
+                  <pre class="db-guide-pre">[TABELA]
+projeto.dataset.nome_da_tabela
 
-                <div class="qfield">
-                  <label for="db-dataset">Dataset hint (opcional)</label>
-                  <input
-                    type="text"
-                    id="db-dataset"
-                    placeholder="ex: inteligencia_negocios"
-                    autocomplete="off"
-                  />
+[OBJETIVO]
+Para que serve essa tabela e quem a consome.
+
+[CONTEXTO DE NEGÓCIO]
+Regras, calculos e decisoes que a tabela suporta.
+
+[TIPO DE DOC]
+especificacao_tecnica | documentacao_funcional | runbook_operacional</pre>
                 </div>
 
                 <div class="qfield">
                   <label for="db-request">Contexto para documentação</label>
                   <textarea
                     id="db-request"
-                    placeholder="Ex: Documentar pipeline de vendas diarias para Power BI, com fontes, regras de negócio, KPIs, riscos e checklist de homologação."
+                    placeholder="Cole os 4 blocos sugeridos para gerar uma documentacao consistente e orientada ao schema real."
                   ></textarea>
                   <p class="qhint">
                     <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
@@ -2086,15 +2082,15 @@
                         </div>
 
                         <div class="tile">
-                          <div class="tile-lbl">Project</div>
+                          <div class="tile-lbl">Tipo de documento</div>
                           <div
                             class="tile-val"
-                            id="db-canvas-project"
+                            id="db-canvas-doc-type"
                             style="color: var(--emerald)"
                           >
                             —
                           </div>
-                          <div class="tile-sub">Contexto GCP</div>
+                          <div class="tile-sub">Saida selecionada</div>
                         </div>
                       </div>
 

@@ -2115,6 +2115,38 @@ textarea {
   gap: 4px;
 }
 
+.db-guide-box {
+  border: 1px solid #c8d9ea;
+  background: #f5faff;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.db-guide-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.db-guide-sub {
+  margin: 4px 0 8px;
+  font-size: 11px;
+  color: var(--ink2);
+}
+
+.db-guide-pre {
+  margin: 0;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px dashed #adc5dd;
+  background: #ffffff;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
 .qform-divider {
   height: 2px;
   min-height: 2px;

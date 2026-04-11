@@ -1128,8 +1128,7 @@ async function runQueryBuild() {
 
 async function runDocumentBuild() {
   const requestText = document.getElementById("db-request")?.value.trim() || "";
-  const projectId = document.getElementById("db-project")?.value.trim() || "";
-  const datasetHint = document.getElementById("db-dataset")?.value.trim() || "";
+  const { projectId, datasetHint } = resolveDocumentBuildContext(requestText);
   const dbEmpty = document.getElementById("db-empty");
   const dbTabsArea = document.getElementById("db-tabs-area");
 
@@ -1139,7 +1138,9 @@ async function runDocumentBuild() {
   }
 
   if (!projectId) {
-    showDBError("Preencha o Project ID do GCP.");
+    showDBError(
+      "Inclua [TABELA] no formato projeto.dataset.tabela para detectar automaticamente o Project ID.",
+    );
     return;
   }
 
@@ -1238,7 +1239,7 @@ function renderDocumentBuild(data) {
   const canvasOverview = document.getElementById("db-canvas-overview");
   const canvasTable = document.getElementById("db-canvas-table");
   const canvasFrequency = document.getElementById("db-canvas-frequency");
-  const canvasProject = document.getElementById("db-canvas-project");
+  const canvasDocType = document.getElementById("db-canvas-doc-type");
   const canvasFlow = document.getElementById("db-canvas-flow");
   const canvasRules = document.getElementById("db-canvas-rules");
   const canvasGovernance = document.getElementById("db-canvas-governance");
@@ -1328,14 +1329,13 @@ function renderDocumentBuild(data) {
     canvasFrequency.textContent = data.frequency || "não informado";
   }
 
-  if (canvasProject) {
-    canvasProject.textContent =
-      data.metadata?.project_id || data.project_id || "não informado";
+  if (canvasDocType) {
+    canvasDocType.textContent = data.doc_type || "não informado";
   }
 
   if (canvasFlow) {
     const flowItems = [
-      `Origem: ${data.metadata?.dataset_hint || "dataset não informado"}`,
+      `Entrada: ${data.table_path || "tabela não informada"}`,
       "Processamento: Transformação em BigQuery/Dataform",
       `Destino: ${data.table_path || "tabela alvo não informada"}`,
     ];
@@ -1389,6 +1389,45 @@ function renderDocumentBuild(data) {
   }
 
   switchDBTab("score");
+}
+
+function resolveDocumentBuildContext(requestText) {
+  const explicit = extractExplicitTableRef(requestText);
+  const qaProject = document.getElementById("qa-project")?.value.trim() || "";
+  const qbProject = document.getElementById("qb-project")?.value.trim() || "";
+
+  const projectId = explicit.project || qaProject || qbProject;
+  const datasetHint = explicit.dataset || null;
+
+  return { projectId, datasetHint };
+}
+
+function extractExplicitTableRef(text) {
+  const content = String(text || "");
+  const tableBlock = content.match(
+    /\[TABELA\]\s*([\s\S]*?)(?=\n\s*\[[^\]]+\]|$)/i,
+  );
+
+  const source = (tableBlock?.[1] || content).trim().replace(/`/g, "");
+  const full = source.match(/([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)/);
+  if (full) {
+    return {
+      project: full[1],
+      dataset: full[2],
+      table: full[3],
+    };
+  }
+
+  const dsTable = source.match(/([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)/);
+  if (dsTable) {
+    return {
+      project: "",
+      dataset: dsTable[1],
+      table: dsTable[2],
+    };
+  }
+
+  return { project: "", dataset: "", table: "" };
 }
 
 function buildCanvasItem(kind, text) {

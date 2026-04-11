@@ -3,6 +3,7 @@ from src.agents.document_build.nodes import (
     _extract_explicit_table_reference,
     _merge_governance_with_dataplex,
     _select_dbt_model,
+    parse_document_request,
     finalize_document_markdown,
 )
 from src.agents.document_build.state import DocumentBuildState
@@ -124,3 +125,46 @@ def test_extract_explicit_table_reference_ignores_free_text_tokens():
     result = _extract_explicit_table_reference(text)
 
     assert result["table"] == ""
+
+
+def test_parse_document_request_reads_structured_blocks():
+    state = DocumentBuildState(
+        request_text=(
+            "[TABELA]\n"
+            "silviosalviati.inteligencia_negocios.fatos_vendas\n\n"
+            "[OBJETIVO]\n"
+            "Documentar a tabela para consumo em BI.\n\n"
+            "[CONTEXTO DE NEGÓCIO]\n"
+            "Base para KPI de receita e margem.\n\n"
+            "[TIPO DE DOC]\n"
+            "documentacao_funcional\n"
+        ),
+        project_id="silviosalviati",
+    )
+
+    parsed = parse_document_request(state)
+
+    assert parsed["table_name"] == "fatos_vendas"
+    assert parsed["doc_type"] == "documentacao_funcional"
+    assert parsed["objective"].startswith("Documentar a tabela")
+
+
+def test_finalize_markdown_hides_project_and_dataset_hint():
+    state = DocumentBuildState(
+        request_text="Gerar doc",
+        project_id="silviosalviati",
+        dataset_hint="inteligencia_negocios",
+        title="Doc",
+        doc_type="documentacao_funcional",
+        table_name="fatos_vendas",
+        table_path="silviosalviati.inteligencia_negocios.fatos_vendas",
+        summary="Resumo",
+        objective="Objetivo",
+        frequency="Batch diario",
+    )
+
+    result = finalize_document_markdown(state)
+    markdown = result["markdown_document"]
+
+    assert "Project ID" not in markdown
+    assert "Dataset hint" not in markdown

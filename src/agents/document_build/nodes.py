@@ -22,8 +22,22 @@ def parse_document_request(state: DocumentBuildState) -> dict[str, Any]:
 	if not text:
 		return {"error": "Descreva o contexto para gerar a documentacao."}
 
+	blocks = _extract_structured_input_blocks(text)
+	table_block = blocks.get("tabela") or ""
+	objective_block = blocks.get("objetivo") or ""
+	business_context_block = blocks.get("contexto_negocio") or ""
+	doc_type_block = (blocks.get("tipo_doc") or "").lower()
+
 	normalized = text.lower()
 	doc_type = "documentacao_funcional"
+	if doc_type_block in {
+		"especificacao_tecnica",
+		"documentacao_funcional",
+		"runbook_operacional",
+	}:
+		doc_type = doc_type_block
+	elif doc_type_block in {"especificacao tecnica", "documentacao funcional", "runbook operacional"}:
+		doc_type = doc_type_block.replace(" ", "_")
 	if any(word in normalized for word in ["data dictionary", "dicionario", "dicionario de dados"]):
 		doc_type = "data_dictionary"
 	elif any(word in normalized for word in ["contract", "data contract", "pipeline", "sla", "especificacao de pipeline"]):
@@ -33,7 +47,7 @@ def parse_document_request(state: DocumentBuildState) -> dict[str, Any]:
 	if any(word in normalized for word in ["runbook", "operacao", "incidente", "suporte"]):
 		doc_type = "runbook_operacional"
 
-	explicit_ref = _extract_explicit_table_reference(text)
+	explicit_ref = _extract_explicit_table_reference(table_block or text)
 	table_name = explicit_ref.get("table") or ""
 	dataset_name = (state.dataset_hint or "").strip()
 	if not dataset_name and explicit_ref.get("dataset"):
@@ -50,7 +64,7 @@ def parse_document_request(state: DocumentBuildState) -> dict[str, Any]:
 	elif any(word in normalized for word in ["horario", "hourly"]):
 		frequency = "Batch horario"
 
-	objective = (
+	objective = objective_block or (
 		"Centralizar indicadores de risco e comportamento para suportar credito, marketing e monitoramento operacional."
 	)
 	metadata: dict[str, Any] = {
@@ -88,6 +102,8 @@ def parse_document_request(state: DocumentBuildState) -> dict[str, Any]:
 			"project_id": state.project_id,
 			"dataset_hint": dataset_name or state.dataset_hint or "",
 			"explicit_table_ref": explicit_ref,
+			"structured_blocks": blocks,
+			"business_context": business_context_block,
 		},
 		"warnings": _dedupe(warnings),
 	}
@@ -376,8 +392,6 @@ def finalize_document_markdown(state: DocumentBuildState) -> dict[str, Any]:
 		"",
 		f"**Tipo:** {state.doc_type}",
 		f"**Publico-alvo:** {state.audience or 'Times tecnicos'}",
-		f"**Project ID:** {state.metadata.get('project_id', state.project_id)}",
-		f"**Dataset hint:** {state.metadata.get('dataset_hint', state.dataset_hint or 'nao informado')}",
 		"",
 		"## Diagrama de fluxo (Mermaid)",
 		"```mermaid",
@@ -847,6 +861,31 @@ def _extract_explicit_table_reference(text: str) -> dict[str, str]:
 		}
 
 	return {"project": "", "dataset": "", "table": "", "full_name": ""}
+
+
+def _extract_structured_input_blocks(text: str) -> dict[str, str]:
+	raw = (text or "").strip()
+	if not raw:
+		return {"tabela": "", "objetivo": "", "contexto_negocio": "", "tipo_doc": ""}
+
+	patterns = {
+		"tabela": r"\[TABELA\]\s*([\s\S]*?)(?=\n\s*\[[^\]]+\]|$)",
+		"objetivo": r"\[OBJETIVO\]\s*([\s\S]*?)(?=\n\s*\[[^\]]+\]|$)",
+		"contexto_negocio": r"\[(?:CONTEXTO\s+DE\s+NEG[ÓO]CIO|CONTEXTO\s+DE\s+NEGOCIO)\]\s*([\s\S]*?)(?=\n\s*\[[^\]]+\]|$)",
+		"tipo_doc": r"\[TIPO\s+DE\s+DOC\]\s*([\s\S]*?)(?=\n\s*\[[^\]]+\]|$)",
+	}
+
+	result: dict[str, str] = {}
+	for key, pattern in patterns.items():
+		match = re.search(pattern, raw, flags=re.IGNORECASE)
+		if not match:
+			result[key] = ""
+			continue
+		value = match.group(1).strip()
+		first_line = value.splitlines()[0].strip() if value else ""
+		result[key] = first_line if key in {"tabela", "tipo_doc"} else value
+
+	return result
 
 
 def _build_real_context_summary(metadata: dict[str, Any]) -> str:

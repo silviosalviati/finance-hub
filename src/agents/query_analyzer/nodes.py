@@ -23,6 +23,14 @@ SEVERITY_PENALTY = {
     "critical": 50,
 }
 
+STRUCTURAL_PENALTY = {
+    "select_star": 30,
+    "cross_join": 30,
+    "order_without_limit": 15,
+    "distinct": 10,
+    "union_without_all": 10,
+}
+
 
 def parse_query(state: AgentState) -> dict:
     query_upper = state.original_query.upper()
@@ -200,6 +208,19 @@ def validate_optimized(state: AgentState) -> dict:
         if optimized_structure["has_order_without_limit"]:
             needs_optimization = True
             feedback.append("A query otimizada manteve ORDER BY sem LIMIT.")
+
+        if state.query_structure.get("has_distinct") and optimized_structure["has_distinct"]:
+            feedback.append(
+                "A query otimizada ainda usa DISTINCT; valide se a deduplicacao e realmente necessaria."
+            )
+
+        if (
+            state.query_structure.get("has_union_without_all")
+            and optimized_structure["has_union_without_all"]
+        ):
+            feedback.append(
+                "A query otimizada manteve UNION sem ALL; use UNION ALL quando nao houver necessidade de deduplicacao."
+            )
 
         dry_orig = state.dry_run_original
         if dry_orig and not dry_orig.error and dry_orig.bytes_processed > 0:
@@ -506,7 +527,26 @@ def _inspect_query_structure(query: str) -> dict[str, bool]:
             and not re.search(r"LIMIT\s+\d+", query_upper)
         ),
         "has_cross_join": bool(re.search(r"CROSS\s+JOIN", query_upper)),
+        "has_distinct": bool(re.search(r"\bDISTINCT\b", query_upper)),
+        "has_union_without_all": bool(re.search(r"\bUNION\b(?!\s+ALL)", query_upper)),
     }
+
+
+def _structural_flags_to_keys(structure: dict[str, Any]) -> set[str]:
+    keys: set[str] = set()
+
+    if structure.get("has_star"):
+        keys.add("select_star")
+    if structure.get("has_cross_join"):
+        keys.add("cross_join")
+    if structure.get("has_order_without_limit"):
+        keys.add("order_without_limit")
+    if structure.get("has_distinct"):
+        keys.add("distinct")
+    if structure.get("has_union_without_all"):
+        keys.add("union_without_all")
+
+    return keys
 
 
 def _extract_limit_values(sql: str) -> list[int]:
@@ -636,8 +676,7 @@ def _calculate_score(state: AgentState) -> int:
 
     dry_orig = state.dry_run_original
     dry_opt = state.dry_run_optimized
-    penalty_multiplier = 1.0
-
+    improved_bytes = False
     if (
         dry_orig
         and dry_opt
@@ -645,18 +684,41 @@ def _calculate_score(state: AgentState) -> int:
         and not dry_opt.error
         and dry_opt.bytes_processed < dry_orig.bytes_processed
     ):
-        penalty_multiplier = 0.5
+        improved_bytes = True
+
+    # Anti-padroes da query original continuam relevantes, mas com peso menor apos melhoria.
+    if improved_bytes:
+        penalty_multiplier = 0.35
+    elif state.optimized_query:
+        penalty_multiplier = 0.60
+    else:
+        penalty_multiplier = 1.0
 
     for antipattern in state.antipatterns:
         severity = (antipattern.severity or "").strip().lower()
         score -= int(SEVERITY_PENALTY.get(severity, 10) * penalty_multiplier)
 
+    final_structure = (
+        _inspect_query_structure(state.optimized_query)
+        if state.optimized_query
+        else state.query_structure
+    )
+    final_structural_keys = _structural_flags_to_keys(final_structure)
+
+    for key in final_structural_keys:
+        score -= STRUCTURAL_PENALTY.get(key, 0)
+
     dry = dry_opt if (dry_opt and not dry_opt.error) else dry_orig
     if dry and not dry.error:
         if dry.bytes_processed > BYTES_CRITICAL_THRESHOLD:
-            score -= 20
+            score -= 15
         elif dry.bytes_processed > BYTES_WARNING_THRESHOLD:
-            score -= 10
+            score -= 8
+
+    original_structural_keys = _structural_flags_to_keys(state.query_structure)
+    removed_structural = original_structural_keys - final_structural_keys
+    if removed_structural:
+        score += min(20, len(removed_structural) * 5)
 
     if (
         dry_orig
@@ -670,14 +732,27 @@ def _calculate_score(state: AgentState) -> int:
             / dry_orig.bytes_processed
             * 100
         )
-        if savings_pct >= 50:
-            score += 15
+        if savings_pct >= 70:
+            score += 30
+        elif savings_pct >= 50:
+            score += 22
         elif savings_pct >= 30:
-            score += 10
+            score += 16
         elif savings_pct >= 15:
-            score += 6
+            score += 10
         elif savings_pct >= 5:
-            score += 3
+            score += 5
+
+        major_remaining = {
+            "select_star",
+            "cross_join",
+            "order_without_limit",
+        } & final_structural_keys
+
+        if savings_pct >= 50 and not major_remaining:
+            score = max(score, 90)
+        elif savings_pct >= 30 and not major_remaining:
+            score = max(score, 82)
 
     return max(0, min(100, score))
 

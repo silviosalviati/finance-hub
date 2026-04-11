@@ -1,0 +1,72 @@
+{
+  "saved_at": "2026-04-11T22:08:51.642584",
+  "payload": {
+    "request_text": "Gere um relatório consolidado unindo as tabelas de vendas e perfil de clientes.\nQuero analisar o desempenho por Segmento de Cliente e Cidade, calculando os seguintes KPIs:\nReceita Total: soma do valor líquido.\nLucratividade: soma do valor líquido menos o custo operacional.\nMargem Média (%): média da lucratividade dividida pelo valor líquido.\nTicket Médio: valor líquido total dividido pelo número de transações.\nEngajamento: média do score de crédito dos clientes que compraram.\n\nFiltre apenas vendas do último ano realizadas nos canais E-COMMERCE ou APP. Ordene o resultado pela maior lucratividade total.",
+    "generated_sql": "SELECT \n  p.segmento_cliente, \n  p.cidade_sede, \n  SUM(f.valor_liquido) AS receita_total, \n  SUM(f.valor_liquido - f.custo_operacional) AS lucratividade_total, \n  AVG((f.valor_liquido - f.custo_operacional) / NULLIF(f.valor_liquido, 0)) * 100 AS margem_media, \n  SUM(f.valor_liquido) / COUNT(DISTINCT f.transacao_id) AS ticket_medio, \n  AVG(CAST(p.score_credito AS FLOAT64)) AS engajamento \nFROM silviosalviati.inteligencia_negocios.fatos_vendas f \nJOIN silviosalviati.inteligencia_negocios.perfil_comportamental_clientes p \nON f.cliente_id = p.cliente_id \nWHERE f.canal_venda IN ('E-COMMERCE', 'APP') \n  AND f.data_faturamento >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR) \nGROUP BY p.segmento_cliente, p.cidade_sede \nORDER BY lucratividade_total DESC",
+    "explanation": "A query une as tabelas de vendas e perfil de clientes, filtra as vendas do último ano e dos canais E-COMMERCE ou APP, e calcula as métricas solicitadas por segmento de cliente e cidade. As métricas são agrupadas e ordenadas pela lucratividade total.",
+    "assumptions": [
+      "A tabela 'fatos_vendas' contém todas as informações necessárias para calcular as métricas, incluindo 'valor_liquido', 'custo_operacional', 'canal_venda' e 'cliente_id'. A tabela 'perfil_comportamental_clientes' contém as informações de segmento de cliente, cidade e score de crédito dos clientes."
+    ],
+    "warnings": [
+      "A query assume que a tabela 'fatos_vendas' contém todas as informações necessárias para calcular as métricas. Se houver campos faltantes, a query pode precisar ser ajustada.",
+      "SQL revisada por no de otimizacao antes do dry-run."
+    ],
+    "dry_run": {
+      "bytes_processed": 4526340,
+      "estimated_cost_usd": 2.1e-05,
+      "error": null
+    },
+    "sample_data": {
+      "columns": [
+        "segmento_cliente",
+        "cidade_sede",
+        "receita_total",
+        "lucratividade_total",
+        "margem_media",
+        "ticket_medio",
+        "engajamento"
+      ],
+      "rows": [
+        {
+          "segmento_cliente": "NOVO",
+          "cidade_sede": "Belo Horizonte",
+          "receita_total": 7784368.700000001,
+          "lucratividade_total": 6878173.450000001,
+          "margem_media": 83.39024545312974,
+          "ticket_medio": 300.68247904515437,
+          "engajamento": 494.8102734752213
+        },
+        {
+          "segmento_cliente": "RECORRENTE",
+          "cidade_sede": "Belo Horizonte",
+          "receita_total": 4519008.760000001,
+          "lucratividade_total": 3990522.950000002,
+          "margem_media": 83.11044655917856,
+          "ticket_medio": 299.3712328585625,
+          "engajamento": 502.7867273931766
+        },
+        {
+          "segmento_cliente": "VIP",
+          "cidade_sede": "Belo Horizonte",
+          "receita_total": 1503744.3099999991,
+          "lucratividade_total": 1324935.5700000003,
+          "margem_media": 82.93586926677995,
+          "ticket_medio": 297.06525286448027,
+          "engajamento": 499.65661398656636
+        },
+        {
+          "segmento_cliente": "DORMANTE",
+          "cidade_sede": "Belo Horizonte",
+          "receita_total": 1279885.88,
+          "lucratividade_total": 1130681.1500000013,
+          "margem_media": 82.98928802108789,
+          "ticket_medio": 299.7390819672131,
+          "engajamento": 511.65594847775185
+        }
+      ],
+      "error": null
+    },
+    "status": "ok",
+    "error": null
+  }
+}

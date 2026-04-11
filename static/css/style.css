@@ -2556,6 +2556,8 @@ textarea {
   gap: 10px;
   padding: 16px;
   overflow-y: auto;
+  max-width: 1240px;
+  margin: 0 auto;
 }
 
 .db-empty-showcase h3 {
@@ -2571,8 +2573,10 @@ textarea {
 
 .db-empty-cards {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(270px, 1fr));
+  gap: 12px;
+  width: 100%;
+  align-content: start;
 }
 
 .db-empty-card {
@@ -2580,6 +2584,8 @@ textarea {
   border-radius: 10px;
   background: #ffffff;
   padding: 10px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  min-height: 0;
 }
 
 .db-empty-card.functional {
@@ -2631,6 +2637,28 @@ textarea {
   font-size: 10.5px;
   line-height: 1.55;
   white-space: pre-wrap;
+  max-height: 310px;
+  overflow-y: auto;
+}
+
+@media (max-width: 1280px) {
+  .db-empty-cards {
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .db-empty-showcase {
+    padding: 12px;
+  }
+
+  .db-empty-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .db-empty-card pre {
+    max-height: none;
+  }
 }
 
 .qa-empty-steps {

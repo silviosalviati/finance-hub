@@ -167,17 +167,6 @@ def fetch_dataplex_tags(state: DocumentBuildState) -> dict[str, Any]:
 					"Dataplex/Data Catalog nao consultado: table_path ausente ou invalido.",
 				],
 			},
-			"artifacts_context": {
-				**(state.artifacts_context or {}),
-				"dataplex_context": {
-					"aspect_types": [],
-					"business_glossary": [],
-					"entry_name": "",
-					"warnings": [
-						"Dataplex/Data Catalog nao consultado: table_path ausente ou invalido.",
-					],
-				},
-			},
 		}
 
 	context: dict[str, Any] = {
@@ -225,13 +214,6 @@ def fetch_dataplex_tags(state: DocumentBuildState) -> dict[str, Any]:
 			**context,
 			"warnings": _dedupe(warnings),
 		},
-		"artifacts_context": {
-			**(state.artifacts_context or {}),
-			"dataplex_context": {
-				**context,
-				"warnings": _dedupe(warnings),
-			},
-		},
 	}
 
 
@@ -250,10 +232,6 @@ def fetch_dbt_manifest(state: DocumentBuildState) -> dict[str, Any]:
 		}
 		return {
 			"dbt_context": empty_context,
-			"artifacts_context": {
-				**(state.artifacts_context or {}),
-				"dbt_context": empty_context,
-			},
 		}
 
 	table_name = (state.table_name or "").strip().lower()
@@ -298,13 +276,6 @@ def fetch_dbt_manifest(state: DocumentBuildState) -> dict[str, Any]:
 		"dbt_context": {
 			**context,
 			"warnings": _dedupe(warnings),
-		},
-		"artifacts_context": {
-			**(state.artifacts_context or {}),
-			"dbt_context": {
-				**context,
-				"warnings": _dedupe(warnings),
-			},
 		},
 	}
 

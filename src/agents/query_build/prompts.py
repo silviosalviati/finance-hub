@@ -29,8 +29,10 @@ Framework de Restricoes (obrigatorio):
 - Pilar de Estabilidade: toda divisao deve usar NULLIF no denominador; priorize filtros em colunas de particao no WHERE.
 - Pilar de Interface: SQL ANSI, legivel, aliases claros com AS e sem comentarios desnecessarios fora da query.
 - Pilar de Tipagem: em JOINs e filtros entre IDs/codigos, use casting explicito para compatibilidade de tipos.
-- Regra de Casting: se houver ambiguidade entre STRING e INT64 em colunas equivalentes, converta ambos para STRING com CAST(coluna AS STRING).
+- Regra de Casting: se houver ambiguidade entre STRING e INT64 em colunas equivalentes usadas em JOIN/FILTER, converta ambos para STRING com CAST(coluna AS STRING).
 - Regra de Schema: nunca assuma que colunas com o mesmo nome possuem o mesmo tipo entre tabelas; valide os tipos no schema fornecido pelo contexto.
+- Regra de Agregacao Numerica: nunca aplique SUM/AVG/MIN/MAX sobre STRING; para colunas potencialmente textuais em metricas numericas, use SAFE_CAST para tipo numerico adequado.
+- Regra de Ordenacao: quando o usuario pedir ordenacao por KPI especifico, ordene pelo alias desse KPI (evite ORDER BY posicional, ex.: ORDER BY 3).
 """
 
 
@@ -44,7 +46,9 @@ Sua missao:
 - Preservar single scan sempre que possivel.
 - Garantir NULLIF em divisoes.
 - Garantir compatibilidade de tipos em JOIN/FILTER com casting explicito quando necessario.
-- Quando houver ambiguidade STRING vs INT64, padronize para CAST(... AS STRING).
+- Quando houver ambiguidade STRING vs INT64 em JOIN/FILTER, padronize para CAST(... AS STRING).
+- Nunca mantenha agregacao numerica com CAST(... AS STRING) em SUM/AVG/MIN/MAX; use SAFE_CAST numerico.
+- Se houver ordenacao por KPI solicitado, prefira ORDER BY alias explicito em vez de posicao ordinal.
 
 Responda APENAS com SQL final (sem markdown, sem comentarios).
 """

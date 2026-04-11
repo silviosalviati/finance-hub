@@ -20,6 +20,9 @@ from src.shared.tools.bigquery import (
 
 SQL_FENCE_PATTERN = r"```sql\s*([\s\S]+?)\s*```"
 TABLE_REF_PATTERN = r"`?([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)`?"
+INVALID_STRING_AGG_PATTERN = (
+	r"\b(AVG|SUM|MIN|MAX)\s*\(\s*CAST\s*\(\s*(.*?)\s+AS\s+STRING\s*\)\s*\)"
+)
 
 
 def generate_sql_from_request(state: QueryBuildState, llm: BaseChatModel) -> dict[str, Any]:
@@ -85,8 +88,14 @@ Regra obrigatoria:
 			}
 
 		generated_sql = _extract_sql(sql)
+		generated_sql, had_numeric_cast_fix = _fix_invalid_string_aggregates(generated_sql)
 		warnings = _safe_list(parsed.get("warnings"))
 		assumptions = _safe_list(parsed.get("assumptions"))
+
+		if had_numeric_cast_fix:
+			warnings.append(
+				"SQL ajustada automaticamente: agregacao numerica com CAST(... AS STRING) foi convertida para SAFE_CAST numerico."
+			)
 
 		if dataset_warning:
 			warnings.append(dataset_warning)
@@ -169,6 +178,7 @@ Regras obrigatorias:
 		)
 		reviewed_raw = _extract_message_content(response)
 		reviewed_sql = _extract_sql(reviewed_raw)
+		reviewed_sql, had_numeric_cast_fix = _fix_invalid_string_aggregates(reviewed_sql)
 
 		if not reviewed_sql:
 			return {
@@ -187,10 +197,17 @@ Regras obrigatorias:
 					],
 				}
 
+		fix_warning = []
+		if had_numeric_cast_fix:
+			fix_warning.append(
+				"Reviewer retornou agregacao numerica com CAST(... AS STRING); ajuste automatico aplicado com SAFE_CAST numerico."
+			)
+
 		return {
 			"generated_sql": reviewed_sql,
 			"warnings": list(state.warnings)
-			+ ["SQL revisada por no de otimizacao antes do dry-run."],
+			+ ["SQL revisada por no de otimizacao antes do dry-run."]
+			+ fix_warning,
 		}
 	except Exception as exc:
 		return {
@@ -257,6 +274,25 @@ def _extract_sql(raw: str) -> str:
 	if sql_match:
 		return sql_match.group(1).strip()
 	return raw.strip()
+
+
+def _fix_invalid_string_aggregates(sql: str) -> tuple[str, bool]:
+	changed = False
+
+	def _replacer(match: re.Match[str]) -> str:
+		nonlocal changed
+		agg = match.group(1).upper()
+		expr = match.group(2).strip()
+		changed = True
+
+		if agg == "AVG":
+			return f"AVG(SAFE_CAST({expr} AS FLOAT64))"
+		if agg == "SUM":
+			return f"SUM(SAFE_CAST({expr} AS NUMERIC))"
+		return f"{agg}(SAFE_CAST({expr} AS FLOAT64))"
+
+	fixed = re.sub(INVALID_STRING_AGG_PATTERN, _replacer, sql, flags=re.IGNORECASE)
+	return fixed, changed
 
 
 def _find_invalid_table_references(sql: str, allowed_tables: list[str]) -> list[str]:

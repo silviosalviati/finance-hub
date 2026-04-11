@@ -1395,12 +1395,12 @@ function generateDocumentHtml(data, context) {
         .map(
           (section) => `
       <article class="card">
-        <h3>📘 ${safe(section.title || "Secao")}</h3>
+        <h3>${safe(section.title || "Secao")}</h3>
         <p>${safe(section.content || "Sem conteudo informado.")}</p>
       </article>`,
         )
         .join("\n")
-    : '<article class="card"><h3>📘 Secoes</h3><p>Sem secoes retornadas.</p></article>';
+    : '<article class="card"><h3>Secoes</h3><p>Sem secoes retornadas.</p></article>';
 
   const dictionaryRows = dataDictionary.length
     ? dataDictionary
@@ -1417,34 +1417,34 @@ function generateDocumentHtml(data, context) {
     : '<tr><td colspan="4">Nao informado</td></tr>';
 
   const checklistItems = checklist.length
-    ? checklist.map((item) => `<li>✅ ${safe(item)}</li>`).join("\n")
-    : "<li>✅ Checklist nao informado</li>";
+    ? checklist.map((item) => `<li>${safe(item)}</li>`).join("\n")
+    : "<li>Checklist nao informado</li>";
 
   const ruleItems = [...typingNotes, ...pendingTechnical];
   const ruleList = ruleItems.length
-    ? ruleItems.map((item) => `<li>🧩 ${safe(item)}</li>`).join("\n")
-    : "<li>🧩 Sem regras adicionais.</li>";
+    ? ruleItems.map((item) => `<li>${safe(item)}</li>`).join("\n")
+    : "<li>Sem regras adicionais.</li>";
 
   const govItems = [
     ...(governanceAspects.length
       ? [
-          `🔒 Aspect Types: ${safe(governanceAspects.join(", "))}`,
+          `Aspect Types: ${safe(governanceAspects.join(", "))}`,
         ]
       : []),
     ...(governanceReaders.length
       ? [
-          `👥 Leitores: ${safe(governanceReaders.join(", "))}`,
+          `Leitores: ${safe(governanceReaders.join(", "))}`,
         ]
       : []),
-    ...warnings.map((w) => `⚠ ${safe(w)}`),
+    ...warnings.map((w) => `Observacao: ${safe(w)}`),
   ];
   const govList = govItems.length
     ? govItems.map((item) => `<li>${item}</li>`).join("\n")
     : "<li>Governanca nao detalhada.</li>";
 
   const nextList = nextSteps.length
-    ? nextSteps.map((item) => `<li>➡ ${safe(item)}</li>`).join("\n")
-    : "<li>➡ Sem proximos passos informados.</li>";
+    ? nextSteps.map((item) => `<li>${safe(item)}</li>`).join("\n")
+    : "<li>Sem proximos passos informados.</li>";
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -1453,22 +1453,24 @@ function generateDocumentHtml(data, context) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${safe(data.title || "Documentacao Tecnica")}</title>
   <style>
-    body { font-family: Segoe UI, Arial, sans-serif; margin: 0; background: #f4f8fc; color: #1f2d3d; }
-    .wrap { max-width: 980px; margin: 0 auto; padding: 24px; }
-    .hero { background: linear-gradient(135deg, #0057b8, #0078d4); color: #fff; border-radius: 14px; padding: 20px; display: flex; gap: 16px; align-items: center; }
-    .hero img { width: 52px; height: 52px; border-radius: 12px; background: #fff; padding: 6px; }
-    .hero h1 { margin: 0 0 4px; font-size: 24px; }
-    .hero p { margin: 0; opacity: .95; }
-    .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
-    .pill { background: #ffffff; border: 1px solid #d7e3f1; border-radius: 10px; padding: 10px 12px; font-size: 12px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
-    .card { background: #fff; border: 1px solid #dbe7f4; border-radius: 12px; padding: 14px; }
-    .card h2, .card h3 { margin: 0 0 8px; color: #003087; }
-    .card p { margin: 0; line-height: 1.6; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th, td { border: 1px solid #dbe7f4; padding: 8px; text-align: left; vertical-align: top; }
-    th { background: #eef5ff; }
-    ul { margin: 0; padding-left: 18px; line-height: 1.7; }
+    body { font-family: "Segoe UI", Tahoma, Arial, sans-serif; margin: 0; background: #f2f6fb; color: #1d2a3a; font-size: 13px; line-height: 1.55; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 20px; }
+    .hero { background: linear-gradient(135deg, #004d99, #0a67c7); color: #fff; border-radius: 12px; padding: 16px 18px; display: flex; gap: 12px; align-items: center; }
+    .hero img { width: 44px; height: 44px; border-radius: 10px; background: #fff; padding: 5px; }
+    .hero h1 { margin: 0 0 3px; font-size: 20px; font-weight: 700; line-height: 1.25; }
+    .hero p { margin: 0; opacity: .94; font-size: 12.5px; }
+    .meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+    .pill { background: #ffffff; border: 1px solid #d7e3f1; border-radius: 8px; padding: 8px 10px; font-size: 11.5px; }
+    .executive { margin-top: 12px; background: #fff; border: 1px solid #dbe7f4; border-left: 4px solid #0a67c7; border-radius: 10px; padding: 10px 12px; font-size: 12px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .card { background: #fff; border: 1px solid #dbe7f4; border-radius: 10px; padding: 12px; }
+    .card h2 { margin: 0 0 8px; color: #003087; font-size: 14px; line-height: 1.3; }
+    .card h3 { margin: 0 0 6px; color: #003087; font-size: 13px; line-height: 1.35; }
+    .card p { margin: 0; line-height: 1.6; font-size: 12.5px; color: #2d3b4f; }
+    table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+    th, td { border: 1px solid #dbe7f4; padding: 7px; text-align: left; vertical-align: top; }
+    th { background: #ecf3ff; color: #17365d; font-weight: 700; }
+    ul { margin: 0; padding-left: 17px; line-height: 1.62; font-size: 12.5px; color: #2d3b4f; }
     @media (max-width: 900px) {
       .meta { grid-template-columns: 1fr; }
       .grid { grid-template-columns: 1fr; }
@@ -1491,13 +1493,18 @@ function generateDocumentHtml(data, context) {
       <div class="pill"><strong>Frequencia:</strong> ${safe(data.frequency || "-")}</div>
     </section>
 
+    <section class="executive">
+      <strong>Visao executiva:</strong>
+      Documento estruturado para decisao e governanca, com foco em contexto de negocio, confiabilidade dos dados e encaminhamentos operacionais.
+    </section>
+
     <section class="grid">
       <article class="card">
-        <h2>🎯 Objetivo</h2>
+        <h2>Objetivo</h2>
         <p>${safe(data.objective || "Objetivo nao informado.")}</p>
       </article>
       <article class="card">
-        <h2>🧭 Publico-alvo</h2>
+        <h2>Publico-alvo</h2>
         <p>${safe(data.audience || "Times tecnicos")}</p>
       </article>
     </section>
@@ -1507,7 +1514,7 @@ function generateDocumentHtml(data, context) {
     </section>
 
     <section class="card" style="margin-top:12px">
-      <h2>🧱 Dicionario de Dados</h2>
+      <h2>Dicionario de Dados</h2>
       <table>
         <thead>
           <tr><th>Coluna</th><th>Tipo</th><th>Descricao</th><th>Regra</th></tr>
@@ -1520,22 +1527,22 @@ function generateDocumentHtml(data, context) {
 
     <section class="grid">
       <article class="card">
-        <h2>✅ Checklist</h2>
+        <h2>Checklist</h2>
         <ul>${checklistItems}</ul>
       </article>
       <article class="card">
-        <h2>🛠 Regras e Pendencias</h2>
+        <h2>Regras e Pendencias</h2>
         <ul>${ruleList}</ul>
       </article>
     </section>
 
     <section class="grid">
       <article class="card">
-        <h2>🔐 Governanca</h2>
+        <h2>Governanca</h2>
         <ul>${govList}</ul>
       </article>
       <article class="card">
-        <h2>🚀 Proximos Passos</h2>
+        <h2>Proximos Passos</h2>
         <ul>${nextList}</ul>
       </article>
     </section>

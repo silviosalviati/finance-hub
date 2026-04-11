@@ -2586,6 +2586,8 @@ textarea {
   padding: 10px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .db-empty-card.functional {
@@ -2634,11 +2636,10 @@ textarea {
   background: #ffffff;
   color: #28415f;
   font-family: var(--mono);
-  font-size: 10.5px;
-  line-height: 1.55;
+  font-size: 10px;
+  line-height: 1.45;
   white-space: pre-wrap;
-  max-height: 310px;
-  overflow-y: auto;
+  min-height: 360px;
 }
 
 @media (max-width: 1280px) {
@@ -2657,7 +2658,7 @@ textarea {
   }
 
   .db-empty-card pre {
-    max-height: none;
+    min-height: 0;
   }
 }
 

@@ -138,18 +138,36 @@ Saida principal:
 
 ## Document Build (implementado)
 
-Entrada:
+Entrada recomendada na interface (blocos estruturados):
 
-- `query` (contexto tecnico para documentacao)
-- `project_id`
-- `dataset_hint` (opcional)
+```text
+[TABELA]
+projeto.dataset.nome_da_tabela
+
+[OBJETIVO]
+Para que serve essa tabela e quem a consome.
+
+[CONTEXTO DE NEGOCIO]
+Regras, calculos e decisoes que a tabela suporta.
+
+[TIPO DE DOC]
+especificacao_tecnica | documentacao_funcional | runbook_operacional
+```
+
+Observacao da API:
+
+- endpoint segue recebendo `query`, `project_id` e `dataset_hint` (opcional)
+- na interface web, `project_id`/`dataset_hint` nao sao mais exibidos para o usuario
+- o contexto tecnico e derivado do bloco `[TABELA]` e do catalogo real
 
 Pipeline de alto nivel:
 
-1. classifica o tipo de documento a partir do contexto
-2. gera estrutura tecnica com secoes, premissas, riscos e checklist
-3. consolida documento final em Markdown
-4. calcula score de qualidade documental
+1. parse da solicitacao e extracao dos blocos de entrada
+2. fetch de schema real no BigQuery (tabela, colunas, tipos, particionamento e clustering)
+3. fetch paralelo de tags Dataplex/Data Catalog e contexto dbt (`manifest.json`)
+4. geracao da estrutura documental pela LLM com base em artefatos reais
+5. consolidacao do documento final em Markdown
+6. calculo de score de qualidade documental
 
 Saida principal:
 
@@ -158,6 +176,7 @@ Saida principal:
 - checklist de aceitacao e proximos passos
 - `markdown_document` pronto para copiar/publicar
 - `quality_score` da documentacao
+- markdown final sem exibicao de `Project ID` e `Dataset hint`
 
 ## Validacao de Dataset no Query Build
 
@@ -369,7 +388,10 @@ Comportamentos atuais relevantes:
 - Query Analyzer com `Project ID` e `Dataset hint` em modo somente leitura
 - validacao assincrona do contexto da query no Query Analyzer (input + debounce)
 - validacao assincrona de `dataset_hint` no Query Build (input, blur e debounce)
-- tela dedicada para Document Build com geracao de Markdown
+- tela de Document Build com guia de uso em 4 blocos (`[TABELA]`, `[OBJETIVO]`, `[CONTEXTO DE NEGOCIO]`, `[TIPO DE DOC]`)
+- Document Build sem campos visiveis de `Project ID` e `Dataset hint` na interface
+- Document Build com fetch de schema real + Dataplex/Data Catalog + contexto dbt antes da etapa LLM
+- geracao de Markdown no Document Build com foco no contexto factual da tabela
 - aba `Otimizacoes aplicadas` no resultado do Query Analyzer
 
 ## Testes

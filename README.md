@@ -330,6 +330,13 @@ Arquivos principais:
 - [static/css/style.css](static/css/style.css)
 - [static/js/scripts.js](static/js/scripts.js)
 
+## Guias de Evolucao
+
+Fase 4 - Automated Publishing:
+
+- [docs/fase-4-automated-publishing-confluence-notion.md](docs/fase-4-automated-publishing-confluence-notion.md)
+- [docs/fase-4-dbt-docs-schema-yml-automatico.md](docs/fase-4-dbt-docs-schema-yml-automatico.md)
+
 ## Telas do Sistema
 
 ### Login

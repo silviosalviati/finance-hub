@@ -1,5 +1,9 @@
 from src.agents.document_build import DocumentBuildAgent
-from src.agents.document_build.nodes import finalize_document_markdown
+from src.agents.document_build.nodes import (
+    _merge_governance_with_dataplex,
+    _select_dbt_model,
+    finalize_document_markdown,
+)
 from src.agents.document_build.state import DocumentBuildState
 
 
@@ -59,3 +63,45 @@ def test_document_build_markdown_has_required_sections():
     assert "## 3. Checklist de qualidade de dados (DQ)" in markdown
     assert "## 4. Governanca (Dataplex/Catalog)" in markdown
     assert "[PENDENCIA TECNICA]" in markdown
+
+
+def test_select_dbt_model_matches_table_name():
+    nodes = {
+        "model.project.fatos_vendas": {
+            "resource_type": "model",
+            "name": "fatos_vendas",
+            "alias": "fatos_vendas",
+            "database": "silviosalviati",
+            "schema": "inteligencia_negocios",
+            "description": "Tabela fato de vendas",
+            "columns": {},
+        }
+    }
+
+    selected = _select_dbt_model(
+        nodes=nodes,
+        table_name="fatos_vendas",
+        table_path="silviosalviati.inteligencia_negocios.fatos_vendas",
+    )
+
+    assert selected is not None
+    assert selected.get("name") == "fatos_vendas"
+
+
+def test_merge_governance_with_dataplex_appends_aspects_and_glossary():
+    governance = {
+        "aspect_types": ["schema_contract"],
+        "readers": ["Service Account bot-query"],
+        "notes": [],
+    }
+    dataplex_context = {
+        "aspect_types": ["data_quality_profile"],
+        "business_glossary": ["Receita Liquida"],
+        "entry_name": "projects/p/locations/us/entryGroups/@bigquery/entries/t",
+    }
+
+    merged = _merge_governance_with_dataplex(governance, dataplex_context)
+
+    assert "schema_contract" in merged["aspect_types"]
+    assert "data_quality_profile" in merged["aspect_types"]
+    assert any(note.startswith("Glossario:") for note in merged["notes"])

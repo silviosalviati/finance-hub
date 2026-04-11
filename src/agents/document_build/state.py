@@ -32,6 +32,9 @@ class DocumentBuildState(BaseModel):
 	pending_technical: list[str] = Field(default_factory=list)
 
 	metadata: dict[str, Any] = Field(default_factory=dict)
+	real_schema: dict[str, Any] = Field(default_factory=dict)
+	dataplex_context: dict[str, Any] = Field(default_factory=dict)
+	dbt_context: dict[str, Any] = Field(default_factory=dict)
 	markdown_document: str = ""
 	quality_score: int = 0
 

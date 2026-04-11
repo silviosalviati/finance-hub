@@ -3069,6 +3069,33 @@ pre {
   overflow-y: auto;
 }
 
+#db-html-source {
+  max-height: min(46vh, 420px);
+  overflow-y: auto;
+}
+
+.db-html-panel {
+  overflow: hidden;
+}
+
+.db-html-scroll {
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.db-html-preview {
+  width: 100%;
+  min-height: 360px;
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
 .db-canvas-panel {
   overflow: hidden;
 }

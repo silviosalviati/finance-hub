@@ -392,6 +392,7 @@ Comportamentos atuais relevantes:
 - Document Build sem campos visiveis de `Project ID` e `Dataset hint` na interface
 - Document Build com fetch de schema real + Dataplex/Data Catalog + contexto dbt antes da etapa LLM
 - geracao de Markdown no Document Build com foco no contexto factual da tabela
+- aba `Documento HTML` no Document Build com preview formatado e codigo HTML completo para copia
 - aba `Otimizacoes aplicadas` no resultado do Query Analyzer
 
 ## Testes

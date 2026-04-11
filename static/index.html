@@ -1911,10 +1911,10 @@ especificacao_tecnica | documentacao_funcional | runbook_operacional</pre>
                     </div>
                     <div
                       class="qa-tab"
-                      id="db-tab-canvas"
-                      onclick="switchDBTab('canvas')"
+                      id="db-tab-html"
+                      onclick="switchDBTab('html')"
                     >
-                      Documento Canvas
+                      Documento HTML
                     </div>
                     <div
                       class="qa-tab"
@@ -2036,105 +2036,44 @@ especificacao_tecnica | documentacao_funcional | runbook_operacional</pre>
                       </div>
                     </div>
 
-                    <div
-                      class="qa-tab-panel db-canvas-panel"
-                      id="db-panel-canvas"
-                    >
-                      <div class="db-canvas-scroll">
-                      <div class="res-card db-canvas-hero">
-                        <div class="score-body">
-                          <div class="score-top">
-                            <span class="score-tag"
-                              >Canvas visual do documento</span
+                    <div class="qa-tab-panel db-html-panel" id="db-panel-html">
+                      <div class="db-html-scroll">
+                        <div class="sec-card">
+                          <div class="sec-head">
+                            <div class="sec-ttl">
+                              <span class="dot"></span>Pré-visualização HTML
+                            </div>
+                          </div>
+                          <div class="sec-body" style="padding: 10px 12px">
+                            <iframe id="db-html-preview" class="db-html-preview"></iframe>
+                          </div>
+                        </div>
+
+                        <div class="sec-card">
+                          <div class="sec-head">
+                            <div class="sec-ttl">
+                              <span class="dot"></span>Código HTML gerado
+                            </div>
+                            <button
+                              id="db-copy-html-btn"
+                              class="copy-btn"
+                              onclick="copyDBHtmlDocument()"
                             >
+                              Copiar HTML
+                            </button>
                           </div>
-                          <div class="score-txt" id="db-canvas-overview"></div>
-                        </div>
-                      </div>
-
-                      <div
-                        class="tiles db-canvas-tiles"
-                        id="db-canvas-tiles"
-                        style="display: grid"
-                      >
-                        <div class="tile">
-                          <div class="tile-lbl">Tabela alvo</div>
-                          <div
-                            class="tile-val"
-                            id="db-canvas-table"
-                            style="color: var(--porto)"
-                          >
-                            —
-                          </div>
-                          <div class="tile-sub">Ativo principal</div>
-                        </div>
-
-                        <div class="tile">
-                          <div class="tile-lbl">Frequência</div>
-                          <div
-                            class="tile-val"
-                            id="db-canvas-frequency"
-                            style="color: var(--teal)"
-                          >
-                            —
-                          </div>
-                          <div class="tile-sub">Atualização</div>
-                        </div>
-
-                        <div class="tile">
-                          <div class="tile-lbl">Tipo de documento</div>
-                          <div
-                            class="tile-val"
-                            id="db-canvas-doc-type"
-                            style="color: var(--emerald)"
-                          >
-                            —
-                          </div>
-                          <div class="tile-sub">Saida selecionada</div>
-                        </div>
-                      </div>
-
-                      <div class="sec-card">
-                        <div class="sec-head">
-                          <div class="sec-ttl">
-                            <span class="dot"></span>Fluxo macro
+                          <div class="sec-body" style="padding: 10px 12px">
+                            <div class="sql-wrap">
+                              <div class="sql-bar">
+                                <div class="sql-dots">
+                                  <span></span><span></span><span></span>
+                                </div>
+                                <span class="sql-fname">documentacao.html</span>
+                              </div>
+                              <pre id="db-html-source"></pre>
+                            </div>
                           </div>
                         </div>
-                        <div class="sec-body db-canvas-section-body">
-                          <div
-                            class="rec-list db-canvas-list"
-                            id="db-canvas-flow"
-                          ></div>
-                        </div>
-                      </div>
-
-                      <div class="sec-card">
-                        <div class="sec-head">
-                          <div class="sec-ttl">
-                            <span class="dot"></span>Regras e tipagem
-                          </div>
-                        </div>
-                        <div class="sec-body db-canvas-section-body">
-                          <div
-                            class="rec-list db-canvas-list"
-                            id="db-canvas-rules"
-                          ></div>
-                        </div>
-                      </div>
-
-                      <div class="sec-card">
-                        <div class="sec-head">
-                          <div class="sec-ttl">
-                            <span class="dot"></span>Governança e pendências
-                          </div>
-                        </div>
-                        <div class="sec-body db-canvas-section-body">
-                          <div
-                            class="rec-list db-canvas-list"
-                            id="db-canvas-governance"
-                          ></div>
-                        </div>
-                      </div>
                       </div>
                     </div>
 

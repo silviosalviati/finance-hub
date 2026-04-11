@@ -1236,13 +1236,8 @@ function renderDocumentBuild(data) {
   const checklistCount = document.getElementById("db-checklist-count");
   const structureList = document.getElementById("db-structure-list");
   const markdown = document.getElementById("db-markdown");
-  const canvasOverview = document.getElementById("db-canvas-overview");
-  const canvasTable = document.getElementById("db-canvas-table");
-  const canvasFrequency = document.getElementById("db-canvas-frequency");
-  const canvasDocType = document.getElementById("db-canvas-doc-type");
-  const canvasFlow = document.getElementById("db-canvas-flow");
-  const canvasRules = document.getElementById("db-canvas-rules");
-  const canvasGovernance = document.getElementById("db-canvas-governance");
+  const htmlSource = document.getElementById("db-html-source");
+  const htmlPreview = document.getElementById("db-html-preview");
   const checklistList = document.getElementById("db-checklist-list");
   const nextStepsSec = document.getElementById("db-next-steps-sec");
   const nextStepsList = document.getElementById("db-next-steps-list");
@@ -1312,80 +1307,23 @@ function renderDocumentBuild(data) {
       .join("");
   }
 
-  if (canvasOverview) {
-    const objective = data.objective || "Objetivo não informado.";
-    const summaryText = data.summary || "Resumo não informado.";
-    canvasOverview.innerHTML = `
-      <strong>Objetivo:</strong> ${objective}<br/>
-      <strong>Resumo:</strong> ${summaryText}
-    `;
+  const htmlDocument = generateDocumentHtml(data, {
+    sections,
+    checklist,
+    nextSteps,
+    warnings,
+    typingNotes,
+    pendingTechnical,
+    dataDictionary,
+    governanceAspects,
+    governanceReaders,
+  });
+
+  if (htmlSource) {
+    htmlSource.textContent = htmlDocument;
   }
-
-  if (canvasTable) {
-    canvasTable.textContent = data.table_name || "não informado";
-  }
-
-  if (canvasFrequency) {
-    canvasFrequency.textContent = data.frequency || "não informado";
-  }
-
-  if (canvasDocType) {
-    canvasDocType.textContent = data.doc_type || "não informado";
-  }
-
-  if (canvasFlow) {
-    const flowItems = [
-      `Entrada: ${data.table_path || "tabela não informada"}`,
-      "Processamento: Transformação em BigQuery/Dataform",
-      `Destino: ${data.table_path || "tabela alvo não informada"}`,
-    ];
-
-    canvasFlow.innerHTML = flowItems
-      .map((item) => buildCanvasItem("flow", item))
-      .join("");
-  }
-
-  if (canvasRules) {
-    const ruleItems = [];
-    if (typingNotes.length) {
-      typingNotes.forEach((item) => ruleItems.push(item));
-    }
-
-    if (dataDictionary.length) {
-      const highlights = dataDictionary.slice(0, 3).map((row) => {
-        const col = row.column || "coluna";
-        const typ = row.type || "tipo";
-        return `${col} (${typ}) - ${row.business_rule || "sem regra"}`;
-      });
-      highlights.forEach((item) => ruleItems.push(item));
-    }
-
-    if (!ruleItems.length) {
-      ruleItems.push("Sem regras de tipagem detalhadas.");
-    }
-
-    canvasRules.innerHTML = ruleItems
-      .map((item) => buildCanvasItem("rules", item))
-      .join("");
-  }
-
-  if (canvasGovernance) {
-    const govItems = [];
-    if (governanceAspects.length) {
-      govItems.push(`Aspect Types: ${governanceAspects.join(", ")}`);
-    }
-    if (governanceReaders.length) {
-      govItems.push(`Leitores: ${governanceReaders.join(", ")}`);
-    }
-    pendingTechnical.forEach((item) => govItems.push(item));
-
-    if (!govItems.length) {
-      govItems.push("Governança não detalhada no documento.");
-    }
-
-    canvasGovernance.innerHTML = govItems
-      .map((item) => buildCanvasItem("gov", item))
-      .join("");
+  if (htmlPreview) {
+    htmlPreview.srcdoc = htmlDocument;
   }
 
   switchDBTab("score");
@@ -1430,20 +1368,189 @@ function extractExplicitTableRef(text) {
   return { project: "", dataset: "", table: "" };
 }
 
-function buildCanvasItem(kind, text) {
-  const iconMap = {
-    flow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>',
-    rules:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>',
-    gov: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z"/></svg>',
-  };
+function generateDocumentHtml(data, context) {
+  const sections = Array.isArray(context.sections) ? context.sections : [];
+  const checklist = Array.isArray(context.checklist) ? context.checklist : [];
+  const nextSteps = Array.isArray(context.nextSteps) ? context.nextSteps : [];
+  const warnings = Array.isArray(context.warnings) ? context.warnings : [];
+  const typingNotes = Array.isArray(context.typingNotes)
+    ? context.typingNotes
+    : [];
+  const pendingTechnical = Array.isArray(context.pendingTechnical)
+    ? context.pendingTechnical
+    : [];
+  const dataDictionary = Array.isArray(context.dataDictionary)
+    ? context.dataDictionary
+    : [];
+  const governanceAspects = Array.isArray(context.governanceAspects)
+    ? context.governanceAspects
+    : [];
+  const governanceReaders = Array.isArray(context.governanceReaders)
+    ? context.governanceReaders
+    : [];
 
-  return `
-    <div class="db-canvas-item">
-      <span class="db-canvas-icon ${kind}">${iconMap[kind] || iconMap.flow}</span>
-      <span>${text}</span>
-    </div>
-  `;
+  const safe = (v) => escapeHtml(v == null ? "" : String(v));
+  const sectionCards = sections.length
+    ? sections
+        .map(
+          (section) => `
+      <article class="card">
+        <h3>📘 ${safe(section.title || "Secao")}</h3>
+        <p>${safe(section.content || "Sem conteudo informado.")}</p>
+      </article>`,
+        )
+        .join("\n")
+    : '<article class="card"><h3>📘 Secoes</h3><p>Sem secoes retornadas.</p></article>';
+
+  const dictionaryRows = dataDictionary.length
+    ? dataDictionary
+        .map(
+          (row) => `
+      <tr>
+        <td>${safe(row.column || "-")}</td>
+        <td>${safe(row.type || "-")}</td>
+        <td>${safe(row.description || "-")}</td>
+        <td>${safe(row.business_rule || "-")}</td>
+      </tr>`,
+        )
+        .join("\n")
+    : '<tr><td colspan="4">Nao informado</td></tr>';
+
+  const checklistItems = checklist.length
+    ? checklist.map((item) => `<li>✅ ${safe(item)}</li>`).join("\n")
+    : "<li>✅ Checklist nao informado</li>";
+
+  const ruleItems = [...typingNotes, ...pendingTechnical];
+  const ruleList = ruleItems.length
+    ? ruleItems.map((item) => `<li>🧩 ${safe(item)}</li>`).join("\n")
+    : "<li>🧩 Sem regras adicionais.</li>";
+
+  const govItems = [
+    ...(governanceAspects.length
+      ? [
+          `🔒 Aspect Types: ${safe(governanceAspects.join(", "))}`,
+        ]
+      : []),
+    ...(governanceReaders.length
+      ? [
+          `👥 Leitores: ${safe(governanceReaders.join(", "))}`,
+        ]
+      : []),
+    ...warnings.map((w) => `⚠ ${safe(w)}`),
+  ];
+  const govList = govItems.length
+    ? govItems.map((item) => `<li>${item}</li>`).join("\n")
+    : "<li>Governanca nao detalhada.</li>";
+
+  const nextList = nextSteps.length
+    ? nextSteps.map((item) => `<li>➡ ${safe(item)}</li>`).join("\n")
+    : "<li>➡ Sem proximos passos informados.</li>";
+
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${safe(data.title || "Documentacao Tecnica")}</title>
+  <style>
+    body { font-family: Segoe UI, Arial, sans-serif; margin: 0; background: #f4f8fc; color: #1f2d3d; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px; }
+    .hero { background: linear-gradient(135deg, #0057b8, #0078d4); color: #fff; border-radius: 14px; padding: 20px; display: flex; gap: 16px; align-items: center; }
+    .hero img { width: 52px; height: 52px; border-radius: 12px; background: #fff; padding: 6px; }
+    .hero h1 { margin: 0 0 4px; font-size: 24px; }
+    .hero p { margin: 0; opacity: .95; }
+    .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+    .pill { background: #ffffff; border: 1px solid #d7e3f1; border-radius: 10px; padding: 10px 12px; font-size: 12px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .card { background: #fff; border: 1px solid #dbe7f4; border-radius: 12px; padding: 14px; }
+    .card h2, .card h3 { margin: 0 0 8px; color: #003087; }
+    .card p { margin: 0; line-height: 1.6; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid #dbe7f4; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #eef5ff; }
+    ul { margin: 0; padding-left: 18px; line-height: 1.7; }
+    @media (max-width: 900px) {
+      .meta { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <img src="/static/img/portoseguro.png" alt="Logo" />
+      <div>
+        <h1>${safe(data.title || "Documentacao Tecnica")}</h1>
+        <p>${safe(data.summary || "Documento gerado pelo Document Build.")}</p>
+      </div>
+    </header>
+
+    <section class="meta">
+      <div class="pill"><strong>Tipo:</strong> ${safe(data.doc_type || "-")}</div>
+      <div class="pill"><strong>Tabela:</strong> ${safe(data.table_path || data.table_name || "-")}</div>
+      <div class="pill"><strong>Frequencia:</strong> ${safe(data.frequency || "-")}</div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>🎯 Objetivo</h2>
+        <p>${safe(data.objective || "Objetivo nao informado.")}</p>
+      </article>
+      <article class="card">
+        <h2>🧭 Publico-alvo</h2>
+        <p>${safe(data.audience || "Times tecnicos")}</p>
+      </article>
+    </section>
+
+    <section class="grid">
+      ${sectionCards}
+    </section>
+
+    <section class="card" style="margin-top:12px">
+      <h2>🧱 Dicionario de Dados</h2>
+      <table>
+        <thead>
+          <tr><th>Coluna</th><th>Tipo</th><th>Descricao</th><th>Regra</th></tr>
+        </thead>
+        <tbody>
+          ${dictionaryRows}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>✅ Checklist</h2>
+        <ul>${checklistItems}</ul>
+      </article>
+      <article class="card">
+        <h2>🛠 Regras e Pendencias</h2>
+        <ul>${ruleList}</ul>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>🔐 Governanca</h2>
+        <ul>${govList}</ul>
+      </article>
+      <article class="card">
+        <h2>🚀 Proximos Passos</h2>
+        <ul>${nextList}</ul>
+      </article>
+    </section>
+  </div>
+</body>
+</html>`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function switchDBTab(name) {
@@ -1509,6 +1616,27 @@ function copyDBDocument() {
     })
     .catch(() => {
       showDBError("Não foi possível copiar automaticamente. Tente novamente.");
+    });
+}
+
+function copyDBHtmlDocument() {
+  const content = document.getElementById("db-html-source")?.textContent || "";
+  const btn = document.getElementById("db-copy-html-btn");
+  if (!content) return;
+
+  copyTextWithFallback(content)
+    .then(() => {
+      if (!btn) return;
+      const old = btn.textContent;
+      btn.textContent = "✓ Copiado!";
+      btn.style.color = "#34D399";
+      setTimeout(() => {
+        btn.textContent = old || "Copiar HTML";
+        btn.style.color = "";
+      }, 1800);
+    })
+    .catch(() => {
+      showDBError("Não foi possível copiar o HTML automaticamente.");
     });
 }
 

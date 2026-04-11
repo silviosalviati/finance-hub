@@ -291,6 +291,66 @@ def get_dataset_tables_metadata(
     }
 
 
+def get_dataset_tables_schema(
+    project_id: str,
+    dataset_hint: str,
+    max_tables: int = 20,
+    max_columns: int = 50,
+) -> dict[str, Any]:
+    resolved_project = _resolve_project_id(project_id)
+    dataset_project, dataset_id = _parse_dataset_hint(resolved_project, dataset_hint)
+    dataset_ref = f"{dataset_project}.{dataset_id}"
+
+    client = _get_client(dataset_project)
+    client.get_dataset(dataset_ref)
+
+    tables_info: list[dict[str, Any]] = []
+    for table_item in client.list_tables(dataset_ref):
+        table_ref = f"{dataset_project}.{dataset_id}.{table_item.table_id}"
+        columns: list[dict[str, str]] = []
+        partition_field = ""
+        clustering_fields: list[str] = []
+
+        try:
+            table = client.get_table(table_ref)
+            partition_field = (table.time_partitioning.field if table.time_partitioning else "") or ""
+            clustering_fields = list(table.clustering_fields or [])
+
+            for field in table.schema[:max_columns]:
+                columns.append(
+                    {
+                        "name": field.name,
+                        "type": field.field_type,
+                        "mode": field.mode,
+                        "description": field.description or "",
+                    }
+                )
+        except Exception:
+            columns = []
+            partition_field = ""
+            clustering_fields = []
+
+        tables_info.append(
+            {
+                "table_id": table_item.table_id,
+                "full_name": table_ref,
+                "partition_field": partition_field,
+                "clustering_fields": clustering_fields,
+                "columns": columns,
+            }
+        )
+
+        if len(tables_info) >= max_tables:
+            break
+
+    return {
+        "project_id": dataset_project,
+        "dataset_id": dataset_id,
+        "dataset_ref": dataset_ref,
+        "tables": tables_info,
+    }
+
+
 def _build_error_result(message: str) -> DryRunResult:
     return DryRunResult(
         bytes_processed=0,
@@ -439,5 +499,6 @@ __all__ = [
     "validate_dataset_for_query_build",
     "validate_query_context_for_query_analyzer",
     "get_dataset_tables_metadata",
+    "get_dataset_tables_schema",
     "format_bytes",
 ]

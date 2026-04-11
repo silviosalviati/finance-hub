@@ -9,6 +9,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.agents.document_build.prompts import DOCUMENT_BUILD_SYSTEM_PROMPT
 from src.agents.document_build.state import DocumentBuildState
+from src.shared.tools.bigquery import get_dataset_tables_schema
 
 
 def parse_document_request(state: DocumentBuildState) -> dict[str, Any]:
@@ -18,16 +19,18 @@ def parse_document_request(state: DocumentBuildState) -> dict[str, Any]:
 
 	normalized = text.lower()
 	doc_type = "documentacao_funcional"
+	if any(word in normalized for word in ["data dictionary", "dicionario", "dicionario de dados"]):
+		doc_type = "data_dictionary"
+	elif any(word in normalized for word in ["contract", "data contract", "pipeline", "sla", "especificacao de pipeline"]):
+		doc_type = "pipeline_data_contract"
+	elif any(word in normalized for word in ["schema contract", "qualidade", "data quality", "dq", "great expectations"]):
+		doc_type = "schema_contract"
 	if any(word in normalized for word in ["runbook", "operacao", "incidente", "suporte"]):
 		doc_type = "runbook_operacional"
-	elif any(word in normalized for word in ["especificacao", "arquitetura", "tecnica"]):
-		doc_type = "especificacao_tecnica"
-	elif any(word in normalized for word in ["guia", "implementacao", "passo a passo"]):
-		doc_type = "guia_implementacao"
 
-	table_name = _infer_table_name(text) or "tabela_principal"
-	dataset_name = (state.dataset_hint or "dataset").strip()
-	table_path = f"{state.project_id}.{dataset_name}.{table_name}" if table_name else ""
+	table_name = _infer_table_name(text) or ""
+	dataset_name = (state.dataset_hint or "").strip()
+	table_path = f"{state.project_id}.{dataset_name}.{table_name}" if (table_name and dataset_name) else ""
 
 	title = f"Document Build - {doc_type.replace('_', ' ').title()}"
 	if "perfil comportamental" in normalized:
@@ -42,12 +45,41 @@ def parse_document_request(state: DocumentBuildState) -> dict[str, Any]:
 	objective = (
 		"Centralizar indicadores de risco e comportamento para suportar credito, marketing e monitoramento operacional."
 	)
-	metadata = {
+	metadata: dict[str, Any] = {
 		"project_id": state.project_id,
 		"dataset_hint": state.dataset_hint or "nao informado",
 		"table_name": table_name,
 		"table_path": table_path,
 	}
+	warnings: list[str] = []
+
+	if state.dataset_hint:
+		real_context = _build_real_dataset_context(
+			project_id=state.project_id,
+			dataset_hint=state.dataset_hint,
+			request_text=text,
+		)
+		metadata.update(real_context.get("metadata") or {})
+		warnings.extend(real_context.get("warnings") or [])
+
+		resolved_table_name = str(real_context.get("table_name") or "").strip()
+		resolved_table_path = str(real_context.get("table_path") or "").strip()
+		if resolved_table_name:
+			table_name = resolved_table_name
+		if resolved_table_path:
+			table_path = resolved_table_path
+	else:
+		warnings.append(
+			"Dataset hint nao informado; a documentacao pode ficar incompleta sem introspecao real do schema."
+		)
+
+	if not table_name:
+		table_name = "tabela_principal"
+		if not table_path:
+			table_path = f"{state.project_id}.dataset.tabela_principal"
+
+	metadata["table_name"] = table_name
+	metadata["table_path"] = table_path
 
 	return {
 		"doc_type": doc_type,
@@ -57,12 +89,15 @@ def parse_document_request(state: DocumentBuildState) -> dict[str, Any]:
 		"table_name": table_name,
 		"table_path": table_path,
 		"metadata": metadata,
+		"warnings": _dedupe(warnings),
 	}
 
 
 def generate_document_structure(state: DocumentBuildState, llm: BaseChatModel) -> dict[str, Any]:
 	if state.error:
 		return {}
+
+	real_context = _build_real_context_summary(state.metadata)
 
 	prompt = f"""
 Contexto informado pelo usuario:
@@ -74,6 +109,14 @@ Parametros:
 - Dataset hint: {state.dataset_hint or 'nao informado'}
 - Nome da tabela alvo: {state.table_name or 'nao informado'}
 - Caminho completo da tabela: {state.table_path or 'nao informado'}
+
+Artefatos reais disponiveis:
+{real_context}
+
+Instrucoes criticas:
+- Se houver schema real, use APENAS colunas e tipos do schema fornecido.
+- Nao invente campos fora do catalogo.
+- Se alguma informacao essencial nao existir no schema, registre em pending_technical.
 
 Gere a documentacao completa no formato solicitado.
 """
@@ -96,6 +139,7 @@ Gere a documentacao completa no formato solicitado.
 		acceptance_checklist = _safe_list(payload.get("acceptance_checklist"))
 		governance = _normalize_governance(payload.get("governance"))
 		mermaid_diagram = _normalize_mermaid(payload.get("mermaid_diagram"))
+		real_table_columns = _get_selected_table_columns(state.metadata, state.table_name)
 
 		enriched = _enrich_required_blocks(
 			request_text=state.request_text,
@@ -103,6 +147,7 @@ Gere a documentacao completa no formato solicitado.
 			table_path=state.table_path,
 			sections=sections,
 			data_dictionary=data_dictionary,
+			real_table_columns=real_table_columns,
 			typing_notes=typing_notes,
 			pending_technical=pending_technical,
 			acceptance_checklist=acceptance_checklist,
@@ -110,6 +155,8 @@ Gere a documentacao completa no formato solicitado.
 			governance=governance,
 			mermaid_diagram=mermaid_diagram,
 		)
+
+		warnings = _dedupe(list(state.warnings) + _safe_list(payload.get("warnings")))
 
 		return {
 			"title": str(payload.get("title") or state.title),
@@ -128,7 +175,7 @@ Gere a documentacao completa no formato solicitado.
 			"risks": _safe_list(payload.get("risks")),
 			"acceptance_checklist": enriched["acceptance_checklist"],
 			"next_steps": enriched["next_steps"],
-			"warnings": _safe_list(payload.get("warnings")),
+			"warnings": warnings,
 			"governance": enriched["governance"],
 			"pending_technical": enriched["pending_technical"],
 		}
@@ -405,6 +452,7 @@ def _enrich_required_blocks(
 	table_path: str,
 	sections: list[dict[str, str]],
 	data_dictionary: list[dict[str, str]],
+	real_table_columns: list[dict[str, str]],
 	typing_notes: list[str],
 	pending_technical: list[str],
 	acceptance_checklist: list[str],
@@ -424,37 +472,46 @@ def _enrich_required_blocks(
 			}
 		]
 
-	if "perfil_comportamental_clientes" in normalized and not data_dictionary:
-		data_dictionary = [
-			{
-				"column": "cliente_id",
-				"type": "INTEGER",
-				"description": "Identificador unico do cliente.",
-				"business_rule": "Deve ser cast para INTEGER para evitar falhas de JOIN por tipo divergente.",
-			},
-			{
-				"column": "score_credito",
-				"type": "INTEGER",
-				"description": "Score consolidado de risco de credito.",
-				"business_rule": "Valor deve ficar no intervalo entre 0 e 1000.",
-			},
-			{
-				"column": "segmento_cliente",
-				"type": "STRING",
-				"description": "Classificacao de perfil para estrategia comercial.",
-				"business_rule": "Nao pode ser nulo para registros ativos.",
-			},
-		]
+	if real_table_columns:
+		real_columns_map = {str(col.get("name") or "").strip().lower(): col for col in real_table_columns}
+		filtered_rows: list[dict[str, str]] = []
+		for row in data_dictionary:
+			column = str(row.get("column") or "").strip()
+			if not column:
+				continue
+			if column.lower() not in real_columns_map:
+				pending_technical.append(
+					f"[PENDENCIA TECNICA] Coluna nao encontrada no schema real: {column}."
+				)
+				continue
+
+			real_col = real_columns_map[column.lower()]
+			filtered_rows.append(
+				{
+					"column": column,
+					"type": str(real_col.get("type") or row.get("type") or "STRING"),
+					"description": str(row.get("description") or real_col.get("description") or "Sem descricao."),
+					"business_rule": str(row.get("business_rule") or "Sem regra de negocio."),
+				}
+			)
+
+		if filtered_rows:
+			data_dictionary = filtered_rows
+		else:
+			data_dictionary = _build_data_dictionary_from_schema(real_table_columns)
+	elif not data_dictionary:
+		pending_technical.append(
+			"[PENDENCIA TECNICA] Schema real indisponivel para montar data dictionary completo."
+		)
 
 	for row in data_dictionary:
 		column = (row.get("column") or "").strip()
 		type_name = (row.get("type") or "").strip()
 		description = (row.get("description") or "").strip()
-		if not type_name or type_name == "STRING":
-			if not type_name:
-				pending_technical.append(
-					f"[PENDENCIA TECNICA] Tipo primitivo ausente na coluna {column or 'desconhecida'}."
-				)
+		if not type_name:
+			pending_technical.append(
+				f"[PENDENCIA TECNICA] Tipo primitivo ausente na coluna {column or 'desconhecida'}."
+			)
 		if not description or description.lower().startswith("sem descricao"):
 			pending_technical.append(
 				f"[PENDENCIA TECNICA] Descricao ausente na coluna {column or 'desconhecida'}."
@@ -473,11 +530,7 @@ def _enrich_required_blocks(
 	if table_path and not any("table_path" in note for note in governance.get("notes", [])):
 		governance.setdefault("notes", []).append(f"table_path: {table_path}")
 
-	mandatory_checks = [
-		"O cliente_id e unico (Primary Key)?",
-		"O score_credito esta entre 0 e 1000?",
-		"Existem valores nulos em campos criticos de segmentacao?",
-	]
+	mandatory_checks = _build_dynamic_dq_checks(data_dictionary, real_table_columns)
 	for check in mandatory_checks:
 		if check not in acceptance_checklist:
 			acceptance_checklist.append(check)
@@ -512,6 +565,200 @@ def _enrich_required_blocks(
 		"governance": governance,
 		"mermaid_diagram": mermaid_diagram,
 	}
+
+
+def _build_real_dataset_context(
+	project_id: str,
+	dataset_hint: str,
+	request_text: str,
+) -> dict[str, Any]:
+	metadata: dict[str, Any] = {
+		"project_id": project_id,
+		"dataset_hint": dataset_hint,
+	}
+	warnings: list[str] = []
+
+	try:
+		schema_catalog = get_dataset_tables_schema(project_id, dataset_hint, max_tables=30, max_columns=50)
+		tables = schema_catalog.get("tables") or []
+		metadata.update(
+			{
+				"dataset_ref": schema_catalog.get("dataset_ref") or "",
+				"tables": tables,
+			}
+		)
+
+		if not tables:
+			warnings.append("Dataset validado sem tabelas visiveis para introspecao de schema.")
+			return {"metadata": metadata, "warnings": warnings, "table_name": "", "table_path": ""}
+
+		selected_table = _select_table_from_catalog(request_text, tables)
+		if not selected_table:
+			selected_table = tables[0]
+			warnings.append(
+				"Tabela alvo nao identificada no texto; usando a primeira tabela do dataset para documentacao base."
+			)
+
+		table_name = str(selected_table.get("table_id") or "").strip()
+		table_path = str(selected_table.get("full_name") or "").strip()
+		metadata["selected_table"] = selected_table
+
+		return {
+			"metadata": metadata,
+			"warnings": warnings,
+			"table_name": table_name,
+			"table_path": table_path,
+		}
+	except Exception as exc:
+		warnings.append(f"Nao foi possivel carregar schema real do dataset: {exc}")
+		return {"metadata": metadata, "warnings": warnings, "table_name": "", "table_path": ""}
+
+
+def _select_table_from_catalog(request_text: str, tables: list[dict[str, Any]]) -> dict[str, Any] | None:
+	if not tables:
+		return None
+
+	normalized = request_text.lower()
+	full_ref_match = re.search(r"([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)", normalized)
+	if full_ref_match:
+		full_ref = full_ref_match.group(1)
+		for item in tables:
+			if str(item.get("full_name") or "").lower() == full_ref:
+				return item
+
+	inferred_name = _infer_table_name(request_text).lower()
+	if inferred_name:
+		for item in tables:
+			if str(item.get("table_id") or "").lower() == inferred_name:
+				return item
+
+	for item in tables:
+		table_id = str(item.get("table_id") or "").lower()
+		if table_id and table_id in normalized:
+			return item
+
+	return None
+
+
+def _build_real_context_summary(metadata: dict[str, Any]) -> str:
+	if not isinstance(metadata, dict):
+		return "Sem artefatos tecnicos reais no contexto."
+
+	tables = metadata.get("tables") if isinstance(metadata.get("tables"), list) else []
+	if not tables:
+		return "Sem artefatos tecnicos reais no contexto."
+
+	selected = metadata.get("selected_table") if isinstance(metadata.get("selected_table"), dict) else {}
+	selected_name = str(selected.get("full_name") or "")
+	lines = [
+		f"Dataset: {metadata.get('dataset_ref') or metadata.get('dataset_hint')}",
+		f"Total de tabelas catalogadas: {len(tables)}",
+	]
+
+	if selected_name:
+		lines.append(f"Tabela selecionada para documentacao: {selected_name}")
+
+	for table in tables[:8]:
+		table_ref = str(table.get("full_name") or "")
+		cols = table.get("columns") if isinstance(table.get("columns"), list) else []
+		col_preview = ", ".join(
+			f"{c.get('name')}:{c.get('type')}"
+			for c in cols[:12]
+			if isinstance(c, dict)
+		)
+		lines.append(f"- {table_ref} | colunas: {col_preview or '(sem colunas carregadas)'}")
+
+	if len(tables) > 8:
+		lines.append("- ...")
+
+	return "\n".join(lines)
+
+
+def _get_selected_table_columns(metadata: dict[str, Any], table_name: str) -> list[dict[str, str]]:
+	if not isinstance(metadata, dict):
+		return []
+
+	selected = metadata.get("selected_table")
+	if isinstance(selected, dict) and isinstance(selected.get("columns"), list):
+		return [col for col in selected.get("columns", []) if isinstance(col, dict)]
+
+	tables = metadata.get("tables") if isinstance(metadata.get("tables"), list) else []
+	for table in tables:
+		if not isinstance(table, dict):
+			continue
+		if str(table.get("table_id") or "").strip().lower() == (table_name or "").strip().lower():
+			cols = table.get("columns") if isinstance(table.get("columns"), list) else []
+			return [col for col in cols if isinstance(col, dict)]
+
+	return []
+
+
+def _build_data_dictionary_from_schema(columns: list[dict[str, str]]) -> list[dict[str, str]]:
+	rows: list[dict[str, str]] = []
+	for col in columns:
+		name = str(col.get("name") or "").strip()
+		type_name = str(col.get("type") or "STRING").strip() or "STRING"
+		mode = str(col.get("mode") or "NULLABLE").strip() or "NULLABLE"
+		description = str(col.get("description") or "").strip() or "Sem descricao."
+		if not name:
+			continue
+
+		business_rule = "Campo mapeado a partir do schema real."
+		if mode.upper() == "REQUIRED":
+			business_rule = "Campo obrigatorio no schema (REQUIRED)."
+
+		rows.append(
+			{
+				"column": name,
+				"type": f"{type_name} ({mode})",
+				"description": description,
+				"business_rule": business_rule,
+			}
+		)
+	return rows
+
+
+def _build_dynamic_dq_checks(
+	data_dictionary: list[dict[str, str]],
+	real_table_columns: list[dict[str, str]],
+) -> list[str]:
+	checks: list[str] = []
+	col_names = [str(row.get("column") or "").strip() for row in data_dictionary]
+	col_names_lower = [name.lower() for name in col_names if name]
+
+	id_candidates = [name for name in col_names if name.lower().endswith("_id") or name.lower() == "id"]
+	if id_candidates:
+		checks.append(f"A coluna {id_candidates[0]} nao possui duplicidade para a granularidade esperada?")
+
+	required_cols = [
+		str(col.get("name") or "").strip()
+		for col in real_table_columns
+		if str(col.get("mode") or "").strip().upper() == "REQUIRED"
+	]
+	if required_cols:
+		checks.append(
+			"Nao existem nulos nas colunas obrigatorias do schema: "
+			+ ", ".join(required_cols[:5])
+			+ (" ..." if len(required_cols) > 5 else "")
+		)
+
+	numeric_cols = [
+		str(col.get("name") or "").strip()
+		for col in real_table_columns
+		if str(col.get("type") or "").strip().upper() in {"INT64", "FLOAT64", "NUMERIC", "BIGNUMERIC"}
+	]
+	if numeric_cols:
+		checks.append(
+			"Campos numericos criticos estao dentro de faixas validas e sem outliers extremos?"
+		)
+
+	if any("data" in name or "dt_" in name or name.endswith("_dt") for name in col_names_lower):
+		checks.append("Existe controle de atualizacao/recencia para colunas de data da tabela?")
+
+	if not checks:
+		checks.append("A tabela atende criterios minimos de completude, unicidade e consistencia de tipos?")
+
+	return checks
 
 
 def _infer_table_name(text: str) -> str:

@@ -33,6 +33,7 @@ prefixo [PENDENCIA TECNICA] para revisao humana.
 Regras obrigatorias:
 - Escreva em portugues do Brasil.
 - Nao invente tecnologias ou tabelas nao citadas.
+- Nao invente colunas, tipos ou regras de negocio: use apenas artefatos reais fornecidos no contexto.
 - Prefira linguagem tecnica clara, sem jargao vazio.
 - Inclua obrigatoriamente visao geral, dicionario de dados, checklist de DQ e governanca.
 - Responda somente em JSON valido, sem markdown fora do JSON.
@@ -40,7 +41,7 @@ Regras obrigatorias:
 Formato JSON de saida:
 {
   "title": "string",
-  "doc_type": "especificacao_tecnica|runbook_operacional|documentacao_funcional|guia_implementacao",
+  "doc_type": "data_dictionary|pipeline_data_contract|runbook_operacional|documentacao_funcional|schema_contract",
   "summary": "string",
   "audience": "string",
   "objective": "string",
@@ -72,10 +73,10 @@ Formato JSON de saida:
 }
 
 Checklist obrigatorio quando fizer sentido no contexto:
-- cliente_id unico
-- score_credito entre 0 e 1000
-- nulos em campos criticos de segmentacao
+- chave de negocio/identificador sem duplicidade quando houver coluna candidata
+- validade de faixas para campos numericos criticos quando houver regra conhecida
+- nulos em campos obrigatorios para consumo analitico
 
-Para o campo cliente_id, destaque uso de INTEGER/casting para evitar erro de join quando relevante.
+Para colunas de identificador (sufixo _id ou similares), destaque compatibilidade de tipo e necessidade de CAST em JOIN quando relevante.
 O diagrama deve ser simples e focar no fluxo macro (origem -> transformacao -> destino).
 """

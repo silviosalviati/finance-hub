@@ -1833,31 +1833,82 @@
               </div>
 
               <div class="qa-results-wrap">
-                <div class="qa-empty" id="db-empty" style="height: 100%">
-                  <div class="qa-empty-ico">
-                    <svg
-                      width="22"
-                      height="22"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#003087"
-                      stroke-width="1.8"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path
-                        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
-                      />
-                      <polyline points="14 2 14 8 20 8" />
-                      <line x1="8" y1="13" x2="16" y2="13" />
-                      <line x1="8" y1="17" x2="16" y2="17" />
-                    </svg>
+                <div class="qa-empty db-empty-showcase" id="db-empty" style="height: 100%">
+                  <h3>Exemplos de entrada por tipo de documentacao</h3>
+                  <p>Escolha um modelo abaixo, ajuste para seu contexto e gere o documento.</p>
+
+                  <div class="db-empty-cards">
+                    <article class="db-empty-card functional">
+                      <div class="db-empty-card-head">
+                        <span class="db-empty-card-icon">📊</span>
+                        <h4>Documentacao Funcional</h4>
+                      </div>
+                      <p class="db-empty-card-sub">Para analistas e stakeholders</p>
+                      <pre>[TABELA]
+silviosalviati.inteligencia_negocios.faturamento_detalhado
+
+[OBJETIVO]
+Tabela consumida pelo time de Vendas no Power BI para acompanhar
+margem por canal e desempenho de vendedores. Atualizacao diaria as 6h.
+
+[CONTEXTO DE NEGOCIO]
+A lucratividade e calculada como valor_liquido - custo_operacional.
+O ROI por vendedor e lucratividade / valor_liquido.
+Canal de venda pode ser: LOJA_FISICA, E-COMMERCE, APP, WHATSAPP.
+Transacoes com custo_operacional nulo devem ser excluidas das analises.
+
+[TIPO DE DOC]
+documentacao_funcional</pre>
+                    </article>
+
+                    <article class="db-empty-card technical">
+                      <div class="db-empty-card-head">
+                        <span class="db-empty-card-icon">🧩</span>
+                        <h4>Especificacao Tecnica</h4>
+                      </div>
+                      <p class="db-empty-card-sub">Para engenheiros de dados</p>
+                      <pre>[TABELA]
+silviosalviati.inteligencia_negocios.perfil_comportamental_clientes
+
+[OBJETIVO]
+Tabela gold gerada pelo pipeline de CRM Analytics via Dataform.
+Consumida por modelos de scoring e dashboards de segmentacao.
+
+[CONTEXTO DE NEGOCIO]
+score_credito varia de 0 a 1000 - calculado pelo modelo XGBoost v2.
+segmento_cliente e derivado de RFM: Platinum, Gold, Silver, Bronze.
+cliente_id e INTEGER - atencao ao CAST em JOINs com tabelas legadas (STRING).
+Particionada por data_atualizacao. Clustered por segmento_cliente.
+SLA: dado disponivel ate 07h. Owner: time de CRM Analytics.
+
+[TIPO DE DOC]
+especificacao_tecnica</pre>
+                    </article>
+
+                    <article class="db-empty-card runbook">
+                      <div class="db-empty-card-head">
+                        <span class="db-empty-card-icon">🛟</span>
+                        <h4>Runbook Operacional</h4>
+                      </div>
+                      <p class="db-empty-card-sub">Para on-call e suporte</p>
+                      <pre>[TABELA]
+silviosalviati.inteligencia_negocios.faturamento_detalhado
+
+[OBJETIVO]
+Runbook para incidentes no pipeline de faturamento.
+Acionado quando o dashboard de Vendas reporta dados zerados ou ausentes.
+
+[CONTEXTO DE NEGOCIO]
+Pipeline roda as 05h30. Se a tabela nao atualizar ate 07h, e incidente.
+Causa mais comum: falha no job do Dataform por timeout na tabela de origem.
+Query de diagnostico: SELECT MAX(data_faturamento) FROM tabela -
+se retornar D-2 ou anterior, pipeline falhou.
+Responsavel de plantao: acionar via Slack #dados-oncall.
+
+[TIPO DE DOC]
+runbook_operacional</pre>
+                    </article>
                   </div>
-                  <h3>Aguardando contexto</h3>
-                  <p>
-                    Informe o cenário técnico para gerar documentação completa
-                    com seções, checklist e próximos passos.
-                  </p>
                 </div>
 
                 <div

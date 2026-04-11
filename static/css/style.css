@@ -2549,6 +2549,90 @@ textarea {
   max-width: 240px;
 }
 
+.db-empty-showcase {
+  align-items: stretch;
+  justify-content: flex-start;
+  text-align: left;
+  gap: 10px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.db-empty-showcase h3 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.db-empty-showcase p {
+  max-width: none;
+  margin: 0;
+  color: var(--ink3);
+}
+
+.db-empty-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.db-empty-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.db-empty-card.functional {
+  border-color: #9ec4f7;
+  background: #f3f8ff;
+}
+
+.db-empty-card.technical {
+  border-color: #9de6da;
+  background: #f0fcf9;
+}
+
+.db-empty-card.runbook {
+  border-color: #f7cba3;
+  background: #fff7ef;
+}
+
+.db-empty-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.db-empty-card-icon {
+  font-size: 15px;
+}
+
+.db-empty-card-head h4 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink2);
+}
+
+.db-empty-card-sub {
+  font-size: 11px;
+  color: var(--ink3);
+  margin-bottom: 6px;
+}
+
+.db-empty-card pre {
+  margin: 0;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px dashed #b9ccdf;
+  background: #ffffff;
+  color: #28415f;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
 .qa-empty-steps {
   display: flex;
   flex-direction: column;

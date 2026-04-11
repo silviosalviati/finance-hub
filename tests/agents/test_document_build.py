@@ -1,5 +1,6 @@
 from src.agents.document_build import DocumentBuildAgent
 from src.agents.document_build.nodes import (
+    _extract_explicit_table_reference,
     _merge_governance_with_dataplex,
     _select_dbt_model,
     finalize_document_markdown,
@@ -105,3 +106,21 @@ def test_merge_governance_with_dataplex_appends_aspects_and_glossary():
     assert "schema_contract" in merged["aspect_types"]
     assert "data_quality_profile" in merged["aspect_types"]
     assert any(note.startswith("Glossario:") for note in merged["notes"])
+
+
+def test_extract_explicit_table_reference_full_name():
+    text = "Gerar data contract da tabela silviosalviati.inteligencia_negocios.fatos_vendas"
+
+    result = _extract_explicit_table_reference(text)
+
+    assert result["project"] == "silviosalviati"
+    assert result["dataset"] == "inteligencia_negocios"
+    assert result["table"] == "fatos_vendas"
+
+
+def test_extract_explicit_table_reference_ignores_free_text_tokens():
+    text = "Quero um documento com ticket_medio por batch_diario"
+
+    result = _extract_explicit_table_reference(text)
+
+    assert result["table"] == ""

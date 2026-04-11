@@ -9,6 +9,7 @@ class DocumentBuildState(BaseModel):
 	request_text: str
 	project_id: str
 	dataset_hint: Optional[str] = None
+	input_context: dict[str, Any] = Field(default_factory=dict)
 
 	doc_type: str = "documentacao_tecnica"
 	title: str = ""
@@ -35,7 +36,10 @@ class DocumentBuildState(BaseModel):
 	real_schema: dict[str, Any] = Field(default_factory=dict)
 	dataplex_context: dict[str, Any] = Field(default_factory=dict)
 	dbt_context: dict[str, Any] = Field(default_factory=dict)
+	artifacts_context: dict[str, Any] = Field(default_factory=dict)
+	draft_context: dict[str, Any] = Field(default_factory=dict)
 	markdown_document: str = ""
 	quality_score: int = 0
+	output_context: dict[str, Any] = Field(default_factory=dict)
 
 	error: Optional[str] = None

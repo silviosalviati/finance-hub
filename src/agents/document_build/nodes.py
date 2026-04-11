@@ -33,8 +33,11 @@ def parse_document_request(state: DocumentBuildState) -> dict[str, Any]:
 	if any(word in normalized for word in ["runbook", "operacao", "incidente", "suporte"]):
 		doc_type = "runbook_operacional"
 
-	table_name = _infer_table_name(text) or ""
+	explicit_ref = _extract_explicit_table_reference(text)
+	table_name = explicit_ref.get("table") or ""
 	dataset_name = (state.dataset_hint or "").strip()
+	if not dataset_name and explicit_ref.get("dataset"):
+		dataset_name = str(explicit_ref.get("dataset") or "").strip()
 	table_path = f"{state.project_id}.{dataset_name}.{table_name}" if (table_name and dataset_name) else ""
 
 	title = f"Document Build - {doc_type.replace('_', ' ').title()}"
@@ -55,6 +58,7 @@ def parse_document_request(state: DocumentBuildState) -> dict[str, Any]:
 		"dataset_hint": state.dataset_hint or "nao informado",
 		"table_name": table_name,
 		"table_path": table_path,
+		"explicit_table_ref": explicit_ref,
 	}
 	warnings: list[str] = []
 
@@ -79,6 +83,12 @@ def parse_document_request(state: DocumentBuildState) -> dict[str, Any]:
 		"table_name": table_name,
 		"table_path": table_path,
 		"metadata": metadata,
+		"input_context": {
+			"request_text": state.request_text,
+			"project_id": state.project_id,
+			"dataset_hint": dataset_name or state.dataset_hint or "",
+			"explicit_table_ref": explicit_ref,
+		},
 		"warnings": _dedupe(warnings),
 	}
 
@@ -111,6 +121,14 @@ def fetch_real_schema(state: DocumentBuildState) -> dict[str, Any]:
 			"dataset_ref": metadata.get("dataset_ref") or "",
 			"selected_table": metadata.get("selected_table") or {},
 			"tables": metadata.get("tables") or [],
+		},
+		"artifacts_context": {
+			**(state.artifacts_context or {}),
+			"real_schema": {
+				"dataset_ref": metadata.get("dataset_ref") or "",
+				"selected_table": metadata.get("selected_table") or {},
+				"tables": metadata.get("tables") or [],
+			},
 		},
 		"table_name": resolved_table_name or state.table_name,
 		"table_path": resolved_table_path or state.table_path,
@@ -170,6 +188,10 @@ def fetch_dataplex_tags(state: DocumentBuildState) -> dict[str, Any]:
 
 	return {
 		"dataplex_context": context,
+		"artifacts_context": {
+			**(state.artifacts_context or {}),
+			"dataplex_context": context,
+		},
 		"warnings": _dedupe(list(state.warnings) + warnings),
 	}
 
@@ -224,6 +246,10 @@ def fetch_dbt_manifest(state: DocumentBuildState) -> dict[str, Any]:
 
 	return {
 		"dbt_context": context,
+		"artifacts_context": {
+			**(state.artifacts_context or {}),
+			"dbt_context": context,
+		},
 		"warnings": _dedupe(list(state.warnings) + warnings),
 	}
 
@@ -324,6 +350,11 @@ Gere a documentacao completa no formato solicitado.
 			"warnings": warnings,
 			"governance": enriched["governance"],
 			"pending_technical": enriched["pending_technical"],
+			"draft_context": {
+				"llm_payload": payload,
+				"normalized_sections": enriched["sections"],
+				"normalized_data_dictionary": enriched["data_dictionary"],
+			},
 		}
 	except Exception as exc:
 		return {
@@ -443,6 +474,10 @@ def finalize_document_markdown(state: DocumentBuildState) -> dict[str, Any]:
 	return {
 		"markdown_document": markdown,
 		"quality_score": quality_score,
+		"output_context": {
+			"markdown_document": markdown,
+			"quality_score": quality_score,
+		},
 	}
 
 
@@ -765,17 +800,17 @@ def _select_table_from_catalog(request_text: str, tables: list[dict[str, Any]]) 
 		return None
 
 	normalized = request_text.lower()
-	full_ref_match = re.search(r"([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)", normalized)
-	if full_ref_match:
-		full_ref = full_ref_match.group(1)
+	explicit = _extract_explicit_table_reference(request_text)
+	full_ref = str(explicit.get("full_name") or "").lower()
+	if full_ref:
 		for item in tables:
 			if str(item.get("full_name") or "").lower() == full_ref:
 				return item
 
-	inferred_name = _infer_table_name(request_text).lower()
-	if inferred_name:
+	explicit_table = str(explicit.get("table") or "").lower()
+	if explicit_table:
 		for item in tables:
-			if str(item.get("table_id") or "").lower() == inferred_name:
+			if str(item.get("table_id") or "").lower() == explicit_table:
 				return item
 
 	for item in tables:
@@ -784,6 +819,34 @@ def _select_table_from_catalog(request_text: str, tables: list[dict[str, Any]]) 
 			return item
 
 	return None
+
+
+def _extract_explicit_table_reference(text: str) -> dict[str, str]:
+	normalized = (text or "").strip()
+	if not normalized:
+		return {"project": "", "dataset": "", "table": "", "full_name": ""}
+
+	full_match = re.search(r"`?([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)`?", normalized)
+	if full_match:
+		project, dataset, table = full_match.groups()
+		return {
+			"project": project,
+			"dataset": dataset,
+			"table": table,
+			"full_name": f"{project}.{dataset}.{table}",
+		}
+
+	ds_table_match = re.search(r"`?([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)`?", normalized)
+	if ds_table_match:
+		dataset, table = ds_table_match.groups()
+		return {
+			"project": "",
+			"dataset": dataset,
+			"table": table,
+			"full_name": f"{dataset}.{table}",
+		}
+
+	return {"project": "", "dataset": "", "table": "", "full_name": ""}
 
 
 def _build_real_context_summary(metadata: dict[str, Any]) -> str:
@@ -1019,18 +1082,6 @@ def _build_dynamic_dq_checks(
 		checks.append("A tabela atende criterios minimos de completude, unicidade e consistencia de tipos?")
 
 	return checks
-
-
-def _infer_table_name(text: str) -> str:
-	match = re.search(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b", text)
-	if not match:
-		return ""
-	# Prioriza nomes com underscore tipicos de tabela
-	candidates = re.findall(r"\b([a-z][a-z0-9_]{3,})\b", text)
-	for candidate in candidates:
-		if "_" in candidate:
-			return candidate
-	return ""
 
 
 def _default_mermaid(table_name: str) -> str:

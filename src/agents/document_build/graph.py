@@ -32,8 +32,9 @@ def build_graph(llm: BaseChatModel):
     workflow.add_edge(START, "parse_document_request")
     workflow.add_edge("parse_document_request", "fetch_real_schema")
     workflow.add_edge("fetch_real_schema", "fetch_dataplex_tags")
-    workflow.add_edge("fetch_dataplex_tags", "fetch_dbt_manifest")
+    workflow.add_edge("fetch_real_schema", "fetch_dbt_manifest")
     workflow.add_edge("fetch_dbt_manifest", "generate_document_structure")
+    workflow.add_edge("fetch_dataplex_tags", "generate_document_structure")
     workflow.add_edge("generate_document_structure", "finalize_document_markdown")
     workflow.add_edge("finalize_document_markdown", END)
 

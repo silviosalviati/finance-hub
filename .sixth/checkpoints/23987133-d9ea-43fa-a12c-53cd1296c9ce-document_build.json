@@ -1,0 +1,90 @@
+{
+  "saved_at": "2026-04-10T04:12:13.695241",
+  "payload": {
+    "status": "ok",
+    "title": "Documentação Funcional - Tabela Principal",
+    "doc_type": "documentacao_funcional",
+    "summary": "Esta documentação fornece a especificação funcional da tabela 'tabela_principal' usada para análise de Performance de Vendedores por Densidade de Clientes e Score de Crédito.",
+    "audience": "Desenvolvedores BI, Engenheiros de Dados, Analistas de Negócio e Agentes de IA",
+    "objective": "Proporcionar uma visão clara e estruturada dos dados e processos envolvidos na análise de Performance de Vendedores por Densidade de Clientes e Score de Crédito.",
+    "frequency": "Batch diário",
+    "table_name": "tabela_principal",
+    "table_path": "silviosalviati.inteligencia_negocios.tabela_principal",
+    "mermaid_diagram": "graph TD\n    ORIGEM[Origem de Dados]\n    TRANSFORMACAO[Transformação de Dados]\n    DESTINO[Destino de Dados]\n    ORIGEM -->|Faturamento| TRANSFORMACAO\n    ORIGEM -->|Perfil de Clientes| TRANSFORMACAO\n    TRANSFORMACAO -->|Ticket Médio por Vendedor| DESTINO\n    TRANSFORMACAO -->|Faturamento por Cidade| DESTINO",
+    "sections": [
+      {
+        "title": "Visão Geral",
+        "content": "Esta tabela é usada para analisar a performance de vendedores com base na densidade de clientes e no score de crédito. O objetivo é identificar padrões e tendências que possam ser usados para melhorar a eficiência e a eficácia das vendas."
+      },
+      {
+        "title": "Dicionário de Dados",
+        "content": "[{'column': 'cliente_id', 'type': 'INTEGER', 'description': 'Identificador único do cliente.', 'business_rule': 'Deve ser único.'}, {'column': 'vendedor_id', 'type': 'INTEGER', 'description': 'Identificador único do vendedor.', 'business_rule': 'Deve ser único.'}, {'column': 'cidade', 'type': 'STRING', 'description': 'Cidade onde o cliente está localizado.', 'business_rule': 'Deve ser preenchido.'}, {'column': 'faturamento', 'type': 'FLOAT', 'description': 'Valor total de faturamento.', 'business_rule': 'Deve ser maior ou igual a zero.'}, {'column': 'score_credito', 'type': 'INTEGER', 'description': 'Score de crédito do cliente.', 'business_rule': 'Deve estar entre 0 e 1000.'}, {'column': 'ticket_medio_vendedor', 'type': 'FLOAT', 'description': 'Ticket médio de vendas por vendedor.', 'business_rule': 'Calcular como SUM(faturamento) / COUNT(vendedor_id)'}, {'column': 'densidade_clientes', 'type': 'FLOAT', 'description': 'Densidade de clientes por cidade.', 'business_rule': 'Calcular como COUNT(cliente_id) / COUNT(DISTINCT cidade)'}]"
+      },
+      {
+        "title": "Atenção a Tipagem",
+        "content": "O campo 'cliente_id' deve ser do tipo INTEGER para evitar erros de join quando relevante."
+      },
+      {
+        "title": "Regras de Negócio",
+        "content": "O campo 'ticket_medio_vendedor' é calculado como a soma do faturamento dividido pelo número de vendedores únicos. O campo 'densidade_clientes' é calculado como o número de clientes dividido pelo número de cidades únicas."
+      },
+      {
+        "title": "Data Quality (DQ)",
+        "content": "['cliente_id unico', 'score_credito entre 0 e 1000', 'nulos em campos criticos de segmentacao']"
+      },
+      {
+        "title": "Governança",
+        "content": "{'aspect_types': ['IDENTIFICACAO', 'SEGURANCA', 'PERFIL'], 'readers': ['equipe_de_analise', 'equipe_de_vendas', 'equipe_de_gestao'], 'notes': ['Acesso restrito aos membros da equipe de análise, vendas e gestão.']}"
+      },
+      {
+        "title": "Feedback",
+        "content": "['[PENDENCIA TECNICA] Descrição do score_credito precisa ser verificada.']"
+      }
+    ],
+    "data_dictionary": [],
+    "typing_notes": [],
+    "assumptions": [],
+    "risks": [],
+    "acceptance_checklist": [
+      "cliente_id unico",
+      "score_credito entre 0 e 1000",
+      "nulos em campos criticos de segmentacao",
+      "O cliente_id e unico (Primary Key)?",
+      "O score_credito esta entre 0 e 1000?",
+      "Existem valores nulos em campos criticos de segmentacao?"
+    ],
+    "next_steps": [
+      "Configurar alerta de schema drift no Dataplex para a tabela principal.",
+      "Publicar runbook de tratamento para eventos de quebra de contrato.",
+      "Definir dono de dados e SLA de correcao para incidentes de DQ."
+    ],
+    "warnings": [
+      "O campo 'score_credito' precisa ser verificado para garantir que esteja dentro do intervalo correto."
+    ],
+    "governance": {
+      "aspect_types": [
+        "IDENTIFICACAO",
+        "SEGURANCA",
+        "PERFIL"
+      ],
+      "readers": [
+        "equipe_de_analise",
+        "equipe_de_vendas",
+        "equipe_de_gestao"
+      ],
+      "notes": [
+        "Acesso restrito aos membros da equipe de análise, vendas e gestão.",
+        "table_path: silviosalviati.inteligencia_negocios.tabela_principal"
+      ]
+    },
+    "pending_technical": [],
+    "quality_score": 100,
+    "markdown_document": "# Documentação Funcional - Tabela Principal\n\n## Header\n**Tabela:** tabela_principal\n**Caminho GCP:** silviosalviati.inteligencia_negocios.tabela_principal\n\n**Tipo:** documentacao_funcional\n**Publico-alvo:** Desenvolvedores BI, Engenheiros de Dados, Analistas de Negócio e Agentes de IA\n**Project ID:** silviosalviati\n**Dataset hint:** inteligencia_negocios\n\n## Diagrama de fluxo (Mermaid)\n```mermaid\ngraph TD\n    ORIGEM[Origem de Dados]\n    TRANSFORMACAO[Transformação de Dados]\n    DESTINO[Destino de Dados]\n    ORIGEM -->|Faturamento| TRANSFORMACAO\n    ORIGEM -->|Perfil de Clientes| TRANSFORMACAO\n    TRANSFORMACAO -->|Ticket Médio por Vendedor| DESTINO\n    TRANSFORMACAO -->|Faturamento por Cidade| DESTINO\n```\n\n## 1. Visao geral (Overview)\n**Objetivo:** Proporcionar uma visão clara e estruturada dos dados e processos envolvidos na análise de Performance de Vendedores por Densidade de Clientes e Score de Crédito.\n**Frequencia:** Batch diário\n\n## Resumo executivo\nEsta documentação fornece a especificação funcional da tabela 'tabela_principal' usada para análise de Performance de Vendedores por Densidade de Clientes e Score de Crédito.\n\n## Visão Geral\nEsta tabela é usada para analisar a performance de vendedores com base na densidade de clientes e no score de crédito. O objetivo é identificar padrões e tendências que possam ser usados para melhorar a eficiência e a eficácia das vendas.\n\n## Dicionário de Dados\n[{'column': 'cliente_id', 'type': 'INTEGER', 'description': 'Identificador único do cliente.', 'business_rule': 'Deve ser único.'}, {'column': 'vendedor_id', 'type': 'INTEGER', 'description': 'Identificador único do vendedor.', 'business_rule': 'Deve ser único.'}, {'column': 'cidade', 'type': 'STRING', 'description': 'Cidade onde o cliente está localizado.', 'business_rule': 'Deve ser preenchido.'}, {'column': 'faturamento', 'type': 'FLOAT', 'description': 'Valor total de faturamento.', 'business_rule': 'Deve ser maior ou igual a zero.'}, {'column': 'score_credito', 'type': 'INTEGER', 'description': 'Score de crédito do cliente.', 'business_rule': 'Deve estar entre 0 e 1000.'}, {'column': 'ticket_medio_vendedor', 'type': 'FLOAT', 'description': 'Ticket médio de vendas por vendedor.', 'business_rule': 'Calcular como SUM(faturamento) / COUNT(vendedor_id)'}, {'column': 'densidade_clientes', 'type': 'FLOAT', 'description': 'Densidade de clientes por cidade.', 'business_rule': 'Calcular como COUNT(cliente_id) / COUNT(DISTINCT cidade)'}]\n\n## Atenção a Tipagem\nO campo 'cliente_id' deve ser do tipo INTEGER para evitar erros de join quando relevante.\n\n## Regras de Negócio\nO campo 'ticket_medio_vendedor' é calculado como a soma do faturamento dividido pelo número de vendedores únicos. O campo 'densidade_clientes' é calculado como o número de clientes dividido pelo número de cidades únicas.\n\n## Data Quality (DQ)\n['cliente_id unico', 'score_credito entre 0 e 1000', 'nulos em campos criticos de segmentacao']\n\n## Governança\n{'aspect_types': ['IDENTIFICACAO', 'SEGURANCA', 'PERFIL'], 'readers': ['equipe_de_analise', 'equipe_de_vendas', 'equipe_de_gestao'], 'notes': ['Acesso restrito aos membros da equipe de análise, vendas e gestão.']}\n\n## Feedback\n['[PENDENCIA TECNICA] Descrição do score_credito precisa ser verificada.']\n\n## 2. Dicionario de dados (Data Dictionary)\n- Nao informado\n\n## 3. Checklist de qualidade de dados (DQ)\n- [ ] cliente_id unico\n- [ ] score_credito entre 0 e 1000\n- [ ] nulos em campos criticos de segmentacao\n- [ ] O cliente_id e unico (Primary Key)?\n- [ ] O score_credito esta entre 0 e 1000?\n- [ ] Existem valores nulos em campos criticos de segmentacao?\n\n## 4. Governanca (Dataplex/Catalog)\n**Aspect Types**\n- IDENTIFICACAO\n- SEGURANCA\n- PERFIL\n\n## 5. Atencao a tipagem\n- Validar colunas de ID para CAST explicito em JOINs quando houver divergencia de tipo.\n\n**Permissoes de leitura**\n- equipe_de_analise\n- equipe_de_vendas\n- equipe_de_gestao\n\n**Notas de governanca**\n- Acesso restrito aos membros da equipe de análise, vendas e gestão.\n- table_path: silviosalviati.inteligencia_negocios.tabela_principal\n\n## Premissas\n- Nao informado\n\n## Riscos\n- Nao informado\n\n## Proximos passos\n- Configurar alerta de schema drift no Dataplex para a tabela principal.\n- Publicar runbook de tratamento para eventos de quebra de contrato.\n- Definir dono de dados e SLA de correcao para incidentes de DQ.\n\n## Observacoes\n- O campo 'score_credito' precisa ser verificado para garantir que esteja dentro do intervalo correto.\n",
+    "metadata": {
+      "project_id": "silviosalviati",
+      "dataset_hint": "inteligencia_negocios",
+      "table_name": "tabela_principal",
+      "table_path": "silviosalviati.inteligencia_negocios.tabela_principal"
+    }
+  }
+}

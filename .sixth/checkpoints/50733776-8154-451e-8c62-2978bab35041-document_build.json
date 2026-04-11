@@ -1,0 +1,138 @@
+{
+  "saved_at": "2026-04-10T04:01:13.887963",
+  "payload": {
+    "status": "ok",
+    "title": "Documentação Funcional - Tabela Principal",
+    "doc_type": "documentacao_funcional",
+    "summary": "Esta documentação fornece a estrutura e as diretrizes para a tabela 'tabela_principal' no projeto 'silviosalviati.inteligencia_negocios'.",
+    "audience": "Desenvolvedores BI, Engenheiros de Dados, Analistas de Negócio e Agentes de IA",
+    "objective": "Gerar uma análise de performance de vendedores por densidade de clientes e score de crédito, com foco no ticket médio por vendedor e visualização de faturamento por cidade.",
+    "frequency": "Batch diário",
+    "table_name": "tabela_principal",
+    "table_path": "silviosalviati.inteligencia_negocios.tabela_principal",
+    "mermaid_diagram": "graph TD\n    ORIGEM[Origem de Dados]\n    TRANSFORMACAO[Transformação de Dados]\n    DESTINO[Destino de Dados]\n    ORIGEM -->|Faturamento| TRANSFORMACAO\n    ORIGEM -->|Perfil de Cliente| TRANSFORMACAO\n    TRANSFORMACAO -->|Ticket Médio por Vendedor| DESTINO\n    TRANSFORMACAO -->|Faturamento por Cidade| DESTINO",
+    "sections": [
+      {
+        "title": "Visão Geral",
+        "content": "Esta tabela é projetada para analisar a performance de vendedores com base na densidade de clientes e no score de crédito. O objetivo é fornecer insights sobre o ticket médio por vendedor e a distribuição do faturamento por cidade."
+      },
+      {
+        "title": "Dicionário de Dados",
+        "content": "A tabela 'tabela_principal' contém os seguintes campos:\n- cliente_id: INTEGER - Identificador único do cliente.\n- vendedor_id: INTEGER - Identificador único do vendedor.\n- faturamento: FLOAT - Valor total do faturamento.\n- densidade_clientes: FLOAT - Densidade de clientes por área geográfica.\n- score_credito: INTEGER - Score de crédito do cliente.\n- ticket_medio_vendedor: FLOAT - Ticket médio por vendedor calculado.\n- faturamento_cidade: FLOAT - Faturamento total por cidade."
+      },
+      {
+        "title": "Atenção a Tipagem",
+        "content": "O campo 'cliente_id' deve ser tratado como INTEGER para evitar erros de join. O campo 'score_credito' deve ser tratado como INTEGER e deve estar entre 0 e 1000."
+      },
+      {
+        "title": "Regras de Negócio",
+        "content": "O campo 'ticket_medio_vendedor' é calculado como faturamento / vendedor_id. O campo 'faturamento_cidade' é calculado somando o faturamento de todos os clientes em uma cidade."
+      },
+      {
+        "title": "Data Quality (DQ)",
+        "content": "Verificar se o campo 'cliente_id' é único. Verificar se o campo 'score_credito' está entre 0 e 1000. Verificar se os campos 'faturamento' e 'faturamento_cidade' não contêm valores negativos."
+      },
+      {
+        "title": "Governança",
+        "content": "{'aspect_types': ['Uniqueness', 'Range', 'Nullability'], 'readers': ['analistas_negocio@silviosalviati.com', 'engenheiros_dados@silviosalviati.com'], 'notes': [\"A tabela 'tabela_principal' deve ser acessada apenas por usuários autorizados.\"]}"
+      }
+    ],
+    "data_dictionary": [
+      {
+        "column": "cliente_id",
+        "type": "INTEGER",
+        "description": "Identificador único do cliente.",
+        "business_rule": "Deve ser único."
+      },
+      {
+        "column": "vendedor_id",
+        "type": "INTEGER",
+        "description": "Identificador único do vendedor.",
+        "business_rule": "Deve ser único."
+      },
+      {
+        "column": "faturamento",
+        "type": "FLOAT",
+        "description": "Valor total do faturamento.",
+        "business_rule": "Deve ser maior ou igual a 0."
+      },
+      {
+        "column": "densidade_clientes",
+        "type": "FLOAT",
+        "description": "Densidade de clientes por área geográfica.",
+        "business_rule": "Deve ser maior ou igual a 0."
+      },
+      {
+        "column": "score_credito",
+        "type": "INTEGER",
+        "description": "Score de crédito do cliente.",
+        "business_rule": "Deve estar entre 0 e 1000."
+      },
+      {
+        "column": "ticket_medio_vendedor",
+        "type": "FLOAT",
+        "description": "Ticket médio por vendedor calculado.",
+        "business_rule": "Deve ser calculado como faturamento / vendedor_id."
+      },
+      {
+        "column": "faturamento_cidade",
+        "type": "FLOAT",
+        "description": "Faturamento total por cidade.",
+        "business_rule": "Deve ser calculado somando o faturamento de todos os clientes em uma cidade."
+      }
+    ],
+    "typing_notes": [
+      "Coluna cliente_id: validar compatibilidade de tipo em JOIN e aplicar CAST explicito quando necessario.",
+      "Coluna vendedor_id: validar compatibilidade de tipo em JOIN e aplicar CAST explicito quando necessario.",
+      "Coluna densidade_clientes: validar compatibilidade de tipo em JOIN e aplicar CAST explicito quando necessario.",
+      "Coluna faturamento_cidade: validar compatibilidade de tipo em JOIN e aplicar CAST explicito quando necessario."
+    ],
+    "assumptions": [
+      "A tabela 'tabela_principal' será alimentada com dados de origem confiáveis e consistentes."
+    ],
+    "risks": [
+      "Possível inconsistência de dados se a origem não for confiável."
+    ],
+    "acceptance_checklist": [
+      "Verificar se o campo 'cliente_id' é único.",
+      "Verificar se o campo 'score_credito' está entre 0 e 1000.",
+      "Verificar se os campos 'faturamento' e 'faturamento_cidade' não contêm valores negativos.",
+      "O cliente_id e unico (Primary Key)?",
+      "O score_credito esta entre 0 e 1000?",
+      "Existem valores nulos em campos criticos de segmentacao?"
+    ],
+    "next_steps": [
+      "Implementar a transformação de dados e criar a tabela 'tabela_principal' no BigQuery.",
+      "Realizar testes de qualidade de dados.",
+      "Implementar visualizações e dashboards para análise de performance de vendedores."
+    ],
+    "warnings": [
+      "O campo 'score_credito' deve ser tratado com cuidado para evitar erros de negócio.",
+      "O campo 'cliente_id' deve ser tratado como INTEGER para evitar erros de join."
+    ],
+    "governance": {
+      "aspect_types": [
+        "Uniqueness",
+        "Range",
+        "Nullability"
+      ],
+      "readers": [
+        "analistas_negocio@silviosalviati.com",
+        "engenheiros_dados@silviosalviati.com"
+      ],
+      "notes": [
+        "A tabela 'tabela_principal' deve ser acessada apenas por usuários autorizados.",
+        "table_path: silviosalviati.inteligencia_negocios.tabela_principal"
+      ]
+    },
+    "pending_technical": [],
+    "quality_score": 100,
+    "markdown_document": "# Documentação Funcional - Tabela Principal\n\n## Header\n**Tabela:** tabela_principal\n**Caminho GCP:** silviosalviati.inteligencia_negocios.tabela_principal\n\n**Tipo:** documentacao_funcional\n**Publico-alvo:** Desenvolvedores BI, Engenheiros de Dados, Analistas de Negócio e Agentes de IA\n**Project ID:** silviosalviati\n**Dataset hint:** inteligencia_negocios\n\n## Diagrama de fluxo (Mermaid)\n```mermaid\ngraph TD\n    ORIGEM[Origem de Dados]\n    TRANSFORMACAO[Transformação de Dados]\n    DESTINO[Destino de Dados]\n    ORIGEM -->|Faturamento| TRANSFORMACAO\n    ORIGEM -->|Perfil de Cliente| TRANSFORMACAO\n    TRANSFORMACAO -->|Ticket Médio por Vendedor| DESTINO\n    TRANSFORMACAO -->|Faturamento por Cidade| DESTINO\n```\n\n## 1. Visao geral (Overview)\n**Objetivo:** Gerar uma análise de performance de vendedores por densidade de clientes e score de crédito, com foco no ticket médio por vendedor e visualização de faturamento por cidade.\n**Frequencia:** Batch diário\n\n## Resumo executivo\nEsta documentação fornece a estrutura e as diretrizes para a tabela 'tabela_principal' no projeto 'silviosalviati.inteligencia_negocios'.\n\n## Visão Geral\nEsta tabela é projetada para analisar a performance de vendedores com base na densidade de clientes e no score de crédito. O objetivo é fornecer insights sobre o ticket médio por vendedor e a distribuição do faturamento por cidade.\n\n## Dicionário de Dados\nA tabela 'tabela_principal' contém os seguintes campos:\n- cliente_id: INTEGER - Identificador único do cliente.\n- vendedor_id: INTEGER - Identificador único do vendedor.\n- faturamento: FLOAT - Valor total do faturamento.\n- densidade_clientes: FLOAT - Densidade de clientes por área geográfica.\n- score_credito: INTEGER - Score de crédito do cliente.\n- ticket_medio_vendedor: FLOAT - Ticket médio por vendedor calculado.\n- faturamento_cidade: FLOAT - Faturamento total por cidade.\n\n## Atenção a Tipagem\nO campo 'cliente_id' deve ser tratado como INTEGER para evitar erros de join. O campo 'score_credito' deve ser tratado como INTEGER e deve estar entre 0 e 1000.\n\n## Regras de Negócio\nO campo 'ticket_medio_vendedor' é calculado como faturamento / vendedor_id. O campo 'faturamento_cidade' é calculado somando o faturamento de todos os clientes em uma cidade.\n\n## Data Quality (DQ)\nVerificar se o campo 'cliente_id' é único. Verificar se o campo 'score_credito' está entre 0 e 1000. Verificar se os campos 'faturamento' e 'faturamento_cidade' não contêm valores negativos.\n\n## Governança\n{'aspect_types': ['Uniqueness', 'Range', 'Nullability'], 'readers': ['analistas_negocio@silviosalviati.com', 'engenheiros_dados@silviosalviati.com'], 'notes': [\"A tabela 'tabela_principal' deve ser acessada apenas por usuários autorizados.\"]}\n\n## 2. Dicionario de dados (Data Dictionary)\n| Coluna | Tipo | Descricao | Regra de Negocio |\n| --- | --- | --- | --- |\n| cliente_id | INTEGER | Identificador único do cliente. | Deve ser único. |\n| vendedor_id | INTEGER | Identificador único do vendedor. | Deve ser único. |\n| faturamento | FLOAT | Valor total do faturamento. | Deve ser maior ou igual a 0. |\n| densidade_clientes | FLOAT | Densidade de clientes por área geográfica. | Deve ser maior ou igual a 0. |\n| score_credito | INTEGER | Score de crédito do cliente. | Deve estar entre 0 e 1000. |\n| ticket_medio_vendedor | FLOAT | Ticket médio por vendedor calculado. | Deve ser calculado como faturamento / vendedor_id. |\n| faturamento_cidade | FLOAT | Faturamento total por cidade. | Deve ser calculado somando o faturamento de todos os clientes em uma cidade. |\n\n## 3. Checklist de qualidade de dados (DQ)\n- [ ] Verificar se o campo 'cliente_id' é único.\n- [ ] Verificar se o campo 'score_credito' está entre 0 e 1000.\n- [ ] Verificar se os campos 'faturamento' e 'faturamento_cidade' não contêm valores negativos.\n- [ ] O cliente_id e unico (Primary Key)?\n- [ ] O score_credito esta entre 0 e 1000?\n- [ ] Existem valores nulos em campos criticos de segmentacao?\n\n## 4. Governanca (Dataplex/Catalog)\n**Aspect Types**\n- Uniqueness\n- Range\n- Nullability\n\n## 5. Atencao a tipagem\n- Coluna cliente_id: validar compatibilidade de tipo em JOIN e aplicar CAST explicito quando necessario.\n- Coluna vendedor_id: validar compatibilidade de tipo em JOIN e aplicar CAST explicito quando necessario.\n- Coluna densidade_clientes: validar compatibilidade de tipo em JOIN e aplicar CAST explicito quando necessario.\n- Coluna faturamento_cidade: validar compatibilidade de tipo em JOIN e aplicar CAST explicito quando necessario.\n\n**Permissoes de leitura**\n- analistas_negocio@silviosalviati.com\n- engenheiros_dados@silviosalviati.com\n\n**Notas de governanca**\n- A tabela 'tabela_principal' deve ser acessada apenas por usuários autorizados.\n- table_path: silviosalviati.inteligencia_negocios.tabela_principal\n\n## Premissas\n- A tabela 'tabela_principal' será alimentada com dados de origem confiáveis e consistentes.\n\n## Riscos\n- Possível inconsistência de dados se a origem não for confiável.\n\n## Proximos passos\n- Implementar a transformação de dados e criar a tabela 'tabela_principal' no BigQuery.\n- Realizar testes de qualidade de dados.\n- Implementar visualizações e dashboards para análise de performance de vendedores.\n\n## Observacoes\n- O campo 'score_credito' deve ser tratado com cuidado para evitar erros de negócio.\n- O campo 'cliente_id' deve ser tratado como INTEGER para evitar erros de join.\n",
+    "metadata": {
+      "project_id": "silviosalviati",
+      "dataset_hint": "inteligencia_negocios",
+      "table_name": "tabela_principal",
+      "table_path": "silviosalviati.inteligencia_negocios.tabela_principal"
+    }
+  }
+}

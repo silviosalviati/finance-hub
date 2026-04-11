@@ -270,6 +270,37 @@ Portal local:
 
 - http://localhost:8000
 
+## Publicacao no Git
+
+Fluxo recomendado (commit + push em um comando), usando o script do projeto:
+
+```powershell
+./scripts/publish.ps1 -Message "feat: descricao da alteracao"
+```
+
+Opcional para pular testes:
+
+```powershell
+./scripts/publish.ps1 -Message "chore: ajuste rapido" -SkipTests
+```
+
+O script executa, nesta ordem:
+
+1. valida se voce esta na raiz de um repositorio git
+2. executa `pytest -q` (exceto com `-SkipTests`)
+3. roda `git add -A`
+4. cria commit com a mensagem informada
+5. faz push para `origin/<branch-atual>`
+
+Fluxo manual equivalente:
+
+```powershell
+pytest -q
+git add -A
+git commit -m "feat: descricao da alteracao"
+git push origin <branch-atual>
+```
+
 ## Endpoints Principais
 
 Publicos:
@@ -316,6 +347,10 @@ Arquivos principais:
 ### Query Build
 
 ![Tela do Query Build](static/img/screens/query-build.png)
+
+### Document Build
+
+![Tela do Document Build](static/img/screens/document-build.png)
 
 Observacao: as imagens acima sao capturas reais da interface atual para documentacao visual.
 

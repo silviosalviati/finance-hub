@@ -1,0 +1,122 @@
+{
+  "saved_at": "2026-04-10T03:55:18.427138",
+  "payload": {
+    "status": "ok",
+    "title": "Especificação Técnica - Perfil Comportamental de Clientes",
+    "doc_type": "especificacao_tecnica",
+    "summary": "Esta especificação técnica detalha a pipeline de Perfil Comportamental de Clientes, incluindo a arquitetura, dicionário de dados, regras de negócio, checklist de qualidade de dados e próximos passos para implementação de alertas de desvio de esquema no Dataplex.",
+    "audience": "Desenvolvedores BI, Engenheiros de Dados, Analistas de Negócio e Agentes de IA",
+    "objective": "Criar uma pipeline robusta para gerar perfis comportamentais de clientes, garantindo a qualidade e integridade dos dados.",
+    "frequency": "Batch diário",
+    "table_name": "perfil_comportamental_clientes",
+    "table_path": "silviosalviati.inteligencia_negocios.perfil_comportamental_clientes",
+    "mermaid_diagram": "graph TD\n    ORIGEM[Origem de Dados]\n    TRANSFORMACAO[Transformação de Dados]\n    DESTINO[Destino de Dados]\n    ORIGEM -->|Pipeline| TRANSFORMACAO\n    TRANSFORMACAO -->|Pipeline| DESTINO",
+    "sections": [
+      {
+        "title": "Visão Geral",
+        "content": "A pipeline de Perfil Comportamental de Clientes é projetada para coletar, transformar e armazenar dados comportamentais de clientes, permitindo análises avançadas e insights estratégicos para a tomada de decisões de negócios."
+      },
+      {
+        "title": "Dicionário de Dados",
+        "content": "O dicionário de dados detalha cada coluna da tabela perfil_comportamental_clientes, incluindo o tipo de dado, descrição e restrições."
+      },
+      {
+        "title": "Regras de Negócio",
+        "content": "As regras de negócio definem como os campos score_credito e segmento_cliente são calculados e segmentados."
+      },
+      {
+        "title": "Checklist de Qualidade de Dados (DQ)",
+        "content": "O checklist de DQ inclui verificações essenciais para garantir a integridade dos dados."
+      },
+      {
+        "title": "Próximos Passos",
+        "content": "Os próximos passos incluem a implementação de alertas de desvio de esquema no Dataplex para monitorar a consistência dos dados."
+      }
+    ],
+    "data_dictionary": [
+      {
+        "column": "cliente_id",
+        "type": "INTEGER",
+        "description": "Identificador único do cliente.",
+        "business_rule": "Deve ser um valor inteiro único."
+      },
+      {
+        "column": "score_credito",
+        "type": "INTEGER",
+        "description": "Pontuação de crédito do cliente, onde 0 representa o menor risco e 1000 o maior risco.",
+        "business_rule": "Deve estar entre 0 e 1000."
+      },
+      {
+        "column": "segmento_cliente",
+        "type": "STRING",
+        "description": "Segmento comportamental do cliente baseado em comportamento de compra.",
+        "business_rule": "Deve ser um valor válido conforme definido no negócio."
+      },
+      {
+        "column": "data_compra",
+        "type": "DATE",
+        "description": "Data da última compra do cliente.",
+        "business_rule": "Deve ser uma data válida."
+      },
+      {
+        "column": "valor_compra",
+        "type": "FLOAT",
+        "description": "Valor total da última compra do cliente.",
+        "business_rule": "Deve ser um valor positivo."
+      }
+    ],
+    "typing_notes": [
+      "O cliente_id deve ser tratado como INTEGER para evitar erros de join.",
+      "O score_credito deve ser tratado como INTEGER para garantir a precisão dos cálculos."
+    ],
+    "assumptions": [
+      "A tabela de origem contém dados completos e consistentes."
+    ],
+    "risks": [
+      "Risco de dados inconsistentes devido a falhas na coleta de dados."
+    ],
+    "acceptance_checklist": [
+      "Verificar se o cliente_id é único.",
+      "Verificar se o score_credito está entre 0 e 1000.",
+      "Verificar se os campos de data e valor de compra são válidos.",
+      "O cliente_id e unico (Primary Key)?",
+      "O score_credito esta entre 0 e 1000?",
+      "Existem valores nulos em campos criticos de segmentacao?"
+    ],
+    "next_steps": [
+      "Implementar alertas de desvio de esquema no Dataplex.",
+      "Realizar testes de qualidade de dados (DQ) regulares."
+    ],
+    "warnings": [
+      "O uso do cliente_id como INTEGER é crucial para evitar erros de join.",
+      "Verificar periodicamente a consistência dos dados de score_credito."
+    ],
+    "governance": {
+      "aspect_types": [
+        "UNIQUENESS",
+        "RANGE",
+        "VALIDATION"
+      ],
+      "readers": [
+        "analistas_negocios@silviosalviati.com",
+        "engenheiros_dados@silviosalviati.com"
+      ],
+      "notes": [
+        "As regras de governança devem ser aplicadas para garantir a integridade dos dados.",
+        "table_path: silviosalviati.inteligencia_negocios.perfil_comportamental_clientes"
+      ]
+    },
+    "pending_technical": [
+      "[PENDENCIA TECNICA] Verificar a consistência dos dados de score_credito.",
+      "[PENDENCIA TECNICA] Implementar alertas de desvio de esquema no Dataplex."
+    ],
+    "quality_score": 100,
+    "markdown_document": "# Especificação Técnica - Perfil Comportamental de Clientes\n\n## Header\n**Tabela:** perfil_comportamental_clientes\n**Caminho GCP:** silviosalviati.inteligencia_negocios.perfil_comportamental_clientes\n\n**Tipo:** especificacao_tecnica\n**Publico-alvo:** Desenvolvedores BI, Engenheiros de Dados, Analistas de Negócio e Agentes de IA\n**Project ID:** silviosalviati\n**Dataset hint:** inteligencia_negocios\n\n## Diagrama de fluxo (Mermaid)\n```mermaid\ngraph TD\n    ORIGEM[Origem de Dados]\n    TRANSFORMACAO[Transformação de Dados]\n    DESTINO[Destino de Dados]\n    ORIGEM -->|Pipeline| TRANSFORMACAO\n    TRANSFORMACAO -->|Pipeline| DESTINO\n```\n\n## 1. Visao geral (Overview)\n**Objetivo:** Criar uma pipeline robusta para gerar perfis comportamentais de clientes, garantindo a qualidade e integridade dos dados.\n**Frequencia:** Batch diário\n\n## Resumo executivo\nEsta especificação técnica detalha a pipeline de Perfil Comportamental de Clientes, incluindo a arquitetura, dicionário de dados, regras de negócio, checklist de qualidade de dados e próximos passos para implementação de alertas de desvio de esquema no Dataplex.\n\n## Visão Geral\nA pipeline de Perfil Comportamental de Clientes é projetada para coletar, transformar e armazenar dados comportamentais de clientes, permitindo análises avançadas e insights estratégicos para a tomada de decisões de negócios.\n\n## Dicionário de Dados\nO dicionário de dados detalha cada coluna da tabela perfil_comportamental_clientes, incluindo o tipo de dado, descrição e restrições.\n\n## Regras de Negócio\nAs regras de negócio definem como os campos score_credito e segmento_cliente são calculados e segmentados.\n\n## Checklist de Qualidade de Dados (DQ)\nO checklist de DQ inclui verificações essenciais para garantir a integridade dos dados.\n\n## Próximos Passos\nOs próximos passos incluem a implementação de alertas de desvio de esquema no Dataplex para monitorar a consistência dos dados.\n\n## 2. Dicionario de dados (Data Dictionary)\n| Coluna | Tipo | Descricao | Regra de Negocio |\n| --- | --- | --- | --- |\n| cliente_id | INTEGER | Identificador único do cliente. | Deve ser um valor inteiro único. |\n| score_credito | INTEGER | Pontuação de crédito do cliente, onde 0 representa o menor risco e 1000 o maior risco. | Deve estar entre 0 e 1000. |\n| segmento_cliente | STRING | Segmento comportamental do cliente baseado em comportamento de compra. | Deve ser um valor válido conforme definido no negócio. |\n| data_compra | DATE | Data da última compra do cliente. | Deve ser uma data válida. |\n| valor_compra | FLOAT | Valor total da última compra do cliente. | Deve ser um valor positivo. |\n\n## 3. Checklist de qualidade de dados (DQ)\n- [ ] Verificar se o cliente_id é único.\n- [ ] Verificar se o score_credito está entre 0 e 1000.\n- [ ] Verificar se os campos de data e valor de compra são válidos.\n- [ ] O cliente_id e unico (Primary Key)?\n- [ ] O score_credito esta entre 0 e 1000?\n- [ ] Existem valores nulos em campos criticos de segmentacao?\n\n## 4. Governanca (Dataplex/Catalog)\n**Aspect Types**\n- UNIQUENESS\n- RANGE\n- VALIDATION\n\n## 5. Atencao a tipagem\n- O cliente_id deve ser tratado como INTEGER para evitar erros de join.\n- O score_credito deve ser tratado como INTEGER para garantir a precisão dos cálculos.\n\n**Permissoes de leitura**\n- analistas_negocios@silviosalviati.com\n- engenheiros_dados@silviosalviati.com\n\n**Notas de governanca**\n- As regras de governança devem ser aplicadas para garantir a integridade dos dados.\n- table_path: silviosalviati.inteligencia_negocios.perfil_comportamental_clientes\n\n## Premissas\n- A tabela de origem contém dados completos e consistentes.\n\n## Riscos\n- Risco de dados inconsistentes devido a falhas na coleta de dados.\n\n## Proximos passos\n- Implementar alertas de desvio de esquema no Dataplex.\n- Realizar testes de qualidade de dados (DQ) regulares.\n\n## Pendencias tecnicas\n- [PENDENCIA TECNICA] Verificar a consistência dos dados de score_credito.\n- [PENDENCIA TECNICA] Implementar alertas de desvio de esquema no Dataplex.\n\n## Observacoes\n- O uso do cliente_id como INTEGER é crucial para evitar erros de join.\n- Verificar periodicamente a consistência dos dados de score_credito.\n",
+    "metadata": {
+      "project_id": "silviosalviati",
+      "dataset_hint": "inteligencia_negocios",
+      "table_name": "perfil_comportamental_clientes",
+      "table_path": "silviosalviati.inteligencia_negocios.perfil_comportamental_clientes"
+    }
+  }
+}

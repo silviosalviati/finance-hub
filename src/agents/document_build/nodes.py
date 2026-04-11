@@ -158,15 +158,33 @@ def fetch_dataplex_tags(state: DocumentBuildState) -> dict[str, Any]:
 
 	table_path = (state.table_path or "").strip()
 	if not table_path or table_path.count(".") != 2:
-		warnings = _dedupe(list(state.warnings) + [
-			"Dataplex/Data Catalog nao consultado: table_path ausente ou invalido.",
-		])
-		return {"warnings": warnings, "dataplex_context": {}}
+		return {
+			"dataplex_context": {
+				"aspect_types": [],
+				"business_glossary": [],
+				"entry_name": "",
+				"warnings": [
+					"Dataplex/Data Catalog nao consultado: table_path ausente ou invalido.",
+				],
+			},
+			"artifacts_context": {
+				**(state.artifacts_context or {}),
+				"dataplex_context": {
+					"aspect_types": [],
+					"business_glossary": [],
+					"entry_name": "",
+					"warnings": [
+						"Dataplex/Data Catalog nao consultado: table_path ausente ou invalido.",
+					],
+				},
+			},
+		}
 
 	context: dict[str, Any] = {
 		"aspect_types": [],
 		"business_glossary": [],
 		"entry_name": "",
+		"warnings": [],
 	}
 	warnings: list[str] = []
 
@@ -203,12 +221,17 @@ def fetch_dataplex_tags(state: DocumentBuildState) -> dict[str, Any]:
 		warnings.append(f"Falha ao consultar tags Dataplex/Data Catalog: {exc}")
 
 	return {
-		"dataplex_context": context,
+		"dataplex_context": {
+			**context,
+			"warnings": _dedupe(warnings),
+		},
 		"artifacts_context": {
 			**(state.artifacts_context or {}),
-			"dataplex_context": context,
+			"dataplex_context": {
+				**context,
+				"warnings": _dedupe(warnings),
+			},
 		},
-		"warnings": _dedupe(list(state.warnings) + warnings),
 	}
 
 
@@ -218,10 +241,20 @@ def fetch_dbt_manifest(state: DocumentBuildState) -> dict[str, Any]:
 
 	manifest_paths = _find_dbt_manifest_paths()
 	if not manifest_paths:
-		warnings = _dedupe(list(state.warnings) + [
-			"Manifest dbt nao encontrado no workspace (manifest.json).",
-		])
-		return {"dbt_context": {}, "warnings": warnings}
+		empty_context = {
+			"manifest_path": "",
+			"model_name": "",
+			"description": "",
+			"columns": [],
+			"warnings": ["Manifest dbt nao encontrado no workspace (manifest.json)."],
+		}
+		return {
+			"dbt_context": empty_context,
+			"artifacts_context": {
+				**(state.artifacts_context or {}),
+				"dbt_context": empty_context,
+			},
+		}
 
 	table_name = (state.table_name or "").strip().lower()
 	table_path = (state.table_path or "").strip().lower()
@@ -230,6 +263,7 @@ def fetch_dbt_manifest(state: DocumentBuildState) -> dict[str, Any]:
 		"model_name": "",
 		"description": "",
 		"columns": [],
+		"warnings": [],
 	}
 	warnings: list[str] = []
 
@@ -261,12 +295,17 @@ def fetch_dbt_manifest(state: DocumentBuildState) -> dict[str, Any]:
 		warnings.append(f"Falha ao ler manifest dbt: {exc}")
 
 	return {
-		"dbt_context": context,
+		"dbt_context": {
+			**context,
+			"warnings": _dedupe(warnings),
+		},
 		"artifacts_context": {
 			**(state.artifacts_context or {}),
-			"dbt_context": context,
+			"dbt_context": {
+				**context,
+				"warnings": _dedupe(warnings),
+			},
 		},
-		"warnings": _dedupe(list(state.warnings) + warnings),
 	}
 
 
@@ -344,7 +383,14 @@ Gere a documentacao completa no formato solicitado.
 			mermaid_diagram=mermaid_diagram,
 		)
 
-		warnings = _dedupe(list(state.warnings) + _safe_list(payload.get("warnings")))
+		dataplex_warnings = _safe_list(state.dataplex_context.get("warnings")) if isinstance(state.dataplex_context, dict) else []
+		dbt_warnings = _safe_list(state.dbt_context.get("warnings")) if isinstance(state.dbt_context, dict) else []
+		warnings = _dedupe(
+			list(state.warnings)
+			+ dataplex_warnings
+			+ dbt_warnings
+			+ _safe_list(payload.get("warnings"))
+		)
 
 		return {
 			"title": str(payload.get("title") or state.title),

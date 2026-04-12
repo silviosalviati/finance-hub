@@ -2,7 +2,6 @@ from src.agents.document_build import DocumentBuildAgent
 from src.agents.document_build.nodes import (
     _extract_explicit_table_reference,
     _merge_governance_with_dataplex,
-    _select_dbt_model,
     parse_document_request,
     finalize_document_markdown,
 )
@@ -65,29 +64,6 @@ def test_document_build_markdown_has_required_sections():
     assert "## 3. Checklist de qualidade de dados (DQ)" in markdown
     assert "## 4. Governanca (Dataplex/Catalog)" in markdown
     assert "[PENDENCIA TECNICA]" in markdown
-
-
-def test_select_dbt_model_matches_table_name():
-    nodes = {
-        "model.project.fatos_vendas": {
-            "resource_type": "model",
-            "name": "fatos_vendas",
-            "alias": "fatos_vendas",
-            "database": "silviosalviati",
-            "schema": "inteligencia_negocios",
-            "description": "Tabela fato de vendas",
-            "columns": {},
-        }
-    }
-
-    selected = _select_dbt_model(
-        nodes=nodes,
-        table_name="fatos_vendas",
-        table_path="silviosalviati.inteligencia_negocios.fatos_vendas",
-    )
-
-    assert selected is not None
-    assert selected.get("name") == "fatos_vendas"
 
 
 def test_merge_governance_with_dataplex_appends_aspects_and_glossary():

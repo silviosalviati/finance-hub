@@ -35,7 +35,6 @@ class DocumentBuildState(BaseModel):
 	metadata: dict[str, Any] = Field(default_factory=dict)
 	real_schema: dict[str, Any] = Field(default_factory=dict)
 	dataplex_context: dict[str, Any] = Field(default_factory=dict)
-	dbt_context: dict[str, Any] = Field(default_factory=dict)
 	artifacts_context: dict[str, Any] = Field(default_factory=dict)
 	draft_context: dict[str, Any] = Field(default_factory=dict)
 	markdown_document: str = ""

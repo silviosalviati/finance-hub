@@ -229,68 +229,6 @@ def fetch_dataplex_tags(state: DocumentBuildState) -> dict[str, Any]:
 	}
 
 
-def fetch_dbt_manifest(state: DocumentBuildState) -> dict[str, Any]:
-	if state.error:
-		return {}
-
-	manifest_paths = _find_dbt_manifest_paths()
-	if not manifest_paths:
-		empty_context = {
-			"manifest_path": "",
-			"model_name": "",
-			"description": "",
-			"columns": [],
-			"warnings": ["Manifest dbt nao encontrado no workspace (manifest.json)."],
-		}
-		return {
-			"dbt_context": empty_context,
-		}
-
-	table_name = (state.table_name or "").strip().lower()
-	table_path = (state.table_path or "").strip().lower()
-	context: dict[str, Any] = {
-		"manifest_path": str(manifest_paths[0]),
-		"model_name": "",
-		"description": "",
-		"columns": [],
-		"warnings": [],
-	}
-	warnings: list[str] = []
-
-	try:
-		manifest = json.loads(manifest_paths[0].read_text(encoding="utf-8"))
-		nodes = manifest.get("nodes") if isinstance(manifest, dict) else {}
-		if not isinstance(nodes, dict):
-			nodes = {}
-
-		selected = _select_dbt_model(nodes, table_name, table_path)
-		if selected:
-			context["model_name"] = str(selected.get("name") or "")
-			context["description"] = str(selected.get("description") or "")
-			cols = selected.get("columns") if isinstance(selected.get("columns"), dict) else {}
-			column_docs: list[dict[str, str]] = []
-			for key, col in cols.items():
-				if not isinstance(col, dict):
-					continue
-				column_docs.append(
-					{
-						"name": str(col.get("name") or key),
-						"description": str(col.get("description") or ""),
-					}
-				)
-			context["columns"] = column_docs
-		else:
-			warnings.append("Manifest dbt encontrado, mas sem modelo correspondente a tabela selecionada.")
-	except Exception as exc:
-		warnings.append(f"Falha ao ler manifest dbt: {exc}")
-
-	return {
-		"dbt_context": {
-			**context,
-			"warnings": _dedupe(warnings),
-		},
-	}
-
 
 def generate_document_structure(state: DocumentBuildState, llm: BaseChatModel) -> dict[str, Any]:
 	if state.error:
@@ -298,7 +236,6 @@ def generate_document_structure(state: DocumentBuildState, llm: BaseChatModel) -
 
 	real_context = _build_real_context_summary(state.metadata)
 	dataplex_context = _build_dataplex_context_summary(state.dataplex_context)
-	dbt_context = _build_dbt_context_summary(state.dbt_context)
 
 	prompt = f"""
 Contexto informado pelo usuario:
@@ -317,13 +254,9 @@ Artefatos reais disponiveis:
 Tags de governanca Dataplex/Data Catalog:
 {dataplex_context}
 
-Contexto dbt (manifest.json):
-{dbt_context}
-
 Instrucoes criticas:
 - Se houver schema real, use APENAS colunas e tipos do schema fornecido.
 - Nao invente campos fora do catalogo.
-- Se houver descricoes no dbt, priorize-as para enriquecer documentacao funcional.
 - Se houver tags Dataplex, use-as no bloco de governanca.
 - Se alguma informacao essencial nao existir no schema, registre em pending_technical.
 
@@ -367,11 +300,9 @@ Gere a documentacao completa no formato solicitado.
 		)
 
 		dataplex_warnings = _safe_list(state.dataplex_context.get("warnings")) if isinstance(state.dataplex_context, dict) else []
-		dbt_warnings = _safe_list(state.dbt_context.get("warnings")) if isinstance(state.dbt_context, dict) else []
 		warnings = _dedupe(
 			list(state.warnings)
 			+ dataplex_warnings
-			+ dbt_warnings
 			+ _safe_list(payload.get("warnings"))
 		)
 
@@ -996,32 +927,6 @@ def _build_dataplex_context_summary(dataplex_context: dict[str, Any]) -> str:
 	return "\n".join(lines)
 
 
-def _build_dbt_context_summary(dbt_context: dict[str, Any]) -> str:
-	if not isinstance(dbt_context, dict) or not dbt_context:
-		return "Sem contexto dbt (manifest.json) disponivel."
-
-	manifest_path = str(dbt_context.get("manifest_path") or "").strip()
-	model_name = str(dbt_context.get("model_name") or "").strip()
-	description = str(dbt_context.get("description") or "").strip()
-	columns = dbt_context.get("columns") if isinstance(dbt_context.get("columns"), list) else []
-
-	lines = [
-		f"Manifest: {manifest_path or 'nao encontrado'}",
-		f"Modelo: {model_name or 'nao identificado'}",
-	]
-	if description:
-		lines.append(f"Descricao do modelo: {description}")
-	if columns:
-		preview = ", ".join(
-			f"{str(col.get('name') or '').strip()}: {str(col.get('description') or '').strip() or 'sem descricao'}"
-			for col in columns[:12]
-			if isinstance(col, dict)
-		)
-		lines.append("Colunas documentadas no dbt: " + preview)
-
-	return "\n".join(lines)
-
-
 def _merge_governance_with_dataplex(
 	governance: dict[str, list[str]],
 	dataplex_context: dict[str, Any],
@@ -1051,44 +956,6 @@ def _merge_governance_with_dataplex(
 			merged["notes"].append(note)
 
 	return merged
-
-
-def _find_dbt_manifest_paths() -> list[Path]:
-	candidates = [
-		Path("target/manifest.json"),
-		Path("dbt/target/manifest.json"),
-		Path("analytics/target/manifest.json"),
-		Path("transform/target/manifest.json"),
-	]
-	return [path for path in candidates if path.exists() and path.is_file()]
-
-
-def _select_dbt_model(
-	nodes: dict[str, Any],
-	table_name: str,
-	table_path: str,
-) -> dict[str, Any] | None:
-	for node in nodes.values():
-		if not isinstance(node, dict):
-			continue
-		resource_type = str(node.get("resource_type") or "").strip().lower()
-		if resource_type != "model":
-			continue
-
-		alias = str(node.get("alias") or "").strip().lower()
-		name = str(node.get("name") or "").strip().lower()
-		schema_name = str(node.get("schema") or "").strip().lower()
-		database_name = str(node.get("database") or "").strip().lower()
-
-		if table_name and table_name in {alias, name}:
-			return node
-
-		if table_path:
-			candidate_ref = f"{database_name}.{schema_name}.{alias or name}".strip(".")
-			if candidate_ref and candidate_ref == table_path:
-				return node
-
-	return None
 
 
 def _get_selected_table_columns(metadata: dict[str, Any], table_name: str) -> list[dict[str, str]]:

@@ -1,6 +1,9 @@
 from src.agents.document_build import DocumentBuildAgent
 from src.agents.document_build.nodes import (
+    _clean_checklist,
     _extract_explicit_table_reference,
+    _normalize_governance,
+    _remove_incomplete_runbook_summary_sections,
     _merge_governance_with_dataplex,
     parse_document_request,
     finalize_document_markdown,
@@ -144,3 +147,47 @@ def test_finalize_markdown_hides_project_and_dataset_hint():
 
     assert "Project ID" not in markdown
     assert "Dataset hint" not in markdown
+
+
+def test_clean_checklist_removes_incomplete_colon_items():
+    items = [
+        "Consultar volume de dados carregado:",
+        "Verificar qualidade pós-carga:",
+        "Verificar se a tabela foi carregada corretamente.",
+    ]
+
+    result = _clean_checklist(items)
+
+    assert "Consultar volume de dados carregado:" not in result
+    assert "Verificar qualidade pós-carga:" not in result
+    assert "Verificar se a tabela foi carregada corretamente." in result
+
+
+def test_normalize_governance_rejects_free_text_aspect_types():
+    governance = {
+        "aspect_types": ["Nenhum aspect type Dataplex encontrado para esta tabela."],
+        "readers": ["time de dados"],
+        "notes": [],
+    }
+
+    result = _normalize_governance(governance)
+
+    assert result["aspect_types"] == []
+
+
+def test_remove_incomplete_runbook_summary_sections_drops_index_section():
+    sections = [
+        {
+            "title": "Passos operacionais",
+            "content": "1. Verificar status diário do pipeline:\n2. Consultar volume de dados carregado:\n3. Verificar qualidade pós-carga:",
+        },
+        {
+            "title": "Verificar Status Diário do Pipeline",
+            "content": "### O que fazer\nValidar a última execução.",
+        },
+    ]
+
+    result = _remove_incomplete_runbook_summary_sections(sections)
+
+    assert len(result) == 1
+    assert result[0]["title"] == "Verificar Status Diário do Pipeline"

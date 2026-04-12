@@ -18,6 +18,15 @@ from src.shared.tools.bigquery import get_dataset_tables_schema
 
 
 _EMPTY_MARKERS = {"nenhum", "none", "n/a", "não informado", "nao informado", "-"}
+_SUMMARY_SECTION_TITLES = {
+	"sumario",
+	"resumo",
+	"indice",
+	"índice",
+	"passos operacionais",
+	"passos",
+	"etapas",
+}
 
 
 def parse_document_request(state: DocumentBuildState) -> dict[str, Any]:
@@ -274,11 +283,13 @@ Gere a documentacao completa no formato solicitado.
 		data_dictionary = _normalize_data_dictionary(payload.get("data_dictionary"))
 		typing_notes = _safe_list(payload.get("typing_notes"))
 		pending_technical = _safe_list(payload.get("pending_technical"))
-		acceptance_checklist = _safe_list(payload.get("acceptance_checklist"))
+		acceptance_checklist = _clean_checklist(_safe_list(payload.get("acceptance_checklist")))
 		governance = _normalize_governance(payload.get("governance"))
 		governance = _merge_governance_with_dataplex(governance, state.dataplex_context)
 		mermaid_diagram = _normalize_mermaid(payload.get("mermaid_diagram"))
 		real_table_columns = _get_selected_table_columns(state.metadata, state.table_name)
+		raw_next_steps = _safe_list(payload.get("next_steps"))
+		print(f"DOCUMENT_BUILDER raw next_steps: {raw_next_steps}")
 
 		enriched = _enrich_required_blocks(
 			request_text=state.request_text,
@@ -290,7 +301,7 @@ Gere a documentacao completa no formato solicitado.
 			typing_notes=typing_notes,
 			pending_technical=pending_technical,
 			acceptance_checklist=acceptance_checklist,
-			next_steps=_safe_list(payload.get("next_steps")),
+			next_steps=raw_next_steps,
 			governance=governance,
 			mermaid_diagram=mermaid_diagram,
 		)
@@ -327,6 +338,7 @@ Gere a documentacao completa no formato solicitado.
 			"pending_technical": enriched["pending_technical"],
 			"draft_context": {
 				"llm_payload": payload,
+				"raw_next_steps": raw_next_steps,
 				"normalized_sections": sanitized_sections,
 				"normalized_data_dictionary": enriched["data_dictionary"],
 			},
@@ -598,7 +610,7 @@ def _normalize_governance(value: Any) -> dict[str, list[str]]:
 	def _filter_meaningful(items: Any) -> list[str]:
 		return [
 			i for i in _safe_list(items)
-			if i.strip().lower() not in _EMPTY_MARKERS
+			if _is_meaningful_governance_item(i)
 		]
 
 	raw_readers = _filter_meaningful(value.get("readers"))
@@ -627,6 +639,7 @@ def _enrich_required_blocks(
 ) -> dict[str, Any]:
 	normalized = request_text.lower()
 	next_steps = _clean_next_steps(next_steps)
+	acceptance_checklist = _clean_checklist(acceptance_checklist)
 
 	if not sections:
 		sections = [
@@ -719,12 +732,13 @@ def _enrich_required_blocks(
 
 	explicit_checks = _extract_explicit_dq_checks(request_text)
 	if explicit_checks:
-		acceptance_checklist = _dedupe(explicit_checks + acceptance_checklist)
+		acceptance_checklist = _clean_checklist(_dedupe(explicit_checks + acceptance_checklist))
 	else:
 		mandatory_checks = _build_dynamic_dq_checks(data_dictionary, real_table_columns)
 		for check in mandatory_checks:
 			if check not in acceptance_checklist:
 				acceptance_checklist.append(check)
+		acceptance_checklist = _clean_checklist(acceptance_checklist)
 
 	if not governance.get("aspect_types"):
 		governance["aspect_types"] = [
@@ -1090,11 +1104,31 @@ def _clean_next_steps(items: list[str]) -> list[str]:
 			continue
 		if value.endswith(":"):
 			continue
+		if _looks_like_summary_index_line(value):
+			continue
 		value_lower = value.lower()
 		if any(marker in value_lower for marker in skip_markers):
 			continue
 		cleaned.append(value)
 
+	return _dedupe(cleaned)
+
+
+def _clean_checklist(items: list[str]) -> list[str]:
+	"""Remove itens incompletos de checklist e placeholders de indice."""
+	cleaned: list[str] = []
+	for item in items:
+		value = str(item or "").strip()
+		if not value:
+			continue
+		if value.endswith(":"):
+			continue
+		if _looks_like_summary_index_line(value):
+			continue
+		value_lower = value.lower()
+		if value_lower in _EMPTY_MARKERS or value_lower.startswith("nenhum"):
+			continue
+		cleaned.append(value)
 	return _dedupe(cleaned)
 
 
@@ -1104,13 +1138,19 @@ def _remove_incomplete_runbook_summary_sections(sections: list[dict[str, str]]) 
 	for section in sections:
 		title = str(section.get("title") or "").strip()
 		content = str(section.get("content") or "").strip()
-		title_is_summary = bool(re.search(r"sumario|resumo|indice|passos operacionais", title, re.IGNORECASE))
+		title_is_summary = title.strip().lower() in _SUMMARY_SECTION_TITLES
+		if not title_is_summary:
+			title_is_summary = bool(re.search(r"sum[aá]rio|resumo|[ií]ndice|passos operacionais", title, re.IGNORECASE))
 		if not title_is_summary:
 			result.append(section)
 			continue
 
+		if re.search(r"o que fazer|como fazer|o que verificar", content, re.IGNORECASE):
+			result.append(section)
+			continue
+
 		lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
-		if lines and all(_looks_like_step_heading(ln) for ln in lines):
+		if lines and all(_looks_like_summary_index_line(ln) for ln in lines):
 			continue
 
 		result.append(section)
@@ -1122,6 +1162,15 @@ def _looks_like_step_heading(line: str) -> bool:
 	return bool(
 		re.match(r"^(passo\s*\d+|\d+[\.)])\s*(?:[-–—]\s*)?.+:\s*$", str(line or "").strip(), re.IGNORECASE)
 	)
+
+
+def _looks_like_summary_index_line(line: str) -> bool:
+	value = str(line or "").strip()
+	if not value:
+		return False
+	if _looks_like_step_heading(value):
+		return True
+	return bool(re.match(r"^(passo\s*\d+|\d+[\.)])\s+.+$", value, re.IGNORECASE))
 
 
 def _sanitize_sections(sections: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -1149,6 +1198,24 @@ def _sanitize_governance(governance: dict[str, list[str]]) -> dict[str, list[str
 
 def _sanitize_text_list(values: list[str]) -> list[str]:
 	return [v for v in _dedupe(values) if not _is_prompt_instruction_leak(v)]
+
+
+def _is_meaningful_governance_item(value: str) -> bool:
+	item = str(value or "").strip()
+	if not item:
+		return False
+	item_lower = item.lower()
+	if item_lower in _EMPTY_MARKERS:
+		return False
+	if item_lower.startswith("nenhum"):
+		return False
+	if item_lower.startswith("não há"):
+		return False
+	if item_lower.startswith("nao ha"):
+		return False
+	if len(item) >= 80:
+		return False
+	return True
 
 
 def _is_prompt_instruction_leak(text: str) -> bool:

@@ -2573,9 +2573,10 @@ textarea {
 
 .db-empty-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(270px, 1fr));
+  grid-template-columns: repeat(3, minmax(270px, 420px));
   gap: 12px;
   width: 100%;
+  justify-content: center;
   align-content: start;
 }
 

@@ -1833,9 +1833,16 @@
               </div>
 
               <div class="qa-results-wrap">
-                <div class="qa-empty db-empty-showcase" id="db-empty" style="height: 100%">
+                <div
+                  class="qa-empty db-empty-showcase"
+                  id="db-empty"
+                  style="height: 100%"
+                >
                   <h3>Exemplos de entrada por tipo de documentacao</h3>
-                  <p>Escolha um modelo abaixo, ajuste para seu contexto e gere o documento.</p>
+                  <p>
+                    Escolha um modelo abaixo, ajuste para seu contexto e gere o
+                    documento.
+                  </p>
 
                   <div class="db-empty-cards">
                     <article class="db-empty-card functional">
@@ -1843,9 +1850,12 @@
                         <span class="db-empty-card-icon">📊</span>
                         <h4>Documentacao Funcional</h4>
                       </div>
-                      <p class="db-empty-card-sub">Para analistas e stakeholders</p>
-                      <pre>[TABELA]
-silviosalviati.inteligencia_negocios.faturamento_detalhado
+                      <p class="db-empty-card-sub">
+                        Para analistas e stakeholders
+                      </p>
+                      <pre>
+[TABELA]
+projeto.dataset.tabela
 
 [OBJETIVO]
 Tabela consumida pelo time de Vendas no Power BI para acompanhar
@@ -1858,7 +1868,8 @@ Canal de venda pode ser: LOJA_FISICA, E-COMMERCE, APP, WHATSAPP.
 Transacoes com custo_operacional nulo devem ser excluidas das analises.
 
 [TIPO DE DOC]
-documentacao_funcional</pre>
+documentacao_funcional</pre
+                      >
                     </article>
 
                     <article class="db-empty-card technical">
@@ -1867,8 +1878,9 @@ documentacao_funcional</pre>
                         <h4>Especificacao Tecnica</h4>
                       </div>
                       <p class="db-empty-card-sub">Para engenheiros de dados</p>
-                      <pre>[TABELA]
-silviosalviati.inteligencia_negocios.perfil_comportamental_clientes
+                      <pre>
+[TABELA]
+projeto.dataset.tabela
 
 [OBJETIVO]
 Tabela gold gerada pelo pipeline de CRM Analytics via Dataform.
@@ -1882,7 +1894,8 @@ Particionada por data_atualizacao. Clustered por segmento_cliente.
 SLA: dado disponivel ate 07h. Owner: time de CRM Analytics.
 
 [TIPO DE DOC]
-especificacao_tecnica</pre>
+especificacao_tecnica</pre
+                      >
                     </article>
 
                     <article class="db-empty-card runbook">
@@ -1891,8 +1904,9 @@ especificacao_tecnica</pre>
                         <h4>Runbook Operacional</h4>
                       </div>
                       <p class="db-empty-card-sub">Para on-call e suporte</p>
-                      <pre>[TABELA]
-silviosalviati.inteligencia_negocios.faturamento_detalhado
+                      <pre>
+[TABELA]
+projeto.dataset.tabela
 
 [OBJETIVO]
 Runbook para incidentes no pipeline de faturamento.
@@ -1906,7 +1920,8 @@ se retornar D-2 ou anterior, pipeline falhou.
 Responsavel de plantao: acionar via Slack #dados-oncall.
 
 [TIPO DE DOC]
-runbook_operacional</pre>
+runbook_operacional</pre
+                      >
                     </article>
                   </div>
                 </div>
@@ -2078,7 +2093,10 @@ runbook_operacional</pre>
                             </div>
                           </div>
                           <div class="sec-body" style="padding: 10px 12px">
-                            <iframe id="db-html-preview" class="db-html-preview"></iframe>
+                            <iframe
+                              id="db-html-preview"
+                              class="db-html-preview"
+                            ></iframe>
                           </div>
                         </div>
 

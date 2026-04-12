@@ -1258,10 +1258,32 @@ function renderDocumentBuild(data) {
   const governanceReaders = Array.isArray(governance.readers)
     ? governance.readers
     : [];
+  const governanceNotes = Array.isArray(governance.notes)
+    ? governance.notes
+    : [];
+
+  const effectiveChecklist = deriveChecklistFromSections(sections, checklist);
+  const effectiveGovernance = deriveGovernanceFromSections(sections, {
+    aspect_types: governanceAspects,
+    readers: governanceReaders,
+    notes: governanceNotes,
+  });
+  const effectiveGovernanceAspects = Array.isArray(
+    effectiveGovernance.aspect_types,
+  )
+    ? effectiveGovernance.aspect_types
+    : [];
+  const effectiveGovernanceReaders = Array.isArray(effectiveGovernance.readers)
+    ? effectiveGovernance.readers
+    : [];
+  const effectiveGovernanceNotes = Array.isArray(effectiveGovernance.notes)
+    ? effectiveGovernance.notes
+    : [];
 
   if (docType) docType.textContent = data.doc_type || "—";
   if (sectionCount) sectionCount.textContent = String(sections.length);
-  if (checklistCount) checklistCount.textContent = String(checklist.length);
+  if (checklistCount)
+    checklistCount.textContent = String(effectiveChecklist.length);
 
   if (structureList) {
     const baseItems = sections.map((section, i) => {
@@ -1286,8 +1308,8 @@ function renderDocumentBuild(data) {
   }
 
   if (checklistList) {
-    checklistList.innerHTML = checklist.length
-      ? checklist
+    checklistList.innerHTML = effectiveChecklist.length
+      ? effectiveChecklist
           .map(
             (item, i) =>
               `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span>${item}</div>`,
@@ -1311,14 +1333,15 @@ function renderDocumentBuild(data) {
 
   const htmlDocument = generateDocumentHtml(data, {
     sections,
-    checklist,
+    checklist: effectiveChecklist,
     nextSteps,
     warnings,
     typingNotes,
     pendingTechnical,
     dataDictionary,
-    governanceAspects,
-    governanceReaders,
+    governanceAspects: effectiveGovernanceAspects,
+    governanceReaders: effectiveGovernanceReaders,
+    governanceNotes: effectiveGovernanceNotes,
   });
 
   if (htmlSource) {
@@ -1330,20 +1353,93 @@ function renderDocumentBuild(data) {
 
   const confluenceMarkup = generateConfluenceMarkup(data, {
     sections,
-    checklist,
+    checklist: effectiveChecklist,
     nextSteps,
     warnings,
     typingNotes,
     pendingTechnical,
     dataDictionary,
-    governanceAspects,
-    governanceReaders,
+    governanceAspects: effectiveGovernanceAspects,
+    governanceReaders: effectiveGovernanceReaders,
+    governanceNotes: effectiveGovernanceNotes,
   });
   if (confluenceSource) {
     confluenceSource.textContent = confluenceMarkup;
   }
 
   switchDBTab("score");
+}
+
+function parseJsonFromSectionCodeFence(content) {
+  const raw = String(content || "").trim();
+  if (!raw) return null;
+
+  const fenceMatch = raw.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const candidate = (fenceMatch ? fenceMatch[1] : raw).trim();
+  if (!candidate) return null;
+  if (!candidate.startsWith("[") && !candidate.startsWith("{")) return null;
+
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    return null;
+  }
+}
+
+function deriveChecklistFromSections(sections, currentChecklist) {
+  if (Array.isArray(currentChecklist) && currentChecklist.length) {
+    return currentChecklist;
+  }
+
+  const dqSection = (Array.isArray(sections) ? sections : []).find((s) => {
+    const title = String(s?.title || "").toLowerCase();
+    return /data\s*quality|\bdq\b|qualidade/.test(title);
+  });
+
+  const parsed = parseJsonFromSectionCodeFence(dqSection?.content || "");
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function deriveGovernanceFromSections(sections, currentGovernance) {
+  const base = {
+    aspect_types: Array.isArray(currentGovernance?.aspect_types)
+      ? currentGovernance.aspect_types
+      : [],
+    readers: Array.isArray(currentGovernance?.readers)
+      ? currentGovernance.readers
+      : [],
+    notes: Array.isArray(currentGovernance?.notes)
+      ? currentGovernance.notes
+      : [],
+  };
+
+  if (base.aspect_types.length || base.readers.length || base.notes.length) {
+    return base;
+  }
+
+  const govSection = (Array.isArray(sections) ? sections : []).find((s) => {
+    const title = String(s?.title || "").toLowerCase();
+    return /governan|governance|compliance|acesso/.test(title);
+  });
+
+  const parsed = parseJsonFromSectionCodeFence(govSection?.content || "");
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return base;
+  }
+
+  return {
+    aspect_types: Array.isArray(parsed.aspect_types)
+      ? parsed.aspect_types.map((v) => String(v || "").trim()).filter(Boolean)
+      : [],
+    readers: Array.isArray(parsed.readers)
+      ? parsed.readers.map((v) => String(v || "").trim()).filter(Boolean)
+      : [],
+    notes: Array.isArray(parsed.notes)
+      ? parsed.notes.map((v) => String(v || "").trim()).filter(Boolean)
+      : [],
+  };
 }
 
 function resolveDocumentBuildContext(requestText) {
@@ -1406,6 +1502,9 @@ function generateDocumentHtml(data, context) {
     : [];
   const governanceReaders = Array.isArray(context.governanceReaders)
     ? context.governanceReaders
+    : [];
+  const governanceNotes = Array.isArray(context.governanceNotes)
+    ? context.governanceNotes
     : [];
 
   const safe = (v) => escapeHtml(v == null ? "" : String(v));
@@ -1485,18 +1584,95 @@ function generateDocumentHtml(data, context) {
     return `<span style="display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;color:#fff;background:${bg};letter-spacing:.4px">${safe(type)}</span>`;
   }
 
+  function extractJsonFromCodeFence(text) {
+    const raw = String(text || "").trim();
+    if (!raw) return null;
+
+    const fenceMatch = raw.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+    const candidate = (fenceMatch ? fenceMatch[1] : raw).trim();
+
+    if (!candidate) return null;
+    if (!candidate.startsWith("[") && !candidate.startsWith("{")) return null;
+
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      return null;
+    }
+  }
+
+  function renderJsonValue(value) {
+    if (Array.isArray(value)) {
+      if (!value.length) {
+        return '<div class="json-empty">Sem itens informados.</div>';
+      }
+
+      const items = value
+        .map((item) => {
+          if (item && typeof item === "object") {
+            return `<li>${renderJsonValue(item)}</li>`;
+          }
+          return `<li>${safe(item)}</li>`;
+        })
+        .join("");
+
+      return `<ul class="json-list">${items}</ul>`;
+    }
+
+    if (value && typeof value === "object") {
+      const entries = Object.entries(value);
+      if (!entries.length) {
+        return '<div class="json-empty">Sem dados estruturados.</div>';
+      }
+
+      return `<div class="json-kv">${entries
+        .map(([k, v]) => {
+          const content =
+            Array.isArray(v) || (v && typeof v === "object")
+              ? renderJsonValue(v)
+              : `<span class="json-inline">${safe(v)}</span>`;
+          return `<div class="json-kv-row"><strong>${safe(k)}</strong>${content}</div>`;
+        })
+        .join("")}</div>`;
+    }
+
+    return `<span class="json-inline">${safe(value)}</span>`;
+  }
+
+  function renderSectionContent(content) {
+    const text = String(content || "").trim();
+    if (!text) {
+      return '<p class="sect-text">Sem conteúdo informado.</p>';
+    }
+
+    const parsedJson = extractJsonFromCodeFence(text);
+    if (parsedJson !== null) {
+      return `<div class="sect-structured">${renderJsonValue(parsedJson)}</div>`;
+    }
+
+    const paragraphs = text
+      .split(/\n{2,}/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => `<p class="sect-text">${safe(part).replace(/\n/g, "<br/>")}</p>`)
+      .join("");
+
+    return paragraphs || '<p class="sect-text">Sem conteúdo informado.</p>';
+  }
+
   /* ── build section cards ─────────────────────────── */
   const sectionCards = sections.length
     ? sections
         .map((s) => {
           const icon = sectionIcon(s.title || "");
+          const body = renderSectionContent(s.content || "");
           return `
         <article class="card sect-card">
           <div class="card-head">
             <span class="card-icon">${icon}</span>
             <h3>${safe(s.title || "Seção")}</h3>
           </div>
-          <p>${safe(s.content || "Sem conteúdo informado.")}</p>
+          ${body}
         </article>`;
         })
         .join("\n")
@@ -1550,6 +1726,10 @@ function generateDocumentHtml(data, context) {
     ...governanceReaders.map((r) => ({
       ico: "👤",
       text: `Leitor: ${safe(r)}`,
+    })),
+    ...governanceNotes.map((n) => ({
+      ico: "📝",
+      text: `Nota: ${safe(n)}`,
     })),
     ...warnings.map((w) => ({ ico: "⚠️", text: `Observação: ${safe(w)}` })),
   ];
@@ -1699,6 +1879,57 @@ function generateDocumentHtml(data, context) {
     }
     .card p { margin: 0; font-size: 12.5px; color: #2d3b4f; line-height: 1.65; }
     .sect-card { border-left: 3px solid #0e6fd6; }
+    .sect-text { margin: 0; font-size: 12.5px; color: #2d3b4f; line-height: 1.65; }
+    .sect-text + .sect-text { margin-top: 8px; }
+    .sect-structured { font-size: 12.5px; color: #2d3b4f; }
+    .json-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .json-list > li {
+      position: relative;
+      padding-left: 14px;
+      line-height: 1.6;
+    }
+    .json-list > li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: #0e6fd6;
+      font-weight: 700;
+    }
+    .json-kv {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .json-kv-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #f7faff;
+      border: 1px solid #e3ecfb;
+    }
+    .json-kv-row > strong {
+      font-size: 11.5px;
+      letter-spacing: .2px;
+      color: #1a56af;
+    }
+    .json-inline {
+      color: #2d3b4f;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .json-empty {
+      color: #64748b;
+      font-size: 12px;
+    }
 
     /* ── Breadcrumb ── */
     .breadcrumb { font-family: "Cascadia Code", "Consolas", monospace; font-size: 12px; }
@@ -1981,6 +2212,9 @@ function generateConfluenceMarkup(data, context) {
   const governanceReaders = Array.isArray(context.governanceReaders)
     ? context.governanceReaders
     : [];
+  const governanceNotes = Array.isArray(context.governanceNotes)
+    ? context.governanceNotes
+    : [];
 
   const now = new Date().toLocaleString("pt-BR", {
     dateStyle: "short",
@@ -2058,6 +2292,7 @@ function generateConfluenceMarkup(data, context) {
   const govLines = [
     ...governanceAspects.map((a) => `* *Aspecto:* ${a}`),
     ...governanceReaders.map((r) => `* *Leitor:* ${r}`),
+    ...governanceNotes.map((n) => `* *Nota:* ${n}`),
   ];
   if (govLines.length) {
     lines.push("h2. \uD83D\uDD12 Governan\u00e7a");

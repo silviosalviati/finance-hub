@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from src.api.dependencies import session_count
 from src.api.routes.agents import router as agents_router
 from src.api.routes.auth import router as auth_router
-from src.shared.config import ALLOWED_ORIGINS, print_runtime_summary, validate_runtime_config
+from src.shared.config import ALLOWED_ORIGINS, LLM_PROVIDER, validate_runtime_config
 
 app = FastAPI(title="Finance Hub IA ", version="3.0.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -46,7 +46,9 @@ def _portal_html_path() -> Path:
 @app.on_event("startup")
 def startup_event() -> None:
     _validate_startup_config()
-    print_runtime_summary()
+    print("CONFIG")
+    print(f"LLM_PROVIDER: {LLM_PROVIDER}")
+    print(f"ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")
 
 
 @app.get("/", response_class=HTMLResponse)

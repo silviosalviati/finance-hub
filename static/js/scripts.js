@@ -1307,6 +1307,8 @@ function renderDocumentBuild(data) {
       .join("");
   }
 
+  const confluenceSource = document.getElementById("db-confluence-source");
+
   const htmlDocument = generateDocumentHtml(data, {
     sections,
     checklist,
@@ -1324,6 +1326,21 @@ function renderDocumentBuild(data) {
   }
   if (htmlPreview) {
     htmlPreview.srcdoc = htmlDocument;
+  }
+
+  const confluenceMarkup = generateConfluenceMarkup(data, {
+    sections,
+    checklist,
+    nextSteps,
+    warnings,
+    typingNotes,
+    pendingTechnical,
+    dataDictionary,
+    governanceAspects,
+    governanceReaders,
+  });
+  if (confluenceSource) {
+    confluenceSource.textContent = confluenceMarkup;
   }
 
   switchDBTab("score");
@@ -1920,6 +1937,138 @@ function copyDBDocument() {
     .catch(() => {
       showDBError("Não foi possível copiar automaticamente. Tente novamente.");
     });
+}
+
+function copyDBConfluenceDocument() {
+  const content = document.getElementById("db-confluence-source")?.textContent || "";
+  const btn = document.getElementById("db-copy-confluence-btn");
+  if (!content) return;
+
+  copyTextWithFallback(content)
+    .then(() => {
+      if (!btn) return;
+      const old = btn.textContent;
+      btn.textContent = "\u2713 Copiado!";
+      btn.style.color = "#34D399";
+      setTimeout(() => {
+        btn.textContent = old || "Copiar Confluence";
+        btn.style.color = "";
+      }, 1800);
+    })
+    .catch(() => {
+      showDBError("N\u00e3o foi poss\u00edvel copiar o Confluence markup.");
+    });
+}
+
+function generateConfluenceMarkup(data, context) {
+  const sections         = Array.isArray(context.sections)          ? context.sections          : [];
+  const checklist        = Array.isArray(context.checklist)         ? context.checklist         : [];
+  const nextSteps        = Array.isArray(context.nextSteps)         ? context.nextSteps         : [];
+  const warnings         = Array.isArray(context.warnings)          ? context.warnings          : [];
+  const typingNotes      = Array.isArray(context.typingNotes)       ? context.typingNotes       : [];
+  const pendingTechnical = Array.isArray(context.pendingTechnical)  ? context.pendingTechnical  : [];
+  const dataDictionary   = Array.isArray(context.dataDictionary)    ? context.dataDictionary    : [];
+  const governanceAspects= Array.isArray(context.governanceAspects) ? context.governanceAspects : [];
+  const governanceReaders= Array.isArray(context.governanceReaders) ? context.governanceReaders : [];
+
+  const now   = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  const title = data.title || "Documenta\u00e7\u00e3o T\u00e9cnica";
+  const lines = [];
+
+  /* ── Cabeçalho ── */
+  lines.push(`h1. ${title}`);
+  lines.push("");
+  lines.push("{panel:title=Vis\u00e3o Executiva|borderStyle=solid|borderColor=#0073b1|titleBGColor=#deebf7|bgColor=#ffffff}");
+  lines.push(data.objective || "Documento gerado pelo Document Build.");
+  lines.push("{panel}");
+  lines.push("");
+
+  /* ── Metadados ── */
+  lines.push("h2. Informa\u00e7\u00f5es Gerais");
+  lines.push("");
+  lines.push("|| Campo || Valor ||");
+  lines.push(`| Tabela | ${data.table_path || data.table_name || "\u2014"} |`);
+  lines.push(`| Tipo | ${data.doc_type || "\u2014"} |`);
+  lines.push(`| Frequ\u00eancia | ${data.frequency || "\u2014"} |`);
+  lines.push(`| P\u00fablico-alvo | ${data.audience || "\u2014"} |`);
+  lines.push(`| Resumo | ${data.summary || "\u2014"} |`);
+  lines.push("");
+
+  /* ── Seções ── */
+  if (sections.length) {
+    sections.forEach((s) => {
+      lines.push(`h2. ${s.title || "Se\u00e7\u00e3o"}`);
+      lines.push("");
+      lines.push(s.content || "Sem conte\u00fado informado.");
+      lines.push("");
+    });
+  }
+
+  /* ── Dicion\u00e1rio de dados ── */
+  if (dataDictionary.length) {
+    lines.push("h2. \uD83D\uDDC2 Dicion\u00e1rio de Dados");
+    lines.push("");
+    lines.push("|| Coluna || Tipo || Descri\u00e7\u00e3o || Regra de Neg\u00f3cio ||");
+    dataDictionary.forEach((row) => {
+      const col  = row.column       || "\u2014";
+      const type = row.type         || "\u2014";
+      const desc = row.description  || "\u2014";
+      const rule = row.business_rule|| "\u2014";
+      lines.push(`| {{${col}}} | *${type}* | ${desc} | ${rule} |`);
+    });
+    lines.push("");
+  }
+
+  /* ── Checklist ── */
+  if (checklist.length) {
+    lines.push("h2. \u2705 Checklist de Qualidade");
+    lines.push("");
+    checklist.forEach((item) => lines.push(`* ${item}`));
+    lines.push("");
+  }
+
+  /* ── Regras e pend\u00eancias ── */
+  const ruleItems = [...typingNotes, ...pendingTechnical];
+  if (ruleItems.length) {
+    lines.push("h2. \u26A0\uFE0F Regras & Pend\u00eancias");
+    lines.push("");
+    ruleItems.forEach((item) => lines.push(`* ${item}`));
+    lines.push("");
+  }
+
+  /* ── Governan\u00e7a ── */
+  const govLines = [
+    ...governanceAspects.map((a) => `* *Aspecto:* ${a}`),
+    ...governanceReaders.map((r)  => `* *Leitor:* ${r}`),
+  ];
+  if (govLines.length) {
+    lines.push("h2. \uD83D\uDD12 Governan\u00e7a");
+    lines.push("");
+    govLines.forEach((g) => lines.push(g));
+    lines.push("");
+  }
+
+  /* ── Pr\u00f3ximos passos ── */
+  if (nextSteps.length) {
+    lines.push("h2. \uD83D\uDE80 Pr\u00f3ximos Passos");
+    lines.push("");
+    nextSteps.forEach((item) => lines.push(`# ${item}`));
+    lines.push("");
+  }
+
+  /* ── Avisos ── */
+  if (warnings.length) {
+    lines.push("{warning:title=Avisos do pipeline}");
+    warnings.forEach((w) => lines.push(`* ${w}`));
+    lines.push("{warning}");
+    lines.push("");
+  }
+
+  /* ── Rodap\u00e9 ── */
+  lines.push("----");
+  lines.push(`{info:title=Gerado automaticamente}Gerado em ${now} por Document Build \u00b7 Engenharia de Dados Financeiro{info}`);
+
+  return lines.join("\n");
 }
 
 function copyDBHtmlDocument() {

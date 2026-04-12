@@ -1969,6 +1969,13 @@ runbook_operacional</pre
                     </div>
                     <div
                       class="qa-tab"
+                      id="db-tab-confluence"
+                      onclick="switchDBTab('confluence')"
+                    >
+                      Confluence
+                    </div>
+                    <div
+                      class="qa-tab"
                       id="db-tab-checklist"
                       onclick="switchDBTab('checklist')"
                     >
@@ -2126,6 +2133,34 @@ runbook_operacional</pre
                               </div>
                               <pre id="db-html-source"></pre>
                             </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="qa-tab-panel" id="db-panel-confluence">
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Confluence Wiki Markup
+                          </div>
+                        </div>
+                        <div class="sec-body" style="padding: 10px 12px">
+                          <div class="sql-wrap">
+                            <div class="sql-bar">
+                              <div class="sql-dots">
+                                <span></span><span></span><span></span>
+                              </div>
+                              <span class="sql-fname">documentacao.confluence</span>
+                              <button
+                                id="db-copy-confluence-btn"
+                                class="copy-btn"
+                                onclick="copyDBConfluenceDocument()"
+                              >
+                                Copiar Confluence
+                              </button>
+                            </div>
+                            <pre id="db-confluence-source"></pre>
                           </div>
                         </div>
                       </div>

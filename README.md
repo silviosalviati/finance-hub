@@ -60,12 +60,12 @@ Arquivos de referência:
 
 ## Agentes e Status
 
-| Agente no produto | `agent_id` | Status | Registro no runtime |
-| --- | --- | --- | --- |
-| Query Analyzer | `query_analyzer` | Implementado | Sim |
-| Query Builder | `query_build` | Implementado | Sim |
-| Document Builder | `document_build` | Implementado | Sim |
-| Finance Auditor | `finance_auditor` | Placeholder de pacote/grafo | Não |
+| Agente no produto | `agent_id`        | Status                      | Registro no runtime |
+| ----------------- | ----------------- | --------------------------- | ------------------- |
+| Query Analyzer    | `query_analyzer`  | Implementado                | Sim                 |
+| Query Builder     | `query_build`     | Implementado                | Sim                 |
+| Document Builder  | `document_build`  | Implementado                | Sim                 |
+| Finance Auditor   | `finance_auditor` | Placeholder de pacote/grafo | Não                 |
 
 Observação: atualmente o runtime registra Query Analyzer, Query Builder e Document Builder.
 
@@ -242,6 +242,7 @@ Provider Vertex AI:
 - `VERTEXAI_LOCATION`
 - `VERTEXAI_MODEL`
 - `VERTEXAI_MAX_OUTPUT_TOKENS`
+- `VERTEXAI_MAX_RETRIES`
 - `VERTEXAI_TEMPERATURE`
 
 Sessão e limites:
@@ -263,8 +264,9 @@ Exemplo:
 LLM_PROVIDER=vertexai
 VERTEXAI_PROJECT=meu-projeto
 VERTEXAI_LOCATION=us-central1
-VERTEXAI_MODEL=gemini-1.5-pro
+VERTEXAI_MODEL=gemini-2.5-flash
 VERTEXAI_MAX_OUTPUT_TOKENS=4096
+VERTEXAI_MAX_RETRIES=1
 VERTEXAI_TEMPERATURE=0.05
 GCP_PROJECT_ID=meu-projeto
 GOOGLE_APPLICATION_CREDENTIALS=secrets/credentials.json

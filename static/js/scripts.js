@@ -1609,7 +1609,13 @@ function generateDocumentHtml(data, context) {
       width: 52px; height: 52px; border-radius: 12px;
       background: rgba(255,255,255,.15); display: flex;
       align-items: center; justify-content: center;
-      font-size: 26px; flex-shrink: 0;
+      padding: 6px; flex-shrink: 0;
+      overflow: hidden;
+    }
+    .hero-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
     }
     .hero-body { flex: 1; }
     .hero-badge {
@@ -1739,7 +1745,7 @@ function generateDocumentHtml(data, context) {
 
     <!-- ── HERO ─────────────────────────────────── -->
     <header class="hero">
-      <div class="hero-logo">${docType.icon}</div>
+      <div class="hero-logo"><img src="/static/img/portoseguro.png" alt="Porto Seguro" /></div>
       <div class="hero-body">
         <div class="hero-badge">${docType.icon} ${docType.label}</div>
         <h1>${safe(data.title || "Documentação Técnica")}</h1>

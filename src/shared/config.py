@@ -55,6 +55,7 @@ VERTEXAI_PROJECT = _get_optional_str("VERTEXAI_PROJECT")
 VERTEXAI_LOCATION = _get_optional_str("VERTEXAI_LOCATION", "us-central1")
 VERTEXAI_MODEL = _get_optional_str("VERTEXAI_MODEL", "gemini-1.5-pro")
 VERTEXAI_MAX_OUTPUT_TOKENS = _get_int("VERTEXAI_MAX_OUTPUT_TOKENS", 4096)
+VERTEXAI_MAX_RETRIES = _get_int("VERTEXAI_MAX_RETRIES", 1)
 VERTEXAI_TEMPERATURE = _get_float("VERTEXAI_TEMPERATURE", 0.05)
 
 LLM_TEMPERATURE = VERTEXAI_TEMPERATURE
@@ -114,6 +115,8 @@ def validate_runtime_config() -> list[str]:
             errors.append("VERTEXAI_MODEL nao configurado.")
         if VERTEXAI_MAX_OUTPUT_TOKENS <= 0:
             errors.append("VERTEXAI_MAX_OUTPUT_TOKENS deve ser maior que zero.")
+        if VERTEXAI_MAX_RETRIES < 0:
+            errors.append("VERTEXAI_MAX_RETRIES deve ser maior ou igual a zero.")
         if VERTEXAI_TEMPERATURE < 0:
             errors.append("VERTEXAI_TEMPERATURE deve ser maior ou igual a zero.")
 
@@ -161,6 +164,7 @@ def print_runtime_summary() -> None:
         print(f"VERTEXAI_LOCATION: {VERTEXAI_LOCATION}")
         print(f"VERTEXAI_MODEL: {VERTEXAI_MODEL}")
         print(f"VERTEXAI_MAX_OUTPUT_TOKENS: {VERTEXAI_MAX_OUTPUT_TOKENS}")
+        print(f"VERTEXAI_MAX_RETRIES: {VERTEXAI_MAX_RETRIES}")
         print(f"VERTEXAI_TEMPERATURE: {VERTEXAI_TEMPERATURE}")
 
     print(f"GCP_PROJECT_ID: {GCP_PROJECT_ID}")

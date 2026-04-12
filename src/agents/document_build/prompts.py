@@ -49,6 +49,11 @@ Regras obrigatorias:
   - Nao gere secoes com apenas titulo de passo (ex.: "Passo 1:") sem conteudo.
 - Responda somente em JSON valido, sem markdown fora do JSON.
 
+REGRA DE TAMANHO:
+- Cada secao deve ter no maximo 200 palavras.
+- Nao use subtitulos (###) dentro do conteudo das secoes.
+- Use listas numeradas simples em vez de markdown elaborado.
+
 Formato JSON de saida:
 {
   "title": "string",

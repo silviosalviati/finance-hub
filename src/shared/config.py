@@ -53,7 +53,6 @@ LLM_PROVIDER = _get_required_str("LLM_PROVIDER").lower()
 
 HF_API_TOKEN = _get_optional_str("HF_API_TOKEN")
 HF_MODEL_ID = _get_optional_str("HF_MODEL_ID")
-HF_ENDPOINT_URL = _get_optional_str("HF_ENDPOINT_URL")
 HF_MAX_NEW_TOKENS = _get_int("HF_MAX_NEW_TOKENS", 4096)
 HF_TEMPERATURE = _get_float("HF_TEMPERATURE", 0.05)
 
@@ -173,10 +172,6 @@ def print_runtime_summary() -> None:
 
     if LLM_PROVIDER == "huggingface":
         print(f"HF_MODEL_ID: {HF_MODEL_ID}")
-        print(
-            "HF_ENDPOINT_URL: "
-            f"{'configurado' if HF_ENDPOINT_URL else 'nao configurado'}"
-        )
         print(f"HF_MAX_NEW_TOKENS: {HF_MAX_NEW_TOKENS}")
         print(f"HF_TEMPERATURE: {HF_TEMPERATURE}")
     elif LLM_PROVIDER == "openai":
@@ -188,7 +183,7 @@ def print_runtime_summary() -> None:
 
     print(f"GCP_PROJECT_ID: {GCP_PROJECT_ID}")
     print(
-        "GCP_CREDENTIALS_PATH: "
+        "GOOGLE_APPLICATION_CREDENTIALS: "
         f"{GCP_CREDENTIALS_PATH if Path(GCP_CREDENTIALS_PATH).exists() else 'arquivo nao encontrado'}"
     )
     print(f"SESSION_TTL_HOURS: {SESSION_TTL_HOURS}")

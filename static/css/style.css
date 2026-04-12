@@ -3188,7 +3188,7 @@ pre {
 }
 
 #db-html-source {
-  max-height: min(46vh, 420px);
+  max-height: min(40vh, 360px);
   overflow-y: auto;
 }
 
@@ -3201,14 +3201,20 @@ pre {
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 10px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   gap: 10px;
+}
+
+.db-html-scroll .sec-card {
+  width: 100%;
 }
 
 .db-html-preview {
   width: 100%;
-  min-height: 360px;
+  height: min(48vh, 420px);
+  min-height: 320px;
   border: 1px solid var(--border2);
   border-radius: 10px;
   background: #ffffff;

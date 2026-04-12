@@ -1284,7 +1284,7 @@ function renderDocumentBuild(data) {
 
   if (structureList) {
     const baseItems = sections.map((section, i) => {
-      const title = section.title || `Seção ${i + 1}`;
+      const title = translateSectionTitle(section.title || `Seção ${i + 1}`);
       const content = section.content || "Sem conteúdo.";
       return `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span><strong>${title}:</strong> ${content}</div>`;
     });
@@ -1437,6 +1437,24 @@ function deriveGovernanceFromSections(sections, currentGovernance) {
       ? parsed.notes.map((v) => String(v || "").trim()).filter(Boolean)
       : [],
   };
+}
+
+const SECTION_LABELS_PT = {
+  assumptions: "Premissas",
+  risks: "Riscos",
+  acceptance_checklist: "Checklist de Aceitação",
+  next_steps: "Próximos Passos",
+  warnings: "Observações",
+  pending_technical: "Pendências Técnicas",
+  governance: "Governança",
+};
+
+function translateSectionTitle(title) {
+  const raw = String(title || "").trim();
+  if (!raw) return "Seção";
+
+  const key = raw.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
+  return SECTION_LABELS_PT[key] || raw;
 }
 
 function resolveDocumentBuildContext(requestText) {
@@ -1664,13 +1682,14 @@ function generateDocumentHtml(data, context) {
   const sectionCards = sections.length
     ? sections
         .map((s) => {
-          const icon = sectionIcon(s.title || "");
+          const translatedTitle = translateSectionTitle(s.title || "Seção");
+          const icon = sectionIcon(translatedTitle);
           const body = renderSectionContent(s.content || "");
           return `
         <article class="card sect-card">
           <div class="card-head">
             <span class="card-icon">${icon}</span>
-            <h3>${safe(s.title || "Seção")}</h3>
+            <h3>${safe(translatedTitle)}</h3>
           </div>
           ${body}
         </article>`;
@@ -2247,7 +2266,7 @@ function generateConfluenceMarkup(data, context) {
   /* ── Seções ── */
   if (sections.length) {
     sections.forEach((s) => {
-      lines.push(`h2. ${s.title || "Se\u00e7\u00e3o"}`);
+      lines.push(`h2. ${translateSectionTitle(s.title || "Se\u00e7\u00e3o")}`);
       lines.push("");
       lines.push(s.content || "Sem conte\u00fado informado.");
       lines.push("");

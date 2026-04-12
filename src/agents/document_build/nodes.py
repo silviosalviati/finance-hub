@@ -17,6 +17,9 @@ from src.shared.config import GCP_CREDENTIALS_PATH
 from src.shared.tools.bigquery import get_dataset_tables_schema
 
 
+_EMPTY_MARKERS = {"nenhum", "none", "n/a", "não informado", "nao informado", "-"}
+
+
 def parse_document_request(state: DocumentBuildState) -> dict[str, Any]:
 	text = (state.request_text or "").strip()
 	if not text:
@@ -595,12 +598,17 @@ def _normalize_governance(value: Any) -> dict[str, list[str]]:
 	if not isinstance(value, dict):
 		return {"aspect_types": [], "readers": [], "notes": []}
 
-	# Correção 4: filtrar readers que sejam caminhos de tabela gerados erroneamente pela LLM
-	raw_readers = _safe_list(value.get("readers"))
+	def _filter_meaningful(items: Any) -> list[str]:
+		return [
+			i for i in _safe_list(items)
+			if i.strip().lower() not in _EMPTY_MARKERS
+		]
+
+	raw_readers = _filter_meaningful(value.get("readers"))
 	valid_readers = [r for r in raw_readers if not _is_table_path(r)]
 
 	return {
-		"aspect_types": _safe_list(value.get("aspect_types")),
+		"aspect_types": _filter_meaningful(value.get("aspect_types")),
 		"readers": valid_readers,
 		"notes": _safe_list(value.get("notes")),
 	}
@@ -730,8 +738,8 @@ def _enrich_required_blocks(
 
 	if not next_steps:
 		next_steps = [
-			"Configurar alerta de schema drift no Dataplex para a tabela principal.",
-			"Publicar runbook de tratamento para eventos de quebra de contrato.",
+			"Configurar alerta de schema drift no Dataplex para a tabela.",
+			"Publicar runbook de tratamento para quebra de contrato.",
 			"Definir dono de dados e SLA de correcao para incidentes de DQ.",
 		]
 

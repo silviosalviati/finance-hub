@@ -2978,7 +2978,7 @@ const showcaseBots = [
   {
     name: "Query Analyzer",
     description:
-      "Analisa queries BigQuery, identifica anti-padrões e sugere otimizações que reduzem custo e aceleram performance.",
+      "Reduza custo e tempo de execução: encontre anti-padrões e gere SQL otimizada com dry-run real.",
     tags: ["BigQuery", "Power BI", "SQL"],
     status: "Disponivel",
     action: () => navTo("qa"),
@@ -2986,7 +2986,7 @@ const showcaseBots = [
   {
     name: "Document Builder",
     description:
-      "Gera documentação técnica automaticamente a partir de queries SQL, pipelines e modelos de dados financeiros.",
+      "Gere documentação que o negócio entende e a engenharia confia: schema real, governança e exportação pronta.",
     tags: ["Docs", "Pipeline", "DataOps"],
     status: "Disponivel",
     action: () => navTo("db"),
@@ -2994,7 +2994,7 @@ const showcaseBots = [
   {
     name: "Query Builder",
     description:
-      "Constrói queries BigQuery a partir de linguagem natural para acelerar análises e exploração de dados.",
+      "Da pergunta ao SQL em minutos, com contexto real para análises de receita, margem e risco.",
     tags: ["NL2SQL", "BigQuery", "IA"],
     status: "Disponivel",
     action: () => navTo("qb"),
@@ -3002,13 +3002,13 @@ const showcaseBots = [
   {
     name: "Finance AuditorIA",
     description:
-      "Audita pipelines e queries financeiras verificando conformidade, rastreabilidade e consistência de KPIs.",
+      "Monitore conformidade financeira e saúde dos KPIs com rastreabilidade ponta a ponta.",
     tags: ["Auditoria", "KPIs", "Compliance"],
     status: "Disponivel",
     action: () =>
       openDev(
         "Finance AuditorIA",
-        "Audita pipelines verificando conformidade e consistência de KPIs.",
+        "Monitora pipelines e indicadores financeiros com foco em conformidade, risco e consistência de KPIs.",
         [
           "Rastreabilidade Gold/Silver",
           "Verificação de KPIs",

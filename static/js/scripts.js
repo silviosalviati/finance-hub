@@ -1347,7 +1347,9 @@ function extractExplicitTableRef(text) {
   );
 
   const source = (tableBlock?.[1] || content).trim().replace(/`/g, "");
-  const full = source.match(/([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)/);
+  const full = source.match(
+    /([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)/,
+  );
   if (full) {
     return {
       project: full[1],
@@ -1369,183 +1371,398 @@ function extractExplicitTableRef(text) {
 }
 
 function generateDocumentHtml(data, context) {
-  const sections = Array.isArray(context.sections) ? context.sections : [];
-  const checklist = Array.isArray(context.checklist) ? context.checklist : [];
-  const nextSteps = Array.isArray(context.nextSteps) ? context.nextSteps : [];
-  const warnings = Array.isArray(context.warnings) ? context.warnings : [];
-  const typingNotes = Array.isArray(context.typingNotes)
-    ? context.typingNotes
-    : [];
-  const pendingTechnical = Array.isArray(context.pendingTechnical)
-    ? context.pendingTechnical
-    : [];
-  const dataDictionary = Array.isArray(context.dataDictionary)
-    ? context.dataDictionary
-    : [];
-  const governanceAspects = Array.isArray(context.governanceAspects)
-    ? context.governanceAspects
-    : [];
-  const governanceReaders = Array.isArray(context.governanceReaders)
-    ? context.governanceReaders
-    : [];
+  const sections         = Array.isArray(context.sections)          ? context.sections          : [];
+  const checklist        = Array.isArray(context.checklist)         ? context.checklist         : [];
+  const nextSteps        = Array.isArray(context.nextSteps)         ? context.nextSteps         : [];
+  const warnings         = Array.isArray(context.warnings)          ? context.warnings          : [];
+  const typingNotes      = Array.isArray(context.typingNotes)       ? context.typingNotes       : [];
+  const pendingTechnical = Array.isArray(context.pendingTechnical)  ? context.pendingTechnical  : [];
+  const dataDictionary   = Array.isArray(context.dataDictionary)    ? context.dataDictionary    : [];
+  const governanceAspects= Array.isArray(context.governanceAspects) ? context.governanceAspects : [];
+  const governanceReaders= Array.isArray(context.governanceReaders) ? context.governanceReaders : [];
 
   const safe = (v) => escapeHtml(v == null ? "" : String(v));
+  const now  = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+
+  /* ── doc-type label ──────────────────────────────── */
+  const docTypeMap = {
+    documentacao_funcional: { label: "Documentação Funcional", icon: "📊", color: "#1a56af" },
+    especificacao_tecnica:  { label: "Especificação Técnica",  icon: "🧩", color: "#0e8a5e" },
+    runbook_operacional:    { label: "Runbook Operacional",    icon: "🛟", color: "#c05d0a" },
+  };
+  const rawType = String(data.doc_type || "").toLowerCase().replace(/ /g, "_");
+  const docType = docTypeMap[rawType] || { label: safe(data.doc_type || "Documento"), icon: "📄", color: "#1a56af" };
+
+  /* ── section icon heuristic ──────────────────────── */
+  function sectionIcon(title) {
+    const t = String(title).toLowerCase();
+    if (/objetivo|purpose/.test(t))              return "🎯";
+    if (/contexto|negoc|business/.test(t))       return "🏢";
+    if (/fluxo|pipeline|process/.test(t))        return "🔄";
+    if (/sla|alerta|incidente|incident/.test(t)) return "🚨";
+    if (/diagnos|query|sql/.test(t))             return "🔍";
+    if (/escal|contato|responsavel/.test(t))     return "📞";
+    if (/partici|cluster|tecni|technical/.test(t))return "⚙️";
+    if (/govern|compliance|acesso/.test(t))      return "🔒";
+    if (/publico|audienc/.test(t))               return "👥";
+    if (/histor|versao|change/.test(t))          return "📋";
+    return "📄";
+  }
+
+  /* ── type badge color ────────────────────────────── */
+  function typeBadge(type) {
+    const t = String(type).toUpperCase();
+    const map = {
+      INTEGER: "#1d4ed8", INT64: "#1d4ed8", INT: "#1d4ed8",
+      STRING: "#374151", VARCHAR: "#374151",
+      FLOAT: "#065f46", FLOAT64: "#065f46", NUMERIC: "#065f46", BIGNUMERIC: "#065f46",
+      DATE: "#6d28d9", DATETIME: "#6d28d9", TIMESTAMP: "#6d28d9", TIME: "#6d28d9",
+      BOOLEAN: "#b45309", BOOL: "#b45309",
+      RECORD: "#0e7490", STRUCT: "#0e7490", ARRAY: "#0e7490",
+      BYTES: "#9d174d",
+    };
+    const bg = map[t] || "#475569";
+    return `<span style="display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;color:#fff;background:${bg};letter-spacing:.4px">${safe(type)}</span>`;
+  }
+
+  /* ── build section cards ─────────────────────────── */
   const sectionCards = sections.length
-    ? sections
-        .map(
-          (section) => `
-      <article class="card">
-        <h3>${safe(section.title || "Secao")}</h3>
-        <p>${safe(section.content || "Sem conteudo informado.")}</p>
-      </article>`,
-        )
-        .join("\n")
-    : '<article class="card"><h3>Secoes</h3><p>Sem secoes retornadas.</p></article>';
+    ? sections.map((s) => {
+        const icon = sectionIcon(s.title || "");
+        return `
+        <article class="card sect-card">
+          <div class="card-head">
+            <span class="card-icon">${icon}</span>
+            <h3>${safe(s.title || "Seção")}</h3>
+          </div>
+          <p>${safe(s.content || "Sem conteúdo informado.")}</p>
+        </article>`;
+      }).join("\n")
+    : '<article class="card sect-card"><p>Sem seções retornadas.</p></article>';
 
+  /* ── dictionary rows ─────────────────────────────── */
   const dictionaryRows = dataDictionary.length
-    ? dataDictionary
-        .map(
-          (row) => `
-      <tr>
-        <td>${safe(row.column || "-")}</td>
-        <td>${safe(row.type || "-")}</td>
-        <td>${safe(row.description || "-")}</td>
-        <td>${safe(row.business_rule || "-")}</td>
-      </tr>`,
-        )
-        .join("\n")
-    : '<tr><td colspan="4">Nao informado</td></tr>';
+    ? dataDictionary.map((row, i) => `
+        <tr class="${i % 2 === 0 ? "row-even" : "row-odd"}">
+          <td class="col-name"><code>${safe(row.column || "-")}</code></td>
+          <td class="col-type">${typeBadge(row.type || "-")}</td>
+          <td>${safe(row.description || "-")}</td>
+          <td>${safe(row.business_rule || "-")}</td>
+        </tr>`).join("\n")
+    : '<tr><td colspan="4" style="color:#888;text-align:center">Dicionário não disponível</td></tr>';
 
-  const checklistItems = checklist.length
-    ? checklist.map((item) => `<li>${safe(item)}</li>`).join("\n")
-    : "<li>Checklist nao informado</li>";
+  /* ── checklist ───────────────────────────────────── */
+  const checklistHtml = checklist.length
+    ? checklist.map((item) => `
+        <li class="check-item">
+          <span class="check-ico">✅</span>
+          <span>${safe(item)}</span>
+        </li>`).join("\n")
+    : '<li class="check-item"><span class="check-ico">—</span><span>Checklist não informado</span></li>';
 
+  /* ── rules & pending ─────────────────────────────── */
   const ruleItems = [...typingNotes, ...pendingTechnical];
-  const ruleList = ruleItems.length
-    ? ruleItems.map((item) => `<li>${safe(item)}</li>`).join("\n")
-    : "<li>Sem regras adicionais.</li>";
+  const ruleHtml = ruleItems.length
+    ? ruleItems.map((item) => `
+        <li class="check-item">
+          <span class="check-ico">⚠️</span>
+          <span>${safe(item)}</span>
+        </li>`).join("\n")
+    : '<li class="check-item"><span class="check-ico">—</span><span>Sem regras adicionais.</span></li>';
 
+  /* ── governance ──────────────────────────────────── */
   const govItems = [
-    ...(governanceAspects.length
-      ? [
-          `Aspect Types: ${safe(governanceAspects.join(", "))}`,
-        ]
-      : []),
-    ...(governanceReaders.length
-      ? [
-          `Leitores: ${safe(governanceReaders.join(", "))}`,
-        ]
-      : []),
-    ...warnings.map((w) => `Observacao: ${safe(w)}`),
+    ...governanceAspects.map((a) => ({ ico: "🔒", text: safe(a) })),
+    ...governanceReaders.map((r)  => ({ ico: "👤", text: `Leitor: ${safe(r)}` })),
+    ...warnings.map((w)           => ({ ico: "⚠️", text: `Observação: ${safe(w)}` })),
   ];
-  const govList = govItems.length
-    ? govItems.map((item) => `<li>${item}</li>`).join("\n")
-    : "<li>Governanca nao detalhada.</li>";
+  const govHtml = govItems.length
+    ? govItems.map((g) => `
+        <li class="check-item">
+          <span class="check-ico">${g.ico}</span>
+          <span>${g.text}</span>
+        </li>`).join("\n")
+    : '<li class="check-item"><span class="check-ico">—</span><span>Governança não detalhada.</span></li>';
 
-  const nextList = nextSteps.length
-    ? nextSteps.map((item) => `<li>${safe(item)}</li>`).join("\n")
-    : "<li>Sem proximos passos informados.</li>";
+  /* ── next steps ──────────────────────────────────── */
+  const nextHtml = nextSteps.length
+    ? nextSteps.map((item, i) => `
+        <li class="step-item">
+          <span class="step-n">${i + 1}</span>
+          <span>${safe(item)}</span>
+        </li>`).join("\n")
+    : '<li class="step-item"><span class="step-n">—</span><span>Sem próximos passos informados.</span></li>';
+
+  /* ── warnings banner ─────────────────────────────── */
+  const warnBanner = warnings.length ? `
+    <section class="warn-box">
+      <span class="warn-ico">⚠️</span>
+      <div>
+        <strong>Avisos do pipeline</strong>
+        <ul style="margin:4px 0 0;padding-left:16px">
+          ${warnings.map((w) => `<li>${safe(w)}</li>`).join("")}
+        </ul>
+      </div>
+    </section>` : "";
+
+  /* ── table path breadcrumb ───────────────────────── */
+  const tablePath = safe(data.table_path || data.table_name || "-");
+  const parts = tablePath.split(".");
+  const breadcrumb = parts.length === 3
+    ? `<span class="bc-dim">${parts[0]}.</span><span class="bc-dim">${parts[1]}.</span><strong>${parts[2]}</strong>`
+    : tablePath;
 
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${safe(data.title || "Documentacao Tecnica")}</title>
+  <title>${safe(data.title || "Documentação Técnica")}</title>
   <style>
-    body { font-family: "Segoe UI", Tahoma, Arial, sans-serif; margin: 0; background: #f2f6fb; color: #1d2a3a; font-size: 13px; line-height: 1.55; }
-    .wrap { max-width: 1040px; margin: 0 auto; padding: 20px; }
-    .hero { background: linear-gradient(135deg, #004d99, #0a67c7); color: #fff; border-radius: 12px; padding: 16px 18px; display: flex; gap: 12px; align-items: center; }
-    .hero img { width: 44px; height: 44px; border-radius: 10px; background: #fff; padding: 5px; }
-    .hero h1 { margin: 0 0 3px; font-size: 20px; font-weight: 700; line-height: 1.25; }
-    .hero p { margin: 0; opacity: .94; font-size: 12.5px; }
-    .meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
-    .pill { background: #ffffff; border: 1px solid #d7e3f1; border-radius: 8px; padding: 8px 10px; font-size: 11.5px; }
-    .executive { margin-top: 12px; background: #fff; border: 1px solid #dbe7f4; border-left: 4px solid #0a67c7; border-radius: 10px; padding: 10px 12px; font-size: 12px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
-    .card { background: #fff; border: 1px solid #dbe7f4; border-radius: 10px; padding: 12px; }
-    .card h2 { margin: 0 0 8px; color: #003087; font-size: 14px; line-height: 1.3; }
-    .card h3 { margin: 0 0 6px; color: #003087; font-size: 13px; line-height: 1.35; }
-    .card p { margin: 0; line-height: 1.6; font-size: 12.5px; color: #2d3b4f; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, Arial, sans-serif;
+      margin: 0; background: #eef2f8; color: #1d2a3a;
+      font-size: 13px; line-height: 1.6;
+    }
+    .wrap { max-width: 1060px; margin: 0 auto; padding: 24px 20px 40px; }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, #003e8a 0%, #0e6fd6 100%);
+      color: #fff; border-radius: 14px; padding: 20px 22px;
+      display: flex; gap: 16px; align-items: flex-start;
+      box-shadow: 0 4px 18px rgba(0,62,138,.25);
+    }
+    .hero-logo {
+      width: 52px; height: 52px; border-radius: 12px;
+      background: rgba(255,255,255,.15); display: flex;
+      align-items: center; justify-content: center;
+      font-size: 26px; flex-shrink: 0;
+    }
+    .hero-body { flex: 1; }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(255,255,255,.18); border-radius: 20px;
+      padding: 3px 10px; font-size: 11px; font-weight: 600;
+      letter-spacing: .3px; margin-bottom: 6px;
+    }
+    .hero h1 { margin: 0 0 4px; font-size: 21px; font-weight: 700; line-height: 1.2; }
+    .hero-summary { margin: 0; font-size: 12.5px; opacity: .88; line-height: 1.5; }
+    .hero-meta { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .hero-pill {
+      background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+      border-radius: 6px; padding: 4px 9px; font-size: 11px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .hero-pill strong { font-weight: 600; opacity: .7; margin-right: 2px; }
+
+    /* ── Executive banner ── */
+    .exec-box {
+      margin-top: 14px; background: #fff;
+      border: 1px solid #c8daf5; border-left: 4px solid #0e6fd6;
+      border-radius: 10px; padding: 12px 14px;
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: 12.5px; color: #1e3558;
+    }
+    .exec-ico { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Warning box ── */
+    .warn-box {
+      margin-top: 14px; background: #fffbeb;
+      border: 1px solid #fbbf24; border-left: 4px solid #d97706;
+      border-radius: 10px; padding: 12px 14px;
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: 12px; color: #78350f;
+    }
+    .warn-ico { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Grid ── */
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px; }
+    .span2 { grid-column: span 2; }
+
+    /* ── Cards ── */
+    .card {
+      background: #fff; border: 1px solid #d4e2f4;
+      border-radius: 12px; padding: 14px 16px;
+    }
+    .card-head {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 8px; padding-bottom: 8px;
+      border-bottom: 1px solid #eef2f8;
+    }
+    .card-icon { font-size: 17px; flex-shrink: 0; }
+    .card h2 {
+      margin: 0; color: #003087; font-size: 13.5px;
+      font-weight: 700; line-height: 1.3;
+    }
+    .card h3 {
+      margin: 0; color: #003e8a; font-size: 13px;
+      font-weight: 700; line-height: 1.3;
+    }
+    .card p { margin: 0; font-size: 12.5px; color: #2d3b4f; line-height: 1.65; }
+    .sect-card { border-left: 3px solid #0e6fd6; }
+
+    /* ── Breadcrumb ── */
+    .breadcrumb { font-family: "Cascadia Code", "Consolas", monospace; font-size: 12px; }
+    .bc-dim { opacity: .55; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; margin-top: 6px; }
     table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-    th, td { border: 1px solid #dbe7f4; padding: 7px; text-align: left; vertical-align: top; }
-    th { background: #ecf3ff; color: #17365d; font-weight: 700; }
-    ul { margin: 0; padding-left: 17px; line-height: 1.62; font-size: 12.5px; color: #2d3b4f; }
-    @media (max-width: 900px) {
-      .meta { grid-template-columns: 1fr; }
-      .grid { grid-template-columns: 1fr; }
+    th {
+      background: #e8f0fc; color: #17365d; font-weight: 700;
+      padding: 8px 10px; text-align: left; border-bottom: 2px solid #c0d2f0;
+      white-space: nowrap;
+    }
+    td { padding: 7px 10px; vertical-align: top; border-bottom: 1px solid #e8eef7; }
+    .row-even { background: #fff; }
+    .row-odd  { background: #f7faff; }
+    .col-name code {
+      font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 11px; color: #003087;
+    }
+    .col-type { white-space: nowrap; }
+
+    /* ── Check lists ── */
+    .check-list, .step-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .check-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: #2d3b4f; }
+    .check-ico { flex-shrink: 0; font-size: 14px; margin-top: 1px; }
+
+    /* ── Numbered steps ── */
+    .step-item { display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #2d3b4f; }
+    .step-n {
+      flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+      background: #0e6fd6; color: #fff; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── Section title strip ── */
+    .section-title {
+      display: flex; align-items: center; gap: 8px;
+      margin: 18px 0 10px; font-size: 12px; font-weight: 700;
+      color: #5a7a9e; text-transform: uppercase; letter-spacing: .6px;
+    }
+    .section-title::after {
+      content: ""; flex: 1; height: 1px; background: #d4e2f4;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 24px; padding-top: 14px;
+      border-top: 1px solid #d4e2f4;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11px; color: #8a9ab5; flex-wrap: wrap; gap: 6px;
+    }
+    .footer-brand { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+
+    @media (max-width: 860px) {
+      .grid, .grid-3 { grid-template-columns: 1fr; }
+      .span2 { grid-column: span 1; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
+
+    <!-- ── HERO ─────────────────────────────────── -->
     <header class="hero">
-      <img src="/static/img/portoseguro.png" alt="Logo" />
-      <div>
-        <h1>${safe(data.title || "Documentacao Tecnica")}</h1>
-        <p>${safe(data.summary || "Documento gerado pelo Document Build.")}</p>
+      <div class="hero-logo">${docType.icon}</div>
+      <div class="hero-body">
+        <div class="hero-badge">${docType.icon} ${docType.label}</div>
+        <h1>${safe(data.title || "Documentação Técnica")}</h1>
+        <p class="hero-summary">${safe(data.summary || "Documento gerado pelo Document Build.")}</p>
+        <div class="hero-meta">
+          <span class="hero-pill"><strong>📦 Tabela</strong> <span class="breadcrumb">${breadcrumb}</span></span>
+          <span class="hero-pill"><strong>🔄 Frequência</strong> ${safe(data.frequency || "—")}</span>
+          <span class="hero-pill"><strong>👥 Público</strong> ${safe(data.audience || "—")}</span>
+          <span class="hero-pill"><strong>📅 Gerado</strong> ${now}</span>
+        </div>
       </div>
     </header>
 
-    <section class="meta">
-      <div class="pill"><strong>Tipo:</strong> ${safe(data.doc_type || "-")}</div>
-      <div class="pill"><strong>Tabela:</strong> ${safe(data.table_path || data.table_name || "-")}</div>
-      <div class="pill"><strong>Frequencia:</strong> ${safe(data.frequency || "-")}</div>
-    </section>
+    <!-- ── EXECUTIVE BANNER ───────────────────── -->
+    <div class="exec-box">
+      <span class="exec-ico">💡</span>
+      <div>
+        <strong>Visão executiva</strong><br/>
+        ${safe(data.objective || "Documento estruturado para decisão e governança, com foco em contexto de negócio, confiabilidade dos dados e encaminhamentos operacionais.")}
+      </div>
+    </div>
 
-    <section class="executive">
-      <strong>Visao executiva:</strong>
-      Documento estruturado para decisao e governanca, com foco em contexto de negocio, confiabilidade dos dados e encaminhamentos operacionais.
-    </section>
+    ${warnBanner}
 
-    <section class="grid">
-      <article class="card">
-        <h2>Objetivo</h2>
-        <p>${safe(data.objective || "Objetivo nao informado.")}</p>
-      </article>
-      <article class="card">
-        <h2>Publico-alvo</h2>
-        <p>${safe(data.audience || "Times tecnicos")}</p>
-      </article>
-    </section>
-
-    <section class="grid">
+    <!-- ── SEÇÕES PRINCIPAIS ──────────────────── -->
+    <div class="section-title">📄 Conteúdo do Documento</div>
+    <div class="grid">
       ${sectionCards}
-    </section>
+    </div>
 
-    <section class="card" style="margin-top:12px">
-      <h2>Dicionario de Dados</h2>
-      <table>
-        <thead>
-          <tr><th>Coluna</th><th>Tipo</th><th>Descricao</th><th>Regra</th></tr>
-        </thead>
-        <tbody>
-          ${dictionaryRows}
-        </tbody>
-      </table>
-    </section>
+    <!-- ── DICIONÁRIO DE DADOS ────────────────── -->
+    <div class="section-title">🗂️ Dicionário de Dados</div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Coluna</th>
+              <th>Tipo</th>
+              <th>Descrição</th>
+              <th>Regra de Negócio</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dictionaryRows}
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-    <section class="grid">
+    <!-- ── QUALIDADE & REGRAS ─────────────────── -->
+    <div class="section-title">✅ Qualidade & Regras</div>
+    <div class="grid">
       <article class="card">
-        <h2>Checklist</h2>
-        <ul>${checklistItems}</ul>
+        <div class="card-head">
+          <span class="card-icon">✅</span>
+          <h2>Checklist de Qualidade</h2>
+        </div>
+        <ul class="check-list">${checklistHtml}</ul>
       </article>
       <article class="card">
-        <h2>Regras e Pendencias</h2>
-        <ul>${ruleList}</ul>
+        <div class="card-head">
+          <span class="card-icon">⚠️</span>
+          <h2>Regras & Pendências</h2>
+        </div>
+        <ul class="check-list">${ruleHtml}</ul>
       </article>
-    </section>
+    </div>
 
-    <section class="grid">
+    <!-- ── GOVERNANÇA & PRÓXIMOS PASSOS ──────── -->
+    <div class="section-title">🔒 Governança & Ações</div>
+    <div class="grid">
       <article class="card">
-        <h2>Governanca</h2>
-        <ul>${govList}</ul>
+        <div class="card-head">
+          <span class="card-icon">🔒</span>
+          <h2>Governança</h2>
+        </div>
+        <ul class="check-list">${govHtml}</ul>
       </article>
       <article class="card">
-        <h2>Proximos Passos</h2>
-        <ul>${nextList}</ul>
+        <div class="card-head">
+          <span class="card-icon">🚀</span>
+          <h2>Próximos Passos</h2>
+        </div>
+        <ul class="step-list">${nextHtml}</ul>
       </article>
-    </section>
+    </div>
+
+    <!-- ── FOOTER ─────────────────────────────── -->
+    <footer class="footer">
+      <span class="footer-brand">🤖 Document Build · Finance Hub</span>
+      <span>Gerado em ${now} · Não editar manualmente · Regenerar via agent</span>
+    </footer>
+
   </div>
 </body>
 </html>`;

@@ -1607,7 +1607,9 @@ function generateDocumentHtml(data, context) {
     }
     .hero-logo {
       width: 52px; height: 52px; border-radius: 12px;
-      background: rgba(255,255,255,.15); display: flex;
+      background: #ffffff; display: flex;
+      border: 1px solid rgba(255,255,255,.55);
+      box-shadow: 0 2px 8px rgba(0, 34, 87, 0.18);
       align-items: center; justify-content: center;
       padding: 6px; flex-shrink: 0;
       overflow: hidden;

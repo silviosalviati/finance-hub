@@ -320,6 +320,12 @@ Gere a documentacao completa no formato solicitado.
 			+ _safe_list(payload.get("warnings"))
 		)
 		sanitized_sections = _sanitize_sections(enriched["sections"])
+		# Remover das notas de governanca itens duplicados com warnings
+		warnings_lower = {w.lower().strip() for w in warnings}
+		enriched["governance"]["notes"] = [
+			n for n in enriched["governance"].get("notes", [])
+			if n.lower().strip() not in warnings_lower
+		]
 		sanitized_governance = _sanitize_governance(enriched["governance"])
 		sanitized_warnings = _sanitize_text_list(warnings)
 
@@ -1186,11 +1192,7 @@ def _remove_incomplete_runbook_summary_sections(sections: list[dict[str, str]]) 
 			result.append(section)
 			continue
 
-		lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
-		if lines and all(_looks_like_summary_index_line(ln) for ln in lines):
-			continue
-
-		result.append(section)
+		# Titulo de sumario sem conteudo operacional — descartar
 
 	return result
 

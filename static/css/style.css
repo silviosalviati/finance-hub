@@ -2550,7 +2550,7 @@ textarea {
 }
 
 .db-empty-showcase {
-  align-items: stretch;
+  align-items: center;
   justify-content: flex-start;
   text-align: left;
   gap: 10px;
@@ -2575,7 +2575,6 @@ textarea {
   display: grid;
   grid-template-columns: repeat(3, minmax(270px, 420px));
   gap: 12px;
-  width: 100%;
   justify-content: center;
   align-content: start;
 }

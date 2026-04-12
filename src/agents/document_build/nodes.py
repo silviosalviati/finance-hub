@@ -214,10 +214,9 @@ def fetch_dataplex_tags(state: DocumentBuildState) -> dict[str, Any]:
 
 			if not context["aspect_types"]:
 				warnings.append("Nenhum aspect type Dataplex encontrado para a tabela selecionada.")
-		else:
-			warnings.append("Entrada Dataplex não encontrada para a tabela selecionada.")
 	except NotFound:
-		warnings.append("Entrada Dataplex não encontrada para a tabela selecionada.")
+		# Ausencia de entry no catalogo e um estado valido; nao gerar warning ao usuario.
+		pass
 	except Exception as exc:
 		warnings.append(f"Falha ao consultar Dataplex Catalog: {exc}")
 

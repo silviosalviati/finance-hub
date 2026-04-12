@@ -1,0 +1,323 @@
+{
+  "saved_at": "2026-04-12T01:07:40.150288",
+  "payload": {
+    "status": "ok",
+    "title": "Documentação Funcional - Tabela Faturamento Detalhado",
+    "doc_type": "documentacao_funcional",
+    "summary": "Esta documentação fornece uma visão geral e detalhamento da tabela faturamento_detalhado, incluindo diagrama de fluxo, dicionário de dados, regras de negócio, checklist de qualidade de dados e governança.",
+    "audience": "Desenvolvedores BI, Engenheiros de Dados, Analistas de Negócio e Agentes de IA",
+    "objective": "Análise de margem e desempenho por canal de venda.",
+    "frequency": "Batch diário",
+    "table_name": "faturamento_detalhado",
+    "table_path": "silviosalviati.inteligencia_negocios.faturamento_detalhado",
+    "mermaid_diagram": "graph TD\n    A[Origem: Tabela Fatos Vendas] --> B[Transformação: Seleção e Agregação]\n    B --> C[Destino: Tabela Faturamento Detalhado]",
+    "sections": [
+      {
+        "title": "Visão Geral",
+        "content": "A tabela faturamento_detalhado é utilizada para analisar a margem e o desempenho das vendas por canal de venda. Esta tabela é derivada da tabela fatos_vendas e contém informações detalhadas sobre cada transação, incluindo valor líquido, custo operacional, canal de venda e vendedor responsável."
+      },
+      {
+        "title": "Dicionário de Dados",
+        "content": "[{'column': 'transacao_id', 'type': 'STRING', 'description': 'Identificador único de cada transação.', 'business_rule': '[PENDENCIA TECNICA] Verificar se há duplicidade de transação_id.'}, {'column': 'data_faturamento', 'type': 'DATE', 'description': 'Data de faturamento da transação.', 'business_rule': '[PENDENCIA TECNICA] Validar faixa de datas.'}, {'column': 'valor_liquido', 'type': 'FLOAT', 'description': 'Valor líquido da transação após descontos e impostos.', 'business_rule': '[PENDENCIA TECNICA] Validar faixa de valores.'}, {'column': 'custo_operacional', 'type': 'FLOAT', 'description': 'Custo operacional associado à transação.', 'business_rule': '[PENDENCIA TECNICA] Validar faixa de valores.'}, {'column': 'canal_venda', 'type': 'STRING', 'description': 'Canal de venda utilizado na transação.', 'business_rule': '[PENDENCIA TECNICA] Validar valores possíveis.'}, {'column': 'vendedor_responsavel', 'type': 'STRING', 'description': 'Nome do vendedor responsável pela transação.', 'business_rule': '[PENDENCIA TECNICA] Validar valores possíveis.'}]"
+      },
+      {
+        "title": "Atenção a Tipagem",
+        "content": "É importante notar que a coluna transacao_id é do tipo STRING. Quando necessário, será necessário realizar um CAST para JOIN com outras tabelas que possuem identificadores numéricos."
+      },
+      {
+        "title": "Regras de Negócio",
+        "content": "Nenhuma regra de negócio específica foi encontrada para esta tabela. No entanto, a tabela é usada para calcular a margem de lucro, que é definida como (valor_liquido - custo_operacional)."
+      },
+      {
+        "title": "Data Quality (DQ)",
+        "content": "['Verificar se há duplicidade de transacao_id.', 'Validar faixa de datas para data_faturamento.', 'Validar faixa de valores para valor_liquido e custo_operacional.', 'Validar valores possíveis para canal_venda e vendedor_responsavel.']"
+      },
+      {
+        "title": "Governança",
+        "content": "{'aspect_types': ['nenhum'], 'readers': ['silviosalviati.inteligencia_negocios.faturamento_detalhado'], 'notes': ['Nenhuma restrição de leitura foi encontrada.']}"
+      }
+    ],
+    "data_dictionary": [
+      {
+        "column": "transacao_id",
+        "type": "STRING (NULLABLE)",
+        "description": "Código único da operação de venda.",
+        "business_rule": "Campo mapeado a partir do schema real."
+      },
+      {
+        "column": "data_faturamento",
+        "type": "DATE (NULLABLE)",
+        "description": "Data oficial do reconhecimento da receita (Coluna de Partição).",
+        "business_rule": "Campo mapeado a partir do schema real."
+      },
+      {
+        "column": "valor_liquido",
+        "type": "FLOAT (NULLABLE)",
+        "description": "Valor real que entra no caixa após descontos e taxas de operadoras.",
+        "business_rule": "Campo mapeado a partir do schema real."
+      },
+      {
+        "column": "custo_operacional",
+        "type": "FLOAT (NULLABLE)",
+        "description": "Custo logístico e de impostos associado a esta transação específica.",
+        "business_rule": "Campo mapeado a partir do schema real."
+      },
+      {
+        "column": "canal_venda",
+        "type": "STRING (NULLABLE)",
+        "description": "Origem da venda: 'E-COMMERCE', 'APP', 'LOJA_FISICA' ou 'WHATSAPP'.",
+        "business_rule": "Campo mapeado a partir do schema real."
+      },
+      {
+        "column": "vendedor_responsavel",
+        "type": "STRING (NULLABLE)",
+        "description": "Nome ou código do consultor que fechou o negócio.",
+        "business_rule": "Campo mapeado a partir do schema real."
+      }
+    ],
+    "typing_notes": [
+      "Coluna transacao_id: validar compatibilidade de tipo em JOIN e aplicar CAST explicito quando necessario.",
+      "Coluna valor_liquido: validar compatibilidade de tipo em JOIN e aplicar CAST explicito quando necessario."
+    ],
+    "assumptions": [
+      "A tabela faturamento_detalhado é derivada da tabela fatos_vendas."
+    ],
+    "risks": [
+      "Nenhuma informação crítica foi encontrada, mas é necessário verificar a consistência dos dados e a existência de duplicidades."
+    ],
+    "acceptance_checklist": [
+      "Verificar se há duplicidade de transacao_id.",
+      "Validar faixa de datas para data_faturamento.",
+      "Validar faixa de valores para valor_liquido e custo_operacional.",
+      "Validar valores possíveis para canal_venda e vendedor_responsavel.",
+      "A coluna transacao_id nao possui duplicidade para a granularidade esperada?",
+      "Existe controle de atualizacao/recencia para colunas de data da tabela?"
+    ],
+    "next_steps": [
+      "Realizar validação de dados e documentar regras de negócio."
+    ],
+    "warnings": [
+      "Falha ao consultar tags Dataplex/Data Catalog: 400 Project silviosalviati is not allowed to perform read operations due to Data Catalog deprecation.",
+      "Manifest dbt nao encontrado no workspace (manifest.json).",
+      "É necessário verificar se há duplicidade de transacao_id e validar faixas de valores e datas."
+    ],
+    "governance": {
+      "aspect_types": [
+        "nenhum"
+      ],
+      "readers": [
+        "silviosalviati.inteligencia_negocios.faturamento_detalhado"
+      ],
+      "notes": [
+        "Nenhuma restrição de leitura foi encontrada.",
+        "Data Catalog entry: projects/silviosalviati/locations/us/entryGroups/@bigquery/entries/cHJvamVjdHMvc2lsdmlvc2FsdmlhdGkvZGF0YXNldHMvaW50ZWxpZ2VuY2lhX25lZ29jaW9zL3RhYmxlcy9mYXR1cmFtZW50b19kZXRhbGhhZG8",
+        "table_path: silviosalviati.inteligencia_negocios.faturamento_detalhado"
+      ]
+    },
+    "pending_technical": [],
+    "quality_score": 100,
+    "markdown_document": "# Documentação Funcional - Tabela Faturamento Detalhado\n\n## Header\n**Tabela:** faturamento_detalhado\n**Caminho GCP:** silviosalviati.inteligencia_negocios.faturamento_detalhado\n\n**Tipo:** documentacao_funcional\n**Publico-alvo:** Desenvolvedores BI, Engenheiros de Dados, Analistas de Negócio e Agentes de IA\n\n## Diagrama de fluxo (Mermaid)\n```mermaid\ngraph TD\n    A[Origem: Tabela Fatos Vendas] --> B[Transformação: Seleção e Agregação]\n    B --> C[Destino: Tabela Faturamento Detalhado]\n```\n\n## 1. Visao geral (Overview)\n**Objetivo:** Análise de margem e desempenho por canal de venda.\n**Frequencia:** Batch diário\n\n## Resumo executivo\nEsta documentação fornece uma visão geral e detalhamento da tabela faturamento_detalhado, incluindo diagrama de fluxo, dicionário de dados, regras de negócio, checklist de qualidade de dados e governança.\n\n## Visão Geral\nA tabela faturamento_detalhado é utilizada para analisar a margem e o desempenho das vendas por canal de venda. Esta tabela é derivada da tabela fatos_vendas e contém informações detalhadas sobre cada transação, incluindo valor líquido, custo operacional, canal de venda e vendedor responsável.\n\n## Dicionário de Dados\n[{'column': 'transacao_id', 'type': 'STRING', 'description': 'Identificador único de cada transação.', 'business_rule': '[PENDENCIA TECNICA] Verificar se há duplicidade de transação_id.'}, {'column': 'data_faturamento', 'type': 'DATE', 'description': 'Data de faturamento da transação.', 'business_rule': '[PENDENCIA TECNICA] Validar faixa de datas.'}, {'column': 'valor_liquido', 'type': 'FLOAT', 'description': 'Valor líquido da transação após descontos e impostos.', 'business_rule': '[PENDENCIA TECNICA] Validar faixa de valores.'}, {'column': 'custo_operacional', 'type': 'FLOAT', 'description': 'Custo operacional associado à transação.', 'business_rule': '[PENDENCIA TECNICA] Validar faixa de valores.'}, {'column': 'canal_venda', 'type': 'STRING', 'description': 'Canal de venda utilizado na transação.', 'business_rule': '[PENDENCIA TECNICA] Validar valores possíveis.'}, {'column': 'vendedor_responsavel', 'type': 'STRING', 'description': 'Nome do vendedor responsável pela transação.', 'business_rule': '[PENDENCIA TECNICA] Validar valores possíveis.'}]\n\n## Atenção a Tipagem\nÉ importante notar que a coluna transacao_id é do tipo STRING. Quando necessário, será necessário realizar um CAST para JOIN com outras tabelas que possuem identificadores numéricos.\n\n## Regras de Negócio\nNenhuma regra de negócio específica foi encontrada para esta tabela. No entanto, a tabela é usada para calcular a margem de lucro, que é definida como (valor_liquido - custo_operacional).\n\n## Data Quality (DQ)\n['Verificar se há duplicidade de transacao_id.', 'Validar faixa de datas para data_faturamento.', 'Validar faixa de valores para valor_liquido e custo_operacional.', 'Validar valores possíveis para canal_venda e vendedor_responsavel.']\n\n## Governança\n{'aspect_types': ['nenhum'], 'readers': ['silviosalviati.inteligencia_negocios.faturamento_detalhado'], 'notes': ['Nenhuma restrição de leitura foi encontrada.']}\n\n## 2. Dicionario de dados (Data Dictionary)\n| Coluna | Tipo | Descricao | Regra de Negocio |\n| --- | --- | --- | --- |\n| transacao_id | STRING (NULLABLE) | Código único da operação de venda. | Campo mapeado a partir do schema real. |\n| data_faturamento | DATE (NULLABLE) | Data oficial do reconhecimento da receita (Coluna de Partição). | Campo mapeado a partir do schema real. |\n| valor_liquido | FLOAT (NULLABLE) | Valor real que entra no caixa após descontos e taxas de operadoras. | Campo mapeado a partir do schema real. |\n| custo_operacional | FLOAT (NULLABLE) | Custo logístico e de impostos associado a esta transação específica. | Campo mapeado a partir do schema real. |\n| canal_venda | STRING (NULLABLE) | Origem da venda: 'E-COMMERCE', 'APP', 'LOJA_FISICA' ou 'WHATSAPP'. | Campo mapeado a partir do schema real. |\n| vendedor_responsavel | STRING (NULLABLE) | Nome ou código do consultor que fechou o negócio. | Campo mapeado a partir do schema real. |\n\n## 3. Checklist de qualidade de dados (DQ)\n- [ ] Verificar se há duplicidade de transacao_id.\n- [ ] Validar faixa de datas para data_faturamento.\n- [ ] Validar faixa de valores para valor_liquido e custo_operacional.\n- [ ] Validar valores possíveis para canal_venda e vendedor_responsavel.\n- [ ] A coluna transacao_id nao possui duplicidade para a granularidade esperada?\n- [ ] Existe controle de atualizacao/recencia para colunas de data da tabela?\n\n## 4. Governanca (Dataplex/Catalog)\n**Aspect Types**\n- nenhum\n\n## 5. Atencao a tipagem\n- Coluna transacao_id: validar compatibilidade de tipo em JOIN e aplicar CAST explicito quando necessario.\n- Coluna valor_liquido: validar compatibilidade de tipo em JOIN e aplicar CAST explicito quando necessario.\n\n**Permissoes de leitura**\n- silviosalviati.inteligencia_negocios.faturamento_detalhado\n\n**Notas de governanca**\n- Nenhuma restrição de leitura foi encontrada.\n- Data Catalog entry: projects/silviosalviati/locations/us/entryGroups/@bigquery/entries/cHJvamVjdHMvc2lsdmlvc2FsdmlhdGkvZGF0YXNldHMvaW50ZWxpZ2VuY2lhX25lZ29jaW9zL3RhYmxlcy9mYXR1cmFtZW50b19kZXRhbGhhZG8\n- table_path: silviosalviati.inteligencia_negocios.faturamento_detalhado\n\n## Premissas\n- A tabela faturamento_detalhado é derivada da tabela fatos_vendas.\n\n## Riscos\n- Nenhuma informação crítica foi encontrada, mas é necessário verificar a consistência dos dados e a existência de duplicidades.\n\n## Proximos passos\n- Realizar validação de dados e documentar regras de negócio.\n\n## Observacoes\n- Falha ao consultar tags Dataplex/Data Catalog: 400 Project silviosalviati is not allowed to perform read operations due to Data Catalog deprecation.\n- Manifest dbt nao encontrado no workspace (manifest.json).\n- É necessário verificar se há duplicidade de transacao_id e validar faixas de valores e datas.\n",
+    "metadata": {
+      "project_id": "silviosalviati",
+      "dataset_hint": "inteligencia_negocios",
+      "table_name": "faturamento_detalhado",
+      "table_path": "silviosalviati.inteligencia_negocios.faturamento_detalhado",
+      "explicit_table_ref": {
+        "project": "silviosalviati",
+        "dataset": "inteligencia_negocios",
+        "table": "faturamento_detalhado",
+        "full_name": "silviosalviati.inteligencia_negocios.faturamento_detalhado"
+      },
+      "dataset_ref": "silviosalviati.inteligencia_negocios",
+      "tables": [
+        {
+          "table_id": "fatos_vendas",
+          "full_name": "silviosalviati.inteligencia_negocios.fatos_vendas",
+          "partition_field": "data_faturamento",
+          "clustering_fields": [
+            "canal_venda"
+          ],
+          "columns": [
+            {
+              "name": "transacao_id",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "ID único da transação financeira."
+            },
+            {
+              "name": "cliente_id",
+              "type": "INTEGER",
+              "mode": "NULLABLE",
+              "description": "Chave estrangeira para ligação com a tabela de clientes."
+            },
+            {
+              "name": "data_faturamento",
+              "type": "DATE",
+              "mode": "NULLABLE",
+              "description": "Data oficial do faturamento (Coluna de Partição)."
+            },
+            {
+              "name": "valor_liquido",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Receita líquida após descontos e taxas de operadoras."
+            },
+            {
+              "name": "custo_operacional",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Custo logístico e tributário da operação."
+            },
+            {
+              "name": "canal_venda",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Canal de origem (E-COMMERCE, APP, LOJA_FISICA ou WHATSAPP)."
+            },
+            {
+              "name": "vendedor_responsavel",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Nome ou código do consultor que realizou a venda."
+            }
+          ]
+        },
+        {
+          "table_id": "faturamento_detalhado",
+          "full_name": "silviosalviati.inteligencia_negocios.faturamento_detalhado",
+          "partition_field": "data_faturamento",
+          "clustering_fields": [
+            "canal_venda",
+            "vendedor_responsavel"
+          ],
+          "columns": [
+            {
+              "name": "transacao_id",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Código único da operação de venda."
+            },
+            {
+              "name": "data_faturamento",
+              "type": "DATE",
+              "mode": "NULLABLE",
+              "description": "Data oficial do reconhecimento da receita (Coluna de Partição)."
+            },
+            {
+              "name": "valor_liquido",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Valor real que entra no caixa após descontos e taxas de operadoras."
+            },
+            {
+              "name": "custo_operacional",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Custo logístico e de impostos associado a esta transação específica."
+            },
+            {
+              "name": "canal_venda",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Origem da venda: 'E-COMMERCE', 'APP', 'LOJA_FISICA' ou 'WHATSAPP'."
+            },
+            {
+              "name": "vendedor_responsavel",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Nome ou código do consultor que fechou o negócio."
+            }
+          ]
+        },
+        {
+          "table_id": "perfil_comportamental_clientes",
+          "full_name": "silviosalviati.inteligencia_negocios.perfil_comportamental_clientes",
+          "partition_field": "",
+          "clustering_fields": [
+            "segmento_cliente",
+            "cidade_sede"
+          ],
+          "columns": [
+            {
+              "name": "cliente_id",
+              "type": "INTEGER",
+              "mode": "NULLABLE",
+              "description": "Chave primária. Identificador único do cliente para Joins."
+            },
+            {
+              "name": "segmento_cliente",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Classificação do cliente (VIP, RECORRENTE, DORMANTE ou NOVO)."
+            },
+            {
+              "name": "score_credito",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Pontuação de risco financeiro. Valores altos indicam maior confiabilidade."
+            },
+            {
+              "name": "data_ultima_interacao",
+              "type": "DATE",
+              "mode": "NULLABLE",
+              "description": "Data da última interação ou compra realizada pelo cliente."
+            },
+            {
+              "name": "cidade_sede",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Cidade onde o cliente está sediado."
+            }
+          ]
+        }
+      ],
+      "selected_table": {
+        "table_id": "faturamento_detalhado",
+        "full_name": "silviosalviati.inteligencia_negocios.faturamento_detalhado",
+        "partition_field": "data_faturamento",
+        "clustering_fields": [
+          "canal_venda",
+          "vendedor_responsavel"
+        ],
+        "columns": [
+          {
+            "name": "transacao_id",
+            "type": "STRING",
+            "mode": "NULLABLE",
+            "description": "Código único da operação de venda."
+          },
+          {
+            "name": "data_faturamento",
+            "type": "DATE",
+            "mode": "NULLABLE",
+            "description": "Data oficial do reconhecimento da receita (Coluna de Partição)."
+          },
+          {
+            "name": "valor_liquido",
+            "type": "FLOAT",
+            "mode": "NULLABLE",
+            "description": "Valor real que entra no caixa após descontos e taxas de operadoras."
+          },
+          {
+            "name": "custo_operacional",
+            "type": "FLOAT",
+            "mode": "NULLABLE",
+            "description": "Custo logístico e de impostos associado a esta transação específica."
+          },
+          {
+            "name": "canal_venda",
+            "type": "STRING",
+            "mode": "NULLABLE",
+            "description": "Origem da venda: 'E-COMMERCE', 'APP', 'LOJA_FISICA' ou 'WHATSAPP'."
+          },
+          {
+            "name": "vendedor_responsavel",
+            "type": "STRING",
+            "mode": "NULLABLE",
+            "description": "Nome ou código do consultor que fechou o negócio."
+          }
+        ]
+      }
+    }
+  }
+}

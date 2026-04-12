@@ -1371,41 +1371,72 @@ function extractExplicitTableRef(text) {
 }
 
 function generateDocumentHtml(data, context) {
-  const sections         = Array.isArray(context.sections)          ? context.sections          : [];
-  const checklist        = Array.isArray(context.checklist)         ? context.checklist         : [];
-  const nextSteps        = Array.isArray(context.nextSteps)         ? context.nextSteps         : [];
-  const warnings         = Array.isArray(context.warnings)          ? context.warnings          : [];
-  const typingNotes      = Array.isArray(context.typingNotes)       ? context.typingNotes       : [];
-  const pendingTechnical = Array.isArray(context.pendingTechnical)  ? context.pendingTechnical  : [];
-  const dataDictionary   = Array.isArray(context.dataDictionary)    ? context.dataDictionary    : [];
-  const governanceAspects= Array.isArray(context.governanceAspects) ? context.governanceAspects : [];
-  const governanceReaders= Array.isArray(context.governanceReaders) ? context.governanceReaders : [];
+  const sections = Array.isArray(context.sections) ? context.sections : [];
+  const checklist = Array.isArray(context.checklist) ? context.checklist : [];
+  const nextSteps = Array.isArray(context.nextSteps) ? context.nextSteps : [];
+  const warnings = Array.isArray(context.warnings) ? context.warnings : [];
+  const typingNotes = Array.isArray(context.typingNotes)
+    ? context.typingNotes
+    : [];
+  const pendingTechnical = Array.isArray(context.pendingTechnical)
+    ? context.pendingTechnical
+    : [];
+  const dataDictionary = Array.isArray(context.dataDictionary)
+    ? context.dataDictionary
+    : [];
+  const governanceAspects = Array.isArray(context.governanceAspects)
+    ? context.governanceAspects
+    : [];
+  const governanceReaders = Array.isArray(context.governanceReaders)
+    ? context.governanceReaders
+    : [];
 
   const safe = (v) => escapeHtml(v == null ? "" : String(v));
-  const now  = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  const now = new Date().toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 
   /* ── doc-type label ──────────────────────────────── */
   const docTypeMap = {
-    documentacao_funcional: { label: "Documentação Funcional", icon: "📊", color: "#1a56af" },
-    especificacao_tecnica:  { label: "Especificação Técnica",  icon: "🧩", color: "#0e8a5e" },
-    runbook_operacional:    { label: "Runbook Operacional",    icon: "🛟", color: "#c05d0a" },
+    documentacao_funcional: {
+      label: "Documentação Funcional",
+      icon: "📊",
+      color: "#1a56af",
+    },
+    especificacao_tecnica: {
+      label: "Especificação Técnica",
+      icon: "🧩",
+      color: "#0e8a5e",
+    },
+    runbook_operacional: {
+      label: "Runbook Operacional",
+      icon: "🛟",
+      color: "#c05d0a",
+    },
   };
-  const rawType = String(data.doc_type || "").toLowerCase().replace(/ /g, "_");
-  const docType = docTypeMap[rawType] || { label: safe(data.doc_type || "Documento"), icon: "📄", color: "#1a56af" };
+  const rawType = String(data.doc_type || "")
+    .toLowerCase()
+    .replace(/ /g, "_");
+  const docType = docTypeMap[rawType] || {
+    label: safe(data.doc_type || "Documento"),
+    icon: "📄",
+    color: "#1a56af",
+  };
 
   /* ── section icon heuristic ──────────────────────── */
   function sectionIcon(title) {
     const t = String(title).toLowerCase();
-    if (/objetivo|purpose/.test(t))              return "🎯";
-    if (/contexto|negoc|business/.test(t))       return "🏢";
-    if (/fluxo|pipeline|process/.test(t))        return "🔄";
+    if (/objetivo|purpose/.test(t)) return "🎯";
+    if (/contexto|negoc|business/.test(t)) return "🏢";
+    if (/fluxo|pipeline|process/.test(t)) return "🔄";
     if (/sla|alerta|incidente|incident/.test(t)) return "🚨";
-    if (/diagnos|query|sql/.test(t))             return "🔍";
-    if (/escal|contato|responsavel/.test(t))     return "📞";
-    if (/partici|cluster|tecni|technical/.test(t))return "⚙️";
-    if (/govern|compliance|acesso/.test(t))      return "🔒";
-    if (/publico|audienc/.test(t))               return "👥";
-    if (/histor|versao|change/.test(t))          return "📋";
+    if (/diagnos|query|sql/.test(t)) return "🔍";
+    if (/escal|contato|responsavel/.test(t)) return "📞";
+    if (/partici|cluster|tecni|technical/.test(t)) return "⚙️";
+    if (/govern|compliance|acesso/.test(t)) return "🔒";
+    if (/publico|audienc/.test(t)) return "👥";
+    if (/histor|versao|change/.test(t)) return "📋";
     return "📄";
   }
 
@@ -1413,12 +1444,24 @@ function generateDocumentHtml(data, context) {
   function typeBadge(type) {
     const t = String(type).toUpperCase();
     const map = {
-      INTEGER: "#1d4ed8", INT64: "#1d4ed8", INT: "#1d4ed8",
-      STRING: "#374151", VARCHAR: "#374151",
-      FLOAT: "#065f46", FLOAT64: "#065f46", NUMERIC: "#065f46", BIGNUMERIC: "#065f46",
-      DATE: "#6d28d9", DATETIME: "#6d28d9", TIMESTAMP: "#6d28d9", TIME: "#6d28d9",
-      BOOLEAN: "#b45309", BOOL: "#b45309",
-      RECORD: "#0e7490", STRUCT: "#0e7490", ARRAY: "#0e7490",
+      INTEGER: "#1d4ed8",
+      INT64: "#1d4ed8",
+      INT: "#1d4ed8",
+      STRING: "#374151",
+      VARCHAR: "#374151",
+      FLOAT: "#065f46",
+      FLOAT64: "#065f46",
+      NUMERIC: "#065f46",
+      BIGNUMERIC: "#065f46",
+      DATE: "#6d28d9",
+      DATETIME: "#6d28d9",
+      TIMESTAMP: "#6d28d9",
+      TIME: "#6d28d9",
+      BOOLEAN: "#b45309",
+      BOOL: "#b45309",
+      RECORD: "#0e7490",
+      STRUCT: "#0e7490",
+      ARRAY: "#0e7490",
       BYTES: "#9d174d",
     };
     const bg = map[t] || "#475569";
@@ -1427,9 +1470,10 @@ function generateDocumentHtml(data, context) {
 
   /* ── build section cards ─────────────────────────── */
   const sectionCards = sections.length
-    ? sections.map((s) => {
-        const icon = sectionIcon(s.title || "");
-        return `
+    ? sections
+        .map((s) => {
+          const icon = sectionIcon(s.title || "");
+          return `
         <article class="card sect-card">
           <div class="card-head">
             <span class="card-icon">${icon}</span>
@@ -1437,64 +1481,89 @@ function generateDocumentHtml(data, context) {
           </div>
           <p>${safe(s.content || "Sem conteúdo informado.")}</p>
         </article>`;
-      }).join("\n")
+        })
+        .join("\n")
     : '<article class="card sect-card"><p>Sem seções retornadas.</p></article>';
 
   /* ── dictionary rows ─────────────────────────────── */
   const dictionaryRows = dataDictionary.length
-    ? dataDictionary.map((row, i) => `
+    ? dataDictionary
+        .map(
+          (row, i) => `
         <tr class="${i % 2 === 0 ? "row-even" : "row-odd"}">
           <td class="col-name"><code>${safe(row.column || "-")}</code></td>
           <td class="col-type">${typeBadge(row.type || "-")}</td>
           <td>${safe(row.description || "-")}</td>
           <td>${safe(row.business_rule || "-")}</td>
-        </tr>`).join("\n")
+        </tr>`,
+        )
+        .join("\n")
     : '<tr><td colspan="4" style="color:#888;text-align:center">Dicionário não disponível</td></tr>';
 
   /* ── checklist ───────────────────────────────────── */
   const checklistHtml = checklist.length
-    ? checklist.map((item) => `
+    ? checklist
+        .map(
+          (item) => `
         <li class="check-item">
           <span class="check-ico">✅</span>
           <span>${safe(item)}</span>
-        </li>`).join("\n")
+        </li>`,
+        )
+        .join("\n")
     : '<li class="check-item"><span class="check-ico">—</span><span>Checklist não informado</span></li>';
 
   /* ── rules & pending ─────────────────────────────── */
   const ruleItems = [...typingNotes, ...pendingTechnical];
   const ruleHtml = ruleItems.length
-    ? ruleItems.map((item) => `
+    ? ruleItems
+        .map(
+          (item) => `
         <li class="check-item">
           <span class="check-ico">⚠️</span>
           <span>${safe(item)}</span>
-        </li>`).join("\n")
+        </li>`,
+        )
+        .join("\n")
     : '<li class="check-item"><span class="check-ico">—</span><span>Sem regras adicionais.</span></li>';
 
   /* ── governance ──────────────────────────────────── */
   const govItems = [
     ...governanceAspects.map((a) => ({ ico: "🔒", text: safe(a) })),
-    ...governanceReaders.map((r)  => ({ ico: "👤", text: `Leitor: ${safe(r)}` })),
-    ...warnings.map((w)           => ({ ico: "⚠️", text: `Observação: ${safe(w)}` })),
+    ...governanceReaders.map((r) => ({
+      ico: "👤",
+      text: `Leitor: ${safe(r)}`,
+    })),
+    ...warnings.map((w) => ({ ico: "⚠️", text: `Observação: ${safe(w)}` })),
   ];
   const govHtml = govItems.length
-    ? govItems.map((g) => `
+    ? govItems
+        .map(
+          (g) => `
         <li class="check-item">
           <span class="check-ico">${g.ico}</span>
           <span>${g.text}</span>
-        </li>`).join("\n")
+        </li>`,
+        )
+        .join("\n")
     : '<li class="check-item"><span class="check-ico">—</span><span>Governança não detalhada.</span></li>';
 
   /* ── next steps ──────────────────────────────────── */
   const nextHtml = nextSteps.length
-    ? nextSteps.map((item, i) => `
+    ? nextSteps
+        .map(
+          (item, i) => `
         <li class="step-item">
           <span class="step-n">${i + 1}</span>
           <span>${safe(item)}</span>
-        </li>`).join("\n")
+        </li>`,
+        )
+        .join("\n")
     : '<li class="step-item"><span class="step-n">—</span><span>Sem próximos passos informados.</span></li>';
 
   /* ── warnings banner ─────────────────────────────── */
-  const warnBanner = warnings.length ? `
+  const warnBanner = warnings.length
+    ? `
     <section class="warn-box">
       <span class="warn-ico">⚠️</span>
       <div>
@@ -1503,14 +1572,16 @@ function generateDocumentHtml(data, context) {
           ${warnings.map((w) => `<li>${safe(w)}</li>`).join("")}
         </ul>
       </div>
-    </section>` : "";
+    </section>`
+    : "";
 
   /* ── table path breadcrumb ───────────────────────── */
   const tablePath = safe(data.table_path || data.table_name || "-");
   const parts = tablePath.split(".");
-  const breadcrumb = parts.length === 3
-    ? `<span class="bc-dim">${parts[0]}.</span><span class="bc-dim">${parts[1]}.</span><strong>${parts[2]}</strong>`
-    : tablePath;
+  const breadcrumb =
+    parts.length === 3
+      ? `<span class="bc-dim">${parts[0]}.</span><span class="bc-dim">${parts[1]}.</span><strong>${parts[2]}</strong>`
+      : tablePath;
 
   return `<!doctype html>
 <html lang="pt-BR">

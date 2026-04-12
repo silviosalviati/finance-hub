@@ -74,7 +74,7 @@ Prioridade de fonte para descricoes:
 
 Regras de testes automaticos (heuristicas iniciais):
 
-- colunas terminadas em _id: not_null e candidate para unique/relationships
+- colunas terminadas em \_id: not_null e candidate para unique/relationships
 - colunas REQUIRED no BigQuery: not_null
 - colunas categóricas pequenas: accepted_values (se dominio conhecido)
 - campos de timestamp/data: teste de recencia em camada de observabilidade

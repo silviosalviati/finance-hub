@@ -284,7 +284,6 @@ Gere a documentacao completa no formato solicitado.
 
 		raw = _extract_message_content(response)
 		if _is_json_truncated(raw):
-			print(f"DOCUMENT_BUILDER JSON truncado detectado — tentando reparo automatico.")
 			raw = _attempt_json_repair(raw)
 		payload = _parse_json_response(raw)
 
@@ -298,7 +297,6 @@ Gere a documentacao completa no formato solicitado.
 		mermaid_diagram = _normalize_mermaid(payload.get("mermaid_diagram"))
 		real_table_columns = _get_selected_table_columns(state.metadata, state.table_name)
 		raw_next_steps = _safe_list(payload.get("next_steps"))
-		print(f"DOCUMENT_BUILDER raw next_steps: {raw_next_steps}")
 
 		enriched = _enrich_required_blocks(
 			request_text=state.request_text,

@@ -3155,6 +3155,20 @@ textarea {
   font-family: var(--mono);
 }
 
+.db-html-fname-slot {
+  width: 78px;
+}
+
+.db-html-fname-center {
+  text-align: center;
+  font-size: 10px;
+  color: #6f84ab;
+  font-family: var(--mono);
+  background: #0f1828;
+  border-bottom: 1px solid #1e2a40;
+  padding: 5px 10px;
+}
+
 .copy-btn {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);

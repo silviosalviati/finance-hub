@@ -426,7 +426,8 @@ def finalize_document_markdown(state: DocumentBuildState) -> dict[str, Any]:
 
 	for section in state.sections:
 		title = section.get("title", "Secao")
-		content = section.get("content", "")
+		# Correção 3: garantir que content nunca seja renderizado como repr Python
+		content = _safe_render_content(section.get("content", ""))
 		lines.append(f"## {title}")
 		lines.append(content or "Sem conteudo informado.")
 		lines.append("")
@@ -593,7 +594,8 @@ def _normalize_sections(value: Any) -> list[dict[str, str]]:
 		if not isinstance(section, dict):
 			continue
 		title = str(section.get("title") or "").strip()
-		content = str(section.get("content") or "").strip()
+		# Correção 3: content pode chegar como list/dict quando a LLM retorna estrutura aninhada
+		content = _safe_render_content(section.get("content"))
 		if not title and not content:
 			continue
 		sections.append(
@@ -651,9 +653,13 @@ def _normalize_governance(value: Any) -> dict[str, list[str]]:
 	if not isinstance(value, dict):
 		return {"aspect_types": [], "readers": [], "notes": []}
 
+	# Correção 4: filtrar readers que sejam caminhos de tabela gerados erroneamente pela LLM
+	raw_readers = _safe_list(value.get("readers"))
+	valid_readers = [r for r in raw_readers if not _is_table_path(r)]
+
 	return {
 		"aspect_types": _safe_list(value.get("aspect_types")),
-		"readers": _safe_list(value.get("readers")),
+		"readers": valid_readers,
 		"notes": _safe_list(value.get("notes")),
 	}
 
@@ -684,6 +690,18 @@ def _enrich_required_blocks(
 			}
 		]
 
+	# Correção 1: remover seção de dicionário de dados das sections LLM quando schema real existe
+	has_real_schema = bool(real_table_columns)
+	if has_real_schema:
+		sections = [
+			s for s in sections
+			if not re.search(
+				r'dicion[aá]rio\s*de\s*dados?|data\s*dict(ionary)?',
+				s.get('title', ''),
+				re.IGNORECASE,
+			)
+		]
+
 	if real_table_columns:
 		real_columns_map = {str(col.get("name") or "").strip().lower(): col for col in real_table_columns}
 		filtered_rows: list[dict[str, str]] = []
@@ -698,12 +716,18 @@ def _enrich_required_blocks(
 				continue
 
 			real_col = real_columns_map[column.lower()]
+			mode = str(real_col.get("mode") or "").strip()
+			type_real = str(real_col.get("type") or row.get("type") or "STRING")
+			# Correção 2: usar regra inferida quando LLM não forneceu uma específica
+			business_rule = str(row.get("business_rule") or "").strip()
+			if not business_rule or business_rule.lower() in {"sem regra de negocio.", "-", ""}:
+				business_rule = _infer_business_rule(column, type_real, mode)
 			filtered_rows.append(
 				{
 					"column": column,
-					"type": str(real_col.get("type") or row.get("type") or "STRING"),
+					"type": type_real,
 					"description": str(row.get("description") or real_col.get("description") or "Sem descricao."),
-					"business_rule": str(row.get("business_rule") or "Sem regra de negocio."),
+					"business_rule": business_rule,
 				}
 			)
 
@@ -753,8 +777,10 @@ def _enrich_required_blocks(
 			"data_quality_profile",
 			"data_owner",
 		]
+	# Correção 4: remover readers que sejam caminhos de tabela gerados erroneamente pela LLM
+	governance["readers"] = [r for r in _safe_list(governance.get("readers")) if not _is_table_path(r)]
 	if not governance.get("readers"):
-		governance["readers"] = ["Service Account bot-query"]
+		governance["readers"] = ["Nao configurado — consultar responsavel pelo dominio de dados."]
 	if not governance.get("notes"):
 		governance["notes"] = [
 			"Habilitar monitoramento de desvio de esquema no Dataplex para alertas proativos.",
@@ -1081,11 +1107,8 @@ def _build_data_dictionary_from_schema(columns: list[dict[str, str]]) -> list[di
 		description = str(col.get("description") or "").strip() or "Sem descricao."
 		if not name:
 			continue
-
-		business_rule = "Campo mapeado a partir do schema real."
-		if mode.upper() == "REQUIRED":
-			business_rule = "Campo obrigatorio no schema (REQUIRED)."
-
+		# Correção 2: inferir regra de negócio real ao invés de placeholder genérico
+		business_rule = _infer_business_rule(name, type_name, mode)
 		rows.append(
 			{
 				"column": name,
@@ -1150,6 +1173,57 @@ def _default_mermaid(table_name: str) -> str:
 		"  classDef silver fill:#edf2f7,stroke:#64748b,color:#334155;\n"
 		"  classDef gold fill:#fff7db,stroke:#b78a17,color:#6b4e00;"
 	)
+
+
+def _safe_render_content(content: Any) -> str:
+	"""Converte content de qualquer tipo em string renderizável — evita repr() de list/dict."""
+	if content is None:
+		return ""
+	if isinstance(content, str):
+		return content.strip()
+	if isinstance(content, list):
+		return "\n".join(f"- {item}" for item in content if item)
+	if isinstance(content, dict):
+		return "\n".join(f"**{k}:** {v}" for k, v in content.items())
+	return str(content).strip()
+
+
+def _is_table_path(value: str) -> bool:
+	"""Retorna True se o valor parecer um caminho project.dataset.table."""
+	return bool(re.match(r'^[a-z0-9_\-]+\.[a-z0-9_\-]+\.[a-z0-9_\-]+$', value.strip(), re.IGNORECASE))
+
+
+def _infer_business_rule(name: str, type_name: str, mode: str) -> str:
+	"""Infere regra de negócio baseada no nome da coluna, tipo e modo."""
+	n = name.lower()
+	t = type_name.upper()
+	rules: list[str] = []
+
+	if mode.upper() == "REQUIRED":
+		rules.append("Obrigatório (REQUIRED) — não aceita nulos.")
+
+	if n.endswith("_id") or n == "id":
+		rules.append("Chave identificadora — validar unicidade e aplicar CAST explícito em JOINs com tipos divergentes.")
+	elif any(kw in n for kw in ("valor", "value", "preco", "custo", "receita", "margem", "lucro", "roi")):
+		rules.append("Campo financeiro — não pode ser nulo em registros válidos; verificar outliers e valores negativos inesperados.")
+	elif any(kw in n for kw in ("data_", "dt_", "_dt", "_date", "_at", "_time")) or n.startswith("dt"):
+		rules.append("Campo de data/timestamp — monitorar recência e SLA de atualização; validar formato.")
+	elif any(kw in n for kw in ("canal", "tipo", "segmento", "categoria", "modalidade")):
+		rules.append("Campo categórico — validar valores contra o domínio permitido.")
+	elif any(kw in n for kw in ("status", "estado", "flag", "ativo", "situacao")):
+		rules.append("Campo de status — verificar cobertura dos estados válidos e ausência de valores não mapeados.")
+	elif any(kw in n for kw in ("nome", "name", "descricao", "description", "label")):
+		rules.append("Campo descritivo — verificar completude e ausência de strings vazias ou nulas.")
+
+	if not rules:
+		if any(kw in t for kw in ("FLOAT", "NUMERIC", "BIGNUMERIC", "INT")):
+			rules.append("Campo numérico — verificar precisão e ausência de valores fora da faixa esperada.")
+		elif "BOOL" in t:
+			rules.append("Campo booleano — valores esperados: TRUE/FALSE. Verificar ausência de nulos em registros ativos.")
+		elif "TIMESTAMP" in t or "DATE" in t or "TIME" in t:
+			rules.append("Campo temporal — monitorar recência e consistência com SLA de atualização.")
+
+	return " ".join(rules) if rules else "Sem regra de negócio específica — validar com o responsável pelo domínio."
 
 
 def _dedupe(items: list[str]) -> list[str]:

@@ -256,12 +256,6 @@ Artefatos reais disponiveis:
 Tags de governanca Dataplex/Data Catalog:
 {dataplex_context}
 
-Instrucoes criticas:
-- Se houver schema real, use APENAS colunas e tipos do schema fornecido.
-- Nao invente campos fora do catalogo.
-- Se houver tags Dataplex, use-as no bloco de governanca.
-- Se alguma informacao essencial nao existir no schema, registre em pending_technical.
-
 Gere a documentacao completa no formato solicitado.
 """
 
@@ -307,6 +301,9 @@ Gere a documentacao completa no formato solicitado.
 			+ dataplex_warnings
 			+ _safe_list(payload.get("warnings"))
 		)
+		sanitized_sections = _sanitize_sections(enriched["sections"])
+		sanitized_governance = _sanitize_governance(enriched["governance"])
+		sanitized_warnings = _sanitize_text_list(warnings)
 
 		return {
 			"title": str(payload.get("title") or state.title),
@@ -318,19 +315,19 @@ Gere a documentacao completa no formato solicitado.
 			"table_name": str(payload.get("table_name") or state.table_name),
 			"table_path": str(payload.get("table_path") or state.table_path),
 			"mermaid_diagram": enriched["mermaid_diagram"],
-			"sections": enriched["sections"],
+			"sections": sanitized_sections,
 			"data_dictionary": enriched["data_dictionary"],
 			"typing_notes": enriched["typing_notes"],
 			"assumptions": _safe_list(payload.get("assumptions")),
 			"risks": _safe_list(payload.get("risks")),
 			"acceptance_checklist": enriched["acceptance_checklist"],
 			"next_steps": enriched["next_steps"],
-			"warnings": warnings,
-			"governance": enriched["governance"],
+			"warnings": sanitized_warnings,
+			"governance": sanitized_governance,
 			"pending_technical": enriched["pending_technical"],
 			"draft_context": {
 				"llm_payload": payload,
-				"normalized_sections": enriched["sections"],
+				"normalized_sections": sanitized_sections,
 				"normalized_data_dictionary": enriched["data_dictionary"],
 			},
 		}
@@ -1113,12 +1110,61 @@ def _remove_incomplete_runbook_summary_sections(sections: list[dict[str, str]]) 
 			continue
 
 		lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
-		if lines and all(re.match(r"^\d+[\.)]\s+.+:\s*$", ln) for ln in lines):
+		if lines and all(_looks_like_step_heading(ln) for ln in lines):
 			continue
 
 		result.append(section)
 
 	return result
+
+
+def _looks_like_step_heading(line: str) -> bool:
+	return bool(
+		re.match(r"^(passo\s*\d+|\d+[\.)])\s*(?:[-–—]\s*)?.+:\s*$", str(line or "").strip(), re.IGNORECASE)
+	)
+
+
+def _sanitize_sections(sections: list[dict[str, str]]) -> list[dict[str, str]]:
+	result: list[dict[str, str]] = []
+	for section in sections:
+		title = str(section.get("title") or "").strip()
+		content = str(section.get("content") or "")
+		clean_lines = [ln for ln in content.splitlines() if not _is_prompt_instruction_leak(ln)]
+		clean_content = "\n".join(clean_lines).strip()
+		if not title and not clean_content:
+			continue
+		result.append({"title": title or "Secao", "content": clean_content or "Sem conteudo informado."})
+	return result
+
+
+def _sanitize_governance(governance: dict[str, list[str]]) -> dict[str, list[str]]:
+	if not isinstance(governance, dict):
+		return {"aspect_types": [], "readers": [], "notes": []}
+	return {
+		"aspect_types": _sanitize_text_list(_safe_list(governance.get("aspect_types"))),
+		"readers": _sanitize_text_list(_safe_list(governance.get("readers"))),
+		"notes": _sanitize_text_list(_safe_list(governance.get("notes"))),
+	}
+
+
+def _sanitize_text_list(values: list[str]) -> list[str]:
+	return [v for v in _dedupe(values) if not _is_prompt_instruction_leak(v)]
+
+
+def _is_prompt_instruction_leak(text: str) -> bool:
+	normalized = str(text or "").strip().lower()
+	if not normalized:
+		return False
+	patterns = [
+		r"se houver schema real, use apenas colunas e tipos do schema fornecido",
+		r"nao invente campos fora do catalogo",
+		r"não invente campos fora do catálogo",
+		r"registre em pending_technical",
+		r"instrucoes criticas",
+		r"instrucoes internas",
+		r"regras internas",
+	]
+	return any(re.search(p, normalized) for p in patterns)
 
 
 def _build_dynamic_dq_checks(

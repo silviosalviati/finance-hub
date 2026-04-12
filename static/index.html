@@ -511,7 +511,7 @@
                 </div>
 
                 <div>
-                  <div class="bname">Document Build</div>
+                  <div class="bname">Document Builder</div>
                   <div class="bdesc">
                     Introspecciona o schema real de uma tabela BigQuery,
                     enriquece com tags Dataplex e metadados dbt, e gera
@@ -591,7 +591,7 @@
                 </div>
 
                 <div>
-                  <div class="bname">Query Build</div>
+                  <div class="bname">Query Builder</div>
                   <div class="bdesc">
                     Constrói queries BigQuery a partir de linguagem natural.
                     Descreva a análise e receba o SQL pronto para uso.
@@ -1274,7 +1274,7 @@
                 >
                   <path d="M9 18l6-6-6-6" />
                 </svg>
-                <span class="cur">Query Build</span>
+                <span class="cur">Query Builder</span>
               </div>
             </div>
 
@@ -1296,7 +1296,7 @@
               </div>
 
               <div>
-                <div class="qa-hero-title">Query Build</div>
+                <div class="qa-hero-title">Query Builder</div>
                 <div class="qa-hero-desc">
                   Gere SQL BigQuery a partir de linguagem natural e valide custo
                   estimado com dry-run.
@@ -1401,7 +1401,7 @@
                   onclick="runQueryBuild()"
                 >
                   <div class="spinner" id="qb-spinner"></div>
-                  <span id="qb-btn-text">Gerar SQL com Query Build</span>
+                  <span id="qb-btn-text">Gerar SQL com Query Builder</span>
                 </button>
 
                 <div id="qb-progress" class="qa-progress" style="display: none">
@@ -1732,7 +1732,7 @@
                 >
                   <path d="M9 18l6-6-6-6" />
                 </svg>
-                <span class="cur">Document Build</span>
+                <span class="cur">Document Builder</span>
               </div>
             </div>
 
@@ -1758,7 +1758,7 @@
               </div>
 
               <div>
-                <div class="qa-hero-title">Document Build</div>
+                <div class="qa-hero-title">Document Builder</div>
                 <div class="qa-hero-desc">
                   Lê o schema real da tabela no BigQuery, enriquece com tags
                   Dataplex e metadados dbt, e produz documentação pronta —
@@ -1813,7 +1813,7 @@
                   onclick="runDocumentBuild()"
                 >
                   <div class="spinner" id="db-spinner"></div>
-                  <span id="db-btn-text">Gerar com Document Build</span>
+                  <span id="db-btn-text">Gerar com Document Builder</span>
                 </button>
 
                 <div id="db-progress" class="qa-progress" style="display: none">
@@ -2151,7 +2151,9 @@ runbook_operacional</pre
                               <div class="sql-dots">
                                 <span></span><span></span><span></span>
                               </div>
-                              <span class="sql-fname">documentacao.confluence</span>
+                              <span class="sql-fname"
+                                >documentacao.confluence</span
+                              >
                               <button
                                 id="db-copy-confluence-btn"
                                 class="copy-btn"

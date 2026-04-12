@@ -668,7 +668,7 @@ async function validateQBDatasetHint() {
       setQBDatasetValidationStatus("error", {
         title: "Dataset nao validado",
         message:
-          payload.message || "Dataset nao validado para uso no Query Build.",
+          payload.message || "Dataset nao validado para uso no Query Builder.",
       });
     }
   } catch (err) {
@@ -904,8 +904,8 @@ const devColors = {
 
 function openDev(name, desc, features, eta) {
   const colors = {
-    "Document Build": devColors.teal,
-    "Query Build": devColors.violet,
+    "Document Builder": devColors.teal,
+    "Query Builder": devColors.violet,
     "Finance AuditorIA": devColors.emerald,
   };
 
@@ -1768,7 +1768,7 @@ function generateDocumentHtml(data, context) {
       <div class="hero-body">
         <div class="hero-badge">${docType.icon} ${docType.label}</div>
         <h1>${safe(data.title || "Documentação Técnica")}</h1>
-        <p class="hero-summary">${safe(data.summary || "Documento gerado pelo Document Build.")}</p>
+        <p class="hero-summary">${safe(data.summary || "Documento gerado pelo Document Builder.")}</p>
         <div class="hero-meta">
           <span class="hero-pill"><strong>📦 Tabela</strong> <span class="breadcrumb">${breadcrumb}</span></span>
           <span class="hero-pill"><strong>🔄 Frequência</strong> ${safe(data.frequency || "—")}</span>
@@ -1855,7 +1855,7 @@ function generateDocumentHtml(data, context) {
 
     <!-- ── FOOTER ─────────────────────────────── -->
     <footer class="footer">
-      <span class="footer-brand">🤖 Document Build · Finance Hub</span>
+      <span class="footer-brand">🤖 Document Builder · Finance Hub</span>
       <span>Gerado em ${now} · Engenharia de Dados Financeiro</span>
     </footer>
 
@@ -1900,7 +1900,7 @@ function setDBLoading(on) {
   if (text) {
     text.textContent = on
       ? "Gerando documentação..."
-      : "Gerar com Document Build";
+      : "Gerar com Document Builder";
   }
 }
 
@@ -1940,7 +1940,8 @@ function copyDBDocument() {
 }
 
 function copyDBConfluenceDocument() {
-  const content = document.getElementById("db-confluence-source")?.textContent || "";
+  const content =
+    document.getElementById("db-confluence-source")?.textContent || "";
   const btn = document.getElementById("db-copy-confluence-btn");
   if (!content) return;
 
@@ -1961,25 +1962,40 @@ function copyDBConfluenceDocument() {
 }
 
 function generateConfluenceMarkup(data, context) {
-  const sections         = Array.isArray(context.sections)          ? context.sections          : [];
-  const checklist        = Array.isArray(context.checklist)         ? context.checklist         : [];
-  const nextSteps        = Array.isArray(context.nextSteps)         ? context.nextSteps         : [];
-  const warnings         = Array.isArray(context.warnings)          ? context.warnings          : [];
-  const typingNotes      = Array.isArray(context.typingNotes)       ? context.typingNotes       : [];
-  const pendingTechnical = Array.isArray(context.pendingTechnical)  ? context.pendingTechnical  : [];
-  const dataDictionary   = Array.isArray(context.dataDictionary)    ? context.dataDictionary    : [];
-  const governanceAspects= Array.isArray(context.governanceAspects) ? context.governanceAspects : [];
-  const governanceReaders= Array.isArray(context.governanceReaders) ? context.governanceReaders : [];
+  const sections = Array.isArray(context.sections) ? context.sections : [];
+  const checklist = Array.isArray(context.checklist) ? context.checklist : [];
+  const nextSteps = Array.isArray(context.nextSteps) ? context.nextSteps : [];
+  const warnings = Array.isArray(context.warnings) ? context.warnings : [];
+  const typingNotes = Array.isArray(context.typingNotes)
+    ? context.typingNotes
+    : [];
+  const pendingTechnical = Array.isArray(context.pendingTechnical)
+    ? context.pendingTechnical
+    : [];
+  const dataDictionary = Array.isArray(context.dataDictionary)
+    ? context.dataDictionary
+    : [];
+  const governanceAspects = Array.isArray(context.governanceAspects)
+    ? context.governanceAspects
+    : [];
+  const governanceReaders = Array.isArray(context.governanceReaders)
+    ? context.governanceReaders
+    : [];
 
-  const now   = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  const now = new Date().toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
   const title = data.title || "Documenta\u00e7\u00e3o T\u00e9cnica";
   const lines = [];
 
   /* ── Cabeçalho ── */
   lines.push(`h1. ${title}`);
   lines.push("");
-  lines.push("{panel:title=Vis\u00e3o Executiva|borderStyle=solid|borderColor=#0073b1|titleBGColor=#deebf7|bgColor=#ffffff}");
-  lines.push(data.objective || "Documento gerado pelo Document Build.");
+  lines.push(
+    "{panel:title=Vis\u00e3o Executiva|borderStyle=solid|borderColor=#0073b1|titleBGColor=#deebf7|bgColor=#ffffff}",
+  );
+  lines.push(data.objective || "Documento gerado pelo Document Builder.");
   lines.push("{panel}");
   lines.push("");
 
@@ -2008,12 +2024,14 @@ function generateConfluenceMarkup(data, context) {
   if (dataDictionary.length) {
     lines.push("h2. \uD83D\uDDC2 Dicion\u00e1rio de Dados");
     lines.push("");
-    lines.push("|| Coluna || Tipo || Descri\u00e7\u00e3o || Regra de Neg\u00f3cio ||");
+    lines.push(
+      "|| Coluna || Tipo || Descri\u00e7\u00e3o || Regra de Neg\u00f3cio ||",
+    );
     dataDictionary.forEach((row) => {
-      const col  = row.column       || "\u2014";
-      const type = row.type         || "\u2014";
-      const desc = row.description  || "\u2014";
-      const rule = row.business_rule|| "\u2014";
+      const col = row.column || "\u2014";
+      const type = row.type || "\u2014";
+      const desc = row.description || "\u2014";
+      const rule = row.business_rule || "\u2014";
       lines.push(`| {{${col}}} | *${type}* | ${desc} | ${rule} |`);
     });
     lines.push("");
@@ -2039,7 +2057,7 @@ function generateConfluenceMarkup(data, context) {
   /* ── Governan\u00e7a ── */
   const govLines = [
     ...governanceAspects.map((a) => `* *Aspecto:* ${a}`),
-    ...governanceReaders.map((r)  => `* *Leitor:* ${r}`),
+    ...governanceReaders.map((r) => `* *Leitor:* ${r}`),
   ];
   if (govLines.length) {
     lines.push("h2. \uD83D\uDD12 Governan\u00e7a");
@@ -2066,7 +2084,9 @@ function generateConfluenceMarkup(data, context) {
 
   /* ── Rodap\u00e9 ── */
   lines.push("----");
-  lines.push(`{info:title=Gerado automaticamente}Gerado em ${now} por Document Build \u00b7 Engenharia de Dados Financeiro{info}`);
+  lines.push(
+    `{info:title=Gerado automaticamente}Gerado em ${now} por Document Builder \u00b7 Engenharia de Dados Financeiro{info}`,
+  );
 
   return lines.join("\n");
 }
@@ -2305,7 +2325,7 @@ function setQBLoading(on) {
   syncQBGenerateButtonState();
   if (spinner) spinner.style.display = on ? "block" : "none";
   if (text)
-    text.textContent = on ? "Gerando SQL..." : "Gerar SQL com Query Build";
+    text.textContent = on ? "Gerando SQL..." : "Gerar SQL com Query Builder";
 }
 
 function showQBError(message) {
@@ -2964,7 +2984,7 @@ const showcaseBots = [
     action: () => navTo("qa"),
   },
   {
-    name: "Document Build",
+    name: "Document Builder",
     description:
       "Gera documentação técnica automaticamente a partir de queries SQL, pipelines e modelos de dados financeiros.",
     tags: ["Docs", "Pipeline", "DataOps"],
@@ -2972,7 +2992,7 @@ const showcaseBots = [
     action: () => navTo("db"),
   },
   {
-    name: "Query Build",
+    name: "Query Builder",
     description:
       "Constrói queries BigQuery a partir de linguagem natural para acelerar análises e exploração de dados.",
     tags: ["NL2SQL", "BigQuery", "IA"],

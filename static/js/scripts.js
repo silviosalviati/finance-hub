@@ -877,9 +877,6 @@ function navTo(view) {
     document.getElementById("nav-hist")?.classList.add("active");
     document.querySelectorAll(".snav")[1]?.classList.add("active");
     loadHistory();
-  } else if (view === "analytics") {
-    document.getElementById("nav-analytics")?.classList.add("active");
-    document.querySelectorAll(".snav")[2]?.classList.add("active");
   } else if (view === "qa") {
     document.getElementById("nav-qa")?.classList.add("active");
   } else if (view === "db") {
@@ -941,7 +938,7 @@ function openDev(name, desc, features, eta) {
 }
 
 // ─────────────────────────────────────
-// Query Analyzer
+// SQL Review
 // ─────────────────────────────────────
 async function runAnalyze() {
   if (qaAnalyzeInFlight) {
@@ -1654,7 +1651,10 @@ function generateDocumentHtml(data, context) {
       .split(/\n{2,}/)
       .map((part) => part.trim())
       .filter(Boolean)
-      .map((part) => `<p class="sect-text">${safe(part).replace(/\n/g, "<br/>")}</p>`)
+      .map(
+        (part) =>
+          `<p class="sect-text">${safe(part).replace(/\n/g, "<br/>")}</p>`,
+      )
       .join("");
 
     return paragraphs || '<p class="sect-text">Sem conteúdo informado.</p>';
@@ -2848,7 +2848,7 @@ function saveToHistory(data, query) {
   const history = JSON.parse(localStorage.getItem("qaHistory") || "[]");
 
   const item = {
-    bot: "Query Analyzer",
+    bot: "SQL Review",
     date: new Date().toISOString(),
     query: query,
     suggestedQuery: data.optimized_query || null,
@@ -3075,7 +3075,7 @@ function setQALoading(on) {
   syncQAAnalyzeButtonState();
   if (spinner) spinner.style.display = on ? "block" : "none";
   if (text) {
-    text.textContent = on ? "Analisando..." : "Analisar com Query Analyzer";
+    text.textContent = on ? "Analisando..." : "Analisar com SQL Review";
   }
 
   if (qaLastRun) {
@@ -3210,14 +3210,6 @@ window.addEventListener("load", function init() {
 });
 
 const showcaseBots = [
-  {
-    name: "Query Analyzer",
-    description:
-      "Reduza custo e tempo de execução: encontre anti-padrões e gere SQL otimizada com dry-run real.",
-    tags: ["BigQuery", "Power BI", "SQL"],
-    status: "Disponivel",
-    action: () => navTo("qa"),
-  },
   {
     name: "Document Builder",
     description:

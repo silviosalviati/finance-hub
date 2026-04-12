@@ -129,7 +129,6 @@
       <nav class="subbar" aria-label="Navegação secundária">
         <div class="snav active" onclick="navTo('home')">Bots IA</div>
         <div class="snav" onclick="navTo('hist')">Histórico</div>
-        <div class="snav" onclick="navTo('analytics')">Analytics</div>
       </nav>
 
       <!-- BODY -->
@@ -158,7 +157,7 @@
                 </svg>
               </div>
               Bots IA
-              <span class="nbadge">4</span>
+              <span class="nbadge">3</span>
             </div>
 
             <div class="nitem" id="nav-hist" onclick="navTo('hist')">
@@ -179,31 +178,13 @@
               </div>
               Histórico
             </div>
-
-            <div class="nitem" id="nav-analytics" onclick="navTo('analytics')">
-              <div class="nicon">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#3D5276"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M18 20V10M12 20V4M6 20v-6" />
-                </svg>
-              </div>
-              Analytics
-            </div>
           </div>
 
           <div class="suser">
             <div class="upic" id="sb-avatar">--</div>
             <div>
               <div class="uname" id="sb-name">--</div>
-              <div class="urole">Gerência de Dados & Analytics</div>
+              <div class="urole">Gerência de Dados</div>
             </div>
           </div>
         </aside>
@@ -232,7 +213,7 @@
                   </svg>
                 </div>
                 <div>
-                  <div class="stval">4</div>
+                  <div class="stval">3</div>
                   <div class="stlbl">Bots ativos</div>
                 </div>
               </div>
@@ -355,10 +336,10 @@
 
                 <div class="bot-showcase-content">
                   <div class="bot-showcase-label">Bot em destaque</div>
-                  <h2 id="showcase-title">Query Analyzer</h2>
+                  <h2 id="showcase-title">Document Builder</h2>
                   <p id="showcase-desc">
-                    Reduza custo e tempo de execução em segundos: encontre
-                    anti-padrões e gere SQL otimizada com dry-run real.
+                    Gere documentação acionável para negócio e engenharia com
+                    schema real, governança e exportação pronta.
                   </p>
 
                   <div class="bot-showcase-tags" id="showcase-tags"></div>
@@ -368,57 +349,6 @@
               </div>
             </section>
             <div class="bot-grid">
-              <!-- Query Analyzer -->
-              <article class="bot-card bc-qa" onclick="navTo('qa')">
-                <div class="bhead">
-                  <div class="biw bi-porto">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#003087"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <circle cx="11" cy="11" r="8" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                      <path d="M8 11h6M11 8v6" />
-                    </svg>
-                  </div>
-                  <span class="bstatus st-live">Disponivel</span>
-                </div>
-
-                <div>
-                  <div class="bname">Query Analyzer</div>
-                  <div class="bdesc">
-                    Descubra gargalos de custo e performance em segundos, com
-                    SQL otimizada pronta para produção.
-                  </div>
-                </div>
-
-                <div class="bfoot">
-                  <div class="btags">
-                    <span class="tag">BigQuery</span>
-                    <span class="tag">Power BI</span>
-                    <span class="tag">SQL</span>
-                  </div>
-
-                  <button class="btn-open">
-                    Abrir
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-              </article>
-
               <!-- Document Build -->
               <article class="bot-card bc-doc" onclick="navTo('db')">
                 <div class="bhead">
@@ -652,7 +582,7 @@
               <div>
                 <div class="view-title">Histórico de Análises</div>
                 <div class="view-sub">
-                  Acompanhe todas as análises realizadas com o Query Analyzer
+                  Acompanhe o histórico das execuções e resultados dos bots
                 </div>
               </div>
             </div>
@@ -663,7 +593,7 @@
             </div>
           </section>
 
-          <!-- ── QUERY ANALYZER VIEW ── -->
+          <!-- ── SQL REVIEW VIEW ── -->
           <section class="view" id="view-qa" style="padding: 0">
             <div class="qa-topbar">
               <button class="btn-back" onclick="navTo('home')">
@@ -696,7 +626,7 @@
                 >
                   <path d="M9 18l6-6-6-6" />
                 </svg>
-                <span class="cur">Query Analyzer</span>
+                <span class="cur">SQL Review</span>
               </div>
             </div>
 
@@ -719,7 +649,7 @@
               </div>
 
               <div>
-                <div class="qa-hero-title">Query Analyzer</div>
+                <div class="qa-hero-title">SQL Review</div>
                 <div class="qa-hero-desc">
                   Encontre desperdícios de custo e performance em segundos e
                   receba SQL otimizada com impacto estimado.
@@ -826,7 +756,7 @@
 
                 <button class="btn-analyze" id="qa-btn" onclick="runAnalyze()">
                   <div class="spinner" id="qa-spinner"></div>
-                  <span id="qa-btn-text">Analisar com Query Analyzer</span>
+                  <span id="qa-btn-text">Analisar com SQL Review</span>
                 </button>
 
                 <div id="qa-progress" class="qa-progress" style="display: none">
@@ -902,7 +832,7 @@
                     </div>
                     <div class="qa-empty-step">
                       <div class="qa-empty-step-n">3</div>
-                      Clique em Analisar com Query Analyzer
+                      Clique em Analisar com SQL Review
                     </div>
                   </div>
                 </div>
@@ -1249,7 +1179,7 @@
                   <input
                     type="text"
                     id="qb-project"
-                    placeholder="porto-analytics-prod"
+                    placeholder="porto-finance-prod"
                     autocomplete="off"
                   />
                 </div>
@@ -1690,8 +1620,8 @@
               <div>
                 <div class="qa-hero-title">Document Builder</div>
                 <div class="qa-hero-desc">
-                  Converta schema e regras da tabela em documentação executiva
-                  e técnica pronta para operação e auditoria.
+                  Converta schema e regras da tabela em documentação executiva e
+                  técnica pronta para operação e auditoria.
                 </div>
               </div>
 
@@ -1815,7 +1745,7 @@ documentacao_funcional</pre
 projeto.dataset.tabela
 
 [OBJETIVO]
-Tabela gold gerada pelo pipeline de CRM Analytics via Dataform.
+Tabela gold gerada pelo pipeline de CRM via Dataform.
 Consumida por modelos de scoring e dashboards de segmentacao.
 
 [CONTEXTO DE NEGOCIO]
@@ -1823,7 +1753,7 @@ score_credito varia de 0 a 1000 - calculado pelo modelo XGBoost v2.
 segmento_cliente e derivado de RFM: Platinum, Gold, Silver, Bronze.
 cliente_id e INTEGER - atencao ao CAST em JOINs com tabelas legadas (STRING).
 Particionada por data_atualizacao. Clustered por segmento_cliente.
-SLA: dado disponivel ate 07h. Owner: time de CRM Analytics.
+SLA: dado disponivel ate 07h. Owner: time de CRM.
 
 [TIPO DE DOC]
 especificacao_tecnica</pre
@@ -2147,7 +2077,7 @@ runbook_operacional</pre
 
       <footer>
         <strong>Finance Hub IA</strong> · Porto Seguro Holding — Gerência de
-        Dados & Analytics
+        Dados
       </footer>
     </section>
 

@@ -1672,7 +1672,7 @@ function generateDocumentHtml(data, context) {
     const codeBlocks = [];
 
     let html = escaped.replace(
-      /```(?:sql|python)?\n([\s\S]*?)\n```/gi,
+      /```(?:sql|python|text|bash|shell)?\s*([\s\S]*?)\s*```/gi,
       (_match, code) => {
         const token = `@@CODE_BLOCK_${codeBlocks.length}@@`;
         codeBlocks.push(`<pre><code>${code}</code></pre>`);

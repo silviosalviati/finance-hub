@@ -1839,7 +1839,7 @@ function generateDocumentHtml(data, context) {
     <!-- ── FOOTER ─────────────────────────────── -->
     <footer class="footer">
       <span class="footer-brand">🤖 Document Build · Finance Hub</span>
-      <span>Gerado em ${now} · Não editar manualmente · Regenerar via agent</span>
+      <span>Gerado em ${now} · Engenharia de Dados Financeiro</span>
     </footer>
 
   </div>

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from google.api_core.exceptions import NotFound
-from google.cloud import datacatalog_v1
+from google.cloud import dataplex_v1
 from google.oauth2 import service_account
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -178,36 +178,48 @@ def fetch_dataplex_tags(state: DocumentBuildState) -> dict[str, Any]:
 	warnings: list[str] = []
 
 	try:
+		project, dataset, table = table_path.split(".")
 		credentials = service_account.Credentials.from_service_account_file(GCP_CREDENTIALS_PATH)
-		catalog_client = datacatalog_v1.DataCatalogClient(credentials=credentials)
-		linked_resource = f"//bigquery.googleapis.com/projects/{table_path.split('.')[0]}/datasets/{table_path.split('.')[1]}/tables/{table_path.split('.')[2]}"
+		dataplex_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
 
-		entry = catalog_client.lookup_entry(request={"linked_resource": linked_resource})
-		context["entry_name"] = getattr(entry, "name", "")
+		# Busca a entry do BigQuery via Dataplex Catalog (substituto do Data Catalog depreciado)
+		search_request = dataplex_v1.SearchEntriesRequest(
+			name=f"projects/{project}/locations/global",
+			query=f"{project}.{dataset}.{table} system=BIGQUERY",
+			page_size=5,
+		)
+		results = list(dataplex_client.search_entries(request=search_request))
 
-		if context["entry_name"]:
-			tags_iter = catalog_client.list_tags(parent=context["entry_name"])
-			for tag in tags_iter:
-				template = str(getattr(tag, "template_display_name", "") or getattr(tag, "template", ""))
-				if template and template not in context["aspect_types"]:
-					context["aspect_types"].append(template)
+		matched_entry = None
+		for result in results:
+			if result.linked_resource and table in result.linked_resource:
+				matched_entry = result.dataplex_entry
+				break
 
-				for field in getattr(tag, "fields", {}).values():
-					if getattr(field, "string_value", ""):
-						text = str(field.string_value).strip()
-						if "gloss" in text.lower() and text not in context["business_glossary"]:
+		if matched_entry:
+			context["entry_name"] = getattr(matched_entry, "name", "")
+			for aspect_key, aspect in matched_entry.aspects.items():
+				aspect_type_label = aspect_key.split("/")[-1] if "/" in aspect_key else aspect_key
+				if aspect_type_label and aspect_type_label not in context["aspect_types"]:
+					context["aspect_types"].append(aspect_type_label)
+
+				try:
+					data_dict = dict(aspect.data) if aspect.data else {}
+					for v in data_dict.values():
+						text = str(v).strip()
+						if text and "gloss" in text.lower() and text not in context["business_glossary"]:
 							context["business_glossary"].append(text)
-					if getattr(field, "enum_value", None):
-						enum_name = str(getattr(field.enum_value, "display_name", "")).strip()
-						if enum_name and "gloss" in enum_name.lower() and enum_name not in context["business_glossary"]:
-							context["business_glossary"].append(enum_name)
+				except Exception:
+					pass
 
-		if not context["aspect_types"]:
-			warnings.append("Nenhuma tag/aspect type Dataplex encontrada para a tabela selecionada.")
+			if not context["aspect_types"]:
+				warnings.append("Nenhum aspect type Dataplex encontrado para a tabela selecionada.")
+		else:
+			warnings.append("Entrada Dataplex não encontrada para a tabela selecionada.")
 	except NotFound:
-		warnings.append("Entrada Dataplex/Data Catalog nao encontrada para a tabela selecionada.")
+		warnings.append("Entrada Dataplex não encontrada para a tabela selecionada.")
 	except Exception as exc:
-		warnings.append(f"Falha ao consultar tags Dataplex/Data Catalog: {exc}")
+		warnings.append(f"Falha ao consultar Dataplex Catalog: {exc}")
 
 	return {
 		"dataplex_context": {

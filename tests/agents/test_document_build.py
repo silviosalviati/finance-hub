@@ -3,6 +3,7 @@ from src.agents.document_build.nodes import (
     _clean_checklist,
     _extract_explicit_table_reference,
     _normalize_governance,
+    _normalize_sections,
     _remove_incomplete_runbook_summary_sections,
     _merge_governance_with_dataplex,
     parse_document_request,
@@ -191,3 +192,26 @@ def test_remove_incomplete_runbook_summary_sections_drops_index_section():
 
     assert len(result) == 1
     assert result[0]["title"] == "Verificar Status Diário do Pipeline"
+
+
+def test_normalize_sections_drops_summary_title():
+    sections = [
+        {"title": "Passos operacionais", "content": "Qualquer conteúdo"},
+        {"title": "Passo 1 — Verificar Status", "content": "Validar execução diária."},
+    ]
+    result = _normalize_sections(sections)
+    assert len(result) == 1
+    assert result[0]["title"] == "Passo 1 — Verificar Status"
+
+
+def test_normalize_sections_drops_index_only_content():
+    sections = [
+        {
+            "title": "Visão Geral",
+            "content": "1. Verificar status diário do pipeline:\n2. Consultar volume de dados carregado:\n3. Verificar qualidade pós-carga:\n4. Acessos necessários:",
+        },
+        {"title": "Passo Real", "content": "Executar query de validação."},
+    ]
+    result = _normalize_sections(sections)
+    assert len(result) == 1
+    assert result[0]["title"] == "Passo Real"

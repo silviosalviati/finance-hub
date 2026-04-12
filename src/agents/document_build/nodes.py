@@ -18,12 +18,18 @@ from src.shared.tools.bigquery import get_dataset_tables_schema
 
 
 _EMPTY_MARKERS = {"nenhum", "none", "n/a", "não informado", "nao informado", "-"}
-_SUMMARY_SECTION_TITLES = {
+_SUMMARY_SECTION_TITLES: set[str] = {
+	"passos operacionais",
 	"sumario",
-	"resumo",
+	"sumário",
 	"indice",
 	"índice",
-	"passos operacionais",
+	"resumo",
+	"resumo dos passos",
+	"lista de passos",
+	"overview dos passos",
+	"visao geral dos passos",
+	"visão geral dos passos",
 	"passos",
 	"etapas",
 }
@@ -567,11 +573,24 @@ def _normalize_sections(value: Any) -> list[dict[str, str]]:
 	for section in value:
 		if not isinstance(section, dict):
 			continue
+
 		title = str(section.get("title") or "").strip()
 		# Correção 3: content pode chegar como list/dict quando a LLM retorna estrutura aninhada
 		content = _safe_render_content(section.get("content"))
+
 		if not title and not content:
 			continue
+
+		# Descartar seções de sumário/índice pelo título
+		if title.lower() in _SUMMARY_SECTION_TITLES:
+			continue
+
+		# Descartar seções cujo conteúdo é apenas lista de títulos de passo terminados em ":"
+		# Ex: "1. Verificar status:\n2. Consultar volume:\n3. Verificar qualidade:"
+		lines = [line.strip() for line in content.splitlines() if line.strip()]
+		if lines and all(re.match(r"^\d+[\.\.\-—]\s*.+:$", line) for line in lines):
+			continue
+
 		sections.append(
 			{
 				"title": title or "Secao",

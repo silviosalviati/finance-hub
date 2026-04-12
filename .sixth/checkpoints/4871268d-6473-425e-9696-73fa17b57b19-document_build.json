@@ -1,0 +1,322 @@
+{
+  "saved_at": "2026-04-12T01:43:42.664098",
+  "payload": {
+    "status": "ok",
+    "title": "Documentação Funcional - Tabela Faturamento Detalhado",
+    "doc_type": "documentacao_funcional",
+    "summary": "Esta documentação fornece a estrutura e detalhes técnicos da tabela faturamento_detalhado, consumida pelo time de Vendas no Power BI.",
+    "audience": "Desenvolvedores BI, Engenheiros de Dados, Analistas de Negócio e Agentes de IA",
+    "objective": "Documentar a tabela faturamento_detalhado para uso no Power BI, com foco em análise de margem por canal e desempenho de vendedores.",
+    "frequency": "Batch diário",
+    "table_name": "faturamento_detalhado",
+    "table_path": "silviosalviati.inteligencia_negocios.faturamento_detalhado",
+    "mermaid_diagram": "graph TD\n    A[Origem: Tabela fatos_vendas] --> B[Transformação: Faturamento Detalhado]\n    B --> C[Destino: Tabela faturamento_detalhado]",
+    "sections": [
+      {
+        "title": "Visão Geral",
+        "content": "A tabela faturamento_detalhado é atualizada diariamente às 6h e é utilizada pelo time de Vendas no Power BI para análise de margem por canal e desempenho de vendedores."
+      },
+      {
+        "title": "Atenção a Tipagem",
+        "content": "A coluna transacao_id é do tipo STRING. É necessário usar CAST ao fazer JOIN com tabelas que usam INT64."
+      },
+      {
+        "title": "Regras de Negócio",
+        "content": "Registros com custo_operacional NULL devem ser excluídos de análises de margem. A coluna canal_venda aceita os valores LOJA_FISICA, E-COMMERCE, APP, WHATSAPP."
+      },
+      {
+        "title": "Data Quality (DQ)",
+        "content": "- chave de negócio/identificador sem duplicidade: transacao_id\n- validade de faixas para campos numéricos: N/A"
+      },
+      {
+        "title": "Governança",
+        "content": "**aspect_types:** ['nenhum']\n**readers:** ['time de Analytics']\n**notes:** ['Nenhuma tag Dataplex encontrada para esta tabela.']"
+      },
+      {
+        "title": "Avisos",
+        "content": "- [PENDENCIA TECNICA] Descrição completa da coluna valor_liquido e custo_operacional."
+      }
+    ],
+    "data_dictionary": [
+      {
+        "column": "transacao_id",
+        "type": "STRING",
+        "description": "Identificador único de cada transação.",
+        "business_rule": "Usar CAST ao fazer JOIN com tabelas que usam INT64."
+      },
+      {
+        "column": "data_faturamento",
+        "type": "DATE",
+        "description": "Data de faturamento da transação.",
+        "business_rule": "N/A"
+      },
+      {
+        "column": "valor_liquido",
+        "type": "FLOAT",
+        "description": "Valor líquido da transação após descontos.",
+        "business_rule": "N/A"
+      },
+      {
+        "column": "custo_operacional",
+        "type": "FLOAT",
+        "description": "Custo operacional associado à transação.",
+        "business_rule": "Registros com custo_operacional NULL devem ser excluídos de análises de margem."
+      },
+      {
+        "column": "canal_venda",
+        "type": "STRING",
+        "description": "Canal de venda da transação (LOJA_FISICA, E-COMMERCE, APP, WHATSAPP).",
+        "business_rule": "N/A"
+      },
+      {
+        "column": "vendedor_responsavel",
+        "type": "STRING",
+        "description": "Nome do vendedor responsável pela transação.",
+        "business_rule": "N/A"
+      }
+    ],
+    "typing_notes": [
+      "A coluna transacao_id é do tipo STRING. É necessário usar CAST ao fazer JOIN com tabelas que usam INT64."
+    ],
+    "assumptions": [
+      "Nenhuma informação adicional foi encontrada no schema ou dbt para enriquecer a documentação funcional."
+    ],
+    "risks": [
+      "Nenhuma informação adicional foi encontrada no schema ou dbt para identificar riscos."
+    ],
+    "acceptance_checklist": [
+      "chave de negócio/identificador sem duplicidade: transacao_id",
+      "validade de faixas para campos numéricos: N/A",
+      "A coluna transacao_id nao possui duplicidade para a granularidade esperada?",
+      "Existe controle de atualizacao/recencia para colunas de data da tabela?"
+    ],
+    "next_steps": [
+      "Nenhuma informação adicional foi encontrada no schema ou dbt para definir próximos passos."
+    ],
+    "warnings": [
+      "Falha ao consultar tags Dataplex/Data Catalog: 400 Project silviosalviati is not allowed to perform read operations due to Data Catalog deprecation.",
+      "Manifest dbt nao encontrado no workspace (manifest.json).",
+      "[PENDENCIA TECNICA] Descrição completa da coluna valor_liquido e custo_operacional."
+    ],
+    "governance": {
+      "aspect_types": [
+        "nenhum"
+      ],
+      "readers": [
+        "time de Analytics"
+      ],
+      "notes": [
+        "Nenhuma tag Dataplex encontrada para esta tabela.",
+        "Data Catalog entry: projects/silviosalviati/locations/us/entryGroups/@bigquery/entries/cHJvamVjdHMvc2lsdmlvc2FsdmlhdGkvZGF0YXNldHMvaW50ZWxpZ2VuY2lhX25lZ29jaW9zL3RhYmxlcy9mYXR1cmFtZW50b19kZXRhbGhhZG8",
+        "table_path: silviosalviati.inteligencia_negocios.faturamento_detalhado"
+      ]
+    },
+    "pending_technical": [
+      "[PENDENCIA TECNICA] Descrição completa da coluna valor_liquido e custo_operacional."
+    ],
+    "quality_score": 100,
+    "markdown_document": "# Documentação Funcional - Tabela Faturamento Detalhado\n\n## Header\n**Tabela:** faturamento_detalhado\n**Caminho GCP:** silviosalviati.inteligencia_negocios.faturamento_detalhado\n\n**Tipo:** documentacao_funcional\n**Publico-alvo:** Desenvolvedores BI, Engenheiros de Dados, Analistas de Negócio e Agentes de IA\n\n## Diagrama de fluxo (Mermaid)\n```mermaid\ngraph TD\n    A[Origem: Tabela fatos_vendas] --> B[Transformação: Faturamento Detalhado]\n    B --> C[Destino: Tabela faturamento_detalhado]\n```\n\n## 1. Visao geral (Overview)\n**Objetivo:** Documentar a tabela faturamento_detalhado para uso no Power BI, com foco em análise de margem por canal e desempenho de vendedores.\n**Frequencia:** Batch diário\n\n## Resumo executivo\nEsta documentação fornece a estrutura e detalhes técnicos da tabela faturamento_detalhado, consumida pelo time de Vendas no Power BI.\n\n## Visão Geral\nA tabela faturamento_detalhado é atualizada diariamente às 6h e é utilizada pelo time de Vendas no Power BI para análise de margem por canal e desempenho de vendedores.\n\n## Atenção a Tipagem\nA coluna transacao_id é do tipo STRING. É necessário usar CAST ao fazer JOIN com tabelas que usam INT64.\n\n## Regras de Negócio\nRegistros com custo_operacional NULL devem ser excluídos de análises de margem. A coluna canal_venda aceita os valores LOJA_FISICA, E-COMMERCE, APP, WHATSAPP.\n\n## Data Quality (DQ)\n- chave de negócio/identificador sem duplicidade: transacao_id\n- validade de faixas para campos numéricos: N/A\n\n## Governança\n**aspect_types:** ['nenhum']\n**readers:** ['time de Analytics']\n**notes:** ['Nenhuma tag Dataplex encontrada para esta tabela.']\n\n## Avisos\n- [PENDENCIA TECNICA] Descrição completa da coluna valor_liquido e custo_operacional.\n\n## 2. Dicionario de dados (Data Dictionary)\n| Coluna | Tipo | Descricao | Regra de Negocio |\n| --- | --- | --- | --- |\n| transacao_id | STRING | Identificador único de cada transação. | Usar CAST ao fazer JOIN com tabelas que usam INT64. |\n| data_faturamento | DATE | Data de faturamento da transação. | N/A |\n| valor_liquido | FLOAT | Valor líquido da transação após descontos. | N/A |\n| custo_operacional | FLOAT | Custo operacional associado à transação. | Registros com custo_operacional NULL devem ser excluídos de análises de margem. |\n| canal_venda | STRING | Canal de venda da transação (LOJA_FISICA, E-COMMERCE, APP, WHATSAPP). | N/A |\n| vendedor_responsavel | STRING | Nome do vendedor responsável pela transação. | N/A |\n\n## 3. Checklist de qualidade de dados (DQ)\n- [ ] chave de negócio/identificador sem duplicidade: transacao_id\n- [ ] validade de faixas para campos numéricos: N/A\n- [ ] A coluna transacao_id nao possui duplicidade para a granularidade esperada?\n- [ ] Existe controle de atualizacao/recencia para colunas de data da tabela?\n\n## 4. Governanca (Dataplex/Catalog)\n**Aspect Types**\n- nenhum\n\n## 5. Atencao a tipagem\n- A coluna transacao_id é do tipo STRING. É necessário usar CAST ao fazer JOIN com tabelas que usam INT64.\n\n**Permissoes de leitura**\n- time de Analytics\n\n**Notas de governanca**\n- Nenhuma tag Dataplex encontrada para esta tabela.\n- Data Catalog entry: projects/silviosalviati/locations/us/entryGroups/@bigquery/entries/cHJvamVjdHMvc2lsdmlvc2FsdmlhdGkvZGF0YXNldHMvaW50ZWxpZ2VuY2lhX25lZ29jaW9zL3RhYmxlcy9mYXR1cmFtZW50b19kZXRhbGhhZG8\n- table_path: silviosalviati.inteligencia_negocios.faturamento_detalhado\n\n## Premissas\n- Nenhuma informação adicional foi encontrada no schema ou dbt para enriquecer a documentação funcional.\n\n## Riscos\n- Nenhuma informação adicional foi encontrada no schema ou dbt para identificar riscos.\n\n## Proximos passos\n- Nenhuma informação adicional foi encontrada no schema ou dbt para definir próximos passos.\n\n## Pendencias tecnicas\n- [PENDENCIA TECNICA] Descrição completa da coluna valor_liquido e custo_operacional.\n\n## Observacoes\n- Falha ao consultar tags Dataplex/Data Catalog: 400 Project silviosalviati is not allowed to perform read operations due to Data Catalog deprecation.\n- Manifest dbt nao encontrado no workspace (manifest.json).\n- [PENDENCIA TECNICA] Descrição completa da coluna valor_liquido e custo_operacional.\n",
+    "metadata": {
+      "project_id": "silviosalviati",
+      "dataset_hint": "inteligencia_negocios",
+      "table_name": "faturamento_detalhado",
+      "table_path": "silviosalviati.inteligencia_negocios.faturamento_detalhado",
+      "explicit_table_ref": {
+        "project": "silviosalviati",
+        "dataset": "inteligencia_negocios",
+        "table": "faturamento_detalhado",
+        "full_name": "silviosalviati.inteligencia_negocios.faturamento_detalhado"
+      },
+      "dataset_ref": "silviosalviati.inteligencia_negocios",
+      "tables": [
+        {
+          "table_id": "fatos_vendas",
+          "full_name": "silviosalviati.inteligencia_negocios.fatos_vendas",
+          "partition_field": "data_faturamento",
+          "clustering_fields": [
+            "canal_venda"
+          ],
+          "columns": [
+            {
+              "name": "transacao_id",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "ID único da transação financeira."
+            },
+            {
+              "name": "cliente_id",
+              "type": "INTEGER",
+              "mode": "NULLABLE",
+              "description": "Chave estrangeira para ligação com a tabela de clientes."
+            },
+            {
+              "name": "data_faturamento",
+              "type": "DATE",
+              "mode": "NULLABLE",
+              "description": "Data oficial do faturamento (Coluna de Partição)."
+            },
+            {
+              "name": "valor_liquido",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Receita líquida após descontos e taxas de operadoras."
+            },
+            {
+              "name": "custo_operacional",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Custo logístico e tributário da operação."
+            },
+            {
+              "name": "canal_venda",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Canal de origem (E-COMMERCE, APP, LOJA_FISICA ou WHATSAPP)."
+            },
+            {
+              "name": "vendedor_responsavel",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Nome ou código do consultor que realizou a venda."
+            }
+          ]
+        },
+        {
+          "table_id": "faturamento_detalhado",
+          "full_name": "silviosalviati.inteligencia_negocios.faturamento_detalhado",
+          "partition_field": "data_faturamento",
+          "clustering_fields": [
+            "canal_venda",
+            "vendedor_responsavel"
+          ],
+          "columns": [
+            {
+              "name": "transacao_id",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Código único da operação de venda."
+            },
+            {
+              "name": "data_faturamento",
+              "type": "DATE",
+              "mode": "NULLABLE",
+              "description": "Data oficial do reconhecimento da receita (Coluna de Partição)."
+            },
+            {
+              "name": "valor_liquido",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Valor real que entra no caixa após descontos e taxas de operadoras."
+            },
+            {
+              "name": "custo_operacional",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Custo logístico e de impostos associado a esta transação específica."
+            },
+            {
+              "name": "canal_venda",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Origem da venda: 'E-COMMERCE', 'APP', 'LOJA_FISICA' ou 'WHATSAPP'."
+            },
+            {
+              "name": "vendedor_responsavel",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Nome ou código do consultor que fechou o negócio."
+            }
+          ]
+        },
+        {
+          "table_id": "perfil_comportamental_clientes",
+          "full_name": "silviosalviati.inteligencia_negocios.perfil_comportamental_clientes",
+          "partition_field": "",
+          "clustering_fields": [
+            "segmento_cliente",
+            "cidade_sede"
+          ],
+          "columns": [
+            {
+              "name": "cliente_id",
+              "type": "INTEGER",
+              "mode": "NULLABLE",
+              "description": "Chave primária. Identificador único do cliente para Joins."
+            },
+            {
+              "name": "segmento_cliente",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Classificação do cliente (VIP, RECORRENTE, DORMANTE ou NOVO)."
+            },
+            {
+              "name": "score_credito",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Pontuação de risco financeiro. Valores altos indicam maior confiabilidade."
+            },
+            {
+              "name": "data_ultima_interacao",
+              "type": "DATE",
+              "mode": "NULLABLE",
+              "description": "Data da última interação ou compra realizada pelo cliente."
+            },
+            {
+              "name": "cidade_sede",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Cidade onde o cliente está sediado."
+            }
+          ]
+        }
+      ],
+      "selected_table": {
+        "table_id": "faturamento_detalhado",
+        "full_name": "silviosalviati.inteligencia_negocios.faturamento_detalhado",
+        "partition_field": "data_faturamento",
+        "clustering_fields": [
+          "canal_venda",
+          "vendedor_responsavel"
+        ],
+        "columns": [
+          {
+            "name": "transacao_id",
+            "type": "STRING",
+            "mode": "NULLABLE",
+            "description": "Código único da operação de venda."
+          },
+          {
+            "name": "data_faturamento",
+            "type": "DATE",
+            "mode": "NULLABLE",
+            "description": "Data oficial do reconhecimento da receita (Coluna de Partição)."
+          },
+          {
+            "name": "valor_liquido",
+            "type": "FLOAT",
+            "mode": "NULLABLE",
+            "description": "Valor real que entra no caixa após descontos e taxas de operadoras."
+          },
+          {
+            "name": "custo_operacional",
+            "type": "FLOAT",
+            "mode": "NULLABLE",
+            "description": "Custo logístico e de impostos associado a esta transação específica."
+          },
+          {
+            "name": "canal_venda",
+            "type": "STRING",
+            "mode": "NULLABLE",
+            "description": "Origem da venda: 'E-COMMERCE', 'APP', 'LOJA_FISICA' ou 'WHATSAPP'."
+          },
+          {
+            "name": "vendedor_responsavel",
+            "type": "STRING",
+            "mode": "NULLABLE",
+            "description": "Nome ou código do consultor que fechou o negócio."
+          }
+        ]
+      }
+    }
+  }
+}

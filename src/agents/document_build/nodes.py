@@ -277,6 +277,9 @@ Gere a documentacao completa no formato solicitado.
 		)
 
 		raw = _extract_message_content(response)
+		if _is_json_truncated(raw):
+			print(f"DOCUMENT_BUILDER JSON truncado detectado — tentando reparo automatico.")
+			raw = _attempt_json_repair(raw)
 		payload = _parse_json_response(raw)
 
 		sections = _normalize_sections(payload.get("sections"))
@@ -501,6 +504,23 @@ def _extract_message_content(response: Any) -> str:
 	if hasattr(response, "content"):
 		return str(response.content).strip()
 	return str(response).strip()
+
+
+def _is_json_truncated(raw: str) -> bool:
+	"""Detecta se a resposta foi cortada antes do fechamento do JSON."""
+	stripped = raw.strip()
+	return bool(stripped) and stripped[-1] not in ("}", "]")
+
+
+def _attempt_json_repair(raw: str) -> str:
+	"""Tenta fechar um JSON truncado adicionando fechamentos pendentes."""
+	open_braces = raw.count("{") - raw.count("}")
+	open_brackets = raw.count("[") - raw.count("]")
+
+	repaired = raw.rstrip().rstrip(",")
+	repaired += "]" * max(open_brackets, 0)
+	repaired += "}" * max(open_braces, 0)
+	return repaired
 
 
 def _parse_json_response(raw: str) -> dict[str, Any]:

@@ -1,7 +1,6 @@
 langgraph>=0.2.0
 langchain>=0.3.0
-langchain-huggingface>=0.1.0
-huggingface_hub>=0.25.0
+langchain-google-vertexai>=2.0.0
 google-cloud-bigquery>=3.25.0
 google-auth>=2.35.0
 pydantic>=2.9.0

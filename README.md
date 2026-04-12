@@ -216,7 +216,7 @@ Importante: a integração com `manifest.json` do dbt foi removida do pipeline a
 - Python 3.10+
 - ambiente virtual ativo
 - credenciais GCP válidas para BigQuery e Dataplex Catalog
-- provider de LLM suportado: `openai`, `vertexai` ou `huggingface`
+- provider de LLM suportado: `vertexai`
 
 ## Instalação
 
@@ -236,24 +236,13 @@ Obrigatórias:
 - `GCP_PROJECT_ID`
 - `GOOGLE_APPLICATION_CREDENTIALS`
 
-Provider OpenAI:
-
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL`
-
 Provider Vertex AI:
 
 - `VERTEXAI_PROJECT`
 - `VERTEXAI_LOCATION`
 - `VERTEXAI_MODEL`
-
-Provider Hugging Face:
-
-- `HF_API_TOKEN`
-- `HF_MODEL_ID`
-- `HF_ENDPOINT_URL` opcional
-- `HF_MAX_NEW_TOKENS`
-- `HF_TEMPERATURE`
+- `VERTEXAI_MAX_OUTPUT_TOKENS`
+- `VERTEXAI_TEMPERATURE`
 
 Sessão e limites:
 
@@ -271,9 +260,12 @@ Usuários da aplicação:
 Exemplo:
 
 ```env
-LLM_PROVIDER=openai
-OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-4o
+LLM_PROVIDER=vertexai
+VERTEXAI_PROJECT=meu-projeto
+VERTEXAI_LOCATION=us-central1
+VERTEXAI_MODEL=gemini-1.5-pro
+VERTEXAI_MAX_OUTPUT_TOKENS=4096
+VERTEXAI_TEMPERATURE=0.05
 GCP_PROJECT_ID=meu-projeto
 GOOGLE_APPLICATION_CREDENTIALS=secrets/credentials.json
 APP_USERS=analista:$2b$12$hash_bcrypt_aqui:Analista de Dados

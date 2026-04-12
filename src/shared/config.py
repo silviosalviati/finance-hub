@@ -51,19 +51,13 @@ def _get_list(name: str, default: list[str]) -> list[str]:
 
 LLM_PROVIDER = _get_required_str("LLM_PROVIDER").lower()
 
-HF_API_TOKEN = _get_optional_str("HF_API_TOKEN")
-HF_MODEL_ID = _get_optional_str("HF_MODEL_ID")
-HF_MAX_NEW_TOKENS = _get_int("HF_MAX_NEW_TOKENS", 4096)
-HF_TEMPERATURE = _get_float("HF_TEMPERATURE", 0.05)
-
-OPENAI_API_KEY = _get_optional_str("OPENAI_API_KEY")
-OPENAI_MODEL = _get_optional_str("OPENAI_MODEL", "gpt-4o")
-
 VERTEXAI_PROJECT = _get_optional_str("VERTEXAI_PROJECT")
 VERTEXAI_LOCATION = _get_optional_str("VERTEXAI_LOCATION", "us-central1")
 VERTEXAI_MODEL = _get_optional_str("VERTEXAI_MODEL", "gemini-1.5-pro")
+VERTEXAI_MAX_OUTPUT_TOKENS = _get_int("VERTEXAI_MAX_OUTPUT_TOKENS", 4096)
+VERTEXAI_TEMPERATURE = _get_float("VERTEXAI_TEMPERATURE", 0.05)
 
-LLM_TEMPERATURE = HF_TEMPERATURE
+LLM_TEMPERATURE = VERTEXAI_TEMPERATURE
 
 SESSION_TTL_HOURS = _get_int("SESSION_TTL_HOURS", 8)
 
@@ -99,7 +93,7 @@ BQ_ANTIPATTERNS = [
     "Agregacao sobre SELECT * antes de filtrar",
 ]
 
-SUPPORTED_LLM_PROVIDERS = {"huggingface", "openai", "vertexai"}
+SUPPORTED_LLM_PROVIDERS = {"vertexai"}
 
 
 def validate_runtime_config() -> list[str]:
@@ -111,18 +105,6 @@ def validate_runtime_config() -> list[str]:
             f"Use um de: {', '.join(sorted(SUPPORTED_LLM_PROVIDERS))}."
         )
 
-    if LLM_PROVIDER == "huggingface":
-        if not HF_API_TOKEN:
-            errors.append("HF_API_TOKEN nao configurado.")
-        if not HF_MODEL_ID:
-            errors.append("HF_MODEL_ID nao configurado.")
-
-    if LLM_PROVIDER == "openai":
-        if not OPENAI_API_KEY:
-            errors.append("OPENAI_API_KEY nao configurado.")
-        if not OPENAI_MODEL:
-            errors.append("OPENAI_MODEL nao configurado.")
-
     if LLM_PROVIDER == "vertexai":
         if not VERTEXAI_PROJECT:
             errors.append("VERTEXAI_PROJECT nao configurado.")
@@ -130,6 +112,10 @@ def validate_runtime_config() -> list[str]:
             errors.append("VERTEXAI_LOCATION nao configurado.")
         if not VERTEXAI_MODEL:
             errors.append("VERTEXAI_MODEL nao configurado.")
+        if VERTEXAI_MAX_OUTPUT_TOKENS <= 0:
+            errors.append("VERTEXAI_MAX_OUTPUT_TOKENS deve ser maior que zero.")
+        if VERTEXAI_TEMPERATURE < 0:
+            errors.append("VERTEXAI_TEMPERATURE deve ser maior ou igual a zero.")
 
     if SESSION_TTL_HOURS <= 0:
         errors.append("SESSION_TTL_HOURS deve ser maior que zero.")
@@ -170,16 +156,12 @@ def print_runtime_summary() -> None:
     print("CONFIG")
     print(f"LLM_PROVIDER: {LLM_PROVIDER}")
 
-    if LLM_PROVIDER == "huggingface":
-        print(f"HF_MODEL_ID: {HF_MODEL_ID}")
-        print(f"HF_MAX_NEW_TOKENS: {HF_MAX_NEW_TOKENS}")
-        print(f"HF_TEMPERATURE: {HF_TEMPERATURE}")
-    elif LLM_PROVIDER == "openai":
-        print(f"OPENAI_MODEL: {OPENAI_MODEL}")
-    elif LLM_PROVIDER == "vertexai":
+    if LLM_PROVIDER == "vertexai":
         print(f"VERTEXAI_PROJECT: {VERTEXAI_PROJECT}")
         print(f"VERTEXAI_LOCATION: {VERTEXAI_LOCATION}")
         print(f"VERTEXAI_MODEL: {VERTEXAI_MODEL}")
+        print(f"VERTEXAI_MAX_OUTPUT_TOKENS: {VERTEXAI_MAX_OUTPUT_TOKENS}")
+        print(f"VERTEXAI_TEMPERATURE: {VERTEXAI_TEMPERATURE}")
 
     print(f"GCP_PROJECT_ID: {GCP_PROJECT_ID}")
     print(

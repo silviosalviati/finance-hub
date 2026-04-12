@@ -46,7 +46,6 @@ def _portal_html_path() -> Path:
 @app.on_event("startup")
 def startup_event() -> None:
     _validate_startup_config()
-    print("CONFIG")
     print(f"LLM_PROVIDER: {LLM_PROVIDER}")
     print(f"ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")
 

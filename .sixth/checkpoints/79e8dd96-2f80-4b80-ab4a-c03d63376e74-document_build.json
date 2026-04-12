@@ -1,0 +1,300 @@
+{
+  "saved_at": "2026-04-12T02:59:58.160483",
+  "payload": {
+    "status": "ok",
+    "title": "Especificação Técnica do Perfil Comportamental de Clientes",
+    "doc_type": "pipeline_data_contract",
+    "summary": "Documentação técnica detalhada da tabela gold 'perfil_comportamental_clientes' gerada pelo pipeline de CRM Analytics via Dataform, consumida por modelos de scoring e dashboards de segmentação.",
+    "audience": "Desenvolvedores BI, Engenheiros de Dados, Analistas de Negócio e Agentes de IA",
+    "objective": "Documentar a tabela 'perfil_comportamental_clientes' para garantir a compreensão e uso adequado por equipes de BI e Dados.",
+    "frequency": "Batch diário",
+    "table_name": "perfil_comportamental_clientes",
+    "table_path": "silviosalviati.inteligencia_negocios.perfil_comportamental_clientes",
+    "mermaid_diagram": "graph TD\n    silviosalviati.inteligencia_negocios.fatos_vendas --> perfil_comportamental_clientes\n    silviosalviati.inteligencia_negocios.faturamento_detalhado --> perfil_comportamental_clientes\n    perfil_comportamental_clientes --> CRM_Analytics_Models\n    perfil_comportamental_clientes --> Dashboards_Segmentacao",
+    "sections": [
+      {
+        "title": "Visão Geral",
+        "content": "A tabela 'perfil_comportamental_clientes' é uma tabela gold gerada pelo pipeline de CRM Analytics via Dataform. Ela é consumida por modelos de scoring e dashboards de segmentação. A tabela é particionada por data_atualizacao e clusterizada por segmento_cliente. O SLA estabelecido é que o dado deve estar disponível até 07h, com o time de CRM Analytics como responsável."
+      },
+      {
+        "title": "Atenção a Tipagem",
+        "content": "Destaque a necessidade de CAST para JOINs com tabelas legadas, onde o cliente_id é do tipo INTEGER."
+      },
+      {
+        "title": "Regras de Negócio",
+        "content": "A tabela 'perfil_comportamental_clientes' contém campos calculados e segmentações derivadas de RFM. O score_credito é calculado pelo modelo XGBoost v2 e varia de 0 a 1000. O segmento_cliente é derivado de RFM: Platinum, Gold, Silver, Bronze."
+      },
+      {
+        "title": "Data Quality (DQ)",
+        "content": "```json\n[\n  \"chave de negócio/identificador sem duplicidade: cliente_id\",\n  \"validade de faixas para campos numéricos críticos: score_credito deve variar de 0 a 1000\",\n  \"nulos em campos obrigatórios para consumo analítico: data_ultima_interacao deve ser preenchida\"\n]\n```"
+      },
+      {
+        "title": "Governança",
+        "content": "```json\n{\n  \"aspect_types\": [],\n  \"readers\": [\n    \"time_de_crm_analytics\"\n  ],\n  \"notes\": [\n    \"A tabela é gerada pelo pipeline de CRM Analytics via Dataform e consumida por modelos de scoring e dashboards de segmentação.\"\n  ]\n}\n```"
+      }
+    ],
+    "data_dictionary": [
+      {
+        "column": "cliente_id",
+        "type": "INTEGER",
+        "description": "Identificador único do cliente",
+        "business_rule": "Necessário para JOINs com tabelas legadas (STRING)."
+      },
+      {
+        "column": "segmento_cliente",
+        "type": "STRING",
+        "description": "Segmentação do cliente baseada em RFM: Platinum, Gold, Silver, Bronze",
+        "business_rule": "Campo categórico — validar valores contra o domínio permitido."
+      },
+      {
+        "column": "score_credito",
+        "type": "FLOAT",
+        "description": "Score de crédito calculado pelo modelo XGBoost v2, variando de 0 a 1000",
+        "business_rule": "Campo numérico — verificar precisão e ausência de valores fora da faixa esperada."
+      },
+      {
+        "column": "data_ultima_interacao",
+        "type": "DATE",
+        "description": "Data da última interação do cliente",
+        "business_rule": "Campo de data/timestamp — monitorar recência e SLA de atualização; validar formato."
+      },
+      {
+        "column": "cidade_sede",
+        "type": "STRING",
+        "description": "Cidade onde a sede do cliente está localizada",
+        "business_rule": "Sem regra de negócio específica — validar com o responsável pelo domínio."
+      }
+    ],
+    "typing_notes": [
+      "Destaque a necessidade de CAST para JOINs com tabelas legadas, onde o cliente_id é do tipo INTEGER."
+    ],
+    "assumptions": [],
+    "risks": [],
+    "acceptance_checklist": [
+      "chave de negócio/identificador sem duplicidade: cliente_id",
+      "validade de faixas para campos numéricos críticos: score_credito deve variar de 0 a 1000",
+      "nulos em campos obrigatórios para consumo analítico: data_ultima_interacao deve ser preenchida",
+      "A coluna cliente_id nao possui duplicidade para a granularidade esperada?",
+      "Existe controle de atualizacao/recencia para colunas de data da tabela?"
+    ],
+    "next_steps": [
+      "Configurar alerta de schema drift no Dataplex para a tabela principal.",
+      "Publicar runbook de tratamento para eventos de quebra de contrato.",
+      "Definir dono de dados e SLA de correcao para incidentes de DQ."
+    ],
+    "warnings": [],
+    "governance": {
+      "aspect_types": [
+        "schema_contract",
+        "data_quality_profile",
+        "data_owner"
+      ],
+      "readers": [
+        "time_de_crm_analytics"
+      ],
+      "notes": [
+        "A tabela é gerada pelo pipeline de CRM Analytics via Dataform e consumida por modelos de scoring e dashboards de segmentação.",
+        "table_path: silviosalviati.inteligencia_negocios.perfil_comportamental_clientes"
+      ]
+    },
+    "pending_technical": [],
+    "quality_score": 100,
+    "markdown_document": "# Especificação Técnica do Perfil Comportamental de Clientes\n\n## Header\n**Tabela:** perfil_comportamental_clientes\n**Caminho GCP:** silviosalviati.inteligencia_negocios.perfil_comportamental_clientes\n\n**Tipo:** pipeline_data_contract\n**Publico-alvo:** Desenvolvedores BI, Engenheiros de Dados, Analistas de Negócio e Agentes de IA\n\n## Diagrama de fluxo (Mermaid)\n```mermaid\ngraph TD\n    silviosalviati.inteligencia_negocios.fatos_vendas --> perfil_comportamental_clientes\n    silviosalviati.inteligencia_negocios.faturamento_detalhado --> perfil_comportamental_clientes\n    perfil_comportamental_clientes --> CRM_Analytics_Models\n    perfil_comportamental_clientes --> Dashboards_Segmentacao\n```\n\n## 1. Visao geral (Overview)\n**Objetivo:** Documentar a tabela 'perfil_comportamental_clientes' para garantir a compreensão e uso adequado por equipes de BI e Dados.\n**Frequencia:** Batch diário\n\n## Resumo executivo\nDocumentação técnica detalhada da tabela gold 'perfil_comportamental_clientes' gerada pelo pipeline de CRM Analytics via Dataform, consumida por modelos de scoring e dashboards de segmentação.\n\n## Visão Geral\nA tabela 'perfil_comportamental_clientes' é uma tabela gold gerada pelo pipeline de CRM Analytics via Dataform. Ela é consumida por modelos de scoring e dashboards de segmentação. A tabela é particionada por data_atualizacao e clusterizada por segmento_cliente. O SLA estabelecido é que o dado deve estar disponível até 07h, com o time de CRM Analytics como responsável.\n\n## Atenção a Tipagem\nDestaque a necessidade de CAST para JOINs com tabelas legadas, onde o cliente_id é do tipo INTEGER.\n\n## Regras de Negócio\nA tabela 'perfil_comportamental_clientes' contém campos calculados e segmentações derivadas de RFM. O score_credito é calculado pelo modelo XGBoost v2 e varia de 0 a 1000. O segmento_cliente é derivado de RFM: Platinum, Gold, Silver, Bronze.\n\n## Data Quality (DQ)\n```json\n[\n  \"chave de negócio/identificador sem duplicidade: cliente_id\",\n  \"validade de faixas para campos numéricos críticos: score_credito deve variar de 0 a 1000\",\n  \"nulos em campos obrigatórios para consumo analítico: data_ultima_interacao deve ser preenchida\"\n]\n```\n\n## Governança\n```json\n{\n  \"aspect_types\": [],\n  \"readers\": [\n    \"time_de_crm_analytics\"\n  ],\n  \"notes\": [\n    \"A tabela é gerada pelo pipeline de CRM Analytics via Dataform e consumida por modelos de scoring e dashboards de segmentação.\"\n  ]\n}\n```\n\n## 2. Dicionario de dados (Data Dictionary)\n| Coluna | Tipo | Descricao | Regra de Negocio |\n| --- | --- | --- | --- |\n| cliente_id | INTEGER | Identificador único do cliente | Necessário para JOINs com tabelas legadas (STRING). |\n| segmento_cliente | STRING | Segmentação do cliente baseada em RFM: Platinum, Gold, Silver, Bronze | Campo categórico — validar valores contra o domínio permitido. |\n| score_credito | FLOAT | Score de crédito calculado pelo modelo XGBoost v2, variando de 0 a 1000 | Campo numérico — verificar precisão e ausência de valores fora da faixa esperada. |\n| data_ultima_interacao | DATE | Data da última interação do cliente | Campo de data/timestamp — monitorar recência e SLA de atualização; validar formato. |\n| cidade_sede | STRING | Cidade onde a sede do cliente está localizada | Sem regra de negócio específica — validar com o responsável pelo domínio. |\n\n## 3. Checklist de qualidade de dados (DQ)\n- [ ] chave de negócio/identificador sem duplicidade: cliente_id\n- [ ] validade de faixas para campos numéricos críticos: score_credito deve variar de 0 a 1000\n- [ ] nulos em campos obrigatórios para consumo analítico: data_ultima_interacao deve ser preenchida\n- [ ] A coluna cliente_id nao possui duplicidade para a granularidade esperada?\n- [ ] Existe controle de atualizacao/recencia para colunas de data da tabela?\n\n## 4. Governanca (Dataplex/Catalog)\n**Aspect Types**\n- schema_contract\n- data_quality_profile\n- data_owner\n\n## 5. Atencao a tipagem\n- Destaque a necessidade de CAST para JOINs com tabelas legadas, onde o cliente_id é do tipo INTEGER.\n\n**Permissoes de leitura**\n- time_de_crm_analytics\n\n**Notas de governanca**\n- A tabela é gerada pelo pipeline de CRM Analytics via Dataform e consumida por modelos de scoring e dashboards de segmentação.\n- table_path: silviosalviati.inteligencia_negocios.perfil_comportamental_clientes\n\n## Premissas\n- Nao informado\n\n## Riscos\n- Nao informado\n\n## Proximos passos\n- Configurar alerta de schema drift no Dataplex para a tabela principal.\n- Publicar runbook de tratamento para eventos de quebra de contrato.\n- Definir dono de dados e SLA de correcao para incidentes de DQ.\n",
+    "metadata": {
+      "project_id": "silviosalviati",
+      "dataset_hint": "inteligencia_negocios",
+      "table_name": "perfil_comportamental_clientes",
+      "table_path": "silviosalviati.inteligencia_negocios.perfil_comportamental_clientes",
+      "explicit_table_ref": {
+        "project": "silviosalviati",
+        "dataset": "inteligencia_negocios",
+        "table": "perfil_comportamental_clientes",
+        "full_name": "silviosalviati.inteligencia_negocios.perfil_comportamental_clientes"
+      },
+      "dataset_ref": "silviosalviati.inteligencia_negocios",
+      "tables": [
+        {
+          "table_id": "fatos_vendas",
+          "full_name": "silviosalviati.inteligencia_negocios.fatos_vendas",
+          "partition_field": "data_faturamento",
+          "clustering_fields": [
+            "canal_venda"
+          ],
+          "columns": [
+            {
+              "name": "transacao_id",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "ID único da transação financeira."
+            },
+            {
+              "name": "cliente_id",
+              "type": "INTEGER",
+              "mode": "NULLABLE",
+              "description": "Chave estrangeira para ligação com a tabela de clientes."
+            },
+            {
+              "name": "data_faturamento",
+              "type": "DATE",
+              "mode": "NULLABLE",
+              "description": "Data oficial do faturamento (Coluna de Partição)."
+            },
+            {
+              "name": "valor_liquido",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Receita líquida após descontos e taxas de operadoras."
+            },
+            {
+              "name": "custo_operacional",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Custo logístico e tributário da operação."
+            },
+            {
+              "name": "canal_venda",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Canal de origem (E-COMMERCE, APP, LOJA_FISICA ou WHATSAPP)."
+            },
+            {
+              "name": "vendedor_responsavel",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Nome ou código do consultor que realizou a venda."
+            }
+          ]
+        },
+        {
+          "table_id": "faturamento_detalhado",
+          "full_name": "silviosalviati.inteligencia_negocios.faturamento_detalhado",
+          "partition_field": "data_faturamento",
+          "clustering_fields": [
+            "canal_venda",
+            "vendedor_responsavel"
+          ],
+          "columns": [
+            {
+              "name": "transacao_id",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Código único da operação de venda."
+            },
+            {
+              "name": "data_faturamento",
+              "type": "DATE",
+              "mode": "NULLABLE",
+              "description": "Data oficial do reconhecimento da receita (Coluna de Partição)."
+            },
+            {
+              "name": "valor_liquido",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Valor real que entra no caixa após descontos e taxas de operadoras."
+            },
+            {
+              "name": "custo_operacional",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Custo logístico e de impostos associado a esta transação específica."
+            },
+            {
+              "name": "canal_venda",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Origem da venda: 'E-COMMERCE', 'APP', 'LOJA_FISICA' ou 'WHATSAPP'."
+            },
+            {
+              "name": "vendedor_responsavel",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Nome ou código do consultor que fechou o negócio."
+            }
+          ]
+        },
+        {
+          "table_id": "perfil_comportamental_clientes",
+          "full_name": "silviosalviati.inteligencia_negocios.perfil_comportamental_clientes",
+          "partition_field": "",
+          "clustering_fields": [
+            "segmento_cliente",
+            "cidade_sede"
+          ],
+          "columns": [
+            {
+              "name": "cliente_id",
+              "type": "INTEGER",
+              "mode": "NULLABLE",
+              "description": "Chave primária. Identificador único do cliente para Joins."
+            },
+            {
+              "name": "segmento_cliente",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Classificação do cliente (VIP, RECORRENTE, DORMANTE ou NOVO)."
+            },
+            {
+              "name": "score_credito",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Pontuação de risco financeiro. Valores altos indicam maior confiabilidade."
+            },
+            {
+              "name": "data_ultima_interacao",
+              "type": "DATE",
+              "mode": "NULLABLE",
+              "description": "Data da última interação ou compra realizada pelo cliente."
+            },
+            {
+              "name": "cidade_sede",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Cidade onde o cliente está sediado."
+            }
+          ]
+        }
+      ],
+      "selected_table": {
+        "table_id": "perfil_comportamental_clientes",
+        "full_name": "silviosalviati.inteligencia_negocios.perfil_comportamental_clientes",
+        "partition_field": "",
+        "clustering_fields": [
+          "segmento_cliente",
+          "cidade_sede"
+        ],
+        "columns": [
+          {
+            "name": "cliente_id",
+            "type": "INTEGER",
+            "mode": "NULLABLE",
+            "description": "Chave primária. Identificador único do cliente para Joins."
+          },
+          {
+            "name": "segmento_cliente",
+            "type": "STRING",
+            "mode": "NULLABLE",
+            "description": "Classificação do cliente (VIP, RECORRENTE, DORMANTE ou NOVO)."
+          },
+          {
+            "name": "score_credito",
+            "type": "FLOAT",
+            "mode": "NULLABLE",
+            "description": "Pontuação de risco financeiro. Valores altos indicam maior confiabilidade."
+          },
+          {
+            "name": "data_ultima_interacao",
+            "type": "DATE",
+            "mode": "NULLABLE",
+            "description": "Data da última interação ou compra realizada pelo cliente."
+          },
+          {
+            "name": "cidade_sede",
+            "type": "STRING",
+            "mode": "NULLABLE",
+            "description": "Cidade onde o cliente está sediado."
+          }
+        ]
+      }
+    }
+  }
+}

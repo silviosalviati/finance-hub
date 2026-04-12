@@ -1,0 +1,10 @@
+{
+  "saved_at": "2026-04-12T17:05:40.385931",
+  "payload": {
+    "status": "error",
+    "error": "Falha ao gerar documentacao: Client error '402 Payment Required' for url 'https://router.huggingface.co/v1/chat/completions' (Request ID: Root=1-69dbd0e3-51535bb72e843327610ff6fd;6735bc24-65f8-462b-a163-1996a4428f39)\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/402\n\nYou have depleted your monthly included credits. Purchase pre-paid credits to continue using Inference Providers. Alternatively, subscribe to PRO to get 20x more included usage.",
+    "warnings": [
+      "Revise o contexto e tente novamente com mais detalhes."
+    ]
+  }
+}

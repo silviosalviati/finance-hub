@@ -5,7 +5,7 @@ from typing import Any
 from src.agents.query_analyzer.graph import build_graph
 from src.agents.query_analyzer.state import AgentState
 from src.core.base_agent import BaseAgent
-from src.shared.config import HF_MODEL_ID, LLM_PROVIDER, OPENAI_MODEL, VERTEXAI_MODEL
+from src.shared.config import LLM_PROVIDER, VERTEXAI_MODEL
 from src.shared.tools.llm import create_llm
 
 
@@ -78,25 +78,11 @@ class QueryAnalyzerAgent(BaseAgent):
     def runtime_info(self) -> dict[str, str]:
         provider = LLM_PROVIDER.lower()
 
-        if provider == "openai":
-            return {
-                "provider": "openai",
-                "provider_label": "OpenAI",
-                "model": OPENAI_MODEL or "nao definido",
-            }
-
         if provider == "vertexai":
             return {
                 "provider": "vertexai",
                 "provider_label": "Vertex AI",
                 "model": VERTEXAI_MODEL or "nao definido",
-            }
-
-        if provider == "huggingface":
-            return {
-                "provider": "huggingface",
-                "provider_label": "Hugging Face",
-                "model": HF_MODEL_ID or "nao definido",
             }
 
         return {

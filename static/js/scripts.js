@@ -3211,6 +3211,14 @@ window.addEventListener("load", function init() {
 
 const showcaseBots = [
   {
+    name: "SQL Review",
+    description:
+      "Reduza custo e tempo de execução com revisão automática de anti-padrões e SQL otimizada.",
+    tags: ["BigQuery", "SQL", "Performance"],
+    status: "Disponivel",
+    action: () => navTo("qa"),
+  },
+  {
     name: "Document Builder",
     description:
       "Gere documentação que o negócio entende e a engenharia confia: schema real, governança e exportação pronta.",

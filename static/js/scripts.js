@@ -1442,7 +1442,10 @@ function deriveGovernanceFromSections(sections, currentGovernance) {
   const mergedReaders = dedupe([...base.readers, ...parsedGovernance.readers]);
 
   return {
-    aspect_types: dedupe([...base.aspect_types, ...parsedGovernance.aspect_types]),
+    aspect_types: dedupe([
+      ...base.aspect_types,
+      ...parsedGovernance.aspect_types,
+    ]),
     readers: mergedReaders,
     notes: dedupe([...base.notes, ...parsedGovernance.notes]),
   };
@@ -1663,6 +1666,31 @@ function generateDocumentHtml(data, context) {
     return `<span class="json-inline">${safe(value)}</span>`;
   }
 
+  function mdToHtml(text) {
+    const source = String(text || "");
+    const escaped = safe(source);
+    const codeBlocks = [];
+
+    let html = escaped.replace(
+      /```(?:sql|python)?\n([\s\S]*?)\n```/gi,
+      (_match, code) => {
+        const token = `@@CODE_BLOCK_${codeBlocks.length}@@`;
+        codeBlocks.push(`<pre><code>${code}</code></pre>`);
+        return token;
+      },
+    );
+
+    html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/\n/g, "<br/>");
+
+    codeBlocks.forEach((block, idx) => {
+      const token = `@@CODE_BLOCK_${idx}@@`;
+      html = html.replace(token, block);
+    });
+
+    return html;
+  }
+
   function renderSectionContent(content) {
     const text = String(content || "").trim();
     if (!text) {
@@ -1699,17 +1727,10 @@ function generateDocumentHtml(data, context) {
       return `<div class="sect-structured">${renderJsonValue(parsedJson)}</div>`;
     }
 
-    const paragraphs = text
-      .split(/\n{2,}/)
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .map(
-        (part) =>
-          `<p class="sect-text">${safe(part).replace(/\n/g, "<br/>")}</p>`,
-      )
-      .join("");
-
-    return paragraphs || '<p class="sect-text">Sem conteúdo informado.</p>';
+    const html = mdToHtml(text).trim();
+    return html
+      ? `<div class="sect-text">${html}</div>`
+      : '<p class="sect-text">Sem conteúdo informado.</p>';
   }
 
   /* ── build section cards ─────────────────────────── */
@@ -1934,6 +1955,21 @@ function generateDocumentHtml(data, context) {
     .sect-card { border-left: 3px solid #0e6fd6; }
     .sect-text { margin: 0; font-size: 12.5px; color: #2d3b4f; line-height: 1.65; }
     .sect-text + .sect-text { margin-top: 8px; }
+    .sect-text pre {
+      margin: 8px 0;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #f4f7fb;
+      border: 1px solid #dbe6f6;
+      overflow: auto;
+      line-height: 1.45;
+    }
+    .sect-text code {
+      font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 11.5px;
+      color: #1f3b61;
+      white-space: pre;
+    }
     .sect-structured { font-size: 12.5px; color: #2d3b4f; }
     .json-list {
       list-style: none;

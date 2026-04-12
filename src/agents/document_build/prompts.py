@@ -38,6 +38,10 @@ Regras obrigatorias:
 - Inclua obrigatoriamente visao geral, dicionario de dados, checklist de DQ e governanca.
 - Se o contexto tiver PASSO 1/PASSO 2/PASSO 3 (ou etapas numeradas), preserve esses passos no JSON em sections e next_steps.
 - Se o contexto tiver checklist de DQ explicito, use esse checklist como prioridade em acceptance_checklist.
+- Regras para secoes de runbook:
+  - Nunca crie secao de sumario/indice dos passos; cada passo deve ser uma secao operacional completa.
+  - Cada secao de passo deve conter o que fazer, como fazer e o que verificar.
+  - Nao gere secoes com apenas titulo de passo (ex.: "Passo 1:") sem conteudo.
 - Responda somente em JSON valido, sem markdown fora do JSON.
 
 Formato JSON de saida:

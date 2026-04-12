@@ -629,6 +629,7 @@ def _enrich_required_blocks(
 	mermaid_diagram: str,
 ) -> dict[str, Any]:
 	normalized = request_text.lower()
+	next_steps = _clean_next_steps(next_steps)
 
 	if not sections:
 		sections = [
@@ -639,6 +640,8 @@ def _enrich_required_blocks(
 				),
 			}
 		]
+
+	sections = _remove_incomplete_runbook_summary_sections(sections)
 
 	# Correção 1: remover seção de dicionário de dados das sections LLM quando schema real existe
 	has_real_schema = bool(real_table_columns)
@@ -741,16 +744,9 @@ def _enrich_required_blocks(
 			"Habilitar monitoramento de desvio de esquema no Dataplex para alertas proativos.",
 		]
 
-	if not next_steps:
-		next_steps = [
-			"Configurar alerta de schema drift no Dataplex para a tabela.",
-			"Publicar runbook de tratamento para quebra de contrato.",
-			"Definir dono de dados e SLA de correcao para incidentes de DQ.",
-		]
-
 	explicit_steps = _extract_explicit_runbook_steps(request_text)
 	if explicit_steps:
-		next_steps = _dedupe(explicit_steps + next_steps)
+		next_steps = _clean_next_steps(_dedupe(explicit_steps + next_steps))
 		has_runbook_section = any(
 			re.search(r"passos?|etapas?|runbook|procedimento", str(s.get("title") or ""), re.IGNORECASE)
 			for s in sections
@@ -762,6 +758,13 @@ def _enrich_required_blocks(
 					"content": "\n".join(f"{idx + 1}. {step}" for idx, step in enumerate(explicit_steps)),
 				}
 			)
+
+	if not next_steps:
+		next_steps = [
+			"Configurar alerta de schema drift no Dataplex para a tabela.",
+			"Publicar runbook de tratamento para quebra de contrato.",
+			"Definir dono de dados e SLA de correcao para incidentes de DQ.",
+		]
 
 	return {
 		"sections": sections,
@@ -1072,6 +1075,50 @@ def _extract_explicit_runbook_steps(request_text: str) -> list[str]:
 				steps.append(item)
 
 	return _dedupe(steps)
+
+
+def _clean_next_steps(items: list[str]) -> list[str]:
+	"""Remove itens de next_steps incompletos ou contraditorios."""
+	skip_markers = {
+		"nenhum proximo passo",
+		"nenhum próximo passo",
+		"nao definido",
+		"não definido",
+	}
+
+	cleaned: list[str] = []
+	for item in items:
+		value = str(item or "").strip()
+		if not value:
+			continue
+		if value.endswith(":"):
+			continue
+		value_lower = value.lower()
+		if any(marker in value_lower for marker in skip_markers):
+			continue
+		cleaned.append(value)
+
+	return _dedupe(cleaned)
+
+
+def _remove_incomplete_runbook_summary_sections(sections: list[dict[str, str]]) -> list[dict[str, str]]:
+	"""Remove secoes de sumario/indice com apenas titulos de passos sem conteudo."""
+	result: list[dict[str, str]] = []
+	for section in sections:
+		title = str(section.get("title") or "").strip()
+		content = str(section.get("content") or "").strip()
+		title_is_summary = bool(re.search(r"sumario|resumo|indice|passos operacionais", title, re.IGNORECASE))
+		if not title_is_summary:
+			result.append(section)
+			continue
+
+		lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
+		if lines and all(re.match(r"^\d+[\.)]\s+.+:\s*$", ln) for ln in lines):
+			continue
+
+		result.append(section)
+
+	return result
 
 
 def _build_dynamic_dq_checks(

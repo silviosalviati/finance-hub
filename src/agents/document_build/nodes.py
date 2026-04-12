@@ -668,6 +668,7 @@ def _enrich_required_blocks(
 			real_col = real_columns_map[column.lower()]
 			mode = str(real_col.get("mode") or "").strip()
 			type_real = str(real_col.get("type") or row.get("type") or "STRING")
+			type_display = _format_type_with_mode(type_real, mode)
 			# Correção 2: usar regra inferida quando LLM não forneceu uma específica
 			business_rule = str(row.get("business_rule") or "").strip()
 			if not business_rule or business_rule.lower() in {"sem regra de negocio.", "-", ""}:
@@ -675,7 +676,7 @@ def _enrich_required_blocks(
 			filtered_rows.append(
 				{
 					"column": column,
-					"type": type_real,
+					"type": type_display,
 					"description": str(row.get("description") or real_col.get("description") or "Sem descricao."),
 					"business_rule": business_rule,
 				}
@@ -716,10 +717,14 @@ def _enrich_required_blocks(
 	if table_path and not any("table_path" in note for note in governance.get("notes", [])):
 		governance.setdefault("notes", []).append(f"table_path: {table_path}")
 
-	mandatory_checks = _build_dynamic_dq_checks(data_dictionary, real_table_columns)
-	for check in mandatory_checks:
-		if check not in acceptance_checklist:
-			acceptance_checklist.append(check)
+	explicit_checks = _extract_explicit_dq_checks(request_text)
+	if explicit_checks:
+		acceptance_checklist = _dedupe(explicit_checks + acceptance_checklist)
+	else:
+		mandatory_checks = _build_dynamic_dq_checks(data_dictionary, real_table_columns)
+		for check in mandatory_checks:
+			if check not in acceptance_checklist:
+				acceptance_checklist.append(check)
 
 	if not governance.get("aspect_types"):
 		governance["aspect_types"] = [
@@ -742,6 +747,21 @@ def _enrich_required_blocks(
 			"Publicar runbook de tratamento para quebra de contrato.",
 			"Definir dono de dados e SLA de correcao para incidentes de DQ.",
 		]
+
+	explicit_steps = _extract_explicit_runbook_steps(request_text)
+	if explicit_steps:
+		next_steps = _dedupe(explicit_steps + next_steps)
+		has_runbook_section = any(
+			re.search(r"passos?|etapas?|runbook|procedimento", str(s.get("title") or ""), re.IGNORECASE)
+			for s in sections
+		)
+		if not has_runbook_section:
+			sections.append(
+				{
+					"title": "Passos operacionais",
+					"content": "\n".join(f"{idx + 1}. {step}" for idx, step in enumerate(explicit_steps)),
+				}
+			)
 
 	return {
 		"sections": sections,
@@ -998,12 +1018,60 @@ def _build_data_dictionary_from_schema(columns: list[dict[str, str]]) -> list[di
 		rows.append(
 			{
 				"column": name,
-				"type": f"{type_name} ({mode})",
+				"type": _format_type_with_mode(type_name, mode),
 				"description": description,
 				"business_rule": business_rule,
 			}
 		)
 	return rows
+
+
+def _format_type_with_mode(type_name: str, mode: str) -> str:
+	base = str(type_name or "STRING").strip() or "STRING"
+	mode_normalized = str(mode or "").strip().upper()
+	if mode_normalized in {"NULLABLE", "REQUIRED", "REPEATED"}:
+		return f"{base} ({mode_normalized})"
+	return base
+
+
+def _extract_explicit_dq_checks(request_text: str) -> list[str]:
+	text = str(request_text or "")
+	if not text.strip():
+		return []
+
+	checks: list[str] = []
+	for line in text.splitlines():
+		clean = line.strip()
+		if not clean:
+			continue
+		if re.match(r"^[-*]\s+", clean):
+			item = re.sub(r"^[-*]\s+", "", clean).strip()
+			if re.search(r"dq|qualidade|great expectations|dataform|volume|nulo|unicidade|schema", item, re.IGNORECASE):
+				checks.append(item)
+		elif re.match(r"^\d+[\.)]\s+", clean):
+			item = re.sub(r"^\d+[\.)]\s+", "", clean).strip()
+			if re.search(r"dq|qualidade|great expectations|dataform|volume|nulo|unicidade|schema", item, re.IGNORECASE):
+				checks.append(item)
+
+	return _dedupe(checks)
+
+
+def _extract_explicit_runbook_steps(request_text: str) -> list[str]:
+	text = str(request_text or "")
+	if not text.strip():
+		return []
+
+	steps: list[str] = []
+	for line in text.splitlines():
+		clean = line.strip()
+		if not clean:
+			continue
+		if re.match(r"^(passo\s*\d+|\d+[\.)])\s*", clean, re.IGNORECASE):
+			item = re.sub(r"^(passo\s*\d+\s*[:\-]?|\d+[\.)]\s*)", "", clean, flags=re.IGNORECASE).strip()
+			if item:
+				steps.append(item)
+
+	return _dedupe(steps)
 
 
 def _build_dynamic_dq_checks(

@@ -1400,21 +1400,27 @@ function deriveChecklistFromSections(sections, currentChecklist) {
 }
 
 function deriveGovernanceFromSections(sections, currentGovernance) {
-  const base = {
-    aspect_types: Array.isArray(currentGovernance?.aspect_types)
-      ? currentGovernance.aspect_types
-      : [],
-    readers: Array.isArray(currentGovernance?.readers)
-      ? currentGovernance.readers
-      : [],
-    notes: Array.isArray(currentGovernance?.notes)
-      ? currentGovernance.notes
-      : [],
-  };
+  const emptyMarkers = new Set([
+    "",
+    "nenhum",
+    "none",
+    "n/a",
+    "não informado",
+    "nao informado",
+    "-",
+    "nao configurado — consultar responsavel pelo dominio de dados.",
+    "não configurado — consultar responsável pelo domínio de dados.",
+  ]);
+  const normalize = (items) =>
+    (Array.isArray(items) ? items : [])
+      .map((v) => String(v || "").trim())
+      .filter((v) => !emptyMarkers.has(v.toLowerCase()));
 
-  if (base.aspect_types.length || base.readers.length || base.notes.length) {
-    return base;
-  }
+  const base = {
+    aspect_types: normalize(currentGovernance?.aspect_types),
+    readers: normalize(currentGovernance?.readers),
+    notes: normalize(currentGovernance?.notes),
+  };
 
   const govSection = (Array.isArray(sections) ? sections : []).find((s) => {
     const title = String(s?.title || "").toLowerCase();
@@ -1426,16 +1432,19 @@ function deriveGovernanceFromSections(sections, currentGovernance) {
     return base;
   }
 
+  const parsedGovernance = {
+    aspect_types: normalize(parsed.aspect_types),
+    readers: normalize(parsed.readers),
+    notes: normalize(parsed.notes),
+  };
+
+  const dedupe = (items) => [...new Set(items)];
+  const mergedReaders = dedupe([...base.readers, ...parsedGovernance.readers]);
+
   return {
-    aspect_types: Array.isArray(parsed.aspect_types)
-      ? parsed.aspect_types.map((v) => String(v || "").trim()).filter(Boolean)
-      : [],
-    readers: Array.isArray(parsed.readers)
-      ? parsed.readers.map((v) => String(v || "").trim()).filter(Boolean)
-      : [],
-    notes: Array.isArray(parsed.notes)
-      ? parsed.notes.map((v) => String(v || "").trim()).filter(Boolean)
-      : [],
+    aspect_types: dedupe([...base.aspect_types, ...parsedGovernance.aspect_types]),
+    readers: mergedReaders,
+    notes: dedupe([...base.notes, ...parsedGovernance.notes]),
   };
 }
 
@@ -1658,6 +1667,31 @@ function generateDocumentHtml(data, context) {
     const text = String(content || "").trim();
     if (!text) {
       return '<p class="sect-text">Sem conteúdo informado.</p>';
+    }
+
+    const markdownKv = text
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => line.match(/^\*\*([^*]+)\*\*:\s*(.+)$/))
+      .filter(Boolean);
+
+    if (markdownKv.length) {
+      const obj = {};
+      markdownKv.forEach((match) => {
+        const key = String(match[1] || "").trim();
+        const rawValue = String(match[2] || "").trim();
+        let value = rawValue;
+        if (/^\[.*\]$/.test(rawValue)) {
+          try {
+            value = JSON.parse(rawValue.replace(/'/g, '"'));
+          } catch {
+            value = rawValue;
+          }
+        }
+        obj[key] = value;
+      });
+      return `<div class="sect-structured">${renderJsonValue(obj)}</div>`;
     }
 
     const parsedJson = extractJsonFromCodeFence(text);

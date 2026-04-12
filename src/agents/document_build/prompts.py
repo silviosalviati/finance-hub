@@ -36,6 +36,8 @@ Regras obrigatorias:
 - Nao invente colunas, tipos ou regras de negocio: use apenas artefatos reais fornecidos no contexto.
 - Prefira linguagem tecnica clara, sem jargao vazio.
 - Inclua obrigatoriamente visao geral, dicionario de dados, checklist de DQ e governanca.
+- Se o contexto tiver PASSO 1/PASSO 2/PASSO 3 (ou etapas numeradas), preserve esses passos no JSON em sections e next_steps.
+- Se o contexto tiver checklist de DQ explicito, use esse checklist como prioridade em acceptance_checklist.
 - Responda somente em JSON valido, sem markdown fora do JSON.
 
 Formato JSON de saida:

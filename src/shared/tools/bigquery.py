@@ -60,7 +60,11 @@ def _parse_dataset_hint(project_id: str, dataset_hint: str) -> tuple[str, str]:
     )
 
 
-def validate_dataset_for_query_build(project_id: str, dataset_hint: str) -> dict[str, Any]:
+def validate_dataset_for_query_build(
+    project_id: str,
+    dataset_hint: str,
+    require_datacatalog: bool = True,
+) -> dict[str, Any]:
     resolved_project = _resolve_project_id(project_id)
     dataset_project, dataset_id = _parse_dataset_hint(resolved_project, dataset_hint)
     dataset_ref = f"{dataset_project}.{dataset_id}"
@@ -98,37 +102,46 @@ def validate_dataset_for_query_build(project_id: str, dataset_hint: str) -> dict
             "message": f"Falha ao validar dataset no BigQuery: {exc}",
         }
 
-    linked_resource = (
-        f"//bigquery.googleapis.com/projects/{dataset_project}/datasets/{dataset_id}"
-    )
-
-    try:
-        catalog_client = datacatalog_v1.DataCatalogClient(credentials=_get_base_credentials())
-        entry = catalog_client.lookup_entry(
-            request={"linked_resource": linked_resource}
+    if require_datacatalog:
+        linked_resource = (
+            f"//bigquery.googleapis.com/projects/{dataset_project}/datasets/{dataset_id}"
         )
-        datacatalog_ok = bool(getattr(entry, "name", ""))
-    except NotFound:
-        datacatalog_ok = False
-    except Exception as exc:
-        datacatalog_ok = False
-        datacatalog_error = str(exc)
 
-    valid = bigquery_ok and datacatalog_ok
+        try:
+            catalog_client = datacatalog_v1.DataCatalogClient(credentials=_get_base_credentials())
+            entry = catalog_client.lookup_entry(
+                request={"linked_resource": linked_resource}
+            )
+            datacatalog_ok = bool(getattr(entry, "name", ""))
+        except NotFound:
+            datacatalog_ok = False
+        except Exception as exc:
+            datacatalog_ok = False
+            datacatalog_error = str(exc)
+
+    valid = bigquery_ok and (datacatalog_ok if require_datacatalog else True)
     if valid:
-        message = (
-            "Perfeito! Dataset validado com sucesso. "
-            f"Encontramos {table_count} tabela(s) com metadados prontos para uso."
-        )
-    elif datacatalog_error:
+        if require_datacatalog:
+            message = (
+                "Perfeito! Dataset validado com sucesso. "
+                f"Encontramos {table_count} tabela(s) com metadados prontos para uso."
+            )
+        else:
+            message = (
+                "Perfeito! Dataset validado no BigQuery com sucesso. "
+                f"Encontramos {table_count} tabela(s) disponiveis para analise."
+            )
+    elif require_datacatalog and datacatalog_error:
         message = (
             "Dataset existe no BigQuery, mas nao foi possivel validar metadados no Data Catalog: "
             f"{datacatalog_error}"
         )
-    else:
+    elif require_datacatalog:
         message = (
             "Dataset existe no BigQuery, mas nao esta indexado/visivel no Data Catalog."
         )
+    else:
+        message = "Dataset nao pode ser validado no BigQuery."
 
     return {
         "valid": valid,
@@ -200,6 +213,7 @@ def validate_query_context_for_query_analyzer(
     dataset_validation = validate_dataset_for_query_build(
         project_id=resolved_project_id,
         dataset_hint=dataset_id,
+        require_datacatalog=False,
     )
     if not dataset_validation.get("valid"):
         return {
@@ -212,16 +226,18 @@ def validate_query_context_for_query_analyzer(
     query_table_ids = sorted({parts[2].strip() for parts in split_refs})
     matched_tables: list[str] = []
     missing_tables: list[str] = []
+    dataset_ref = f"{resolved_project_id}.{dataset_id}"
     client = _get_client(resolved_project_id)
 
+    try:
+        existing_table_ids = {table.table_id for table in client.list_tables(dataset_ref)}
+    except GoogleCloudError:
+        existing_table_ids = set()
+
     for table_id in query_table_ids:
-        table_ref = f"{resolved_project_id}.{dataset_id}.{table_id}"
-        try:
-            client.get_table(table_ref)
+        if table_id in existing_table_ids:
             matched_tables.append(table_id)
-        except NotFound:
-            missing_tables.append(table_id)
-        except GoogleCloudError:
+        else:
             missing_tables.append(table_id)
 
     if missing_tables:
@@ -240,6 +256,7 @@ def validate_query_context_for_query_analyzer(
     return {
         **dataset_validation,
         "valid": True,
+        "datacatalog_ok": dataset_validation.get("datacatalog_ok", False),
         "dataset_hint": dataset_id,
         "matched_tables": matched_tables,
         "missing_tables": [],

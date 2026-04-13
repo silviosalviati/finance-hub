@@ -1670,6 +1670,8 @@ function generateDocumentHtml(data, context) {
     const source = String(text || "");
     const escaped = safe(source);
     const codeBlocks = [];
+    const isSqlLikeInline = (value) =>
+      /\b(select|with|insert|update|delete|merge)\b/i.test(value || "");
 
     let html = escaped.replace(
       /```(?:sql|python|text|bash|shell)?\s*([\s\S]*?)\s*```/gi,
@@ -1679,6 +1681,15 @@ function generateDocumentHtml(data, context) {
         return token;
       },
     );
+
+    html = html.replace(/`([^`\n]+)`/g, (_match, code) => {
+      if (isSqlLikeInline(code)) {
+        const token = `@@CODE_BLOCK_${codeBlocks.length}@@`;
+        codeBlocks.push(`<pre><code>${code}</code></pre>`);
+        return token;
+      }
+      return `<code>${code}</code>`;
+    });
 
     html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
     html = html.replace(/\n/g, "<br/>");

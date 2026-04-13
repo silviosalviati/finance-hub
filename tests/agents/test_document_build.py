@@ -1,6 +1,7 @@
 from src.agents.document_build import DocumentBuildAgent
 from src.agents.document_build.nodes import (
     _clean_checklist,
+    _enrich_required_blocks,
     _extract_explicit_table_reference,
     _normalize_governance,
     _normalize_sections,
@@ -215,3 +216,34 @@ def test_normalize_sections_drops_index_only_content():
     result = _normalize_sections(sections)
     assert len(result) == 1
     assert result[0]["title"] == "Passo Real"
+
+
+def test_normalize_sections_drops_summary_title_with_prefix_and_colon():
+    sections = [
+        {"title": "📄 Passos operacionais:", "content": "1. Verificar status:"},
+        {"title": "Passo 1", "content": "Executar validação operacional."},
+    ]
+
+    result = _normalize_sections(sections)
+
+    assert len(result) == 1
+    assert result[0]["title"] == "Passo 1"
+
+
+def test_enrich_required_blocks_does_not_force_hardcoded_next_steps():
+    result = _enrich_required_blocks(
+        request_text="Gerar documentação técnica.",
+        table_name="tabela_teste",
+        table_path="projeto.dataset.tabela_teste",
+        sections=[{"title": "Arquitetura", "content": "Fluxo principal."}],
+        data_dictionary=[],
+        real_table_columns=[],
+        typing_notes=[],
+        pending_technical=[],
+        acceptance_checklist=[],
+        next_steps=[],
+        governance={"aspect_types": [], "readers": [], "notes": []},
+        mermaid_diagram="",
+    )
+
+    assert result["next_steps"] == []

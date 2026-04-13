@@ -579,6 +579,8 @@ def _normalize_sections(value: Any) -> list[dict[str, str]]:
 			continue
 
 		title = str(section.get("title") or "").strip()
+		title_key = re.sub(r"[^a-z0-9à-ÿ\s]", " ", title.lower())
+		title_key = re.sub(r"\s+", " ", title_key).strip()
 		# Correção 3: content pode chegar como list/dict quando a LLM retorna estrutura aninhada
 		content = _safe_render_content(section.get("content"))
 
@@ -586,13 +588,13 @@ def _normalize_sections(value: Any) -> list[dict[str, str]]:
 			continue
 
 		# Descartar seções de sumário/índice pelo título
-		if title.lower() in _SUMMARY_SECTION_TITLES:
+		if title_key in _SUMMARY_SECTION_TITLES:
 			continue
 
 		# Descartar seções cujo conteúdo é apenas lista de títulos de passo terminados em ":"
 		# Ex: "1. Verificar status:\n2. Consultar volume:\n3. Verificar qualidade:"
 		lines = [line.strip() for line in content.splitlines() if line.strip()]
-		if lines and all(re.match(r"^\d+[\.\.\-—]\s*.+:$", line) for line in lines):
+		if lines and all(re.match(r"^(?:-\s*)?(?:passo\s*\d+|\d+\s*[\.\-–—\)])\s*.+:\s*$", line, re.IGNORECASE) for line in lines):
 			continue
 
 		sections.append(
@@ -814,11 +816,7 @@ def _enrich_required_blocks(
 			)
 
 	if not next_steps:
-		next_steps = [
-			"Configurar alerta de schema drift no Dataplex para a tabela.",
-			"Publicar runbook de tratamento para quebra de contrato.",
-			"Definir dono de dados e SLA de correcao para incidentes de DQ.",
-		]
+		next_steps = []
 
 	return {
 		"sections": sections,

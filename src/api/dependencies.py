@@ -10,6 +10,7 @@ import bcrypt
 from fastapi import Header, HTTPException
 
 from src.agents.document_build import DocumentBuildAgent
+from src.agents.finance_auditor import FinanceAuditorAgent
 from src.agents.query_analyzer import QueryAnalyzerAgent
 from src.agents.query_build import QueryBuildAgent
 from src.core.checkpointer import CheckpointConfig, FileCheckpointer
@@ -28,6 +29,7 @@ def get_registry() -> AgentRegistry:
         registry.register(QueryAnalyzerAgent())
         registry.register(QueryBuildAgent())
         registry.register(DocumentBuildAgent())
+        registry.register(FinanceAuditorAgent())
         _registry = registry
     return _registry
 

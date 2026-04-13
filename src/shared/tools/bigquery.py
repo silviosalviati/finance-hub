@@ -508,8 +508,42 @@ def get_schemas_for_query(query: str, project_id: str | None) -> str:
     return "\n\n".join(schemas)
 
 
+def execute_query_rows(
+    query: str,
+    project_id: str | None,
+    max_rows: int = 1000,
+) -> list[dict[str, Any]]:
+    """Executa uma query BigQuery e retorna as linhas como lista de dicionários.
+
+    Diferente de :func:`fetch_query_sample`, não envolve a query em um
+    subselect, sendo adequado para queries de agregação e contagem.
+
+    Args:
+        query: SQL completo a ser executado.
+        project_id: Projeto GCP de faturamento.
+        max_rows: Limite de linhas retornadas (padrão: 1000).
+
+    Returns:
+        Lista de dicionários {coluna: valor} com até *max_rows* linhas.
+
+    Raises:
+        RuntimeError: Se a execução no BigQuery falhar.
+    """
+    try:
+        client = _get_client(project_id)
+        job_config = bigquery.QueryJobConfig(use_query_cache=False)
+        job = client.query(query, job_config=job_config)
+        result = job.result(max_results=max_rows)
+        return [dict(row.items()) for row in result]
+    except GoogleCloudError as exc:
+        raise RuntimeError(f"Falha na execução da query BigQuery: {exc}") from exc
+    except Exception as exc:
+        raise RuntimeError(f"Erro inesperado ao executar query: {exc}") from exc
+
+
 __all__ = [
     "dry_run_query",
+    "execute_query_rows",
     "get_table_schema",
     "get_schemas_for_query",
     "fetch_query_sample",

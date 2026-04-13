@@ -3552,7 +3552,7 @@ function appendFAThinking() {
   el.id = id;
   el.className = "fa-msg fa-msg-bot";
   el.innerHTML = `
-    <div class="fa-msg-avatar">IA</div>
+    <div class="fa-msg-avatar">FV</div>
     <div class="fa-bubble">
       <div class="fa-thinking-dots"><span></span><span></span><span></span></div>
     </div>`;
@@ -3573,7 +3573,7 @@ function appendFAErrorMessage(msg) {
   const el = document.createElement("div");
   el.className = "fa-msg fa-msg-bot";
   el.innerHTML = `
-    <div class="fa-msg-avatar">IA</div>
+    <div class="fa-msg-avatar">FV</div>
     <div>
       <div class="fa-bubble fa-bubble--error">⚠ ${_escFA(msg)}</div>
       <div class="fa-msg-time">${_faNow()}</div>
@@ -3589,7 +3589,7 @@ function appendFAChatTextMessage(text) {
   const el = document.createElement("div");
   el.className = "fa-msg fa-msg-bot";
   el.innerHTML = `
-    <div class="fa-msg-avatar">IA</div>
+    <div class="fa-msg-avatar">FV</div>
     <div>
       <div class="fa-bubble"><div class="fa-report">${_faMdToHtml(_escFA(text))}</div></div>
       <div class="fa-msg-time">${_faNow()}</div>
@@ -3612,7 +3612,7 @@ function appendFABotMessage(data) {
   const detailsHtml = _faDetailsHtml(data);
 
   el.innerHTML = `
-    <div class="fa-msg-avatar">IA</div>
+    <div class="fa-msg-avatar">FV</div>
     <div style="max-width:100%;">
       <div class="fa-bubble" style="max-width:700px; width:100%;">
         ${metricsHtml}

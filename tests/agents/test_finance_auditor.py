@@ -78,7 +78,7 @@ class TestFinanceAuditorMetadata:
         with patch("src.agents.finance_auditor.create_llm"), \
              patch("src.agents.finance_auditor.build_graph"):
             agent = FinanceAuditorAgent()
-            assert agent.display_name == "Finance CX IA"
+            assert agent.display_name == "Finance Voice IA"
 
     def test_runtime_info_keys(self):
         from src.agents.finance_auditor import FinanceAuditorAgent

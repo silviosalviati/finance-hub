@@ -879,7 +879,7 @@ function openDev(name, desc, features, eta) {
   const colors = {
     "Document Builder": devColors.teal,
     "Query Builder": devColors.violet,
-    "Finance AuditorIA": devColors.emerald,
+    "Finance Voice IA": devColors.emerald,
   };
 
   const c = colors[name] || devColors.teal;
@@ -3313,7 +3313,7 @@ const showcaseBots = [
     action: () => navTo("qb"),
   },
   {
-    name: "Finance CX IA",
+    name: "Finance Voice IA",
     description:
       "Entenda a experiência do cliente nas operações financeiras com VoC, fricção e temas recorrentes.",
     tags: ["CX", "VoC", "Fricção"],
@@ -3399,7 +3399,7 @@ function restartShowcaseAutoplay() {
 }
 
 // ─────────────────────────────────────
-// Finance CX IA — Chat
+// Finance Voice IA — Chat
 // ─────────────────────────────────────
 
 let faIsLoading = false;
@@ -3465,7 +3465,7 @@ function clearFAChat() {
           <polyline points="9 12 11 14 15 10"/>
         </svg>
       </div>
-      <h3>Finance CX IA</h3>
+      <h3>Finance Voice IA</h3>
       <p>Pergunte sobre qualquer período em linguagem natural. Analisarei sentimento, fricção e temas de atendimento e gerarei um relatório executivo.</p>
     </div>`;
 

@@ -104,6 +104,11 @@ Saída principal:
 - bytes e custo original versus otimizado
 - dicas de uso para Power BI
 
+Melhorias de performance:
+
+- resumo gerado de forma determinística, sem chamada extra à LLM, reduzindo a latência
+- `max_iterations` fixado em 1 eliminando ciclos desnecessários de revisão
+
 Validação de contexto:
 
 - endpoint: `POST /api/agents/query_analyzer/validate-query-context`

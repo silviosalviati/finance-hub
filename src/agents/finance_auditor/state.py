@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
-TABLE_REF = "silviosalviati.ds_inteligencia_analitica.analitiva_analise_ia"
+TABLE_REF = "silviosalviati.ds_inteligencia_analitica.analitica_analise_ia"
 DEFAULT_PROJECT = "silviosalviati"
 
 

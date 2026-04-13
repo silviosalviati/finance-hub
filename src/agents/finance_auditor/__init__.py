@@ -2,7 +2,7 @@
 
 Realiza análise de Voice of Customer (VoC) e identifica pontos de fricção
 nas interações de clientes, utilizando a tabela:
-    silviosalviati.ds_inteligencia_analitica.analitiva_analise_ia
+    silviosalviati.ds_inteligencia_analitica.analitica_analise_ia
 
 Arquitetura LangGraph (fan-out paralelo):
   fetch_data → [node_sentiment, node_friction, node_themes]
@@ -83,5 +83,5 @@ class FinanceAuditorAgent(BaseAgent):
             "display_name": self.display_name,
             "graph_nodes": "fetch_data,node_sentiment,node_friction,node_themes,"
             "consolidate_metrics,report_generator",
-            "source_table": "silviosalviati.ds_inteligencia_analitica.analitiva_analise_ia",
+            "source_table": "silviosalviati.ds_inteligencia_analitica.analitica_analise_ia",
         }

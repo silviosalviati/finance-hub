@@ -35,7 +35,7 @@ class FinanceAuditorAgent(BaseAgent):
 
     @property
     def display_name(self) -> str:
-        return "Finance AuditorIA"
+        return "Finance CX IA"
 
     def analyze(
         self,

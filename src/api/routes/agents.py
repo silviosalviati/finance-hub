@@ -189,7 +189,7 @@ def _build_rag_chat_answer(query: str, profile: dict[str, Any], relevant_turns: 
             [
                 SystemMessage(
                     content=(
-                        "Você é o Finance AuditorIA em modo conversacional. "
+                        "Você é o Finance CX IA em modo conversacional. "
                         "Responda em português, de forma objetiva e útil. "
                         "NÃO gere relatório VoC nesta resposta. "
                         "Quando houver memória de sessão, use-a para responder." 

@@ -3313,22 +3313,12 @@ const showcaseBots = [
     action: () => navTo("qb"),
   },
   {
-    name: "Finance AuditorIA",
+    name: "Finance CX IA",
     description:
-      "Monitore conformidade financeira e saúde dos KPIs com rastreabilidade ponta a ponta.",
-    tags: ["Auditoria", "KPIs", "Compliance"],
+      "Entenda a experiência do cliente nas operações financeiras com VoC, fricção e temas recorrentes.",
+    tags: ["CX", "VoC", "Fricção"],
     status: "Disponivel",
-    action: () =>
-      openDev(
-        "Finance AuditorIA",
-        "Monitora pipelines e indicadores financeiros com foco em conformidade, risco e consistência de KPIs.",
-        [
-          "Rastreabilidade Gold/Silver",
-          "Verificação de KPIs",
-          "Relatório de compliance",
-        ],
-        "Q3 2025",
-      ),
+    action: () => navTo("fa"),
   },
 ];
 
@@ -3409,7 +3399,7 @@ function restartShowcaseAutoplay() {
 }
 
 // ─────────────────────────────────────
-// Finance AuditorIA — Chat
+// Finance CX IA — Chat
 // ─────────────────────────────────────
 
 let faIsLoading = false;
@@ -3475,7 +3465,7 @@ function clearFAChat() {
           <polyline points="9 12 11 14 15 10"/>
         </svg>
       </div>
-      <h3>Finance AuditorIA</h3>
+      <h3>Finance CX IA</h3>
       <p>Pergunte sobre qualquer período em linguagem natural. Analisarei sentimento, fricção e temas de atendimento e gerarei um relatório executivo.</p>
     </div>`;
 

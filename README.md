@@ -9,8 +9,9 @@ O projeto centraliza assistentes especializados para analytics, documentação e
 - Query Analyzer: analisa SQL existente, detecta antipadrões e sugere otimizações.
 - Query Builder: gera SQL a partir de linguagem natural com contexto real de dataset.
 - Document Builder: gera documentação técnica, funcional e operacional com base em artefatos reais do BigQuery e do Dataplex Catalog.
+- Finance Voice IA: analisa Voice of Customer em operações financeiras, identifica fricção e também responde em modo conversacional com memória de sessão.
 
-Na interface, os nomes visíveis já foram atualizados para Query Builder e Document Builder. Internamente, os `agent_id` continuam `query_build` e `document_build` para manter compatibilidade com a API.
+Na interface, os nomes visíveis já foram atualizados para Query Builder, Document Builder e Finance Voice IA. Internamente, os `agent_id` continuam `query_build`, `document_build` e `finance_auditor` para manter compatibilidade com a API.
 
 ## Arquitetura Atual
 
@@ -26,7 +27,8 @@ bot-query/
 │   ├── agents/
 │   │   ├── query_analyzer/          # agente implementado
 │   │   ├── query_build/             # agente implementado
-│   │   └── document_build/          # agente implementado
+│   │   ├── document_build/          # agente implementado
+│   │   └── finance_auditor/         # agente implementado (Finance Voice IA)
 │   ├── core/
 │   │   ├── base_agent.py            # contrato base dos agentes
 │   │   ├── registry.py              # registro e resolução de agentes
@@ -62,8 +64,9 @@ Arquivos de referência:
 | Query Analyzer    | `query_analyzer` | Implementado | Sim                 |
 | Query Builder     | `query_build`    | Implementado | Sim                 |
 | Document Builder  | `document_build` | Implementado | Sim                 |
+| Finance Voice IA  | `finance_auditor` | Implementado | Sim                |
 
-Observação: atualmente o runtime registra Query Analyzer, Query Builder e Document Builder.
+Observação: atualmente o runtime registra Query Analyzer, Query Builder, Document Builder e Finance Voice IA.
 
 ## Fluxo Técnico
 
@@ -198,6 +201,51 @@ Recursos recentes do Document Builder:
 
 Importante: a integração com `manifest.json` do dbt foi removida do pipeline atual. O fluxo vigente usa BigQuery + Dataplex Catalog + LLM.
 
+## Finance Voice IA
+
+Entrada principal:
+
+- `query` em linguagem natural
+- `project_id` opcional na API; no frontend é resolvido com valor padrão para a operação atual
+
+Modos de operação:
+
+1. Conversacional: responde perguntas curtas, usa memória da sessão e evita gerar relatório quando a intenção não é analítica.
+2. Analítico: executa o pipeline VoC e retorna relatório executivo com sentimento, fricção e temas recorrentes.
+
+Capacidades atuais:
+
+- identificação de nome informado pelo usuário na sessão
+- resposta para perguntas como `qual meu nome`
+- reutilização de resposta para perguntas repetidas
+- RAG lexical simples sobre turnos anteriores da conversa
+- classificação entre modo `chat` e modo `analysis`
+
+Pipeline analítico de alto nível:
+
+1. Extrai o período solicitado em linguagem natural.
+2. Consulta a tabela `silviosalviati.ds_inteligencia_analitica.analitica_analise_ia`.
+3. Calcula distribuição de sentimento.
+4. Calcula índice de fricção.
+5. Agrupa temas principais.
+6. Gera relatório executivo em Markdown.
+
+Saída analítica principal:
+
+- `markdown_report`
+- `quality_score`
+- `friction_score` e `friction_label`
+- `sentiment_analysis`
+- `friction_analysis`
+- `themes_analysis`
+- `date_range` e `total_records`
+
+Saída conversacional principal:
+
+- `response_mode = chat`
+- `chat_answer`
+- `warnings` opcionais, incluindo detecção de pergunta repetida
+
 ## Autenticação e Sessão
 
 - login via `POST /api/login`
@@ -209,6 +257,7 @@ Importante: a integração com `manifest.json` do dbt foi removida do pipeline a
 
 - checkpoints salvos em `.sixth/checkpoints`
 - chave no formato `<token>-<agent_id>`
+- para o Finance Voice IA existe também memória conversacional em `<token>-finance_auditor-chat`
 - TTL atual de 24h no `FileCheckpointer`
 - consulta via `GET /api/agents/{agent_id}/checkpoint`
 
@@ -363,6 +412,10 @@ Comportamentos atuais relevantes:
 - Documento HTML com preview formatado e botão de cópia
 - Confluence Wiki Markup com botão de cópia
 - aba Otimizações aplicadas no Query Analyzer
+- Finance Voice IA com interface de chat dedicada
+- Finance Voice IA com box de operações atendidas
+- Finance Voice IA com respostas em dois modos: conversa simples e relatório analítico
+- Finance Voice IA com memória de sessão e reaproveitamento de perguntas repetidas
 
 ## Telas do Sistema
 
@@ -399,7 +452,9 @@ pytest -q
 Suites atuais:
 
 - [tests/api/test_api_routes.py](tests/api/test_api_routes.py)
+- [tests/api/test_finance_auditor_chat_memory.py](tests/api/test_finance_auditor_chat_memory.py)
 - [tests/agents/test_query_analyzer.py](tests/agents/test_query_analyzer.py)
 - [tests/agents/test_query_build.py](tests/agents/test_query_build.py)
 - [tests/agents/test_document_build.py](tests/agents/test_document_build.py)
+- [tests/agents/test_finance_auditor.py](tests/agents/test_finance_auditor.py)
 - [tests/shared/test_bigquery_tools.py](tests/shared/test_bigquery_tools.py)

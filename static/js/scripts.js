@@ -3572,6 +3572,22 @@ function appendFAErrorMessage(msg) {
   _faScrollBottom();
 }
 
+function appendFAChatTextMessage(text) {
+  const area = document.getElementById("fa-messages");
+  if (!area) return;
+
+  const el = document.createElement("div");
+  el.className = "fa-msg fa-msg-bot";
+  el.innerHTML = `
+    <div class="fa-msg-avatar">IA</div>
+    <div>
+      <div class="fa-bubble"><div class="fa-report">${_faMdToHtml(_escFA(text))}</div></div>
+      <div class="fa-msg-time">${_faNow()}</div>
+    </div>`;
+  area.appendChild(el);
+  _faScrollBottom();
+}
+
 function appendFABotMessage(data) {
   const area = document.getElementById("fa-messages");
   if (!area) return;
@@ -3897,6 +3913,11 @@ async function sendFAMessage() {
     if (data.status === "error") {
       appendFAErrorMessage(
         data.error || "Não foi possível realizar a análise.",
+      );
+    } else if (data.response_mode === "chat") {
+      appendFAChatTextMessage(
+        data.chat_answer ||
+          "Não encontrei resposta para essa pergunta no momento.",
       );
     } else {
       appendFABotMessage(data);

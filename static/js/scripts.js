@@ -3407,6 +3407,24 @@ let faThinkingId = null;
 let faInputListenerBound = false;
 let faMsgCounter = 0;
 
+function setFAInteractionLock(locked) {
+  const input = document.getElementById("fa-input");
+  if (input) {
+    input.disabled = !!locked;
+  }
+
+  document.querySelectorAll(".fa-suggestion-chip").forEach((el) => {
+    if (el instanceof HTMLButtonElement) {
+      el.disabled = !!locked;
+    }
+  });
+
+  const clearBtn = document.querySelector(".fa-clear-btn");
+  if (clearBtn instanceof HTMLButtonElement) {
+    clearBtn.disabled = !!locked;
+  }
+}
+
 function setFASendButtonState({ disabled, loading }) {
   const sendBtn = document.getElementById("fa-send-btn");
   if (!sendBtn) return;
@@ -3452,6 +3470,8 @@ function useFASuggestion(btn) {
 }
 
 function clearFAChat() {
+  if (faIsLoading) return;
+
   const msgArea = document.getElementById("fa-messages");
   if (!msgArea) return;
 
@@ -3869,6 +3889,7 @@ async function sendFAMessage() {
   if (input) {
     input.style.height = "auto";
   }
+  setFAInteractionLock(true);
   setFASendButtonState({ disabled: true, loading: true });
 
   appendFAUserMessage(text);
@@ -3917,6 +3938,7 @@ async function sendFAMessage() {
     appendFAErrorMessage(prettifyErrorMessage(e.message));
   } finally {
     faIsLoading = false;
+    setFAInteractionLock(false);
     setFASendButtonState({
       disabled: !input?.value.trim(),
       loading: false,

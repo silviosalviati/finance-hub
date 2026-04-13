@@ -3378,6 +3378,14 @@ pre {
   border-color: var(--porto);
 }
 
+.fa-suggestion-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--bg);
+  color: var(--ink3);
+  border-color: var(--border);
+}
+
 .fa-clear-btn {
   margin-top: 4px;
   background: none;
@@ -3392,6 +3400,11 @@ pre {
 
 .fa-clear-btn:hover {
   background: var(--bg);
+}
+
+.fa-clear-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .fa-chat-area {
@@ -3753,6 +3766,12 @@ pre {
 #fa-input:focus {
   border-color: var(--porto);
   background: var(--white);
+}
+
+#fa-input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background: #eef2f7;
 }
 
 .fa-send-btn {

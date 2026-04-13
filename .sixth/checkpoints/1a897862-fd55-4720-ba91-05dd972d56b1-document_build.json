@@ -1,0 +1,10 @@
+{
+  "saved_at": "2026-04-12T17:17:17.112227",
+  "payload": {
+    "status": "error",
+    "error": "Falha ao gerar documentacao: 403 Vertex AI API has not been used in project silviosalviati before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/aiplatform.googleapis.com/overview?project=silviosalviati then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry. [reason: \"SERVICE_DISABLED\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"aiplatform.googleapis.com\"\n}\nmetadata {\n  key: \"serviceTitle\"\n  value: \"Vertex AI API\"\n}\nmetadata {\n  key: \"containerInfo\"\n  value: \"silviosalviati\"\n}\nmetadata {\n  key: \"consumer\"\n  value: \"projects/silviosalviati\"\n}\nmetadata {\n  key: \"activationUrl\"\n  value: \"https://console.developers.google.com/apis/api/aiplatform.googleapis.com/overview?project=silviosalviati\"\n}\n, locale: \"en-US\"\nmessage: \"Vertex AI API has not been used in project silviosalviati before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/aiplatform.googleapis.com/overview?project=silviosalviati then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.\"\n, links {\n  description: \"Google developers console API activation\"\n  url: \"https://console.developers.google.com/apis/api/aiplatform.googleapis.com/overview?project=silviosalviati\"\n}\n]",
+    "warnings": [
+      "Revise o contexto e tente novamente com mais detalhes."
+    ]
+  }
+}

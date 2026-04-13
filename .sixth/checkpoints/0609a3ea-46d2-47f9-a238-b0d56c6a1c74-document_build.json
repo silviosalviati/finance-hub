@@ -1,0 +1,10 @@
+{
+  "saved_at": "2026-04-12T17:40:17.912783",
+  "payload": {
+    "status": "error",
+    "error": "Falha ao gerar documentacao: 403 Permission 'aiplatform.endpoints.predict' denied on resource '//aiplatform.googleapis.com/projects/silviosalviati/locations/us-central1/publishers/google/models/gemini-1.5-pro' (or it may not exist). [reason: \"IAM_PERMISSION_DENIED\"\ndomain: \"aiplatform.googleapis.com\"\nmetadata {\n  key: \"resource\"\n  value: \"projects/silviosalviati/locations/us-central1/publishers/google/models/gemini-1.5-pro\"\n}\nmetadata {\n  key: \"permission\"\n  value: \"aiplatform.endpoints.predict\"\n}\n]",
+    "warnings": [
+      "Revise o contexto e tente novamente com mais detalhes."
+    ]
+  }
+}

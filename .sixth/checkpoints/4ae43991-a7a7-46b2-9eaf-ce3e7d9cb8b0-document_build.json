@@ -1,0 +1,312 @@
+{
+  "saved_at": "2026-04-12T18:09:55.308975",
+  "payload": {
+    "status": "ok",
+    "title": "Runbook Operacional: Pipeline de Faturamento Detalhado",
+    "doc_type": "runbook_operacional",
+    "summary": "Este runbook serve como um guia de primeiro acesso e operações rotineiras para novos engenheiros de dados que precisam operar e monitorar o pipeline de faturamento detalhado. Ele cobre a verificação de status, volume de dados e qualidade pós-carga.",
+    "audience": "Novos Engenheiros de Dados",
+    "objective": "Fornecer um guia prático para o monitoramento e operação diária do pipeline de faturamento, garantindo a integridade e disponibilidade dos dados para consumo analítico.",
+    "frequency": "Batch diário",
+    "table_name": "faturamento_detalhado",
+    "table_path": "silviosalviati.inteligencia_negocios.faturamento_detalhado",
+    "mermaid_diagram": "graph TD;\n    A[Dataform: faturamento_daily] --> B[BigQuery: silviosalviati.inteligencia_negocios.faturamento_detalhado];\n    B --> C[Great Expectations: suite faturamento_daily];",
+    "sections": [
+      {
+        "title": "1. Verificar Status Diário do Pipeline",
+        "content": "O que fazer: Confirmar se a execução diária do pipeline de faturamento foi concluída com sucesso.\nComo fazer: Acesse o Console do Dataform. Navegue até 'Workspaces' e selecione o projeto 'faturamento_daily'. Verifique o 'Last run status' na visão geral do workspace.\nO que verificar: O status deve ser 'SUCCESS'. Em caso de falha, notifique o lead técnico imediatamente, fornecendo o link para o log de erro."
+      },
+      {
+        "title": "2. Consultar Volume de Dados Carregado",
+        "content": "O que fazer: Validar o volume de transações e a receita total carregada para o dia anterior, comparando com as expectativas de negócio.\nComo fazer: Execute a seguinte query no BigQuery:\n```sql\nSELECT data_faturamento, COUNT(*) as transacoes, SUM(valor_liquido) as receita\nFROM silviosalviati.inteligencia_negocios.faturamento_detalhado\nWHERE data_faturamento = CURRENT_DATE() - 1\nGROUP BY 1\n```\nO que verificar: O volume de transações ('transacoes') deve estar entre 800 e 1500 para dias úteis. A receita ('receita') deve ser consistente com as expectativas de negócio para o período."
+      },
+      {
+        "title": "3. Verificar Qualidade Pós-Carga",
+        "content": "O que fazer: Assegurar que as regras de qualidade de dados definidas para a tabela 'faturamento_detalhado' foram atendidas após a carga diária.\nComo fazer: Acesse a interface do Great Expectations. Navegue até a 'suite faturamento_daily'. Verifique o resultado da última execução.\nO que verificar: Todas as expectativas devem ter passado, indicando 100% de conformidade. Qualquer falha deve ser investigada e reportada ao lead técnico."
+      },
+      {
+        "title": "4. Acessos Necessários",
+        "content": "Para operar e monitorar o pipeline, os seguintes acessos são mandatórios:\n1. Acesso de 'Viewer' no projeto GCP 'silviosalviati' via IAM.\n2. Ser membro do grupo de e-mail 'dados-eng@empresa.com' no Google Groups.\n3. Acesso ao Dataform Console, que deve ser solicitado ao lead técnico da equipe."
+      },
+      {
+        "title": "Passos operacionais",
+        "content": "1. Verificar status diário do pipeline:\n2. Consultar volume de dados carregado:\n3. Verificar qualidade pós-carga:\n4. Acessos necessários:"
+      }
+    ],
+    "data_dictionary": [
+      {
+        "column": "transacao_id",
+        "type": "STRING (NULLABLE)",
+        "description": "Identificador único da transação de faturamento.",
+        "business_rule": "Chave primária lógica para a tabela. Não deve conter duplicidades."
+      },
+      {
+        "column": "data_faturamento",
+        "type": "DATE (NULLABLE)",
+        "description": "Data em que a transação foi faturada.",
+        "business_rule": "Usada para agregação diária e filtros de período. Não deve ser nula."
+      },
+      {
+        "column": "valor_liquido",
+        "type": "FLOAT (NULLABLE)",
+        "description": "Valor líquido da transação após descontos e impostos.",
+        "business_rule": "Soma utilizada para cálculo da receita diária. Deve ser um valor positivo."
+      },
+      {
+        "column": "custo_operacional",
+        "type": "FLOAT (NULLABLE)",
+        "description": "Custo associado à operação da transação.",
+        "business_rule": "Utilizado para análise de margem de lucro. Pode ser nulo se não aplicável."
+      },
+      {
+        "column": "canal_venda",
+        "type": "STRING (NULLABLE)",
+        "description": "Canal pelo qual a venda foi realizada (ex: online, loja física).",
+        "business_rule": "Usado para segmentação de vendas por canal. Valores devem seguir um domínio pré-definido."
+      },
+      {
+        "column": "vendedor_responsavel",
+        "type": "STRING (NULLABLE)",
+        "description": "Nome ou identificador do vendedor responsável pela transação.",
+        "business_rule": "Usado para análise de performance individual. Pode ser nulo para vendas automáticas."
+      }
+    ],
+    "typing_notes": [
+      "A coluna 'transacao_id' é do tipo STRING. Ao realizar JOINs com outras tabelas que possam ter identificadores numéricos, pode ser necessário aplicar um CAST explícito para garantir a compatibilidade de tipos e evitar erros ou resultados inesperados."
+    ],
+    "assumptions": [],
+    "risks": [],
+    "acceptance_checklist": [
+      "Acesso ao Dataform Console (solicitar ao lead)",
+      "Status do pipeline Dataform 'faturamento_daily' é 'SUCCESS'.",
+      "Volume de transações diárias entre 800 e 1500 para dias úteis.",
+      "Receita diária consistente com as expectativas de negócio.",
+      "Todas as expectativas da suite 'faturamento_daily' no Great Expectations passaram (100%)."
+    ],
+    "next_steps": [
+      "Configurar alerta de schema drift no Dataplex para a tabela.",
+      "Publicar runbook de tratamento para quebra de contrato.",
+      "Definir dono de dados e SLA de correcao para incidentes de DQ."
+    ],
+    "warnings": [],
+    "governance": {
+      "aspect_types": [
+        "schema_contract",
+        "data_quality_profile",
+        "data_owner"
+      ],
+      "readers": [
+        "Membro do grupo dados-eng@empresa.com"
+      ],
+      "notes": [
+        "Acesso de 'Viewer' no projeto 'silviosalviati' (IAM) e acesso ao Dataform Console são necessários para operar e monitorar o pipeline.",
+        "table_path: silviosalviati.inteligencia_negocios.faturamento_detalhado"
+      ]
+    },
+    "pending_technical": [],
+    "quality_score": 100,
+    "markdown_document": "# Runbook Operacional: Pipeline de Faturamento Detalhado\n\n## Header\n**Tabela:** faturamento_detalhado\n**Caminho GCP:** silviosalviati.inteligencia_negocios.faturamento_detalhado\n\n**Tipo:** runbook_operacional\n**Publico-alvo:** Novos Engenheiros de Dados\n\n## Diagrama de fluxo (Mermaid)\n```mermaid\ngraph TD;\n    A[Dataform: faturamento_daily] --> B[BigQuery: silviosalviati.inteligencia_negocios.faturamento_detalhado];\n    B --> C[Great Expectations: suite faturamento_daily];\n```\n\n## 1. Visao geral (Overview)\n**Objetivo:** Fornecer um guia prático para o monitoramento e operação diária do pipeline de faturamento, garantindo a integridade e disponibilidade dos dados para consumo analítico.\n**Frequencia:** Batch diário\n\n## Resumo executivo\nEste runbook serve como um guia de primeiro acesso e operações rotineiras para novos engenheiros de dados que precisam operar e monitorar o pipeline de faturamento detalhado. Ele cobre a verificação de status, volume de dados e qualidade pós-carga.\n\n## 1. Verificar Status Diário do Pipeline\nO que fazer: Confirmar se a execução diária do pipeline de faturamento foi concluída com sucesso.\nComo fazer: Acesse o Console do Dataform. Navegue até 'Workspaces' e selecione o projeto 'faturamento_daily'. Verifique o 'Last run status' na visão geral do workspace.\nO que verificar: O status deve ser 'SUCCESS'. Em caso de falha, notifique o lead técnico imediatamente, fornecendo o link para o log de erro.\n\n## 2. Consultar Volume de Dados Carregado\nO que fazer: Validar o volume de transações e a receita total carregada para o dia anterior, comparando com as expectativas de negócio.\nComo fazer: Execute a seguinte query no BigQuery:\n```sql\nSELECT data_faturamento, COUNT(*) as transacoes, SUM(valor_liquido) as receita\nFROM silviosalviati.inteligencia_negocios.faturamento_detalhado\nWHERE data_faturamento = CURRENT_DATE() - 1\nGROUP BY 1\n```\nO que verificar: O volume de transações ('transacoes') deve estar entre 800 e 1500 para dias úteis. A receita ('receita') deve ser consistente com as expectativas de negócio para o período.\n\n## 3. Verificar Qualidade Pós-Carga\nO que fazer: Assegurar que as regras de qualidade de dados definidas para a tabela 'faturamento_detalhado' foram atendidas após a carga diária.\nComo fazer: Acesse a interface do Great Expectations. Navegue até a 'suite faturamento_daily'. Verifique o resultado da última execução.\nO que verificar: Todas as expectativas devem ter passado, indicando 100% de conformidade. Qualquer falha deve ser investigada e reportada ao lead técnico.\n\n## 4. Acessos Necessários\nPara operar e monitorar o pipeline, os seguintes acessos são mandatórios:\n1. Acesso de 'Viewer' no projeto GCP 'silviosalviati' via IAM.\n2. Ser membro do grupo de e-mail 'dados-eng@empresa.com' no Google Groups.\n3. Acesso ao Dataform Console, que deve ser solicitado ao lead técnico da equipe.\n\n## Passos operacionais\n1. Verificar status diário do pipeline:\n2. Consultar volume de dados carregado:\n3. Verificar qualidade pós-carga:\n4. Acessos necessários:\n\n## 2. Dicionario de dados (Data Dictionary)\n| Coluna | Tipo | Descricao | Regra de Negocio |\n| --- | --- | --- | --- |\n| transacao_id | STRING (NULLABLE) | Identificador único da transação de faturamento. | Chave primária lógica para a tabela. Não deve conter duplicidades. |\n| data_faturamento | DATE (NULLABLE) | Data em que a transação foi faturada. | Usada para agregação diária e filtros de período. Não deve ser nula. |\n| valor_liquido | FLOAT (NULLABLE) | Valor líquido da transação após descontos e impostos. | Soma utilizada para cálculo da receita diária. Deve ser um valor positivo. |\n| custo_operacional | FLOAT (NULLABLE) | Custo associado à operação da transação. | Utilizado para análise de margem de lucro. Pode ser nulo se não aplicável. |\n| canal_venda | STRING (NULLABLE) | Canal pelo qual a venda foi realizada (ex: online, loja física). | Usado para segmentação de vendas por canal. Valores devem seguir um domínio pré-definido. |\n| vendedor_responsavel | STRING (NULLABLE) | Nome ou identificador do vendedor responsável pela transação. | Usado para análise de performance individual. Pode ser nulo para vendas automáticas. |\n\n## 3. Checklist de qualidade de dados (DQ)\n- [ ] Acesso ao Dataform Console (solicitar ao lead)\n- [ ] Status do pipeline Dataform 'faturamento_daily' é 'SUCCESS'.\n- [ ] Volume de transações diárias entre 800 e 1500 para dias úteis.\n- [ ] Receita diária consistente com as expectativas de negócio.\n- [ ] Todas as expectativas da suite 'faturamento_daily' no Great Expectations passaram (100%).\n\n## 4. Governanca (Dataplex/Catalog)\n**Aspect Types**\n- schema_contract\n- data_quality_profile\n- data_owner\n\n## 5. Atencao a tipagem\n- A coluna 'transacao_id' é do tipo STRING. Ao realizar JOINs com outras tabelas que possam ter identificadores numéricos, pode ser necessário aplicar um CAST explícito para garantir a compatibilidade de tipos e evitar erros ou resultados inesperados.\n\n**Permissoes de leitura**\n- Membro do grupo dados-eng@empresa.com\n\n**Notas de governanca**\n- Acesso de 'Viewer' no projeto 'silviosalviati' (IAM) e acesso ao Dataform Console são necessários para operar e monitorar o pipeline.\n- table_path: silviosalviati.inteligencia_negocios.faturamento_detalhado\n\n## Premissas\n- Nao informado\n\n## Riscos\n- Nao informado\n\n## Proximos passos\n- Configurar alerta de schema drift no Dataplex para a tabela.\n- Publicar runbook de tratamento para quebra de contrato.\n- Definir dono de dados e SLA de correcao para incidentes de DQ.\n",
+    "metadata": {
+      "project_id": "silviosalviati",
+      "dataset_hint": "inteligencia_negocios",
+      "table_name": "faturamento_detalhado",
+      "table_path": "silviosalviati.inteligencia_negocios.faturamento_detalhado",
+      "explicit_table_ref": {
+        "project": "silviosalviati",
+        "dataset": "inteligencia_negocios",
+        "table": "faturamento_detalhado",
+        "full_name": "silviosalviati.inteligencia_negocios.faturamento_detalhado"
+      },
+      "dataset_ref": "silviosalviati.inteligencia_negocios",
+      "tables": [
+        {
+          "table_id": "fatos_vendas",
+          "full_name": "silviosalviati.inteligencia_negocios.fatos_vendas",
+          "partition_field": "data_faturamento",
+          "clustering_fields": [
+            "canal_venda"
+          ],
+          "columns": [
+            {
+              "name": "transacao_id",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "ID único da transação financeira."
+            },
+            {
+              "name": "cliente_id",
+              "type": "INTEGER",
+              "mode": "NULLABLE",
+              "description": "Chave estrangeira para ligação com a tabela de clientes."
+            },
+            {
+              "name": "data_faturamento",
+              "type": "DATE",
+              "mode": "NULLABLE",
+              "description": "Data oficial do faturamento (Coluna de Partição)."
+            },
+            {
+              "name": "valor_liquido",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Receita líquida após descontos e taxas de operadoras."
+            },
+            {
+              "name": "custo_operacional",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Custo logístico e tributário da operação."
+            },
+            {
+              "name": "canal_venda",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Canal de origem (E-COMMERCE, APP, LOJA_FISICA ou WHATSAPP)."
+            },
+            {
+              "name": "vendedor_responsavel",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Nome ou código do consultor que realizou a venda."
+            }
+          ]
+        },
+        {
+          "table_id": "faturamento_detalhado",
+          "full_name": "silviosalviati.inteligencia_negocios.faturamento_detalhado",
+          "partition_field": "data_faturamento",
+          "clustering_fields": [
+            "canal_venda",
+            "vendedor_responsavel"
+          ],
+          "columns": [
+            {
+              "name": "transacao_id",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Código único da operação de venda."
+            },
+            {
+              "name": "data_faturamento",
+              "type": "DATE",
+              "mode": "NULLABLE",
+              "description": "Data oficial do reconhecimento da receita (Coluna de Partição)."
+            },
+            {
+              "name": "valor_liquido",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Valor real que entra no caixa após descontos e taxas de operadoras."
+            },
+            {
+              "name": "custo_operacional",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Custo logístico e de impostos associado a esta transação específica."
+            },
+            {
+              "name": "canal_venda",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Origem da venda: 'E-COMMERCE', 'APP', 'LOJA_FISICA' ou 'WHATSAPP'."
+            },
+            {
+              "name": "vendedor_responsavel",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Nome ou código do consultor que fechou o negócio."
+            }
+          ]
+        },
+        {
+          "table_id": "perfil_comportamental_clientes",
+          "full_name": "silviosalviati.inteligencia_negocios.perfil_comportamental_clientes",
+          "partition_field": "",
+          "clustering_fields": [
+            "segmento_cliente",
+            "cidade_sede"
+          ],
+          "columns": [
+            {
+              "name": "cliente_id",
+              "type": "INTEGER",
+              "mode": "NULLABLE",
+              "description": "Chave primária. Identificador único do cliente para Joins."
+            },
+            {
+              "name": "segmento_cliente",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Classificação do cliente (VIP, RECORRENTE, DORMANTE ou NOVO)."
+            },
+            {
+              "name": "score_credito",
+              "type": "FLOAT",
+              "mode": "NULLABLE",
+              "description": "Pontuação de risco financeiro. Valores altos indicam maior confiabilidade."
+            },
+            {
+              "name": "data_ultima_interacao",
+              "type": "DATE",
+              "mode": "NULLABLE",
+              "description": "Data da última interação ou compra realizada pelo cliente."
+            },
+            {
+              "name": "cidade_sede",
+              "type": "STRING",
+              "mode": "NULLABLE",
+              "description": "Cidade onde o cliente está sediado."
+            }
+          ]
+        }
+      ],
+      "selected_table": {
+        "table_id": "faturamento_detalhado",
+        "full_name": "silviosalviati.inteligencia_negocios.faturamento_detalhado",
+        "partition_field": "data_faturamento",
+        "clustering_fields": [
+          "canal_venda",
+          "vendedor_responsavel"
+        ],
+        "columns": [
+          {
+            "name": "transacao_id",
+            "type": "STRING",
+            "mode": "NULLABLE",
+            "description": "Código único da operação de venda."
+          },
+          {
+            "name": "data_faturamento",
+            "type": "DATE",
+            "mode": "NULLABLE",
+            "description": "Data oficial do reconhecimento da receita (Coluna de Partição)."
+          },
+          {
+            "name": "valor_liquido",
+            "type": "FLOAT",
+            "mode": "NULLABLE",
+            "description": "Valor real que entra no caixa após descontos e taxas de operadoras."
+          },
+          {
+            "name": "custo_operacional",
+            "type": "FLOAT",
+            "mode": "NULLABLE",
+            "description": "Custo logístico e de impostos associado a esta transação específica."
+          },
+          {
+            "name": "canal_venda",
+            "type": "STRING",
+            "mode": "NULLABLE",
+            "description": "Origem da venda: 'E-COMMERCE', 'APP', 'LOJA_FISICA' ou 'WHATSAPP'."
+          },
+          {
+            "name": "vendedor_responsavel",
+            "type": "STRING",
+            "mode": "NULLABLE",
+            "description": "Nome ou código do consultor que fechou o negócio."
+          }
+        ]
+      }
+    }
+  }
+}

@@ -9,7 +9,6 @@ O projeto centraliza assistentes especializados para analytics, documentação e
 - Query Analyzer: analisa SQL existente, detecta antipadrões e sugere otimizações.
 - Query Builder: gera SQL a partir de linguagem natural com contexto real de dataset.
 - Document Builder: gera documentação técnica, funcional e operacional com base em artefatos reais do BigQuery e do Dataplex Catalog.
-- Finance Auditor: pacote reservado para evolução futura.
 
 Na interface, os nomes visíveis já foram atualizados para Query Builder e Document Builder. Internamente, os `agent_id` continuam `query_build` e `document_build` para manter compatibilidade com a API.
 
@@ -27,8 +26,7 @@ bot-query/
 │   ├── agents/
 │   │   ├── query_analyzer/          # agente implementado
 │   │   ├── query_build/             # agente implementado
-│   │   ├── document_build/          # agente implementado
-│   │   └── finance_auditor/         # placeholder de pacote/grafo
+│   │   └── document_build/          # agente implementado
 │   ├── core/
 │   │   ├── base_agent.py            # contrato base dos agentes
 │   │   ├── registry.py              # registro e resolução de agentes
@@ -65,7 +63,6 @@ Arquivos de referência:
 | Query Analyzer    | `query_analyzer`  | Implementado                | Sim                 |
 | Query Builder     | `query_build`     | Implementado                | Sim                 |
 | Document Builder  | `document_build`  | Implementado                | Sim                 |
-| Finance Auditor   | `finance_auditor` | Placeholder de pacote/grafo | Não                 |
 
 Observação: atualmente o runtime registra Query Analyzer, Query Builder e Document Builder.
 

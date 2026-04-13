@@ -43,30 +43,6 @@ async def list_agents():
     return {"agents": registry.list_ids()}
 
 
-@router.post("/analyze")
-async def analyze(
-    req: AnalyzeRequest,
-    session: dict[str, Any] = Depends(get_current_user),
-):
-    query = req.query.strip()
-    project_id = req.project_id.strip() if req.project_id else ""
-
-    if not query:
-        raise HTTPException(status_code=400, detail="Query nao pode ser vazia.")
-
-    try:
-        registry = get_registry()
-        agent = registry.get("query_analyzer")
-        result = agent.analyze(query=query, project_id=project_id, dataset_hint=req.dataset_hint)
-        checkpoint_key = f"{session['token']}-query_analyzer"
-        get_checkpointer().save(checkpoint_key, result)
-        return result
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
 @router.post("/api/agents/{agent_id}/analyze")
 async def analyze_by_agent(
     agent_id: str,

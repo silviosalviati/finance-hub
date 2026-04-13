@@ -994,7 +994,7 @@ async function runAnalyze() {
     setTimeout(() => setQAProgress("Detectando anti-padrões...", 62), 520);
     setTimeout(() => setQAProgress("Consolidando resultado...", 84), 980);
 
-    const res = await fetch("/analyze", {
+    const res = await fetch("/api/agents/query_analyzer/analyze", {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({

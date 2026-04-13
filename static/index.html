@@ -434,18 +434,7 @@
               <!-- Finance AuditorIA -->
               <article
                 class="bot-card bc-audit"
-                onclick="
-                  openDev(
-                    'Finance AuditorIA',
-                    'Audita pipelines verificando conformidade e consistência de KPIs.',
-                    [
-                      'Rastreabilidade Gold/Silver',
-                      'Verificação de KPIs',
-                      'Relatório de compliance',
-                    ],
-                    'Q3 2025',
-                  )
-                "
+                onclick="navTo('fa')"
               >
                 <div class="bhead">
                   <div class="biw bi-emerald">
@@ -2004,6 +1993,110 @@ runbook_operacional</pre
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── FINANCE AUDITOR VIEW ── -->
+          <section class="view" id="view-fa" style="padding: 0">
+            <div class="qa-topbar">
+              <button class="btn-back" onclick="navTo('home')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 12H5M12 5l-7 7 7 7" />
+                </svg>
+                Voltar
+              </button>
+              <div class="breadcrumb">
+                <span onclick="navTo('home')" style="cursor:pointer">Painel</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+                <span class="cur">Finance AuditorIA</span>
+              </div>
+            </div>
+
+            <div class="qa-hero">
+              <div class="qa-hero-icon" style="background:var(--emerald-bg)">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <polyline points="9 12 11 14 15 10" />
+                </svg>
+              </div>
+              <div>
+                <div class="qa-hero-title">Finance AuditorIA</div>
+                <div class="qa-hero-desc">
+                  Análise de VoC e fricção com linguagem natural — pergunte sobre qualquer período e receba um relatório executivo.
+                </div>
+              </div>
+              <div class="qa-hero-right">
+                <span class="qa-hero-tag">VoC</span>
+                <span class="qa-hero-tag">Fricção</span>
+                <span class="qa-hero-tag">IA Generativa</span>
+                <div class="qa-live-badge">
+                  <div class="qa-live-dot"></div>
+                  Disponivel
+                </div>
+              </div>
+            </div>
+
+            <div class="fa-layout">
+              <!-- Sidebar de configuração -->
+              <div class="fa-sidebar">
+                <div class="qlabel">Configuração</div>
+
+                <div class="qfield">
+                  <label for="fa-project">Project ID — GCP</label>
+                  <input type="text" id="fa-project" value="silviosalviati" autocomplete="off" />
+                </div>
+
+                <div class="qlabel">Sugestões rápidas</div>
+                <div class="fa-suggestions" id="fa-suggestions">
+                  <button class="fa-suggestion-chip" onclick="useFASuggestion(this)">Analise o mês passado de atendimentos</button>
+                  <button class="fa-suggestion-chip" onclick="useFASuggestion(this)">Mostre os principais pontos de fricção dos últimos 30 dias</button>
+                  <button class="fa-suggestion-chip" onclick="useFASuggestion(this)">Quais os temas mais recorrentes em março de 2025?</button>
+                  <button class="fa-suggestion-chip" onclick="useFASuggestion(this)">Relatório VoC completo de fevereiro de 2025</button>
+                </div>
+
+                <button class="fa-clear-btn" onclick="clearFAChat()">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px">
+                    <polyline points="1 4 1 10 7 10" />
+                    <path d="M3.51 15a9 9 0 1 0 .49-3.99" />
+                  </svg>
+                  Nova conversa
+                </button>
+              </div>
+
+              <!-- Área de chat -->
+              <div class="fa-chat-area">
+                <div class="fa-messages" id="fa-messages">
+                  <!-- Placeholder de boas-vindas -->
+                  <div class="fa-welcome" id="fa-welcome">
+                    <div class="fa-welcome-ico">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <polyline points="9 12 11 14 15 10" />
+                      </svg>
+                    </div>
+                    <h3>Finance AuditorIA</h3>
+                    <p>Pergunte sobre qualquer período em linguagem natural. Analisarei sentimento, fricção e temas de atendimento e gerarei um relatório executivo.</p>
+                  </div>
+                </div>
+
+                <div class="fa-input-bar">
+                  <textarea
+                    id="fa-input"
+                    placeholder="Ex: analise os atendimentos de março de 2025…"
+                    rows="1"
+                    oninput="autoResizeFAInput(this)"
+                    onkeydown="handleFAInputKey(event)"
+                  ></textarea>
+                  <button class="fa-send-btn" id="fa-send-btn" onclick="sendFAMessage()" disabled>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13" />
+                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>

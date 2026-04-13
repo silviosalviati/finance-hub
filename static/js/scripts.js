@@ -839,6 +839,7 @@ function navTo(view) {
     qa: "view-qa",
     db: "view-db",
     qb: "view-qb",
+    fa: "view-fa",
     dev: "view-dev",
     hist: "view-hist",
   };
@@ -859,6 +860,9 @@ function navTo(view) {
     document.getElementById("nav-db")?.classList.add("active");
   } else if (view === "qb") {
     document.getElementById("nav-qb")?.classList.add("active");
+  } else if (view === "fa") {
+    document.getElementById("nav-fa")?.classList.add("active");
+    initFAInputListener();
   }
 }
 
@@ -3403,3 +3407,447 @@ function stopShowcaseAutoplay() {
 function restartShowcaseAutoplay() {
   startShowcaseAutoplay();
 }
+
+// ─────────────────────────────────────
+// Finance AuditorIA — Chat
+// ─────────────────────────────────────
+
+let faIsLoading = false;
+let faThinkingId = null;
+let faInputListenerBound = false;
+let faMsgCounter = 0;
+
+function initFAInputListener() {
+  if (faInputListenerBound) return;
+  faInputListenerBound = true;
+
+  const input = document.getElementById("fa-input");
+  if (!input) return;
+
+  input.addEventListener("input", () => {
+    const sendBtn = document.getElementById("fa-send-btn");
+    if (sendBtn) sendBtn.disabled = !input.value.trim() || faIsLoading;
+    autoResizeFAInput(input);
+  });
+}
+
+function autoResizeFAInput(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 130) + "px";
+}
+
+function handleFAInputKey(event) {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    sendFAMessage();
+  }
+}
+
+function useFASuggestion(btn) {
+  const input = document.getElementById("fa-input");
+  if (!input || faIsLoading) return;
+  input.value = btn.textContent.trim();
+  autoResizeFAInput(input);
+  const sendBtn = document.getElementById("fa-send-btn");
+  if (sendBtn) sendBtn.disabled = false;
+  input.focus();
+}
+
+function clearFAChat() {
+  const msgArea = document.getElementById("fa-messages");
+  if (!msgArea) return;
+
+  faMsgCounter = 0;
+  msgArea.innerHTML = `
+    <div class="fa-welcome" id="fa-welcome">
+      <div class="fa-welcome-ico">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#059669"
+          stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <polyline points="9 12 11 14 15 10"/>
+        </svg>
+      </div>
+      <h3>Finance AuditorIA</h3>
+      <p>Pergunte sobre qualquer período em linguagem natural. Analisarei sentimento, fricção e temas de atendimento e gerarei um relatório executivo.</p>
+    </div>`;
+
+  const input = document.getElementById("fa-input");
+  if (input) {
+    input.value = "";
+    autoResizeFAInput(input);
+  }
+  const sendBtn = document.getElementById("fa-send-btn");
+  if (sendBtn) sendBtn.disabled = true;
+}
+
+function _faScrollBottom() {
+  const area = document.getElementById("fa-messages");
+  if (area) area.scrollTop = area.scrollHeight;
+}
+
+function _faUserInitials() {
+  const name = currentUser?.name || currentUser?.username || "U";
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function _faNow() {
+  return new Date().toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function appendFAUserMessage(text) {
+  const welcome = document.getElementById("fa-welcome");
+  if (welcome) welcome.remove();
+
+  const area = document.getElementById("fa-messages");
+  if (!area) return;
+
+  const id = `fa-msg-${++faMsgCounter}`;
+  const el = document.createElement("div");
+  el.id = id;
+  el.className = "fa-msg fa-msg-user";
+  el.innerHTML = `
+    <div class="fa-msg-avatar">${_faUserInitials()}</div>
+    <div>
+      <div class="fa-bubble">${_escFA(text)}</div>
+      <div class="fa-msg-time">${_faNow()}</div>
+    </div>`;
+  area.appendChild(el);
+  _faScrollBottom();
+  return id;
+}
+
+function appendFAThinking() {
+  const area = document.getElementById("fa-messages");
+  if (!area) return;
+
+  const id = `fa-think-${++faMsgCounter}`;
+  faThinkingId = id;
+  const el = document.createElement("div");
+  el.id = id;
+  el.className = "fa-msg fa-msg-bot";
+  el.innerHTML = `
+    <div class="fa-msg-avatar">IA</div>
+    <div class="fa-bubble">
+      <div class="fa-thinking-dots"><span></span><span></span><span></span></div>
+    </div>`;
+  area.appendChild(el);
+  _faScrollBottom();
+}
+
+function removeFAThinking() {
+  if (!faThinkingId) return;
+  document.getElementById(faThinkingId)?.remove();
+  faThinkingId = null;
+}
+
+function appendFAErrorMessage(msg) {
+  const area = document.getElementById("fa-messages");
+  if (!area) return;
+
+  const el = document.createElement("div");
+  el.className = "fa-msg fa-msg-bot";
+  el.innerHTML = `
+    <div class="fa-msg-avatar">IA</div>
+    <div>
+      <div class="fa-bubble fa-bubble--error">⚠ ${_escFA(msg)}</div>
+      <div class="fa-msg-time">${_faNow()}</div>
+    </div>`;
+  area.appendChild(el);
+  _faScrollBottom();
+}
+
+function appendFABotMessage(data) {
+  const area = document.getElementById("fa-messages");
+  if (!area) return;
+
+  const id = `fa-bot-${++faMsgCounter}`;
+  const el = document.createElement("div");
+  el.id = id;
+  el.className = "fa-msg fa-msg-bot";
+
+  const metricsHtml = _faMetricsHtml(data);
+  const reportHtml = _faMdToHtml(data.markdown_report || "");
+  const detailsHtml = _faDetailsHtml(data);
+
+  el.innerHTML = `
+    <div class="fa-msg-avatar">IA</div>
+    <div style="max-width:100%;">
+      <div class="fa-bubble" style="max-width:700px; width:100%;">
+        ${metricsHtml}
+        <div class="fa-report">${reportHtml}</div>
+        ${detailsHtml}
+      </div>
+      <div class="fa-msg-time">${_faNow()} · Score ${data.quality_score ?? "—"}/100</div>
+    </div>`;
+
+  area.appendChild(el);
+  _faScrollBottom();
+}
+
+function _faMetricsHtml(data) {
+  const label = (data.friction_label || "BAIXO").toUpperCase();
+  const labelKey = label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const pct = data.friction_score != null
+    ? (data.friction_score * 100).toFixed(1) + "%"
+    : "—";
+
+  const dateRange = data.date_range
+    ? `${data.date_range.start} → ${data.date_range.end}`
+    : "—";
+
+  const dominant = (
+    data.sentiment_analysis?.dominant || "—"
+  ).toUpperCase();
+  const total = (data.total_records ?? 0).toLocaleString("pt-BR");
+
+  const sentColor = { POSITIVO: "#059669", NEGATIVO: "#be123c", NEUTRO: "#3d5276" }[dominant] || "#3d5276";
+
+  const warnings = Array.isArray(data.warnings) && data.warnings.length
+    ? `<span class="fa-badge fa-badge--neutral">⚠ ${data.warnings.length} aviso(s)</span>`
+    : "";
+
+  return `
+    <div class="fa-metrics-row">
+      <span class="fa-badge fa-badge--${labelKey}">
+        Fricção: ${label} (${pct})
+      </span>
+      <span class="fa-badge fa-badge--neutral" style="border-color:${sentColor};color:${sentColor}">
+        Sentimento dominante: ${dominant}
+      </span>
+      <span class="fa-badge fa-badge--neutral">📅 ${dateRange}</span>
+      <span class="fa-badge fa-badge--neutral">📊 ${total} registros</span>
+      ${warnings}
+    </div>`;
+}
+
+function _faDetailsHtml(data) {
+  const themes = data.themes_analysis?.themes || [];
+  if (!themes.length) return "";
+
+  const chips = themes
+    .map(
+      (t) =>
+        `<span class="fa-theme-chip" title="${_escFA(t.sentimento_predominante || "")}">${_escFA(t.nome || "")}</span>`,
+    )
+    .join("");
+
+  const detailId = `fa-det-${faMsgCounter}`;
+  const bodyId = `fa-detbody-${faMsgCounter}`;
+
+  return `
+    <div class="fa-details">
+      <button class="fa-details-toggle" id="${detailId}" onclick="toggleFADetails('${detailId}','${bodyId}')">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+        Principais temas (${themes.length})
+      </button>
+      <div class="fa-details-body" id="${bodyId}">
+        ${chips}
+        ${data.themes_analysis?.insights
+          ? `<p style="margin-top:8px;color:var(--ink2);font-size:12px">${_escFA(data.themes_analysis.insights)}</p>`
+          : ""}
+      </div>
+    </div>`;
+}
+
+function toggleFADetails(toggleId, bodyId) {
+  const toggle = document.getElementById(toggleId);
+  const body = document.getElementById(bodyId);
+  if (!toggle || !body) return;
+  toggle.classList.toggle("open");
+  body.classList.toggle("open");
+}
+
+// ── Simple Markdown → HTML converter ──
+function _faMdToHtml(md) {
+  if (!md) return "";
+
+  const lines = md.replace(/\r\n/g, "\n").split("\n");
+  const out = [];
+  let inTable = false;
+  let inUl = false;
+  let inOl = false;
+
+  const closeList = () => {
+    if (inUl) { out.push("</ul>"); inUl = false; }
+    if (inOl) { out.push("</ol>"); inOl = false; }
+  };
+
+  const closeTable = () => {
+    if (inTable) { out.push("</tbody></table>"); inTable = false; }
+  };
+
+  const inline = (text) =>
+    text
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      .replace(/`(.+?)`/g, "<code>$1</code>")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trimEnd();
+
+    // Horizontal rule
+    if (/^---+$/.test(line.trim())) {
+      closeList(); closeTable();
+      out.push("<hr>");
+      continue;
+    }
+
+    // Headers
+    const h3m = line.match(/^### (.+)/);
+    if (h3m) { closeList(); closeTable(); out.push(`<h3>${inline(h3m[1])}</h3>`); continue; }
+    const h2m = line.match(/^## (.+)/);
+    if (h2m) { closeList(); closeTable(); out.push(`<h2>${inline(h2m[1])}</h2>`); continue; }
+    const h1m = line.match(/^# (.+)/);
+    if (h1m) { closeList(); closeTable(); out.push(`<h1>${inline(h1m[1])}</h1>`); continue; }
+
+    // Blockquote
+    const bqm = line.match(/^> (.+)/);
+    if (bqm) { closeList(); closeTable(); out.push(`<blockquote>${inline(bqm[1])}</blockquote>`); continue; }
+
+    // Table row
+    if (line.startsWith("|") && line.endsWith("|")) {
+      const cells = line.slice(1, -1).split("|").map((c) => c.trim());
+      // separator row (align row)
+      if (cells.every((c) => /^[-:]+$/.test(c))) continue;
+
+      if (!inTable) {
+        closeList();
+        // previous line was header → wrap in thead
+        const prevIdx = out.length - 1;
+        const prev = out[prevIdx] || "";
+        if (prev.startsWith("<tr>")) {
+          out[prevIdx] = `<table><thead>${prev}</thead><tbody>`;
+        } else {
+          out.push("<table><thead></thead><tbody>");
+        }
+        inTable = true;
+        continue;
+      }
+      const tds = cells.map((c) => `<td>${inline(c)}</td>`).join("");
+      out.push(`<tr>${tds}</tr>`);
+      continue;
+    } else if (inTable) {
+      // Check if last pushed line was header (before tbody)
+      closeTable();
+    }
+
+    // Detect table header (line with |, next line is separator)
+    if (line.startsWith("|")) {
+      const cells = line.slice(1, -1).split("|").map((c) => c.trim());
+      const ths = cells.map((c) => `<th>${inline(c)}</th>`).join("");
+      out.push(`<tr>${ths}</tr>`);
+      continue;
+    }
+
+    // Unordered list
+    const ulm = line.match(/^[-*] (.+)/);
+    if (ulm) {
+      if (!inUl) { closeList(); closeTable(); out.push("<ul>"); inUl = true; }
+      out.push(`<li>${inline(ulm[1])}</li>`);
+      continue;
+    }
+
+    // Ordered list
+    const olm = line.match(/^\d+\. (.+)/);
+    if (olm) {
+      if (!inOl) { closeList(); closeTable(); out.push("<ol>"); inOl = true; }
+      out.push(`<li>${inline(olm[1])}</li>`);
+      continue;
+    }
+
+    closeList();
+
+    // Blank line
+    if (!line.trim()) continue;
+
+    // Paragraph
+    out.push(`<p>${inline(line)}</p>`);
+  }
+
+  closeList();
+  closeTable();
+  return out.join("\n");
+}
+
+function _escFA(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// ── Main send function ──
+async function sendFAMessage() {
+  const input = document.getElementById("fa-input");
+  const sendBtn = document.getElementById("fa-send-btn");
+  const text = input?.value.trim() || "";
+  const projectId = document.getElementById("fa-project")?.value.trim() || "silviosalviati";
+
+  if (!text || faIsLoading) return;
+
+  input.value = "";
+  if (input) { input.style.height = "auto"; }
+  if (sendBtn) sendBtn.disabled = true;
+
+  appendFAUserMessage(text);
+  appendFAThinking();
+
+  faIsLoading = true;
+
+  try {
+    const res = await fetch("/api/agents/finance_auditor/analyze", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        query: text,
+        project_id: projectId,
+        dataset_hint: null,
+      }),
+    });
+
+    if (res.status === 401) {
+      doLogout();
+      return;
+    }
+
+    if (!res.ok) {
+      const e = await res.json();
+      throw new Error(e.detail || "Erro na análise");
+    }
+
+    const data = await res.json();
+    removeFAThinking();
+
+    if (data.status === "error") {
+      appendFAErrorMessage(data.error || "Não foi possível realizar a análise.");
+    } else {
+      appendFABotMessage(data);
+    }
+  } catch (e) {
+    removeFAThinking();
+    appendFAErrorMessage(prettifyErrorMessage(e.message));
+  } finally {
+    faIsLoading = false;
+    if (sendBtn) sendBtn.disabled = !input?.value.trim();
+    input?.focus();
+  }
+}
+

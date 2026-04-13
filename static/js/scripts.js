@@ -240,18 +240,12 @@ function hideDBProgress() {
 function syncQAAnalyzeButtonState() {
   const btn = document.getElementById("qa-btn");
   const query = document.getElementById("qa-query")?.value.trim() || "";
-  const projectId = document.getElementById("qa-project")?.value.trim() || "";
-  const datasetHint = document.getElementById("qa-dataset")?.value.trim() || "";
 
   if (!btn) return;
 
   const blockedByValidation =
     !query ||
-    !projectId ||
-    !datasetHint ||
     qaDatasetValidationState.status !== "valid" ||
-    qaDatasetValidationState.projectId !== projectId ||
-    qaDatasetValidationState.datasetHint !== datasetHint ||
     qaDatasetValidationState.queryText !== query;
 
   btn.disabled = qaIsLoading || blockedByValidation;
@@ -953,8 +947,14 @@ async function runAnalyze() {
   }
 
   const query = document.getElementById("qa-query")?.value.trim() || "";
-  let project_id = document.getElementById("qa-project")?.value.trim() || "";
-  let dataset_hint = document.getElementById("qa-dataset")?.value.trim() || "";
+  const project_id =
+    qaDatasetValidationState.projectId ||
+    document.getElementById("qa-project")?.value.trim() ||
+    "";
+  const dataset_hint =
+    qaDatasetValidationState.datasetHint ||
+    document.getElementById("qa-dataset")?.value.trim() ||
+    "";
   const errEl = document.getElementById("qa-error");
   const qaEmpty = document.getElementById("qa-empty");
   const qaTabsArea = document.getElementById("qa-tabs-area");
@@ -970,8 +970,6 @@ async function runAnalyze() {
   setQALoading(true);
   const contextAlreadyValidated =
     qaDatasetValidationState.status === "valid" &&
-    qaDatasetValidationState.projectId === project_id &&
-    qaDatasetValidationState.datasetHint === dataset_hint &&
     qaDatasetValidationState.queryText === query;
 
   if (!contextAlreadyValidated) {
@@ -999,7 +997,11 @@ async function runAnalyze() {
     const res = await fetch("/analyze", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ query, project_id, dataset_hint }),
+      body: JSON.stringify({
+        query,
+        project_id: project_id || null,
+        dataset_hint: dataset_hint || null,
+      }),
     });
 
     if (res.status === 401) {

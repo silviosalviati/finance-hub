@@ -16,7 +16,7 @@ router = APIRouter(tags=["agents"])
 
 class AnalyzeRequest(BaseModel):
     query: str
-    project_id: str
+    project_id: str | None = None
     dataset_hint: str | None = None
 
 
@@ -49,12 +49,10 @@ async def analyze(
     session: dict[str, Any] = Depends(get_current_user),
 ):
     query = req.query.strip()
-    project_id = req.project_id.strip()
+    project_id = req.project_id.strip() if req.project_id else ""
 
     if not query:
         raise HTTPException(status_code=400, detail="Query nao pode ser vazia.")
-    if not project_id:
-        raise HTTPException(status_code=400, detail="Project ID nao pode ser vazio.")
 
     try:
         registry = get_registry()
@@ -76,11 +74,11 @@ async def analyze_by_agent(
     session: dict[str, Any] = Depends(get_current_user),
 ):
     query = req.query.strip()
-    project_id = req.project_id.strip()
+    project_id = req.project_id.strip() if req.project_id else ""
 
     if not query:
         raise HTTPException(status_code=400, detail="Query nao pode ser vazia.")
-    if not project_id:
+    if agent_id != "query_analyzer" and not project_id:
         raise HTTPException(status_code=400, detail="Project ID nao pode ser vazio.")
 
     registry = get_registry()

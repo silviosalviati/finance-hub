@@ -432,10 +432,7 @@
               </article>
 
               <!-- Finance AuditorIA -->
-              <article
-                class="bot-card bc-audit"
-                onclick="navTo('fa')"
-              >
+              <article class="bot-card bc-audit" onclick="navTo('fa')">
                 <div class="bhead">
                   <div class="biw bi-emerald">
                     <svg
@@ -2002,14 +1999,32 @@ runbook_operacional</pre
           <section class="view" id="view-fa" style="padding: 0">
             <div class="qa-topbar">
               <button class="btn-back" onclick="navTo('home')">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <path d="M19 12H5M12 5l-7 7 7 7" />
                 </svg>
                 Voltar
               </button>
               <div class="breadcrumb">
-                <span onclick="navTo('home')" style="cursor:pointer">Painel</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <span onclick="navTo('home')" style="cursor: pointer"
+                  >Painel</span
+                >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <path d="M9 18l6-6-6-6" />
                 </svg>
                 <span class="cur">Finance AuditorIA</span>
@@ -2017,8 +2032,17 @@ runbook_operacional</pre
             </div>
 
             <div class="qa-hero">
-              <div class="qa-hero-icon" style="background:var(--emerald-bg)">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <div class="qa-hero-icon" style="background: var(--emerald-bg)">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#059669"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                   <polyline points="9 12 11 14 15 10" />
                 </svg>
@@ -2026,7 +2050,8 @@ runbook_operacional</pre
               <div>
                 <div class="qa-hero-title">Finance AuditorIA</div>
                 <div class="qa-hero-desc">
-                  Análise de VoC e fricção com linguagem natural — pergunte sobre qualquer período e receba um relatório executivo.
+                  Análise de VoC e fricção com linguagem natural — pergunte
+                  sobre qualquer período e receba um relatório executivo.
                 </div>
               </div>
               <div class="qa-hero-right">
@@ -2041,25 +2066,61 @@ runbook_operacional</pre
             </div>
 
             <div class="fa-layout">
-              <!-- Sidebar de configuração -->
+              <!-- Sidebar -->
               <div class="fa-sidebar">
-                <div class="qlabel">Configuração</div>
-
-                <div class="qfield">
-                  <label for="fa-project">Project ID — GCP</label>
-                  <input type="text" id="fa-project" value="silviosalviati" autocomplete="off" />
+                <div class="fa-ops-box" aria-label="Operações atendidas">
+                  <div class="fa-ops-title">Operações atendidas</div>
+                  <ul class="fa-ops-list">
+                    <li class="fa-ops-item">Financeiro Auto</li>
+                    <li class="fa-ops-item">Financeiro Geral</li>
+                    <li class="fa-ops-item">Financeiro Bank</li>
+                    <li class="fa-ops-item">Financeiro Produção</li>
+                    <li class="fa-ops-item">Financeiro Vida</li>
+                    <li class="fa-ops-item">Financeiro Re</li>
+                    <li class="fa-ops-item">Financeiro Saúde</li>
+                  </ul>
                 </div>
 
                 <div class="qlabel">Sugestões rápidas</div>
                 <div class="fa-suggestions" id="fa-suggestions">
-                  <button class="fa-suggestion-chip" onclick="useFASuggestion(this)">Analise o mês passado de atendimentos</button>
-                  <button class="fa-suggestion-chip" onclick="useFASuggestion(this)">Mostre os principais pontos de fricção dos últimos 30 dias</button>
-                  <button class="fa-suggestion-chip" onclick="useFASuggestion(this)">Quais os temas mais recorrentes em março de 2025?</button>
-                  <button class="fa-suggestion-chip" onclick="useFASuggestion(this)">Relatório VoC completo de fevereiro de 2025</button>
+                  <button
+                    class="fa-suggestion-chip"
+                    onclick="useFASuggestion(this)"
+                  >
+                    Analise o mês passado de atendimentos
+                  </button>
+                  <button
+                    class="fa-suggestion-chip"
+                    onclick="useFASuggestion(this)"
+                  >
+                    Mostre os principais pontos de fricção dos últimos 30 dias
+                  </button>
+                  <button
+                    class="fa-suggestion-chip"
+                    onclick="useFASuggestion(this)"
+                  >
+                    Quais os temas mais recorrentes em março de 2025?
+                  </button>
+                  <button
+                    class="fa-suggestion-chip"
+                    onclick="useFASuggestion(this)"
+                  >
+                    Relatório VoC completo de fevereiro de 2025
+                  </button>
                 </div>
 
                 <button class="fa-clear-btn" onclick="clearFAChat()">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    style="margin-right: 5px"
+                  >
                     <polyline points="1 4 1 10 7 10" />
                     <path d="M3.51 15a9 9 0 1 0 .49-3.99" />
                   </svg>
@@ -2073,13 +2134,26 @@ runbook_operacional</pre
                   <!-- Placeholder de boas-vindas -->
                   <div class="fa-welcome" id="fa-welcome">
                     <div class="fa-welcome-ico">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#059669"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                         <polyline points="9 12 11 14 15 10" />
                       </svg>
                     </div>
                     <h3>Finance AuditorIA</h3>
-                    <p>Pergunte sobre qualquer período em linguagem natural. Analisarei sentimento, fricção e temas de atendimento e gerarei um relatório executivo.</p>
+                    <p>
+                      Pergunte sobre qualquer período em linguagem natural.
+                      Analisarei sentimento, fricção e temas de atendimento e
+                      gerarei um relatório executivo.
+                    </p>
                   </div>
                 </div>
 
@@ -2091,8 +2165,22 @@ runbook_operacional</pre
                     oninput="autoResizeFAInput(this)"
                     onkeydown="handleFAInputKey(event)"
                   ></textarea>
-                  <button class="fa-send-btn" id="fa-send-btn" onclick="sendFAMessage()" disabled>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <button
+                    class="fa-send-btn"
+                    id="fa-send-btn"
+                    onclick="sendFAMessage()"
+                    disabled
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
                       <line x1="22" y1="2" x2="11" y2="13" />
                       <polygon points="22 2 15 22 11 13 2 9 22 2" />
                     </svg>

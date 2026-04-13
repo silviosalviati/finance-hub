@@ -3599,24 +3599,26 @@ function _faMetricsHtml(data) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
-  const pct = data.friction_score != null
-    ? (data.friction_score * 100).toFixed(1) + "%"
-    : "—";
+  const pct =
+    data.friction_score != null
+      ? (data.friction_score * 100).toFixed(1) + "%"
+      : "—";
 
   const dateRange = data.date_range
     ? `${data.date_range.start} → ${data.date_range.end}`
     : "—";
 
-  const dominant = (
-    data.sentiment_analysis?.dominant || "—"
-  ).toUpperCase();
+  const dominant = (data.sentiment_analysis?.dominant || "—").toUpperCase();
   const total = (data.total_records ?? 0).toLocaleString("pt-BR");
 
-  const sentColor = { POSITIVO: "#059669", NEGATIVO: "#be123c", NEUTRO: "#3d5276" }[dominant] || "#3d5276";
+  const sentColor =
+    { POSITIVO: "#059669", NEGATIVO: "#be123c", NEUTRO: "#3d5276" }[dominant] ||
+    "#3d5276";
 
-  const warnings = Array.isArray(data.warnings) && data.warnings.length
-    ? `<span class="fa-badge fa-badge--neutral">⚠ ${data.warnings.length} aviso(s)</span>`
-    : "";
+  const warnings =
+    Array.isArray(data.warnings) && data.warnings.length
+      ? `<span class="fa-badge fa-badge--neutral">⚠ ${data.warnings.length} aviso(s)</span>`
+      : "";
 
   return `
     <div class="fa-metrics-row">
@@ -3657,9 +3659,11 @@ function _faDetailsHtml(data) {
       </button>
       <div class="fa-details-body" id="${bodyId}">
         ${chips}
-        ${data.themes_analysis?.insights
-          ? `<p style="margin-top:8px;color:var(--ink2);font-size:12px">${_escFA(data.themes_analysis.insights)}</p>`
-          : ""}
+        ${
+          data.themes_analysis?.insights
+            ? `<p style="margin-top:8px;color:var(--ink2);font-size:12px">${_escFA(data.themes_analysis.insights)}</p>`
+            : ""
+        }
       </div>
     </div>`;
 }
@@ -3683,12 +3687,21 @@ function _faMdToHtml(md) {
   let inOl = false;
 
   const closeList = () => {
-    if (inUl) { out.push("</ul>"); inUl = false; }
-    if (inOl) { out.push("</ol>"); inOl = false; }
+    if (inUl) {
+      out.push("</ul>");
+      inUl = false;
+    }
+    if (inOl) {
+      out.push("</ol>");
+      inOl = false;
+    }
   };
 
   const closeTable = () => {
-    if (inTable) { out.push("</tbody></table>"); inTable = false; }
+    if (inTable) {
+      out.push("</tbody></table>");
+      inTable = false;
+    }
   };
 
   const inline = (text) =>
@@ -3704,26 +3717,50 @@ function _faMdToHtml(md) {
 
     // Horizontal rule
     if (/^---+$/.test(line.trim())) {
-      closeList(); closeTable();
+      closeList();
+      closeTable();
       out.push("<hr>");
       continue;
     }
 
     // Headers
     const h3m = line.match(/^### (.+)/);
-    if (h3m) { closeList(); closeTable(); out.push(`<h3>${inline(h3m[1])}</h3>`); continue; }
+    if (h3m) {
+      closeList();
+      closeTable();
+      out.push(`<h3>${inline(h3m[1])}</h3>`);
+      continue;
+    }
     const h2m = line.match(/^## (.+)/);
-    if (h2m) { closeList(); closeTable(); out.push(`<h2>${inline(h2m[1])}</h2>`); continue; }
+    if (h2m) {
+      closeList();
+      closeTable();
+      out.push(`<h2>${inline(h2m[1])}</h2>`);
+      continue;
+    }
     const h1m = line.match(/^# (.+)/);
-    if (h1m) { closeList(); closeTable(); out.push(`<h1>${inline(h1m[1])}</h1>`); continue; }
+    if (h1m) {
+      closeList();
+      closeTable();
+      out.push(`<h1>${inline(h1m[1])}</h1>`);
+      continue;
+    }
 
     // Blockquote
     const bqm = line.match(/^> (.+)/);
-    if (bqm) { closeList(); closeTable(); out.push(`<blockquote>${inline(bqm[1])}</blockquote>`); continue; }
+    if (bqm) {
+      closeList();
+      closeTable();
+      out.push(`<blockquote>${inline(bqm[1])}</blockquote>`);
+      continue;
+    }
 
     // Table row
     if (line.startsWith("|") && line.endsWith("|")) {
-      const cells = line.slice(1, -1).split("|").map((c) => c.trim());
+      const cells = line
+        .slice(1, -1)
+        .split("|")
+        .map((c) => c.trim());
       // separator row (align row)
       if (cells.every((c) => /^[-:]+$/.test(c))) continue;
 
@@ -3750,7 +3787,10 @@ function _faMdToHtml(md) {
 
     // Detect table header (line with |, next line is separator)
     if (line.startsWith("|")) {
-      const cells = line.slice(1, -1).split("|").map((c) => c.trim());
+      const cells = line
+        .slice(1, -1)
+        .split("|")
+        .map((c) => c.trim());
       const ths = cells.map((c) => `<th>${inline(c)}</th>`).join("");
       out.push(`<tr>${ths}</tr>`);
       continue;
@@ -3759,7 +3799,12 @@ function _faMdToHtml(md) {
     // Unordered list
     const ulm = line.match(/^[-*] (.+)/);
     if (ulm) {
-      if (!inUl) { closeList(); closeTable(); out.push("<ul>"); inUl = true; }
+      if (!inUl) {
+        closeList();
+        closeTable();
+        out.push("<ul>");
+        inUl = true;
+      }
       out.push(`<li>${inline(ulm[1])}</li>`);
       continue;
     }
@@ -3767,7 +3812,12 @@ function _faMdToHtml(md) {
     // Ordered list
     const olm = line.match(/^\d+\. (.+)/);
     if (olm) {
-      if (!inOl) { closeList(); closeTable(); out.push("<ol>"); inOl = true; }
+      if (!inOl) {
+        closeList();
+        closeTable();
+        out.push("<ol>");
+        inOl = true;
+      }
       out.push(`<li>${inline(olm[1])}</li>`);
       continue;
     }
@@ -3799,12 +3849,14 @@ async function sendFAMessage() {
   const input = document.getElementById("fa-input");
   const sendBtn = document.getElementById("fa-send-btn");
   const text = input?.value.trim() || "";
-  const projectId = document.getElementById("fa-project")?.value.trim() || "silviosalviati";
+  const projectId = "silviosalviati";
 
   if (!text || faIsLoading) return;
 
   input.value = "";
-  if (input) { input.style.height = "auto"; }
+  if (input) {
+    input.style.height = "auto";
+  }
   if (sendBtn) sendBtn.disabled = true;
 
   appendFAUserMessage(text);
@@ -3837,7 +3889,9 @@ async function sendFAMessage() {
     removeFAThinking();
 
     if (data.status === "error") {
-      appendFAErrorMessage(data.error || "Não foi possível realizar a análise.");
+      appendFAErrorMessage(
+        data.error || "Não foi possível realizar a análise.",
+      );
     } else {
       appendFABotMessage(data);
     }
@@ -3850,4 +3904,3 @@ async function sendFAMessage() {
     input?.focus();
   }
 }
-

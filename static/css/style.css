@@ -3322,6 +3322,36 @@ pre {
   padding: 20px 16px;
 }
 
+.fa-ops-box {
+  background: var(--emerald-bg);
+  border: 1px solid #a7f3d0;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.fa-ops-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--emerald);
+  margin-bottom: 8px;
+}
+
+.fa-ops-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fa-ops-item {
+  font-size: 12px;
+  color: var(--ink2);
+  background: var(--white);
+  border: 1px solid #d1fae5;
+  border-radius: 8px;
+  padding: 7px 8px;
+}
+
 .fa-suggestions {
   display: flex;
   flex-direction: column;
@@ -3338,7 +3368,9 @@ pre {
   cursor: pointer;
   text-align: left;
   line-height: 1.45;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .fa-suggestion-chip:hover {
@@ -3458,12 +3490,24 @@ pre {
   animation: fa-dot 1.2s ease-in-out infinite;
 }
 
-.fa-thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
-.fa-thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+.fa-thinking-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.fa-thinking-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 @keyframes fa-dot {
-  0%, 60%, 100% { opacity: 0.25; transform: scale(0.75); }
-  30% { opacity: 1; transform: scale(1); }
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.75);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* ── Metrics row ── */
@@ -3721,7 +3765,9 @@ pre {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: background 0.15s, opacity 0.15s;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
 }
 
 .fa-send-btn:hover:not(:disabled) {

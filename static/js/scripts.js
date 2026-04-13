@@ -860,7 +860,6 @@ function navTo(view) {
   } else if (view === "qb") {
     document.getElementById("nav-qb")?.classList.add("active");
   }
-
 }
 
 // ─────────────────────────────────────

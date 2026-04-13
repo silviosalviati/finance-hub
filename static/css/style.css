@@ -1186,7 +1186,7 @@ textarea {
 }
 
 .bc-audit::before {
-  background: var(--emerald);
+  background: var(--porto);
 }
 
 .bhead {
@@ -3323,8 +3323,8 @@ pre {
 }
 
 .fa-ops-box {
-  background: var(--emerald-bg);
-  border: 1px solid #a7f3d0;
+  background: var(--porto-sky);
+  border: 1px solid var(--porto-sky2);
   border-radius: 10px;
   padding: 10px;
 }
@@ -3332,7 +3332,7 @@ pre {
 .fa-ops-title {
   font-size: 12px;
   font-weight: 700;
-  color: var(--emerald);
+  color: var(--porto);
   margin-bottom: 8px;
 }
 
@@ -3347,7 +3347,7 @@ pre {
   font-size: 12px;
   color: var(--ink2);
   background: var(--white);
-  border: 1px solid #d1fae5;
+  border: 1px solid var(--border2);
   border-radius: 8px;
   padding: 7px 8px;
 }
@@ -3359,9 +3359,9 @@ pre {
 }
 
 .fa-suggestion-chip {
-  background: var(--emerald-bg);
-  color: var(--emerald);
-  border: 1px solid #a7f3d0;
+  background: var(--porto-sky);
+  color: var(--porto);
+  border: 1px solid var(--porto-sky2);
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 11.5px;
@@ -3374,8 +3374,8 @@ pre {
 }
 
 .fa-suggestion-chip:hover {
-  background: #d1fae5;
-  border-color: var(--emerald);
+  background: var(--porto-sky2);
+  border-color: var(--porto);
 }
 
 .fa-clear-btn {
@@ -3447,9 +3447,9 @@ pre {
 }
 
 .fa-msg-bot .fa-msg-avatar {
-  background: var(--emerald-bg);
-  color: var(--emerald);
-  border: 1px solid #a7f3d0;
+  background: var(--porto-sky);
+  color: var(--porto);
+  border: 1px solid var(--porto-sky2);
 }
 
 .fa-bubble {
@@ -3486,7 +3486,7 @@ pre {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--emerald);
+  background: var(--porto);
   animation: fa-dot 1.2s ease-in-out infinite;
 }
 
@@ -3550,9 +3550,9 @@ pre {
 }
 
 .fa-badge--baixo {
-  background: var(--emerald-bg);
-  color: var(--emerald);
-  border: 1px solid #a7f3d0;
+  background: var(--porto-sky);
+  color: var(--porto);
+  border: 1px solid var(--porto-sky2);
 }
 
 .fa-badge--neutral {
@@ -3751,7 +3751,7 @@ pre {
 }
 
 #fa-input:focus {
-  border-color: var(--emerald);
+  border-color: var(--porto);
   background: var(--white);
 }
 
@@ -3759,7 +3759,7 @@ pre {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: var(--emerald);
+  background: var(--porto);
   border: none;
   display: flex;
   align-items: center;
@@ -3771,7 +3771,7 @@ pre {
 }
 
 .fa-send-btn:hover:not(:disabled) {
-  background: #047857;
+  background: #00387a;
 }
 
 .fa-send-btn:disabled {
@@ -3796,7 +3796,7 @@ pre {
   width: 52px;
   height: 52px;
   border-radius: 14px;
-  background: var(--emerald-bg);
+  background: var(--porto-sky);
   display: flex;
   align-items: center;
   justify-content: center;

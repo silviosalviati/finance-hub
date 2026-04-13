@@ -2169,11 +2169,12 @@ runbook_operacional</pre
                     class="fa-send-btn"
                     id="fa-send-btn"
                     onclick="sendFAMessage()"
+                    type="button"
+                    aria-label="Enviar mensagem para Finance AuditorIA"
                     disabled
                   >
+                    <span class="fa-send-spinner" aria-hidden="true"></span>
                     <svg
-                      width="16"
-                      height="16"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -2184,6 +2185,8 @@ runbook_operacional</pre
                       <line x1="22" y1="2" x2="11" y2="13" />
                       <polygon points="22 2 15 22 11 13 2 9 22 2" />
                     </svg>
+                    <span class="fa-send-label">Enviar</span>
+                    <span class="fa-send-label fa-send-label-loading">Enviando...</span>
                   </button>
                 </div>
               </div>

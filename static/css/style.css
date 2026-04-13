@@ -3756,7 +3756,7 @@ pre {
 }
 
 .fa-send-btn {
-  width: 40px;
+  min-width: 102px;
   height: 40px;
   border-radius: 10px;
   background: var(--porto);
@@ -3764,19 +3764,80 @@ pre {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
   flex-shrink: 0;
   transition:
     background 0.15s,
-    opacity 0.15s;
+    opacity 0.15s,
+    transform 0.15s,
+    box-shadow 0.15s;
 }
 
 .fa-send-btn:hover:not(:disabled) {
   background: #00387a;
+  box-shadow: 0 4px 12px rgba(0, 70, 145, 0.28);
+}
+
+.fa-send-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.fa-send-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 161, 228, 0.35);
 }
 
 .fa-send-btn:disabled {
-  opacity: 0.45;
+  opacity: 0.55;
+  background: #7f9bbc;
   cursor: not-allowed;
+}
+
+.fa-send-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.fa-send-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.1px;
+  line-height: 1;
+}
+
+.fa-send-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: fa-send-spin 0.75s linear infinite;
+  display: none;
+}
+
+.fa-send-btn.is-loading .fa-send-spinner {
+  display: inline-block;
+}
+
+.fa-send-btn.is-loading svg,
+.fa-send-btn.is-loading .fa-send-label {
+  display: none;
+}
+
+.fa-send-btn.is-loading .fa-send-label-loading {
+  display: inline;
+}
+
+.fa-send-label-loading {
+  display: none;
+}
+
+@keyframes fa-send-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Welcome placeholder */

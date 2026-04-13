@@ -3417,6 +3417,13 @@ let faThinkingId = null;
 let faInputListenerBound = false;
 let faMsgCounter = 0;
 
+function setFASendButtonState({ disabled, loading }) {
+  const sendBtn = document.getElementById("fa-send-btn");
+  if (!sendBtn) return;
+  sendBtn.disabled = !!disabled;
+  sendBtn.classList.toggle("is-loading", !!loading);
+}
+
 function initFAInputListener() {
   if (faInputListenerBound) return;
   faInputListenerBound = true;
@@ -3425,8 +3432,10 @@ function initFAInputListener() {
   if (!input) return;
 
   input.addEventListener("input", () => {
-    const sendBtn = document.getElementById("fa-send-btn");
-    if (sendBtn) sendBtn.disabled = !input.value.trim() || faIsLoading;
+    setFASendButtonState({
+      disabled: !input.value.trim() || faIsLoading,
+      loading: faIsLoading,
+    });
     autoResizeFAInput(input);
   });
 }
@@ -3448,8 +3457,7 @@ function useFASuggestion(btn) {
   if (!input || faIsLoading) return;
   input.value = btn.textContent.trim();
   autoResizeFAInput(input);
-  const sendBtn = document.getElementById("fa-send-btn");
-  if (sendBtn) sendBtn.disabled = false;
+  setFASendButtonState({ disabled: false, loading: false });
   input.focus();
 }
 
@@ -3476,8 +3484,7 @@ function clearFAChat() {
     input.value = "";
     autoResizeFAInput(input);
   }
-  const sendBtn = document.getElementById("fa-send-btn");
-  if (sendBtn) sendBtn.disabled = true;
+  setFASendButtonState({ disabled: true, loading: false });
 }
 
 function _faScrollBottom() {
@@ -3847,7 +3854,6 @@ function _escFA(str) {
 // ── Main send function ──
 async function sendFAMessage() {
   const input = document.getElementById("fa-input");
-  const sendBtn = document.getElementById("fa-send-btn");
   const text = input?.value.trim() || "";
   const projectId = "silviosalviati";
 
@@ -3857,7 +3863,7 @@ async function sendFAMessage() {
   if (input) {
     input.style.height = "auto";
   }
-  if (sendBtn) sendBtn.disabled = true;
+  setFASendButtonState({ disabled: true, loading: true });
 
   appendFAUserMessage(text);
   appendFAThinking();
@@ -3900,7 +3906,10 @@ async function sendFAMessage() {
     appendFAErrorMessage(prettifyErrorMessage(e.message));
   } finally {
     faIsLoading = false;
-    if (sendBtn) sendBtn.disabled = !input?.value.trim();
+    setFASendButtonState({
+      disabled: !input?.value.trim(),
+      loading: false,
+    });
     input?.focus();
   }
 }

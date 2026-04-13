@@ -309,6 +309,7 @@ Gere a documentacao completa no formato solicitado.
 			pending_technical=pending_technical,
 			acceptance_checklist=acceptance_checklist,
 			next_steps=raw_next_steps,
+			doc_type=str(state.doc_type or ""),
 			governance=governance,
 			mermaid_diagram=mermaid_diagram,
 		)
@@ -579,30 +580,27 @@ def _normalize_sections(value: Any) -> list[dict[str, str]]:
 			continue
 
 		title = str(section.get("title") or "").strip()
+		content = str(section.get("content") or "").strip()
+
+		# Filtrar pelo título exato
+		if title.lower() in _SUMMARY_SECTION_TITLES:
+			continue
+
+		# Filtrar variações com prefixo emoji/pontuação/números
 		title_key = re.sub(r"[^a-z0-9à-ÿ\s]", " ", title.lower())
 		title_key = re.sub(r"\s+", " ", title_key).strip()
-		# Correção 3: content pode chegar como list/dict quando a LLM retorna estrutura aninhada
-		content = _safe_render_content(section.get("content"))
+		if title_key in _SUMMARY_SECTION_TITLES:
+			continue
+
+		# Descartar seções cujo conteúdo é apenas índice de passos terminados em ":"
+		lines = [l.strip() for l in content.splitlines() if l.strip()]
+		if lines and all(re.match(r"^\d+[\.\-—]\s*.+:$", l) for l in lines):
+			continue
 
 		if not title and not content:
 			continue
 
-		# Descartar seções de sumário/índice pelo título
-		if title_key in _SUMMARY_SECTION_TITLES:
-			continue
-
-		# Descartar seções cujo conteúdo é apenas lista de títulos de passo terminados em ":"
-		# Ex: "1. Verificar status:\n2. Consultar volume:\n3. Verificar qualidade:"
-		lines = [line.strip() for line in content.splitlines() if line.strip()]
-		if lines and all(re.match(r"^(?:-\s*)?(?:passo\s*\d+|\d+\s*[\.\-–—\)])\s*.+:\s*$", line, re.IGNORECASE) for line in lines):
-			continue
-
-		sections.append(
-			{
-				"title": title or "Secao",
-				"content": content or "Sem conteudo informado.",
-			}
-		)
+		sections.append({"title": title or "Seção", "content": content or "Sem conteúdo informado."})
 	return sections
 
 
@@ -681,6 +679,7 @@ def _enrich_required_blocks(
 	next_steps: list[str],
 	governance: dict[str, list[str]],
 	mermaid_diagram: str,
+	doc_type: str = "",
 ) -> dict[str, Any]:
 	normalized = request_text.lower()
 	next_steps = _clean_next_steps(next_steps)
@@ -816,7 +815,19 @@ def _enrich_required_blocks(
 			)
 
 	if not next_steps:
-		next_steps = []
+		doc_type_lower = (doc_type or "").lower()
+		if "runbook" in doc_type_lower:
+			next_steps = [
+				"Realizar as verificações diárias de forma autônoma.",
+				"Em caso de anomalias, escalar para o lead da equipe.",
+				"Revisar e atualizar este runbook conforme o pipeline evolui.",
+			]
+		else:
+			next_steps = [
+				"Configurar alerta de schema drift no Dataplex para a tabela.",
+				"Publicar runbook de tratamento para quebra de contrato.",
+				"Definir dono de dados e SLA de correção para incidentes de DQ.",
+			]
 
 	return {
 		"sections": sections,

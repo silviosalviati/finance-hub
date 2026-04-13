@@ -230,7 +230,8 @@ def test_normalize_sections_drops_summary_title_with_prefix_and_colon():
     assert result[0]["title"] == "Passo 1"
 
 
-def test_enrich_required_blocks_does_not_force_hardcoded_next_steps():
+def test_enrich_required_blocks_uses_doc_type_fallback():
+    # doc_type nao informado -> fallback generico (schema drift)
     result = _enrich_required_blocks(
         request_text="Gerar documentação técnica.",
         table_name="tabela_teste",
@@ -245,5 +246,22 @@ def test_enrich_required_blocks_does_not_force_hardcoded_next_steps():
         governance={"aspect_types": [], "readers": [], "notes": []},
         mermaid_diagram="",
     )
+    assert any("schema drift" in s for s in result["next_steps"])
 
-    assert result["next_steps"] == []
+    # doc_type runbook -> fallback especifico de runbook
+    result_runbook = _enrich_required_blocks(
+        request_text="Gerar documentação técnica.",
+        table_name="tabela_teste",
+        table_path="projeto.dataset.tabela_teste",
+        sections=[{"title": "Arquitetura", "content": "Fluxo principal."}],
+        data_dictionary=[],
+        real_table_columns=[],
+        typing_notes=[],
+        pending_technical=[],
+        acceptance_checklist=[],
+        next_steps=[],
+        governance={"aspect_types": [], "readers": [], "notes": []},
+        mermaid_diagram="",
+        doc_type="runbook_operacional",
+    )
+    assert any("runbook" in s.lower() for s in result_runbook["next_steps"])

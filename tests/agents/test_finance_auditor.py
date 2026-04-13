@@ -91,7 +91,7 @@ class TestFinanceAuditorMetadata:
             assert "display_name" in info
             assert "graph_nodes" in info
             assert "source_table" in info
-            assert "ANALITIVA_ANALISE_IA" in info["source_table"]
+            assert "analitiva_analise_ia" in info["source_table"]
 
 
 # ---------------------------------------------------------------------------

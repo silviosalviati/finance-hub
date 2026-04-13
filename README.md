@@ -38,7 +38,6 @@ bot-query/
 │       │   ├── bigquery.py          # validações, schema, amostras e dry-run
 │       │   └── schemas.py
 │       └── utils/
-├── docs/                            # materiais complementares
 ├── scripts/publish.ps1              # fluxo local de teste + commit + push
 ├── static/                          # frontend HTML/CSS/JS e imagens
 ├── tests/                           # testes automatizados
@@ -58,11 +57,11 @@ Arquivos de referência:
 
 ## Agentes e Status
 
-| Agente no produto | `agent_id`        | Status                      | Registro no runtime |
-| ----------------- | ----------------- | --------------------------- | ------------------- |
-| Query Analyzer    | `query_analyzer`  | Implementado                | Sim                 |
-| Query Builder     | `query_build`     | Implementado                | Sim                 |
-| Document Builder  | `document_build`  | Implementado                | Sim                 |
+| Agente no produto | `agent_id`       | Status       | Registro no runtime |
+| ----------------- | ---------------- | ------------ | ------------------- |
+| Query Analyzer    | `query_analyzer` | Implementado | Sim                 |
+| Query Builder     | `query_build`    | Implementado | Sim                 |
+| Document Builder  | `document_build` | Implementado | Sim                 |
 
 Observação: atualmente o runtime registra Query Analyzer, Query Builder e Document Builder.
 
@@ -365,11 +364,6 @@ Comportamentos atuais relevantes:
 - Confluence Wiki Markup com botão de cópia
 - aba Otimizações aplicadas no Query Analyzer
 
-## Guias de Evolução
-
-- [docs/fase-4-automated-publishing-confluence-notion.md](docs/fase-4-automated-publishing-confluence-notion.md)
-- [docs/fase-4-dbt-docs-schema-yml-automatico.md](docs/fase-4-dbt-docs-schema-yml-automatico.md)
-
 ## Telas do Sistema
 
 ### Login
@@ -404,6 +398,7 @@ pytest -q
 
 Suites atuais:
 
+- [tests/api/test_api_routes.py](tests/api/test_api_routes.py)
 - [tests/agents/test_query_analyzer.py](tests/agents/test_query_analyzer.py)
 - [tests/agents/test_query_build.py](tests/agents/test_query_build.py)
 - [tests/agents/test_document_build.py](tests/agents/test_document_build.py)

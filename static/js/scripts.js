@@ -3,7 +3,6 @@
 // ─────────────────────────────────────
 let token = null;
 let currentUser = null;
-let session = { queries: 0 };
 let qaDatasetValidationTimer = null;
 let qaIsLoading = false;
 let qaAnalyzeInFlight = false;
@@ -100,17 +99,6 @@ function showScreen(id) {
 
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
-}
-
-function updateLastAccess() {
-  const now = new Date();
-  const formatted =
-    now.getHours().toString().padStart(2, "0") +
-    ":" +
-    now.getMinutes().toString().padStart(2, "0");
-
-  const el = document.getElementById("s-lasttime");
-  if (el) el.textContent = formatted;
 }
 
 function prettifyErrorMessage(message) {
@@ -781,7 +769,6 @@ async function doLogin() {
     setUserUI(data.name, data.username);
     showScreen("screen-portal");
     navTo("home");
-    updateLastAccess();
   } catch (e) {
     showLoginError(e.message);
   } finally {
@@ -817,17 +804,12 @@ async function doLogout() {
 
   token = null;
   currentUser = null;
-  session = { queries: 0 };
 
   const userEl = document.getElementById("inp-user");
   const passEl = document.getElementById("inp-pass");
-  const queriesEl = document.getElementById("s-queries");
-  const lastTimeEl = document.getElementById("s-lasttime");
 
   if (userEl) userEl.value = "";
   if (passEl) passEl.value = "";
-  if (queriesEl) queriesEl.textContent = "0";
-  if (lastTimeEl) lastTimeEl.textContent = "--:--";
 
   // Limpar dados persistentes
   localStorage.clear();
@@ -879,9 +861,6 @@ function navTo(view) {
     document.getElementById("nav-qb")?.classList.add("active");
   }
 
-  if (view === "qa" || view === "qb" || view === "db") {
-    updateLastAccess();
-  }
 }
 
 // ─────────────────────────────────────
@@ -1017,12 +996,6 @@ async function runAnalyze() {
     const data = await res.json();
 
     setQAProgress("Finalizando apresentação...", 100);
-
-    session.queries++;
-    const queriesEl = document.getElementById("s-queries");
-    if (queriesEl) queriesEl.textContent = String(session.queries);
-
-    updateLastAccess();
     renderQA(data);
     saveToHistory(data, query);
   } catch (e) {

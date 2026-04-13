@@ -27,6 +27,7 @@ STRUCTURAL_PENALTY = {
     "select_star": 30,
     "cross_join": 30,
     "order_without_limit": 15,
+    "order_by_rand": 20,
     "distinct": 10,
     "union_without_all": 10,
 }
@@ -41,6 +42,7 @@ def parse_query(state: AgentState) -> dict:
         and not re.search(r"LIMIT\s+\d+", query_upper)
     )
     has_cross_join = bool(re.search(r"CROSS\s+JOIN", query_upper))
+    has_order_by_rand = bool(re.search(r"ORDER\s+BY\s+RAND\s*\(", query_upper))
     has_distinct = bool(re.search(r"\bDISTINCT\b", query_upper))
     has_union_without_all = bool(re.search(r"\bUNION\b(?!\s+ALL)", query_upper))
 
@@ -54,6 +56,7 @@ def parse_query(state: AgentState) -> dict:
         "has_star": has_star,
         "has_order_without_limit": has_order_without_limit,
         "has_cross_join": has_cross_join,
+        "has_order_by_rand": has_order_by_rand,
         "has_distinct": has_distinct,
         "has_union_without_all": has_union_without_all,
         "join_count": join_count,
@@ -117,6 +120,7 @@ ANTIPADROES POSSIVEIS:
 def optimize_query(state: AgentState, llm: BaseChatModel) -> dict:
     antipatterns_text = _build_antipatterns_text(state.antipatterns)
     cost_info = _build_optimization_cost_context(state.dry_run_original)
+    schema_context = _safe_get_schema_context(state)
     is_complex_analytical = _is_complex_analytical_query(state)
     optimization_feedback = "\n".join(
         f"- {item}" for item in (state.optimization_feedback or [])
@@ -147,6 +151,8 @@ REGRAS ABSOLUTAS - nunca viole nenhuma delas:
 8. O resultado DEVE ser identico ao original
 9. NUNCA adicione comentarios no SQL final
 10. Responda APENAS com o SQL otimizado
+11. Nao introduza colunas que nao existam no schema disponivel
+12. Evite ORDER BY RAND(); priorize LIMIT simples para amostragem quando aplicavel
 {gold_layer_note}"""
 
     user_prompt = f"""## Query original:
@@ -161,6 +167,10 @@ Anti-padroes identificados para corrigir:
 Contexto de custo (BigQuery dry-run):
 
 {cost_info}
+
+Schema disponivel para validacao de colunas:
+
+{schema_context}
 
 Feedback da iteracao anterior (quando houver):
 
@@ -208,6 +218,10 @@ def validate_optimized(state: AgentState) -> dict:
         if optimized_structure["has_order_without_limit"]:
             needs_optimization = True
             feedback.append("A query otimizada manteve ORDER BY sem LIMIT.")
+
+        if optimized_structure["has_order_by_rand"]:
+            needs_optimization = True
+            feedback.append("A query otimizada manteve ORDER BY RAND(), que eleva custo sem necessidade.")
 
         if state.query_structure.get("has_distinct") and optimized_structure["has_distinct"]:
             feedback.append(
@@ -446,6 +460,16 @@ def _build_forced_antipatterns(structure: dict[str, Any]) -> list[QueryAntiPatte
             )
         )
 
+    if structure.get("has_order_by_rand"):
+        forced.append(
+            QueryAntiPattern(
+                pattern="ORDER BY RAND()",
+                description="Ordenacao aleatoria global detectada",
+                severity="HIGH",
+                suggestion="Evite ORDER BY RAND(); prefira LIMIT simples ou estrategia de amostragem mais eficiente",
+            )
+        )
+
     if structure.get("has_distinct"):
         forced.append(
             QueryAntiPattern(
@@ -527,6 +551,7 @@ def _inspect_query_structure(query: str) -> dict[str, bool]:
             and not re.search(r"LIMIT\s+\d+", query_upper)
         ),
         "has_cross_join": bool(re.search(r"CROSS\s+JOIN", query_upper)),
+        "has_order_by_rand": bool(re.search(r"ORDER\s+BY\s+RAND\s*\(", query_upper)),
         "has_distinct": bool(re.search(r"\bDISTINCT\b", query_upper)),
         "has_union_without_all": bool(re.search(r"\bUNION\b(?!\s+ALL)", query_upper)),
     }
@@ -541,6 +566,8 @@ def _structural_flags_to_keys(structure: dict[str, Any]) -> set[str]:
         keys.add("cross_join")
     if structure.get("has_order_without_limit"):
         keys.add("order_without_limit")
+    if structure.get("has_order_by_rand"):
+        keys.add("order_by_rand")
     if structure.get("has_distinct"):
         keys.add("distinct")
     if structure.get("has_union_without_all"):

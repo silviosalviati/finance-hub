@@ -1,5 +1,5 @@
 from src.agents.query_analyzer import QueryAnalyzerAgent
-from src.agents.query_analyzer.nodes import _calculate_score, _score_to_grade
+from src.agents.query_analyzer.nodes import _calculate_score, _inspect_query_structure, _score_to_grade
 from src.agents.query_analyzer.state import AgentState
 from src.shared.tools.schemas import DryRunResult, QueryAntiPattern
 
@@ -114,3 +114,9 @@ def test_query_analyzer_score_penalizes_poor_final_query():
 
     assert score < 75
     assert grade in {"C", "D", "F"}
+
+
+def test_inspect_query_structure_detects_order_by_rand():
+    structure = _inspect_query_structure("SELECT col FROM `p.d.t` ORDER BY RAND() LIMIT 100")
+
+    assert structure["has_order_by_rand"] is True

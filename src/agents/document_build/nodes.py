@@ -321,11 +321,10 @@ Gere a documentacao completa no formato solicitado.
 			+ _safe_list(payload.get("warnings"))
 		)
 		sanitized_sections = _sanitize_sections(enriched["sections"])
-		# Remover das notas de governanca itens duplicados com warnings
-		warnings_lower = {w.lower().strip() for w in warnings}
+		warnings_set = {w.strip().lower() for w in warnings}
 		enriched["governance"]["notes"] = [
-			n for n in enriched["governance"].get("notes", [])
-			if n.lower().strip() not in warnings_lower
+			note for note in enriched["governance"].get("notes", [])
+			if note.strip().lower() not in warnings_set
 		]
 		sanitized_governance = _sanitize_governance(enriched["governance"])
 		sanitized_warnings = _sanitize_text_list(warnings)
@@ -595,6 +594,17 @@ def _normalize_sections(value: Any) -> list[dict[str, str]]:
 		# Descartar seções cujo conteúdo é apenas índice de passos terminados em ":"
 		lines = [l.strip() for l in content.splitlines() if l.strip()]
 		if lines and all(re.match(r"^\d+[\.\-—]\s*.+:$", l) for l in lines):
+			continue
+
+		TITULOS_PARA_IGNORAR = {
+			"passos operacionais", "sumário", "sumario",
+			"índice", "indice", "resumo dos passos", "lista de passos",
+		}
+		if title.lower() in TITULOS_PARA_IGNORAR:
+			continue
+
+		linhas = [l.strip() for l in content.splitlines() if l.strip()]
+		if linhas and all(re.match(r"^\d+[\.\-]\s*.+:$", l) for l in linhas):
 			continue
 
 		if not title and not content:

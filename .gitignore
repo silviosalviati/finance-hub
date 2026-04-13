@@ -12,6 +12,8 @@ secrets/
 __pycache__/
 *.pyc
 *.pyo
+.pytest_cache/
+.benchmarks/
 
 # 🧪 Virtual env
 .venv/

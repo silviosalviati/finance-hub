@@ -679,23 +679,14 @@ def _generate_summary(
     savings_pct: float | None,
     dry_orig: Any,
 ) -> str:
-    summary_prompt = f"""Em 2-3 frases em portugues, resuma a analise desta query BigQuery para Power BI.
-Mencione: os principais problemas encontrados, o impacto em custo/performance, e a melhoria alcancada.
-
-Anti-padroes: {len(state.antipatterns)} encontrado(s)
-Score de eficiencia: {score}/100 ({grade})
-Economia estimada: {f'{savings_pct}%' if savings_pct is not None else 'nao calculada'}
-Query processava: {format_bytes(dry_orig.bytes_processed) if dry_orig else 'N/A'}
-"""
-
-    try:
-        response = llm.invoke([HumanMessage(content=summary_prompt)])
-        return _extract_message_content(response)
-    except Exception:
-        return (
-            f"Query analisada. Score: {score}/100 ({grade}). "
-            f"{len(state.antipatterns)} anti-padrao(s) detectado(s)."
-        )
+    _ = llm
+    bytes_text = format_bytes(dry_orig.bytes_processed) if dry_orig else "N/A"
+    savings_text = f"{savings_pct}%" if savings_pct is not None else "nao calculada"
+    return (
+        f"Query analisada com score {score}/100 ({grade}). "
+        f"Foram identificados {len(state.antipatterns)} anti-padrao(s), "
+        f"com economia estimada de {savings_text} sobre {bytes_text} processados na query original."
+    )
 
 
 def _calculate_score(state: AgentState) -> int:

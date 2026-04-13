@@ -27,4 +27,4 @@ class AgentState(BaseModel):
 
     error: Optional[str] = None
     iteration: int = 0
-    max_iterations: int = 5
+    max_iterations: int = 1

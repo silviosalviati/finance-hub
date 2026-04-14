@@ -70,6 +70,7 @@ class FinanceAuditorAgent(BaseAgent):
             "friction_analysis": final_state.get("friction_result", {}),
             "themes_analysis": final_state.get("themes_result", {}),
             "total_records": final_state.get("total_records", 0),
+            "operations_analyzed": final_state.get("operations_analyzed", []),
             "date_range": {
                 "start": final_state.get("date_filter_start", ""),
                 "end": final_state.get("date_filter_end", ""),

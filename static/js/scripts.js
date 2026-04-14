@@ -4272,6 +4272,13 @@ function _faMetricsHtml(data) {
 
   const dominant = (data.sentiment_analysis?.dominant || "—").toUpperCase();
   const total = (data.total_records ?? 0).toLocaleString("pt-BR");
+  const ops = Array.isArray(data.operations_analyzed)
+    ? data.operations_analyzed.filter(Boolean)
+    : [];
+  const opsPreview =
+    ops.length <= 2
+      ? ops.join(", ")
+      : `${ops.slice(0, 2).join(", ")} +${ops.length - 2}`;
 
   const sentColor =
     {
@@ -4280,9 +4287,16 @@ function _faMetricsHtml(data) {
       NEUTRO: "var(--ink-secondary)",
     }[dominant] || "var(--ink-secondary)";
 
-  const warnings =
-    Array.isArray(data.warnings) && data.warnings.length
-      ? `<span class="fa-badge fa-badge--neutral">⚠ ${data.warnings.length} aviso(s)</span>`
+  const warningItems = Array.isArray(data.warnings)
+    ? data.warnings.filter(Boolean)
+    : [];
+  const warningsBadge =
+    warningItems.length > 0
+      ? `<span class="fa-badge fa-badge--neutral" title="${_escFA(warningItems.join(" | "))}">⚠ ${warningItems.length} aviso(s)</span>`
+      : `<span class="fa-badge fa-badge--baixo">✅ Sem avisos</span>`;
+  const warningsDetail =
+    warningItems.length > 0
+      ? `<div class="fa-warning-note"><strong>Aviso:</strong> ${_escFA(warningItems[0])}</div>`
       : "";
 
   return `
@@ -4295,8 +4309,10 @@ function _faMetricsHtml(data) {
       </span>
       <span class="fa-badge fa-badge--neutral">📅 ${dateRange}</span>
       <span class="fa-badge fa-badge--neutral">📊 ${total} registros</span>
-      ${warnings}
-    </div>`;
+      <span class="fa-badge fa-badge--neutral" title="${_escFA(ops.join(" | "))}">🧩 Operações: ${_escFA(opsPreview || "—")}</span>
+      ${warningsBadge}
+    </div>
+    ${warningsDetail}`;
 }
 
 function _faDetailsHtml(data) {

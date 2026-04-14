@@ -297,6 +297,24 @@ class TestDeterministicDateParsing:
         assert end == "2026-04-13"
 
 
+class TestOperationExtraction:
+    def test_extract_requested_operations(self):
+        from src.agents.finance_auditor.nodes import _extract_operations_from_text
+
+        ops = _extract_operations_from_text(
+            "Analise financeiro auto e saude no mes atual"
+        )
+
+        assert "Financeiro Auto" in ops
+        assert "Financeiro Saude" in ops
+
+    def test_extract_operations_fallback(self):
+        from src.agents.finance_auditor.nodes import _extract_operations_from_text
+
+        ops = _extract_operations_from_text("Quero um panorama consolidado do periodo")
+        assert ops == ["Base consolidada (todas as operacoes)"]
+
+
 class TestFetchDataPeriodSelection:
     def test_fetch_data_uses_request_period_before_llm(self):
         from src.agents.finance_auditor.nodes import fetch_data
@@ -320,5 +338,6 @@ class TestFetchDataPeriodSelection:
         # Para mês atual (abril/2026), deve usar o mês completo e nem chamar LLM.
         assert result["date_filter_start"] == "2026-04-01"
         assert result["date_filter_end"] == "2026-04-30"
+        assert result["operations_analyzed"] == ["Financeiro Vida"]
         llm.invoke.assert_not_called()
         assert mock_bq.call_count == 2

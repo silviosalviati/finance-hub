@@ -73,6 +73,23 @@ _MONTHS_PT: dict[str, int] = {
     "dezembro": 12,
 }
 
+_OPERATIONS_PATTERN: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Financeiro Auto", (r"\bauto\b",)),
+    ("Financeiro Geral", (r"\bgeral\b",)),
+    ("Financeiro Bank", (r"\bbank\b",)),
+    ("Financeiro Producao", (r"\bprodu[cç][aã]o\b", r"\bproducao\b")),
+    ("Financeiro Vida", (r"\bvida\b",)),
+    (
+        "Financeiro Re",
+        (
+            r"\bfinanceiro\s+re\b",
+            r"\bresseguro\b",
+            r"\bopera[cç][aã]o\s+re\b",
+        ),
+    ),
+    ("Financeiro Saude", (r"\bsa[uú]de\b", r"\bsaude\b")),
+)
+
 
 # ---------------------------------------------------------------------------
 # Helpers internos
@@ -163,6 +180,23 @@ def _deterministic_period_from_text(
     return None
 
 
+def _extract_operations_from_text(text: str) -> list[str]:
+    """Identifica operações mencionadas na pergunta do usuário."""
+    content = _strip_accents((text or "").lower())
+    found: list[str] = []
+
+    for op_name, patterns in _OPERATIONS_PATTERN:
+        for pattern in patterns:
+            if re.search(pattern, content, flags=re.IGNORECASE):
+                found.append(op_name)
+                break
+
+    if found:
+        return found
+
+    return ["Base consolidada (todas as operacoes)"]
+
+
 def _build_fallback_report(state: FinanceAuditorState) -> str:
     """Gera relatório básico em Markdown quando o LLM falha."""
     period = (
@@ -202,6 +236,7 @@ def fetch_data(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str, Any]
     """Extrai período e busca dados na tabela de análise de IA."""
     try:
         request_text = state.get("request_text") or ""
+        operations_analyzed = _extract_operations_from_text(request_text)
 
         # 1. Regras determinísticas para evitar períodos incorretos vindos do LLM
         deterministic = _deterministic_period_from_text(request_text)
@@ -255,6 +290,7 @@ def fetch_data(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str, Any]
             "date_filter_end": date_end,
             "total_records": total_records,
             "raw_rows": raw_rows,
+            "operations_analyzed": operations_analyzed,
             "warnings": warnings,
         }
 
@@ -266,6 +302,7 @@ def fetch_data(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str, Any]
             "date_filter_end": "",
             "total_records": 0,
             "raw_rows": [],
+            "operations_analyzed": ["Base consolidada (todas as operacoes)"],
             "warnings": [],
         }
 

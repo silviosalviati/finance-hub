@@ -24,6 +24,7 @@ class FinanceAuditorState(TypedDict, total=False):
     date_filter_end: str
     total_records: int
     raw_rows: list[dict[str, Any]]
+    operations_analyzed: list[str]
 
     # --- Saídas dos nós paralelos (fan-out) ---
     sentiment_result: dict[str, Any]   # node_sentiment

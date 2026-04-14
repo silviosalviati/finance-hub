@@ -4032,8 +4032,7 @@ async function _faTypeMarkdownInto(container, sourceText, options = {}) {
 
   let cursor = 0;
   while (cursor < total) {
-    const step =
-      total > 2400 ? 120 : total > 1400 ? 90 : total > 800 ? 60 : 34;
+    const step = total > 2400 ? 120 : total > 1400 ? 90 : total > 800 ? 60 : 34;
     cursor = Math.min(total, cursor + step);
     const partial = prepared.slice(0, cursor);
     container.innerHTML = `<div class="fa-report fa-report--typing">${_faMdToHtml(partial)}</div>`;
@@ -4334,27 +4333,46 @@ function _faMetricsHtml(data) {
   const warningItems = Array.isArray(data.warnings)
     ? data.warnings.filter(Boolean)
     : [];
-  const warningsBadge =
+  const warningsResume =
     warningItems.length > 0
-      ? `<span class="fa-badge fa-badge--neutral" title="${_escFA(warningItems.join(" | "))}">⚠ ${warningItems.length} aviso(s)</span>`
-      : `<span class="fa-badge fa-badge--baixo">✅ Sem avisos</span>`;
+      ? `${warningItems.length} aviso(s)`
+      : "Sem avisos";
   const warningsDetail =
     warningItems.length > 0
       ? `<div class="fa-warning-note"><strong>Aviso:</strong> ${_escFA(warningItems[0])}</div>`
       : "";
 
   return `
-    <div class="fa-metrics-row">
-      <span class="fa-badge fa-badge--${labelKey}">
-        Fricção: ${label} (${pct})
-      </span>
-      <span class="fa-badge fa-badge--neutral" style="border-color:${sentColor};color:${sentColor}">
-        Sentimento dominante: ${dominant}
-      </span>
-      <span class="fa-badge fa-badge--neutral">📅 ${dateRange}</span>
-      <span class="fa-badge fa-badge--neutral">📊 ${total} registros</span>
-      <span class="fa-badge fa-badge--neutral" title="${_escFA(ops.join(" | "))}">🧩 Operações: ${_escFA(opsPreview || "—")}</span>
-      ${warningsBadge}
+    <div class="fa-metric-grid">
+      <div class="fa-metric-card fa-metric-card--${labelKey}">
+        <div class="fa-metric-label">Fricção</div>
+        <div class="fa-metric-value">${label} <span>${pct}</span></div>
+      </div>
+
+      <div class="fa-metric-card">
+        <div class="fa-metric-label">Sentimento dominante</div>
+        <div class="fa-metric-value" style="color:${sentColor}">${dominant}</div>
+      </div>
+
+      <div class="fa-metric-card">
+        <div class="fa-metric-label">Período analisado</div>
+        <div class="fa-metric-value">📅 ${dateRange}</div>
+      </div>
+
+      <div class="fa-metric-card">
+        <div class="fa-metric-label">Volume</div>
+        <div class="fa-metric-value">📊 ${total} registros</div>
+      </div>
+
+      <div class="fa-metric-card" title="${_escFA(ops.join(" | "))}">
+        <div class="fa-metric-label">Operações analisadas</div>
+        <div class="fa-metric-value">🧩 ${_escFA(opsPreview || "—")}</div>
+      </div>
+
+      <div class="fa-metric-card ${warningItems.length > 0 ? "fa-metric-card--warn" : "fa-metric-card--ok"}" title="${_escFA(warningItems.join(" | "))}">
+        <div class="fa-metric-label">Avisos</div>
+        <div class="fa-metric-value">${warningItems.length > 0 ? "⚠" : "✅"} ${warningsResume}</div>
+      </div>
     </div>
     ${warningsDetail}`;
 }

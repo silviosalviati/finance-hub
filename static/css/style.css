@@ -3746,7 +3746,11 @@ pre {
   width: 82px;
   height: 82px;
   border-radius: 999px;
-  background: radial-gradient(circle at center, rgba(0, 161, 228, 0.15) 0%, rgba(0, 161, 228, 0) 72%);
+  background: radial-gradient(
+    circle at center,
+    rgba(0, 161, 228, 0.15) 0%,
+    rgba(0, 161, 228, 0) 72%
+  );
   pointer-events: none;
 }
 

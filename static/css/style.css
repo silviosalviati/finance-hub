@@ -3722,14 +3722,55 @@ pre {
 .fa-metric-card {
   border: 1px solid var(--border2);
   border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f5faff 100%);
   padding: 11px 12px;
   min-height: 78px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 6px;
-  box-shadow: 0 5px 14px rgba(10, 22, 40, 0.06);
+  box-shadow: 0 8px 20px rgba(10, 22, 40, 0.08);
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.fa-metric-card::after {
+  content: "";
+  position: absolute;
+  top: -24px;
+  right: -24px;
+  width: 82px;
+  height: 82px;
+  border-radius: 999px;
+  background: radial-gradient(circle at center, rgba(0, 161, 228, 0.15) 0%, rgba(0, 161, 228, 0) 72%);
+  pointer-events: none;
+}
+
+.fa-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(0, 70, 145, 0.14);
+}
+
+.fa-metric-head {
+  display: flex;
+  align-items: center;
+}
+
+.fa-metric-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  background: linear-gradient(180deg, #e9f8ff 0%, #d8f0ff 100%);
+  border: 1px solid #b8e8ff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .fa-metric-label {
@@ -3784,6 +3825,36 @@ pre {
 .fa-metric-card--ok {
   border-color: #a7f3d0;
   background: linear-gradient(180deg, #f0fdf8 0%, #e7faf3 100%);
+}
+
+.fa-metric-card--sent-positivo {
+  border-color: #86efac;
+  background: linear-gradient(180deg, #f0fff6 0%, #e5faef 100%);
+}
+
+.fa-metric-card--sent-negativo {
+  border-color: #fda4af;
+  background: linear-gradient(180deg, #fff4f6 0%, #ffe9ee 100%);
+}
+
+.fa-metric-card--sent-neutro {
+  border-color: #bae6fd;
+  background: linear-gradient(180deg, #f3faff 0%, #e8f5ff 100%);
+}
+
+.fa-metric-card--sent-positivo .fa-metric-icon {
+  background: linear-gradient(180deg, #dcfce7 0%, #c9f7dc 100%);
+  border-color: #86efac;
+}
+
+.fa-metric-card--sent-negativo .fa-metric-icon {
+  background: linear-gradient(180deg, #ffe4e6 0%, #ffd5db 100%);
+  border-color: #fda4af;
+}
+
+.fa-metric-card--sent-neutro .fa-metric-icon {
+  background: linear-gradient(180deg, #e0f2fe 0%, #d2ecff 100%);
+  border-color: #7dd3fc;
 }
 
 .fa-warning-note {

@@ -4329,14 +4329,24 @@ function _faMetricsHtml(data) {
       NEGATIVO: "var(--color-danger)",
       NEUTRO: "var(--ink-secondary)",
     }[dominant] || "var(--ink-secondary)";
+  const sentimentIcon =
+    {
+      POSITIVO: "👍",
+      NEGATIVO: "👎",
+      NEUTRO: "🤝",
+    }[dominant] || "💬";
+  const sentimentClass =
+    {
+      POSITIVO: "fa-metric-card--sent-positivo",
+      NEGATIVO: "fa-metric-card--sent-negativo",
+      NEUTRO: "fa-metric-card--sent-neutro",
+    }[dominant] || "";
 
   const warningItems = Array.isArray(data.warnings)
     ? data.warnings.filter(Boolean)
     : [];
   const warningsResume =
-    warningItems.length > 0
-      ? `${warningItems.length} aviso(s)`
-      : "Sem avisos";
+    warningItems.length > 0 ? `${warningItems.length} aviso(s)` : "Sem avisos";
   const warningsDetail =
     warningItems.length > 0
       ? `<div class="fa-warning-note"><strong>Aviso:</strong> ${_escFA(warningItems[0])}</div>`
@@ -4345,31 +4355,37 @@ function _faMetricsHtml(data) {
   return `
     <div class="fa-metric-grid">
       <div class="fa-metric-card fa-metric-card--${labelKey}">
+        <div class="fa-metric-head"><span class="fa-metric-icon">⚡</span></div>
         <div class="fa-metric-label">Fricção</div>
         <div class="fa-metric-value">${label} <span>${pct}</span></div>
       </div>
 
-      <div class="fa-metric-card">
+      <div class="fa-metric-card ${sentimentClass}">
+        <div class="fa-metric-head"><span class="fa-metric-icon">${sentimentIcon}</span></div>
         <div class="fa-metric-label">Sentimento dominante</div>
         <div class="fa-metric-value" style="color:${sentColor}">${dominant}</div>
       </div>
 
       <div class="fa-metric-card">
+        <div class="fa-metric-head"><span class="fa-metric-icon">📅</span></div>
         <div class="fa-metric-label">Período analisado</div>
         <div class="fa-metric-value">📅 ${dateRange}</div>
       </div>
 
       <div class="fa-metric-card">
+        <div class="fa-metric-head"><span class="fa-metric-icon">📊</span></div>
         <div class="fa-metric-label">Volume</div>
         <div class="fa-metric-value">📊 ${total} registros</div>
       </div>
 
       <div class="fa-metric-card" title="${_escFA(ops.join(" | "))}">
+        <div class="fa-metric-head"><span class="fa-metric-icon">🧩</span></div>
         <div class="fa-metric-label">Operações analisadas</div>
         <div class="fa-metric-value">🧩 ${_escFA(opsPreview || "—")}</div>
       </div>
 
       <div class="fa-metric-card ${warningItems.length > 0 ? "fa-metric-card--warn" : "fa-metric-card--ok"}" title="${_escFA(warningItems.join(" | "))}">
+        <div class="fa-metric-head"><span class="fa-metric-icon">${warningItems.length > 0 ? "⚠" : "✅"}</span></div>
         <div class="fa-metric-label">Avisos</div>
         <div class="fa-metric-value">${warningItems.length > 0 ? "⚠" : "✅"} ${warningsResume}</div>
       </div>

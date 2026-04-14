@@ -4132,8 +4132,14 @@ function appendFAUserMessage(text) {
   el.className = "fa-msg fa-msg-user";
   el.innerHTML = `
     <div class="fa-msg-avatar">${_faUserInitials()}</div>
-    <div>
-      <div class="fa-bubble">${_escFA(text)}</div>
+    <div class="fa-msg-main">
+      <div class="fa-bubble fa-bubble--user">
+        <div class="fa-bubble-head">
+          <span class="fa-bubble-icon" aria-hidden="true">👤</span>
+          <span class="fa-bubble-title">Sua pergunta</span>
+        </div>
+        <div class="fa-bubble-body">${_escFA(text)}</div>
+      </div>
       <div class="fa-msg-time">${_faNow()}</div>
     </div>`;
   area.appendChild(el);
@@ -4152,8 +4158,14 @@ function appendFAThinking() {
   el.className = "fa-msg fa-msg-bot";
   el.innerHTML = `
     <div class="fa-msg-avatar">FV</div>
-    <div class="fa-bubble">
-      <div class="fa-thinking-dots"><span></span><span></span><span></span></div>
+    <div class="fa-msg-main">
+      <div class="fa-bubble fa-bubble--thinking">
+        <div class="fa-bubble-head">
+          <span class="fa-bubble-icon" aria-hidden="true">⚙</span>
+          <span class="fa-bubble-title">Finance Voice IA analisando</span>
+        </div>
+        <div class="fa-thinking-dots"><span></span><span></span><span></span></div>
+      </div>
     </div>`;
   area.appendChild(el);
   _faScrollBottom();
@@ -4173,8 +4185,14 @@ function appendFAErrorMessage(msg) {
   el.className = "fa-msg fa-msg-bot";
   el.innerHTML = `
     <div class="fa-msg-avatar">FV</div>
-    <div>
-      <div class="fa-bubble fa-bubble--error">⚠ ${_escFA(msg)}</div>
+    <div class="fa-msg-main">
+      <div class="fa-bubble fa-bubble--error">
+        <div class="fa-bubble-head">
+          <span class="fa-bubble-icon" aria-hidden="true">⚠</span>
+          <span class="fa-bubble-title">Atenção</span>
+        </div>
+        <div class="fa-bubble-body">${_escFA(msg)}</div>
+      </div>
       <div class="fa-msg-time">${_faNow()}</div>
     </div>`;
   area.appendChild(el);
@@ -4189,8 +4207,14 @@ function appendFAChatTextMessage(text) {
   el.className = "fa-msg fa-msg-bot";
   el.innerHTML = `
     <div class="fa-msg-avatar">FV</div>
-    <div>
-      <div class="fa-bubble"><div class="fa-report">${_faMdToHtml(_escFA(text))}</div></div>
+    <div class="fa-msg-main">
+      <div class="fa-bubble fa-bubble--bot">
+        <div class="fa-bubble-head">
+          <span class="fa-bubble-icon" aria-hidden="true">✦</span>
+          <span class="fa-bubble-title">Finance Voice IA</span>
+        </div>
+        <div class="fa-bubble-body"><div class="fa-report">${_faMdToHtml(_escFA(text))}</div></div>
+      </div>
       <div class="fa-msg-time">${_faNow()}</div>
     </div>`;
   area.appendChild(el);
@@ -4212,11 +4236,17 @@ function appendFABotMessage(data) {
 
   el.innerHTML = `
     <div class="fa-msg-avatar">FV</div>
-    <div style="max-width:100%;">
-      <div class="fa-bubble" style="max-width:700px; width:100%;">
-        ${metricsHtml}
-        <div class="fa-report">${reportHtml}</div>
-        ${detailsHtml}
+    <div class="fa-msg-main fa-msg-main--report">
+      <div class="fa-bubble fa-bubble--bot fa-bubble--report">
+        <div class="fa-bubble-head">
+          <span class="fa-bubble-icon" aria-hidden="true">📊</span>
+          <span class="fa-bubble-title">Relatório Finance Voice IA</span>
+        </div>
+        <div class="fa-bubble-body">
+          ${metricsHtml}
+          <div class="fa-report">${reportHtml}</div>
+          ${detailsHtml}
+        </div>
       </div>
       <div class="fa-msg-time">${_faNow()} · Score ${data.quality_score ?? "—"}/100</div>
     </div>`;

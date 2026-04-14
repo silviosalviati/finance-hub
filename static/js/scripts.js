@@ -1197,9 +1197,12 @@ async function runDocumentBuild() {
 }
 
 async function runAudit() {
-  const requestText = document.getElementById("audit-request")?.value.trim() || "";
-  const projectId = document.getElementById("audit-project")?.value.trim() || "";
-  const datasetHint = document.getElementById("audit-dataset")?.value.trim() || "";
+  const requestText =
+    document.getElementById("audit-request")?.value.trim() || "";
+  const projectId =
+    document.getElementById("audit-project")?.value.trim() || "";
+  const datasetHint =
+    document.getElementById("audit-dataset")?.value.trim() || "";
   const errorEl = document.getElementById("audit-error");
   const empty = document.getElementById("audit-empty");
   const tabsArea = document.getElementById("audit-tabs-area");
@@ -1234,8 +1237,14 @@ async function runAudit() {
   setAuditProgress("Extraindo filtros", 10);
 
   const timers = [
-    setTimeout(() => setAuditProgress("Buscando interações no BigQuery", 28), 300),
-    setTimeout(() => setAuditProgress("Analisando sentimentos e fricção", 52), 800),
+    setTimeout(
+      () => setAuditProgress("Buscando interações no BigQuery", 28),
+      300,
+    ),
+    setTimeout(
+      () => setAuditProgress("Analisando sentimentos e fricção", 52),
+      800,
+    ),
     setTimeout(() => setAuditProgress("Classificando temas VoC", 74), 1400),
     setTimeout(() => setAuditProgress("Gerando relatório executivo", 90), 2200),
   ];
@@ -1333,14 +1342,16 @@ function renderAudit(data) {
   const metrics = data.cx_metrics || {};
 
   const scoreRaw = Number(metrics.friction_score ?? data.friction_score ?? 0);
-  const score = scoreRaw <= 1 ? Math.round(scoreRaw * 100) : Math.round(scoreRaw);
+  const score =
+    scoreRaw <= 1 ? Math.round(scoreRaw * 100) : Math.round(scoreRaw);
 
   const titleEl = document.getElementById("audit-title");
   const periodEl = document.getElementById("audit-period-text");
   const totalEl = document.getElementById("audit-total-interacoes");
   if (titleEl) titleEl.textContent = title;
   if (periodEl) periodEl.textContent = `${start} a ${end}`;
-  if (totalEl) totalEl.textContent = `${total.toLocaleString("pt-BR")} interações analisadas`;
+  if (totalEl)
+    totalEl.textContent = `${total.toLocaleString("pt-BR")} interações analisadas`;
 
   renderFrictionGauge(score);
   renderAuditKpis(metrics, score);
@@ -1350,19 +1361,25 @@ function renderAudit(data) {
     Number(metrics.sentimento_neutro_cliente_pct ?? 0),
     Number(metrics.sentimento_negativo_cliente_pct ?? 0),
   );
-  renderSentimentList(Array.isArray(data.sentiment_trends) ? data.sentiment_trends : []);
+  renderSentimentList(
+    Array.isArray(data.sentiment_trends) ? data.sentiment_trends : [],
+  );
 
-  renderFrictionPoints(Array.isArray(data.friction_points) ? data.friction_points : []);
+  renderFrictionPoints(
+    Array.isArray(data.friction_points) ? data.friction_points : [],
+  );
   renderVocThemes(Array.isArray(data.voc_themes) ? data.voc_themes : []);
 
   const insight = document.getElementById("audit-voc-insight");
   if (insight) {
-    insight.textContent = data.voc_insight || data.audit_summary || "Sem insight consolidado.";
+    insight.textContent =
+      data.voc_insight || data.audit_summary || "Sem insight consolidado.";
   }
 
   const report = document.getElementById("audit-markdown-report");
   auditMarkdownCache = String(data.markdown_report || "");
-  if (report) report.textContent = auditMarkdownCache || "Sem relatório disponível.";
+  if (report)
+    report.textContent = auditMarkdownCache || "Sem relatório disponível.";
 
   renderRecommendationList(
     document.getElementById("audit-recommendations"),
@@ -1517,7 +1534,12 @@ function renderAuditKpis(metrics, score) {
       value: `${Number(score || 0)}`,
       benchmark: "benchmark: < 40",
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--rose)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
-      status: Number(score || 0) <= 40 ? "good" : Number(score || 0) <= 60 ? "warning" : "critical",
+      status:
+        Number(score || 0) <= 40
+          ? "good"
+          : Number(score || 0) <= 60
+            ? "warning"
+            : "critical",
     },
   ];
 
@@ -1584,7 +1606,8 @@ function renderFrictionPoints(points) {
   if (!points.length) {
     const empty = document.createElement("div");
     empty.className = "rec-item";
-    empty.textContent = "Nenhum ponto de fricção retornado para o período informado.";
+    empty.textContent =
+      "Nenhum ponto de fricção retornado para o período informado.";
     list.appendChild(empty);
     return;
   }
@@ -1607,7 +1630,9 @@ function renderFrictionPoints(points) {
     `;
 
     const pillList = card.querySelector(".fp-pill-list");
-    const ops = Array.isArray(fp.operacoes_afetadas) ? fp.operacoes_afetadas : [];
+    const ops = Array.isArray(fp.operacoes_afetadas)
+      ? fp.operacoes_afetadas
+      : [];
     if (pillList && ops.length) {
       ops.forEach((op) => {
         const pill = document.createElement("span");
@@ -1640,15 +1665,25 @@ function renderVocThemes(themes) {
 
     const catRaw = String(theme.categoria || "INFORMACAO").toUpperCase();
     const catKey =
-      catRaw === "RECLAMACAO" || catRaw === "ELOGIO" || catRaw === "SUGESTAO" || catRaw === "DUVIDA" || catRaw === "INFORMACAO"
+      catRaw === "RECLAMACAO" ||
+      catRaw === "ELOGIO" ||
+      catRaw === "SUGESTAO" ||
+      catRaw === "DUVIDA" ||
+      catRaw === "INFORMACAO"
         ? catRaw.toLowerCase()
         : "informacao";
 
     const impacto = String(theme.impacto_estimado || "LOW").toUpperCase();
     const impactLevel = impacto === "ALTO" ? 3 : impacto === "MEDIO" ? 2 : 1;
 
-    const sent = String(theme.sentimento_predominante || "NEUTRO").toUpperCase();
-    const sentSymbol = sent.includes("POS") ? "↑" : sent.includes("NEG") ? "↓" : "→";
+    const sent = String(
+      theme.sentimento_predominante || "NEUTRO",
+    ).toUpperCase();
+    const sentSymbol = sent.includes("POS")
+      ? "↑"
+      : sent.includes("NEG")
+        ? "↓"
+        : "→";
 
     card.innerHTML = `
       <div class="voc-top">
@@ -1832,7 +1867,7 @@ function renderDocumentBuild(data) {
 
     const warningItems = warnings.map(
       (w) =>
-        `<div class="rec-item" style="border-color:#fecaca;background:var(--rose-bg);color:var(--rose)">⚠ ${w}</div>`,
+        `<div class="rec-item" style="border-color:var(--color-danger);background:var(--rose-bg);color:var(--rose)">⚠ ${w}</div>`,
     );
 
     structureList.innerHTML =
@@ -2317,7 +2352,7 @@ function generateDocumentHtml(data, context) {
         </tr>`,
         )
         .join("\n")
-    : '<tr><td colspan="4" style="color:#888;text-align:center">Dicionário não disponível</td></tr>';
+    : '<tr><td colspan="4" style="color:var(--ink-muted);text-align:center">Dicionário não disponível</td></tr>';
 
   /* ── checklist ───────────────────────────────────── */
   const checklistHtml = checklist.length
@@ -2423,7 +2458,7 @@ function generateDocumentHtml(data, context) {
 
     /* ── Hero ── */
     .hero {
-      background: linear-gradient(135deg, #003e8a 0%, #0e6fd6 100%);
+      background: linear-gradient(135deg, #004691 0%, #00a1e4 100%);
       color: #fff; border-radius: 14px; padding: 20px 22px;
       display: flex; gap: 16px; align-items: flex-start;
       box-shadow: 0 4px 18px rgba(0,62,138,.25);
@@ -2462,7 +2497,7 @@ function generateDocumentHtml(data, context) {
     /* ── Executive banner ── */
     .exec-box {
       margin-top: 14px; background: #fff;
-      border: 1px solid #c8daf5; border-left: 4px solid #0e6fd6;
+      border: 1px solid #c8daf5; border-left: 4px solid #00a1e4;
       border-radius: 10px; padding: 12px 14px;
       display: flex; gap: 10px; align-items: flex-start;
       font-size: 12.5px; color: #1e3558;
@@ -2500,11 +2535,11 @@ function generateDocumentHtml(data, context) {
       font-weight: 700; line-height: 1.3;
     }
     .card h3 {
-      margin: 0; color: #003e8a; font-size: 13px;
+      margin: 0; color: #004691; font-size: 13px;
       font-weight: 700; line-height: 1.3;
     }
     .card p { margin: 0; font-size: 12.5px; color: #2d3b4f; line-height: 1.65; }
-    .sect-card { border-left: 3px solid #0e6fd6; }
+    .sect-card { border-left: 3px solid #00a1e4; }
     .sect-text { margin: 0; font-size: 12.5px; color: #2d3b4f; line-height: 1.65; }
     .sect-text + .sect-text { margin-top: 8px; }
     .sect-text pre {
@@ -2540,7 +2575,7 @@ function generateDocumentHtml(data, context) {
       content: "•";
       position: absolute;
       left: 0;
-      color: #0e6fd6;
+      color: #00a1e4;
       font-weight: 700;
     }
     .json-kv {
@@ -2602,7 +2637,7 @@ function generateDocumentHtml(data, context) {
     .step-item { display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #2d3b4f; }
     .step-n {
       flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
-      background: #0e6fd6; color: #fff; font-size: 11px; font-weight: 700;
+      background: #00a1e4; color: #fff; font-size: 11px; font-weight: 700;
       display: flex; align-items: center; justify-content: center;
     }
 
@@ -3163,7 +3198,7 @@ function renderQB(data) {
 
   if (dryRun) {
     if (dry.error) {
-      dryRun.innerHTML = `<div class="rec-item" style="border-color:#fecaca;background:var(--rose-bg);color:var(--rose)">⚠ ${dry.error}</div>`;
+      dryRun.innerHTML = `<div class="rec-item" style="border-color:var(--color-danger);background:var(--rose-bg);color:var(--rose)">⚠ ${dry.error}</div>`;
     } else {
       dryRun.innerHTML = `
         <div class="rec-item">Bytes processados: <strong style="margin-left:6px">${fmtBytes(dry.bytes_processed)}</strong></div>
@@ -3343,7 +3378,7 @@ function renderQA(d) {
 
     if (!apCount) {
       apList.innerHTML = `
-        <div class="rec-item" style="color:var(--emerald);border-color:#A7F3D0;background:var(--emerald-bg)">
+        <div class="rec-item" style="color:var(--emerald);border-color:var(--color-success);background:var(--emerald-bg)">
           <span>✓</span> Nenhum anti-padrão. Query eficiente!
         </div>
       `;
@@ -4042,7 +4077,7 @@ function clearFAChat() {
   msgArea.innerHTML = `
     <div class="fa-welcome" id="fa-welcome">
       <div class="fa-welcome-ico">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#004691"
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="color:var(--porto-primary)"
           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           <polyline points="9 12 11 14 15 10"/>
@@ -4208,8 +4243,11 @@ function _faMetricsHtml(data) {
   const total = (data.total_records ?? 0).toLocaleString("pt-BR");
 
   const sentColor =
-    { POSITIVO: "#004691", NEGATIVO: "#be123c", NEUTRO: "#3d5276" }[dominant] ||
-    "#3d5276";
+    {
+      POSITIVO: "var(--porto-primary)",
+      NEGATIVO: "var(--color-danger)",
+      NEUTRO: "var(--ink-secondary)",
+    }[dominant] || "var(--ink-secondary)";
 
   const warnings =
     Array.isArray(data.warnings) && data.warnings.length

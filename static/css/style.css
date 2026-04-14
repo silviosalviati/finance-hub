@@ -1,41 +1,59 @@
 :root {
-  --porto: #004691;
+  --porto-primary: #004691;
+  --porto-primary-mid: #00519e;
+  --porto-primary-dark: #003f84;
+  --porto: var(--porto-primary);
   --porto-vivid: #00a1e4;
   --porto-sky: #ebf2fc;
   --porto-sky2: #d4e6f8;
 
-  --white: #ffffff;
-  --bg: #f2f5f8;
-  --bg2: #e6edf7;
+  --bg-page: #f2f5f8;
+  --bg-surface: #e6edf7;
+  --bg-white: #ffffff;
+  --white: var(--bg-white);
+  --bg: var(--bg-page);
+  --bg2: var(--bg-surface);
 
-  --border: #d1dce7;
-  --border2: #c8d8eb;
+  --border-default: #d1dce7;
+  --border-strong: #c8d8eb;
+  --border: var(--border-default);
+  --border2: var(--border-strong);
 
-  --ink: #0a1628;
-  --ink2: #3d5276;
-  --ink3: #8096b2;
+  --ink-primary: #0a1628;
+  --ink-secondary: #3d5276;
+  --ink-muted: #8096b2;
+  --ink: var(--ink-primary);
+  --ink2: var(--ink-secondary);
+  --ink3: var(--ink-muted);
 
-  --emerald: #059669;
-  --emerald-bg: #ecfdf5;
+  --color-success: #059669;
+  --emerald: var(--color-success);
+  --emerald-bg: color-mix(in srgb, var(--color-success) 8%, white);
 
-  --amber: #d97706;
-  --amber-bg: #fffbeb;
+  --color-warning: #d97706;
+  --amber: var(--color-warning);
+  --amber-bg: color-mix(in srgb, var(--color-warning) 8%, white);
 
   --orange: #c2410c;
-  --orange-bg: #fff7ed;
+  --orange-bg: color-mix(in srgb, var(--orange) 8%, white);
 
-  --rose: #be123c;
-  --rose-bg: #fff1f2;
+  --color-danger: #be123c;
+  --rose: var(--color-danger);
+  --rose-bg: color-mix(in srgb, var(--color-danger) 8%, white);
 
   --violet: #6d28d9;
   --violet-bg: #f5f3ff;
 
-  --teal: #0891b2;
-  --teal-bg: #ecfeff;
+  --color-info: #0891b2;
+  --teal: var(--color-info);
+  --teal-bg: color-mix(in srgb, var(--color-info) 8%, white);
 
-  --display: "Plus Jakarta Sans", sans-serif;
-  --body: "Inter", sans-serif;
-  --mono: "JetBrains Mono", monospace;
+  --font-display: "Sora", sans-serif;
+  --font-body: "DM Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --display: var(--font-display);
+  --body: var(--font-body);
+  --mono: var(--font-mono);
 }
 
 /* ─────────────────────────────────────
@@ -127,27 +145,27 @@ textarea {
   left: 40px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   opacity: 0.15;
 }
 
 .login-vela-bg i {
   display: block;
-  height: 6px;
+  height: 5px;
   background: #fff;
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
 .login-vela-bg i:nth-child(1) {
-  width: 80px;
+  width: 20px;
 }
 
 .login-vela-bg i:nth-child(2) {
-  width: 56px;
+  width: 14px;
 }
 
 .login-vela-bg i:nth-child(3) {
-  width: 32px;
+  width: 8px;
 }
 
 .login-card {
@@ -156,10 +174,24 @@ textarea {
   width: 100%;
   max-width: 400px;
   background: var(--white);
-  border-radius: 16px;
-  padding: 4px 40px 32px;
+  border-radius: 20px;
+  padding: 40px 44px 36px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   animation: cardIn 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.login-brand-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  border-radius: 20px 20px 0 0;
+  background: linear-gradient(
+    90deg,
+    var(--porto-primary),
+    var(--porto-vivid)
+  );
 }
 
 @keyframes cardIn {
@@ -240,17 +272,17 @@ textarea {
 .login-title {
   margin-bottom: 4px;
   font-family: var(--display);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.4px;
   color: var(--ink);
 }
 
 .login-desc {
   margin-bottom: 24px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ink3);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .login-field {
@@ -270,7 +302,7 @@ textarea {
 .login-field input {
   background: var(--bg);
   border: 1.5px solid var(--border);
-  border-radius: 7px;
+  border-radius: 10px;
   padding: 10px 13px;
   font-size: 13px;
   color: var(--ink);
@@ -283,7 +315,7 @@ textarea {
 
 .login-field input:focus {
   border-color: var(--porto-vivid);
-  box-shadow: 0 0 0 3px rgba(0, 87, 184, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 161, 228, 0.12);
   background: var(--white);
 }
 
@@ -297,8 +329,8 @@ textarea {
   background: linear-gradient(135deg, #004691, #0066cc);
   color: #fff;
   border: none;
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 13px;
   font-family: var(--display);
   font-size: 13px;
   font-weight: 700;
@@ -316,7 +348,7 @@ textarea {
 }
 
 .btn-login-submit:hover {
-  background: linear-gradient(135deg, #0053aa, #0085d1);
+  background: linear-gradient(135deg, #00519e, #0080d4);
   box-shadow: 0 8px 20px rgba(0, 48, 135, 0.28);
   transform: translateY(-1px);
 }
@@ -360,9 +392,13 @@ textarea {
 
 /* TOPBAR */
 .topbar {
-  height: 48px;
-  min-height: 48px;
-  background: var(--porto);
+  height: 52px;
+  min-height: 52px;
+  background: linear-gradient(
+    135deg,
+    var(--porto-primary),
+    var(--porto-primary-dark)
+  );
   display: flex;
   align-items: center;
   padding: 0 18px;
@@ -374,39 +410,38 @@ textarea {
 .vela {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .vela i {
   display: block;
   height: 3px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.85);
   border-radius: 2px;
 }
 
 .vela i:nth-child(1) {
-  width: 24px;
+  width: 18px;
 }
 
 .vela i:nth-child(2) {
-  width: 16px;
+  width: 12px;
 }
 
 .vela i:nth-child(3) {
-  width: 10px;
+  width: 7px;
 }
 
 .brand-logo {
   display: flex;
   align-items: center;
-  height: 40px;
+  height: 36px;
 }
 
 .brand-logo img {
   height: 100%;
   width: auto;
   object-fit: contain;
-  filter: brightness(1.1) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
 }
 
 .tsep {
@@ -420,10 +455,10 @@ textarea {
   align-items: center;
   gap: 5px;
   font-family: var(--display);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: #fff;
-  letter-spacing: 0.2px;
+  letter-spacing: -0.2px;
 }
 
 .app-bot-icon {
@@ -450,17 +485,18 @@ textarea {
 }
 
 .topbar-name {
+  font-family: var(--body);
   font-size: 12px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .avatar {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -471,6 +507,7 @@ textarea {
 }
 
 .btn-logout {
+  font-family: var(--body);
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 6px;
@@ -505,9 +542,10 @@ textarea {
   display: flex;
   align-items: center;
   padding: 0 14px;
+  font-family: var(--body);
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.65);
   letter-spacing: 0.5px;
   text-transform: uppercase;
   border-bottom: 2px solid transparent;
@@ -524,6 +562,7 @@ textarea {
 
 .snav.active {
   color: #fff;
+  border-bottom: 2px solid #fff;
   border-bottom-color: #fff;
 }
 
@@ -538,7 +577,7 @@ textarea {
 .sidebar {
   width: 210px;
   min-width: 210px;
-  background: linear-gradient(180deg, #f4f8ff 0%, #edf4ff 100%);
+  background: linear-gradient(180deg, #f7faff 0%, #eef5ff 100%);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -551,12 +590,12 @@ textarea {
 }
 
 .shead {
-  padding: 0 14px;
+  padding: 0 16px;
   margin-bottom: 4px;
   font-size: 9px;
   font-weight: 700;
   color: var(--ink3);
-  letter-spacing: 1.2px;
+  letter-spacing: 1.4px;
   text-transform: uppercase;
 }
 
@@ -564,10 +603,10 @@ textarea {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 7px 14px;
+  padding: 8px 16px;
   border-left: 3px solid transparent;
   font-size: 12px;
-  font-weight: 400;
+  font-weight: 500;
   color: var(--ink2);
   transition: all 0.15s;
 }
@@ -621,7 +660,7 @@ textarea {
 
 .suser {
   margin-top: auto;
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -632,7 +671,7 @@ textarea {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: var(--porto-sky2);
+  background: var(--porto-sky);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -694,13 +733,13 @@ textarea {
 .stat-card {
   background: var(--white);
   border: 1px solid var(--border);
-  border-radius: 11px;
-  padding: 12px 14px;
+  border-radius: 12px;
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 10px;
   box-shadow: 0 2px 8px rgba(10, 22, 40, 0.04);
-  animation: fu 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fu 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .stico {
@@ -715,7 +754,7 @@ textarea {
 
 .stval {
   font-family: var(--display);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1;
   color: var(--ink);
@@ -724,6 +763,7 @@ textarea {
 .stlbl {
   margin-top: 2px;
   font-size: 10px;
+  letter-spacing: 0.3px;
   color: var(--ink3);
 }
 
@@ -736,10 +776,10 @@ textarea {
 
 .view-title {
   font-family: var(--display);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--ink);
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
   line-height: 1.1;
   margin-bottom: 4px;
 }
@@ -791,9 +831,9 @@ textarea {
   height: auto;
   min-height: 206px;
   max-height: none;
-  background: #edf4ff;
-  border: 1px solid rgba(0, 70, 145, 0.12);
-  border-radius: 24px;
+  background: linear-gradient(145deg, #f0f7ff 0%, #e8f2ff 100%);
+  border: 1px solid rgba(0, 70, 145, 0.14);
+  border-radius: 20px;
   padding: 14px 16px;
   box-shadow:
     0 10px 28px rgba(0, 70, 145, 0.1),
@@ -839,8 +879,8 @@ textarea {
   height: 4px;
   background: linear-gradient(
     90deg,
-    var(--porto) 0%,
-    #0066cc 52%,
+    var(--porto-primary) 0%,
+    var(--porto-primary-mid) 52%,
     var(--porto-vivid) 100%
   );
   border-radius: 20px 20px 0 0;
@@ -902,9 +942,10 @@ textarea {
   min-width: 54px;
   padding: 4px 10px;
   border-radius: 999px;
-  font-size: 10px;
+  font-family: var(--body);
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   text-transform: uppercase;
 }
 
@@ -1008,9 +1049,9 @@ textarea {
 
 .bot-showcase-content h2 {
   font-family: var(--display);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.4px;
   color: var(--ink);
   margin-bottom: 4px;
   line-height: 1.08;
@@ -1025,10 +1066,6 @@ textarea {
   margin-top: 4px;
 }
 
-.bot-showcase-content h2 {
-  font-size: 24px;
-}
-
 .bot-showcase-tags {
   display: flex;
   flex-wrap: wrap;
@@ -1037,11 +1074,12 @@ textarea {
 }
 
 .bot-showcase-tag {
-  background: #f8fafc;
+  background: var(--white);
   border: 1px solid var(--border);
   color: var(--ink2);
   border-radius: 999px;
   padding: 5px 10px;
+  font-family: var(--body);
   font-size: 10px;
   font-weight: 600;
   transition: all 0.15s;
@@ -1125,17 +1163,17 @@ textarea {
   overflow: hidden;
   background: var(--white);
   border: 1px solid var(--border);
-  border-radius: 13px;
+  border-radius: 16px;
   padding: 20px 18px 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  box-shadow: 0 1px 3px rgba(10, 22, 40, 0.05);
+  box-shadow: 0 1px 4px rgba(10, 22, 40, 0.06);
   transition:
     transform 0.2s,
     box-shadow 0.2s,
     border-color 0.2s;
-  animation: fu 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fu 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .bot-card::before {
@@ -1145,14 +1183,14 @@ textarea {
   left: 0;
   right: 0;
   height: 3px;
-  border-radius: 13px 13px 0 0;
+  border-radius: 16px 16px 0 0;
   opacity: 0;
   transition: opacity 0.2s;
 }
 
 .bot-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 22px rgba(0, 48, 135, 0.11);
+  box-shadow: 0 10px 30px rgba(0, 48, 135, 0.13);
   border-color: var(--porto-sky2);
 }
 
@@ -1228,6 +1266,7 @@ textarea {
 
 .bstatus {
   margin-top: 2px;
+  font-family: var(--body);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -1259,7 +1298,7 @@ textarea {
 .bdesc {
   font-size: 11px;
   color: var(--ink3);
-  line-height: 1.6;
+  line-height: 1.65;
   flex: 1;
 }
 
@@ -1278,6 +1317,7 @@ textarea {
 }
 
 .tag {
+  font-family: var(--body);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.4px;
@@ -1293,7 +1333,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-family: var(--display);
+  font-family: var(--body);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -1301,7 +1341,7 @@ textarea {
   color: var(--porto);
   background: var(--porto-sky);
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 5px 10px;
   transition: all 0.15s;
   white-space: nowrap;
@@ -1371,7 +1411,7 @@ textarea {
 .hist-card {
   background: var(--white);
   border: 1px solid var(--border2);
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow: 0 2px 8px rgba(10, 22, 40, 0.06);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
@@ -1385,7 +1425,7 @@ textarea {
 .hist-card-header {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border2);
-  background: linear-gradient(135deg, var(--white), var(--bg2));
+  background: linear-gradient(135deg, var(--white), #f5f9ff);
 }
 
 .hist-card-top {
@@ -1427,7 +1467,7 @@ textarea {
 .hist-bot-section h3 {
   font-family: var(--display);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
   margin: 0 0 1px 0;
   line-height: 1.3;
@@ -1443,6 +1483,7 @@ textarea {
 .hist-performance-badge {
   padding: 6px 12px;
   border-radius: 8px;
+  font-family: var(--display);
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -1505,7 +1546,7 @@ textarea {
 
 .hist-key-metric-value {
   font-family: var(--display);
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 800;
   margin-bottom: 1px;
 }
@@ -1596,7 +1637,7 @@ textarea {
   font-family: var(--mono);
   font-size: 10px;
   padding: 10px 12px;
-  line-height: 1.5;
+  line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-all;
   max-height: 100px;
@@ -1946,7 +1987,7 @@ textarea {
 .qa-hero {
   background: var(--white);
   border-bottom: 1px solid var(--border);
-  padding: 14px 20px;
+  padding: 16px 22px;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -1968,7 +2009,7 @@ textarea {
 .qa-hero-title {
   margin-bottom: 3px;
   font-family: var(--display);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.2px;
@@ -1976,9 +2017,9 @@ textarea {
 }
 
 .qa-hero-desc {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ink3);
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .qa-hero-right {
@@ -1991,6 +2032,7 @@ textarea {
 }
 
 .qa-hero-tag {
+  font-family: var(--body);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -2005,11 +2047,12 @@ textarea {
 .qa-live-badge {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   background: var(--emerald-bg);
   border: 1px solid #a7f3d0;
   border-radius: 12px;
   padding: 3px 10px;
+  font-family: var(--body);
   font-size: 10px;
   font-weight: 700;
   color: var(--emerald);
@@ -2017,8 +2060,8 @@ textarea {
 }
 
 .qa-live-dot {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--emerald);
   box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.25);
@@ -2049,7 +2092,7 @@ textarea {
   font-size: 9px;
   font-weight: 700;
   color: var(--ink3);
-  letter-spacing: 1.2px;
+  letter-spacing: 1.4px;
   text-transform: uppercase;
 }
 
@@ -2070,7 +2113,7 @@ textarea {
   width: 100%;
   background: var(--bg);
   border: 1.5px solid var(--border);
-  border-radius: 7px;
+  border-radius: 10px;
   color: var(--ink);
   outline: none;
   transition:
@@ -2081,7 +2124,7 @@ textarea {
 
 .qfield input {
   padding: 7px 10px;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 .qfield textarea {
@@ -2091,7 +2134,7 @@ textarea {
   resize: vertical;
   font-family: var(--mono);
   font-size: 11.5px;
-  line-height: 1.7;
+  line-height: 1.75;
 }
 
 #qb-request {
@@ -2102,7 +2145,7 @@ textarea {
 .qfield input:focus,
 .qfield textarea:focus {
   border-color: var(--porto-vivid);
-  box-shadow: 0 0 0 3px rgba(0, 87, 184, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 161, 228, 0.1);
   background: var(--white);
 }
 
@@ -2222,12 +2265,14 @@ textarea {
 
 .qb-dataset-status-title {
   font-size: 11.5px;
+  font-family: var(--body);
   font-weight: 700;
 }
 
 .qb-dataset-status-text {
   margin: 5px 0 0;
   font-size: 10.5px;
+  font-family: var(--body);
 }
 
 .qb-dataset-status-meta {
@@ -2243,7 +2288,9 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  font-family: var(--body);
   font-size: 9.5px;
+  font-weight: 600;
   padding: 3px 7px;
   border-radius: 999px;
   border: 1px solid #d1d5db;
@@ -2335,7 +2382,7 @@ textarea {
 .qb-sample-table tbody td {
   border-bottom: 1px solid #eef2f7;
   padding: 6px 8px;
-  color: var(--ink1);
+  color: var(--ink);
   vertical-align: top;
   max-width: 240px;
   overflow: hidden;
@@ -2363,8 +2410,8 @@ textarea {
   background: linear-gradient(135deg, #004691, #0066cc);
   color: #fff;
   border: none;
-  border-radius: 10px;
-  padding: 11px 16px;
+  border-radius: 12px;
+  padding: 12px 18px;
   font-family: var(--display);
   font-size: 12px;
   font-weight: 700;
@@ -2383,8 +2430,8 @@ textarea {
 }
 
 .btn-analyze:hover {
-  background: linear-gradient(135deg, #0053aa, #0085d1);
-  box-shadow: 0 8px 20px rgba(0, 48, 135, 0.28);
+  background: linear-gradient(135deg, #00519e, #0085d6);
+  box-shadow: 0 8px 22px rgba(0, 48, 135, 0.3);
   transform: translateY(-1px);
 }
 
@@ -2415,7 +2462,7 @@ textarea {
 .qa-progress {
   background: var(--white);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
@@ -2433,7 +2480,7 @@ textarea {
   font-size: 10px;
   font-weight: 700;
   color: var(--ink2);
-  letter-spacing: 0.8px;
+  letter-spacing: 0.9px;
   text-transform: uppercase;
 }
 
@@ -2444,7 +2491,7 @@ textarea {
 
 .qa-progress-track {
   width: 100%;
-  height: 6px;
+  height: 7px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -2453,7 +2500,11 @@ textarea {
 
 .qa-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--porto), var(--porto-vivid));
+  background: linear-gradient(
+    90deg,
+    var(--porto-primary),
+    var(--porto-vivid)
+  );
   border-radius: 999px;
   transition: width 0.35s ease;
 }
@@ -2724,17 +2775,19 @@ textarea {
   display: flex;
   align-items: center;
   gap: 0;
-  padding: 0 14px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--border);
   background: var(--white);
   flex-shrink: 0;
 }
 
 .qa-tab {
+  font-family: var(--body);
   font-size: 11px;
   font-weight: 600;
   color: var(--ink3);
-  padding: 9px 12px;
+  letter-spacing: 0.3px;
+  padding: 10px 13px;
   border-bottom: 2px solid transparent;
   transition: all 0.15s;
   display: flex;
@@ -2794,8 +2847,8 @@ textarea {
 /* SCORE / RESULT CARDS */
 .res-card {
   background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(10, 22, 40, 0.05);
 }
@@ -2816,7 +2869,7 @@ textarea {
 
 .grade-ltr {
   font-family: var(--display);
-  font-size: 34px;
+  font-size: 36px;
   font-weight: 800;
   color: #fff;
   line-height: 1;
@@ -2827,7 +2880,7 @@ textarea {
   font-size: 9px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.45);
-  letter-spacing: 0.8px;
+  letter-spacing: 0.9px;
   text-transform: uppercase;
 }
 
@@ -2847,12 +2900,14 @@ textarea {
 
 .score-big {
   font-family: var(--display);
-  font-size: 26px;
-  font-weight: 800;
+  font-size: 28px;
+  font-weight: 700;
   line-height: 1;
 }
 
 .score-of {
+  font-family: var(--body);
+  font-weight: 400;
   font-size: 11px;
   color: var(--ink3);
 }
@@ -2860,6 +2915,8 @@ textarea {
 .score-tag {
   margin-left: auto;
   align-self: center;
+  font-family: var(--body);
+  font-weight: 400;
   font-size: 10px;
   color: var(--ink3);
 }
@@ -2926,14 +2983,14 @@ textarea {
 /* COMMON SEC CARD */
 .sec-card {
   background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(10, 22, 40, 0.05);
 }
 
 .sec-head {
-  padding: 9px 14px;
+  padding: 10px 15px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -2941,10 +2998,11 @@ textarea {
 }
 
 .sec-ttl {
+  font-family: var(--body);
   font-size: 10px;
   font-weight: 700;
   color: var(--ink3);
-  letter-spacing: 1px;
+  letter-spacing: 1.1px;
   text-transform: uppercase;
   display: flex;
   align-items: center;
@@ -2978,7 +3036,7 @@ textarea {
 .ap-card {
   border: 1px solid var(--border);
   border-left: 3px solid;
-  border-radius: 7px;
+  border-radius: 8px;
   padding: 10px 12px;
   transition: box-shadow 0.15s;
 }
@@ -2995,10 +3053,11 @@ textarea {
 }
 
 .ap-chip {
+  font-family: var(--body);
   font-size: 9px;
   font-weight: 700;
   padding: 1px 7px;
-  border-radius: 8px;
+  border-radius: 6px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
@@ -3012,7 +3071,7 @@ textarea {
   margin-bottom: 6px;
   font-size: 11px;
   color: var(--ink2);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .ap-fix {
@@ -3024,7 +3083,7 @@ textarea {
   align-items: flex-start;
   background: var(--emerald-bg);
   padding: 6px 8px;
-  border-radius: 5px;
+  border-radius: 7px;
   line-height: 1.5;
 }
 
@@ -3111,7 +3170,7 @@ textarea {
 
 /* SQL */
 .sql-wrap {
-  background: #141c2e;
+  background: #0f1724;
   border-radius: 7px;
   overflow: hidden;
   border: 1px solid #1e2a40;
@@ -3123,7 +3182,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #0f1828;
+  background: #091220;
 }
 
 .sql-dots {
@@ -3151,7 +3210,7 @@ textarea {
 
 .sql-fname {
   font-size: 10px;
-  color: #4a5a7a;
+  color: #4a6080;
   font-family: var(--mono);
 }
 
@@ -3160,6 +3219,7 @@ textarea {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 4px;
   color: #5a7aa8;
+  font-family: var(--body);
   font-size: 10px;
   font-weight: 500;
   padding: 3px 10px;
@@ -3175,7 +3235,7 @@ pre {
   padding: 14px;
   font-family: var(--mono);
   font-size: 11.5px;
-  line-height: 1.8;
+  line-height: 1.85;
   color: #c8d8f0;
   overflow-x: auto;
   white-space: pre-wrap;
@@ -3920,10 +3980,10 @@ pre {
   padding: 8px 10px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 11px;
   color: var(--ink2);
-  line-height: 1.6;
+  line-height: 1.65;
   transition: border-color 0.15s;
 }
 
@@ -3936,7 +3996,7 @@ pre {
   color: var(--porto);
   font-size: 10px;
   font-weight: 700;
-  border-radius: 4px;
+  border-radius: 5px;
   padding: 1px 6px;
   flex-shrink: 0;
   margin-top: 1px;
@@ -3951,10 +4011,10 @@ pre {
   background: var(--porto-sky);
   border: 1px solid var(--porto-sky2);
   border-left: 3px solid var(--porto-vivid);
-  border-radius: 6px;
+  border-radius: 0 8px 8px 0;
   font-size: 11px;
   color: var(--ink2);
-  line-height: 1.6;
+  line-height: 1.65;
   margin-bottom: 6px;
 }
 
@@ -4234,7 +4294,7 @@ pre {
 ───────────────────────────────────── */
 
 .audit-body {
-  animation: fu 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fu 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .audit-form {
@@ -4309,7 +4369,9 @@ pre {
   background: var(--white);
   padding: 10px 12px;
   box-shadow: 0 1px 3px var(--border2);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 
 .audit-kpi-card:hover {
@@ -4755,6 +4817,7 @@ pre {
 footer {
   text-align: center;
   padding: 8px;
+  font-family: var(--body);
   font-size: 10px;
   color: var(--ink3);
   border-top: 1px solid var(--border);
@@ -4764,6 +4827,7 @@ footer {
 }
 
 footer strong {
+  font-family: var(--body);
   color: var(--porto);
   font-weight: 600;
 }
@@ -4771,7 +4835,7 @@ footer strong {
 @keyframes fu {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
 
   to {
@@ -4793,17 +4857,45 @@ footer strong {
 }
 
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg);
+  background: #f0f4fa;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border2);
-  border-radius: 2px;
+  background: #c0cedf;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8bcda;
+}
+
+.bot-card:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.bot-card:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.bot-card:nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.bot-card:nth-child(4) {
+  animation-delay: 180ms;
+}
+
+.bot-card:nth-child(5) {
+  animation-delay: 240ms;
+}
+
+.bot-card:nth-child(6) {
+  animation-delay: 300ms;
 }
 
 .btn-analyze:focus-visible,

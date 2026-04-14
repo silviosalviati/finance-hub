@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Finance Hub IA · Porto Seguro</title>
     <link
-      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/style.css" />
@@ -23,6 +23,7 @@
       <div class="login-vela-bg" aria-hidden="true"><i></i><i></i><i></i></div>
 
       <div class="login-card">
+        <div class="login-brand-line" aria-hidden="true"></div>
         <div class="login-logo">
           <img
             src="/static/img/logo_senha.png"
@@ -73,7 +74,7 @@
     <!-- ══ PORTAL SCREEN ══ -->
     <section id="screen-portal" class="screen" aria-label="Portal principal">
       <!-- TOPBAR -->
-      <header class="topbar">
+      <header class="topbar" id="topbar">
         <div class="vela" aria-hidden="true"><i></i><i></i><i></i></div>
 
         <div class="brand-logo">
@@ -2110,7 +2111,9 @@ runbook_operacional</pre
 
                 <button class="btn-analyze" id="audit-btn" onclick="runAudit()">
                   <div class="spinner" id="audit-spinner"></div>
-                  <span id="audit-btn-text">Auditar experiência do cliente</span>
+                  <span id="audit-btn-text"
+                    >Auditar experiência do cliente</span
+                  >
                 </button>
 
                 <div
@@ -2260,10 +2263,16 @@ runbook_operacional</pre
                             ></path>
                           </svg>
                           <div class="audit-gauge-center">
-                            <div class="audit-gauge-score" id="audit-gauge-score">
+                            <div
+                              class="audit-gauge-score"
+                              id="audit-gauge-score"
+                            >
                               0
                             </div>
-                            <div class="audit-gauge-label" id="audit-gauge-label">
+                            <div
+                              class="audit-gauge-label"
+                              id="audit-gauge-label"
+                            >
                               Excelente
                             </div>
                           </div>
@@ -2322,11 +2331,15 @@ runbook_operacional</pre
                       <div class="sec-card">
                         <div class="sec-head">
                           <div class="sec-ttl">
-                            <span class="dot"></span>Pontos de fricção por severidade
+                            <span class="dot"></span>Pontos de fricção por
+                            severidade
                           </div>
                         </div>
                         <div class="sec-body">
-                          <div class="audit-friction-list" id="audit-friction-list"></div>
+                          <div
+                            class="audit-friction-list"
+                            id="audit-friction-list"
+                          ></div>
                         </div>
                       </div>
                     </div>
@@ -2340,7 +2353,10 @@ runbook_operacional</pre
                         </div>
                         <div class="sec-body">
                           <div class="audit-voc-grid" id="audit-voc-grid"></div>
-                          <div class="audit-voc-insight" id="audit-voc-insight"></div>
+                          <div
+                            class="audit-voc-insight"
+                            id="audit-voc-insight"
+                          ></div>
                         </div>
                       </div>
                     </div>
@@ -2363,7 +2379,10 @@ runbook_operacional</pre
                           <div class="sql-wrap">
                             <pre id="audit-markdown-report"></pre>
                           </div>
-                          <div class="rec-list" id="audit-recommendations"></div>
+                          <div
+                            class="rec-list"
+                            id="audit-recommendations"
+                          ></div>
                         </div>
                       </div>
                     </div>
@@ -2376,7 +2395,10 @@ runbook_operacional</pre
                           </div>
                         </div>
                         <div class="sec-body">
-                          <div class="audit-checklist" id="audit-checklist"></div>
+                          <div
+                            class="audit-checklist"
+                            id="audit-checklist"
+                          ></div>
                         </div>
                       </div>
                     </div>

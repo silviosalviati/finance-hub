@@ -15,6 +15,8 @@ const qaDatasetValidationState = {
 let qbDatasetValidationTimer = null;
 let qbIsLoading = false;
 let dbIsLoading = false;
+let auditIsLoading = false;
+let auditMarkdownCache = "";
 const qbDatasetValidationState = {
   status: "idle",
   datasetHint: "",
@@ -223,6 +225,30 @@ function hideDBProgress() {
   progress.style.display = "none";
   fill.style.width = "8%";
   step.textContent = "Preparando...";
+}
+
+function setAuditProgress(stepText, pct) {
+  const progress = document.getElementById("audit-progress");
+  const step = document.getElementById("audit-progress-step");
+  const fill = document.getElementById("audit-progress-fill");
+
+  if (!progress || !step || !fill) return;
+
+  progress.style.display = "flex";
+  step.textContent = stepText;
+  fill.style.width = `${pct}%`;
+}
+
+function hideAuditProgress() {
+  const progress = document.getElementById("audit-progress");
+  const step = document.getElementById("audit-progress-step");
+  const fill = document.getElementById("audit-progress-fill");
+
+  if (!progress || !step || !fill) return;
+
+  progress.style.display = "none";
+  step.textContent = "Extraindo filtros";
+  fill.style.width = "8%";
 }
 
 function syncQAAnalyzeButtonState() {
@@ -839,7 +865,7 @@ function navTo(view) {
     qa: "view-qa",
     db: "view-db",
     qb: "view-qb",
-    fa: "view-fa",
+    audit: "view-audit",
     dev: "view-dev",
     hist: "view-hist",
   };
@@ -860,9 +886,8 @@ function navTo(view) {
     document.getElementById("nav-db")?.classList.add("active");
   } else if (view === "qb") {
     document.getElementById("nav-qb")?.classList.add("active");
-  } else if (view === "fa") {
-    document.getElementById("nav-fa")?.classList.add("active");
-    initFAInputListener();
+  } else if (view === "audit") {
+    document.getElementById("nav-audit")?.classList.add("active");
   }
 }
 
@@ -1169,6 +1194,544 @@ async function runDocumentBuild() {
       setDBLoading(false);
     }, 350);
   }
+}
+
+async function runAudit() {
+  const requestText = document.getElementById("audit-request")?.value.trim() || "";
+  const projectId = document.getElementById("audit-project")?.value.trim() || "";
+  const datasetHint = document.getElementById("audit-dataset")?.value.trim() || "";
+  const errorEl = document.getElementById("audit-error");
+  const empty = document.getElementById("audit-empty");
+  const tabsArea = document.getElementById("audit-tabs-area");
+
+  if (auditIsLoading) return;
+
+  if (errorEl) {
+    errorEl.style.display = "none";
+    errorEl.textContent = "";
+  }
+
+  if (!requestText) {
+    showAuditError("Descreva o contexto da auditoria antes de executar.");
+    return;
+  }
+  if (!projectId) {
+    showAuditError("Informe o Project ID — GCP.");
+    return;
+  }
+  if (!datasetHint) {
+    showAuditError("Informe o Dataset hint para contextualizar a auditoria.");
+    return;
+  }
+
+  const query =
+    `${requestText}\n` +
+    `[PROJECT_ID] ${projectId}\n` +
+    `[DATASET_HINT] ${datasetHint}\n` +
+    "[FOCO] auditoria de experiencia do cliente, friccao, voc, nps";
+
+  setAuditLoading(true);
+  setAuditProgress("Extraindo filtros", 10);
+
+  const timers = [
+    setTimeout(() => setAuditProgress("Buscando interações no BigQuery", 28), 300),
+    setTimeout(() => setAuditProgress("Analisando sentimentos e fricção", 52), 800),
+    setTimeout(() => setAuditProgress("Classificando temas VoC", 74), 1400),
+    setTimeout(() => setAuditProgress("Gerando relatório executivo", 90), 2200),
+  ];
+
+  try {
+    const res = await fetch("/api/agents/finance_auditor/analyze", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        query,
+        project_id: projectId,
+        dataset_hint: datasetHint,
+      }),
+    });
+
+    if (res.status === 401) {
+      doLogout();
+      return;
+    }
+
+    const payload = await res.json();
+    if (!res.ok) {
+      throw new Error(payload?.detail || "Falha ao executar auditoria.");
+    }
+
+    if (payload.status === "error") {
+      throw new Error(payload.error || "Falha ao gerar auditoria.");
+    }
+
+    setAuditProgress("Finalizando apresentação", 100);
+    renderAudit(payload);
+    if (empty) empty.style.display = "none";
+    if (tabsArea) tabsArea.style.display = "flex";
+  } catch (err) {
+    showAuditError(prettifyErrorMessage(err.message || "Erro na auditoria."));
+  } finally {
+    timers.forEach((id) => clearTimeout(id));
+    setTimeout(() => {
+      hideAuditProgress();
+      setAuditLoading(false);
+    }, 250);
+  }
+}
+
+function setAuditLoading(on) {
+  const btn = document.getElementById("audit-btn");
+  const spinner = document.getElementById("audit-spinner");
+  const text = document.getElementById("audit-btn-text");
+  const request = document.getElementById("audit-request");
+  const project = document.getElementById("audit-project");
+  const dataset = document.getElementById("audit-dataset");
+
+  auditIsLoading = on;
+  if (btn) btn.disabled = on;
+  if (spinner) spinner.style.display = on ? "block" : "none";
+  if (text)
+    text.textContent = on
+      ? "Auditando experiência do cliente..."
+      : "Auditar experiência do cliente";
+
+  [request, project, dataset].forEach((el) => {
+    if (el) el.disabled = on;
+  });
+}
+
+function showAuditError(message) {
+  const box = document.getElementById("audit-error");
+  if (!box) return;
+  box.textContent = "⚠ " + prettifyErrorMessage(message);
+  box.style.display = "block";
+}
+
+function switchAuditTab(name) {
+  document.querySelectorAll('[id^="audit-tab-"]').forEach((el) => {
+    el.classList.remove("active");
+  });
+  document.querySelectorAll('[id^="audit-panel-"]').forEach((el) => {
+    el.classList.remove("active");
+  });
+
+  document.getElementById(`audit-tab-${name}`)?.classList.add("active");
+  document.getElementById(`audit-panel-${name}`)?.classList.add("active");
+}
+
+function renderAudit(data) {
+  const empty = document.getElementById("audit-empty");
+  const tabsArea = document.getElementById("audit-tabs-area");
+  if (empty) empty.style.display = "none";
+  if (tabsArea) tabsArea.style.display = "flex";
+
+  const title = data.audit_title || "Auditoria da Experiência do Cliente";
+  const start = data.periodo_inicio || data.date_range?.start || "—";
+  const end = data.periodo_fim || data.date_range?.end || "—";
+  const total = Number(data.total_interacoes ?? data.total_records ?? 0);
+  const metrics = data.cx_metrics || {};
+
+  const scoreRaw = Number(metrics.friction_score ?? data.friction_score ?? 0);
+  const score = scoreRaw <= 1 ? Math.round(scoreRaw * 100) : Math.round(scoreRaw);
+
+  const titleEl = document.getElementById("audit-title");
+  const periodEl = document.getElementById("audit-period-text");
+  const totalEl = document.getElementById("audit-total-interacoes");
+  if (titleEl) titleEl.textContent = title;
+  if (periodEl) periodEl.textContent = `${start} a ${end}`;
+  if (totalEl) totalEl.textContent = `${total.toLocaleString("pt-BR")} interações analisadas`;
+
+  renderFrictionGauge(score);
+  renderAuditKpis(metrics, score);
+
+  renderSentimentBar(
+    Number(metrics.sentimento_positivo_cliente_pct ?? 0),
+    Number(metrics.sentimento_neutro_cliente_pct ?? 0),
+    Number(metrics.sentimento_negativo_cliente_pct ?? 0),
+  );
+  renderSentimentList(Array.isArray(data.sentiment_trends) ? data.sentiment_trends : []);
+
+  renderFrictionPoints(Array.isArray(data.friction_points) ? data.friction_points : []);
+  renderVocThemes(Array.isArray(data.voc_themes) ? data.voc_themes : []);
+
+  const insight = document.getElementById("audit-voc-insight");
+  if (insight) {
+    insight.textContent = data.voc_insight || data.audit_summary || "Sem insight consolidado.";
+  }
+
+  const report = document.getElementById("audit-markdown-report");
+  auditMarkdownCache = String(data.markdown_report || "");
+  if (report) report.textContent = auditMarkdownCache || "Sem relatório disponível.";
+
+  renderRecommendationList(
+    document.getElementById("audit-recommendations"),
+    Array.isArray(data.recommendations) ? data.recommendations : [],
+    false,
+  );
+  renderRecommendationList(
+    document.getElementById("audit-checklist"),
+    Array.isArray(data.quick_wins) ? data.quick_wins : [],
+    true,
+  );
+
+  switchAuditTab("overview");
+}
+
+function renderFrictionGauge(score) {
+  const clamped = Math.max(0, Math.min(100, Number(score || 0)));
+  const bg = document.getElementById("audit-gauge-bg");
+  const fg = document.getElementById("audit-gauge-progress");
+  const scoreEl = document.getElementById("audit-gauge-score");
+  const labelEl = document.getElementById("audit-gauge-label");
+  if (!bg || !fg || !scoreEl || !labelEl) return;
+
+  const cx = 120;
+  const cy = 120;
+  const r = 90;
+  const start = 210;
+  const end = -30;
+
+  const polar = (angleDeg) => {
+    const a = ((angleDeg - 90) * Math.PI) / 180;
+    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+  };
+  const p0 = polar(start);
+  const p1 = polar(end);
+  const d = `M ${p0.x} ${p0.y} A ${r} ${r} 0 1 1 ${p1.x} ${p1.y}`;
+  bg.setAttribute("d", d);
+  fg.setAttribute("d", d);
+
+  const arcLen = (2 * Math.PI * r * 240) / 360;
+  fg.style.strokeDasharray = `${arcLen}`;
+
+  let gaugeColor = "var(--emerald)";
+  let gaugeLabel = "Excelente";
+  if (clamped > 80) {
+    gaugeColor = "var(--rose)";
+    gaugeLabel = "Emergencial";
+  } else if (clamped > 60) {
+    gaugeColor = "var(--orange)";
+    gaugeLabel = "Crítico";
+  } else if (clamped > 40) {
+    gaugeColor = "var(--amber)";
+    gaugeLabel = "Regular";
+  } else if (clamped > 20) {
+    gaugeColor = "var(--teal)";
+    gaugeLabel = "Bom";
+  }
+
+  fg.style.stroke = gaugeColor;
+  labelEl.textContent = gaugeLabel;
+
+  const duration = 800;
+  const startTs = performance.now();
+  const targetOffset = arcLen * (1 - clamped / 100);
+
+  function tick(ts) {
+    const p = Math.min((ts - startTs) / duration, 1);
+    const eased = 1 - Math.pow(1 - p, 3);
+    const currentScore = Math.round(clamped * eased);
+    const currentOffset = arcLen - (arcLen - targetOffset) * eased;
+    scoreEl.textContent = String(currentScore);
+    fg.style.strokeDashoffset = `${currentOffset}`;
+    if (p < 1) requestAnimationFrame(tick);
+  }
+
+  fg.style.strokeDashoffset = `${arcLen}`;
+  requestAnimationFrame(tick);
+}
+
+function renderSentimentBar(positivoPct, neutroPct, negativoPct) {
+  const pos = document.getElementById("audit-sent-pos");
+  const neu = document.getElementById("audit-sent-neu");
+  const neg = document.getElementById("audit-sent-neg");
+  const lPos = document.getElementById("audit-sent-pos-label");
+  const lNeu = document.getElementById("audit-sent-neu-label");
+  const lNeg = document.getElementById("audit-sent-neg-label");
+  if (!pos || !neu || !neg || !lPos || !lNeu || !lNeg) return;
+
+  const p = Math.max(0, Math.min(100, Number(positivoPct || 0)));
+  const n = Math.max(0, Math.min(100, Number(neutroPct || 0)));
+  const g = Math.max(0, Math.min(100, Number(negativoPct || 0)));
+
+  lPos.textContent = `${p.toFixed(1)}%`;
+  lNeu.textContent = `${n.toFixed(1)}%`;
+  lNeg.textContent = `${g.toFixed(1)}%`;
+
+  pos.style.width = "0%";
+  neu.style.width = "0%";
+  neg.style.width = "0%";
+
+  setTimeout(() => {
+    pos.style.width = `${p}%`;
+    neu.style.width = `${n}%`;
+    neg.style.width = `${g}%`;
+  }, 100);
+}
+
+function renderAuditKpis(metrics, score) {
+  const kpiRow = document.getElementById("audit-kpi-row");
+  if (!kpiRow) return;
+  kpiRow.innerHTML = "";
+
+  const cards = [
+    {
+      label: "NPS MÉDIO",
+      value: metrics.nps_medio ?? "—",
+      benchmark: "benchmark: > 55",
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M6 20V14"/><path d="M18 20V6"/></svg>',
+      status:
+        Number(metrics.nps_medio ?? 0) >= 55
+          ? "good"
+          : Number(metrics.nps_medio ?? 0) >= 35
+            ? "warning"
+            : "critical",
+    },
+    {
+      label: "TMA MÉDIO",
+      value: `${Math.round(Number(metrics.tma_medio_segundos ?? 0))}s`,
+      benchmark: "benchmark: < 300s",
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>',
+      status:
+        Number(metrics.tma_medio_segundos ?? 0) <= 300
+          ? "good"
+          : Number(metrics.tma_medio_segundos ?? 0) <= 420
+            ? "warning"
+            : "critical",
+    },
+    {
+      label: "TAXA RECHAMADA",
+      value: `${Number(metrics.taxa_rechamada_pct ?? 0).toFixed(1)}%`,
+      benchmark: "benchmark: < 15%",
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.11 4.18 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.72c.12.9.34 1.77.65 2.6a2 2 0 0 1-.45 2.11L8 9.73a16 16 0 0 0 6.27 6.27l1.3-1.3a2 2 0 0 1 2.11-.45c.83.31 1.7.53 2.6.65A2 2 0 0 1 22 16.92z"/></svg>',
+      status:
+        Number(metrics.taxa_rechamada_pct ?? 0) <= 15
+          ? "good"
+          : Number(metrics.taxa_rechamada_pct ?? 0) <= 22
+            ? "warning"
+            : "critical",
+    },
+    {
+      label: "FRICTION SCORE",
+      value: `${Number(score || 0)}`,
+      benchmark: "benchmark: < 40",
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--rose)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+      status: Number(score || 0) <= 40 ? "good" : Number(score || 0) <= 60 ? "warning" : "critical",
+    },
+  ];
+
+  cards.forEach((card) => {
+    const el = document.createElement("div");
+    el.className = `audit-kpi-card status-${card.status}`;
+    el.innerHTML = `
+      <div class="audit-kpi-top">
+        <span class="audit-kpi-label">${escapeHtml(card.label)}</span>
+        <span class="audit-kpi-icon">${card.icon}</span>
+      </div>
+      <div class="audit-kpi-value">${escapeHtml(card.value)}</div>
+      <div class="audit-kpi-benchmark">${escapeHtml(card.benchmark)}</div>
+    `;
+    kpiRow.appendChild(el);
+  });
+}
+
+function renderSentimentList(items) {
+  const list = document.getElementById("audit-sent-list");
+  if (!list) return;
+  list.innerHTML = "";
+
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "rec-item";
+    empty.textContent = "Sem detalhamento de tendências de sentimentos.";
+    list.appendChild(empty);
+    return;
+  }
+
+  items.forEach((item, idx) => {
+    const row = document.createElement("div");
+    row.className = "rec-item";
+    row.innerHTML = `<span class="rec-n">${String(idx + 1).padStart(2, "0")}</span>`;
+    const text = document.createElement("span");
+    text.textContent = `${item.dimensao || "dimensão"}: ${item.sentimento || "—"} (${Number(item.percentual || 0).toFixed(1)}%, ${item.quantidade || 0} interações)`;
+    row.appendChild(text);
+    list.appendChild(row);
+  });
+}
+
+function frictionTypeIcon(tipo) {
+  const map = {
+    RECHAMADA:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2"/><path d="M2.5 8a6 6 0 0 1 6-6"/><path d="M2 4v4h4"/></svg>',
+    TMA_ELEVADO:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>',
+    ESPERA_EXCESSIVA:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="2"/><circle cx="16" cy="9" r="2"/><path d="M3 19a5 5 0 0 1 10 0"/><path d="M11 19a5 5 0 0 1 10 0"/></svg>',
+    CHURN_RISK:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    RESOLUCAO_PENDENTE:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="19"/><line x1="15" y1="13" x2="9" y2="19"/></svg>',
+  };
+  return map[tipo] || map.RESOLUCAO_PENDENTE;
+}
+
+function renderFrictionPoints(points) {
+  const list = document.getElementById("audit-friction-list");
+  if (!list) return;
+  list.innerHTML = "";
+
+  if (!points.length) {
+    const empty = document.createElement("div");
+    empty.className = "rec-item";
+    empty.textContent = "Nenhum ponto de fricção retornado para o período informado.";
+    list.appendChild(empty);
+    return;
+  }
+
+  points.forEach((fp) => {
+    const severity = String(fp.severity || "medium").toLowerCase();
+    const card = document.createElement("article");
+    card.className = `friction-point-card sev-${severity}`;
+
+    card.innerHTML = `
+      <div class="fp-head">
+        <div class="fp-icon">${frictionTypeIcon(String(fp.tipo || "").toUpperCase())}</div>
+        <div class="fp-title">${escapeHtml(fp.tipo || "Fricção")}</div>
+        <div class="fp-badge">${escapeHtml(severity)}</div>
+      </div>
+      <div class="fp-count">${escapeHtml(fp.quantidade_ocorrencias ?? 0)} ocorrências</div>
+      <div class="fp-desc">${escapeHtml(fp.descricao || "Sem descrição")}</div>
+      <div class="fp-action">Ação recomendada: ${escapeHtml(fp.sugestao_acao || "Sem sugestão")}</div>
+      <div class="fp-pill-list"></div>
+    `;
+
+    const pillList = card.querySelector(".fp-pill-list");
+    const ops = Array.isArray(fp.operacoes_afetadas) ? fp.operacoes_afetadas : [];
+    if (pillList && ops.length) {
+      ops.forEach((op) => {
+        const pill = document.createElement("span");
+        pill.className = "fp-pill";
+        pill.textContent = String(op);
+        pillList.appendChild(pill);
+      });
+    }
+
+    list.appendChild(card);
+  });
+}
+
+function renderVocThemes(themes) {
+  const grid = document.getElementById("audit-voc-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+
+  if (!themes.length) {
+    const empty = document.createElement("div");
+    empty.className = "rec-item";
+    empty.textContent = "Sem temas VoC retornados.";
+    grid.appendChild(empty);
+    return;
+  }
+
+  themes.forEach((theme) => {
+    const card = document.createElement("article");
+    card.className = "voc-theme-card";
+
+    const catRaw = String(theme.categoria || "INFORMACAO").toUpperCase();
+    const catKey =
+      catRaw === "RECLAMACAO" || catRaw === "ELOGIO" || catRaw === "SUGESTAO" || catRaw === "DUVIDA" || catRaw === "INFORMACAO"
+        ? catRaw.toLowerCase()
+        : "informacao";
+
+    const impacto = String(theme.impacto_estimado || "LOW").toUpperCase();
+    const impactLevel = impacto === "ALTO" ? 3 : impacto === "MEDIO" ? 2 : 1;
+
+    const sent = String(theme.sentimento_predominante || "NEUTRO").toUpperCase();
+    const sentSymbol = sent.includes("POS") ? "↑" : sent.includes("NEG") ? "↓" : "→";
+
+    card.innerHTML = `
+      <div class="voc-top">
+        <span class="voc-cat voc-cat-${catKey}">${escapeHtml(catRaw)}</span>
+        <span class="voc-theme-name">${escapeHtml(theme.tema || "Tema")}</span>
+      </div>
+      <div class="voc-keywords"></div>
+      <div class="voc-bottom">
+        <div class="voc-impact">
+          <span class="voc-impact-dot ${impactLevel >= 1 ? "active" : ""}"></span>
+          <span class="voc-impact-dot ${impactLevel >= 2 ? "active" : ""}"></span>
+          <span class="voc-impact-dot ${impactLevel >= 3 ? "active" : ""}"></span>
+        </div>
+        <div class="voc-sentiment">${sentSymbol} ${escapeHtml(sent)}</div>
+      </div>
+    `;
+
+    const kwWrap = card.querySelector(".voc-keywords");
+    const kws = Array.isArray(theme.exemplos_palavras_chave)
+      ? theme.exemplos_palavras_chave
+      : [];
+    kws.slice(0, 6).forEach((kw) => {
+      const pill = document.createElement("span");
+      pill.className = "voc-keyword-pill";
+      pill.textContent = String(kw);
+      kwWrap?.appendChild(pill);
+    });
+
+    grid.appendChild(card);
+  });
+}
+
+function renderRecommendationList(container, items, withCheckbox) {
+  if (!container) return;
+  container.innerHTML = "";
+
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "rec-item";
+    empty.textContent = "Sem itens disponíveis.";
+    container.appendChild(empty);
+    return;
+  }
+
+  items.forEach((item, idx) => {
+    const row = document.createElement("div");
+    row.className = withCheckbox ? "audit-check-item" : "audit-reco-item";
+
+    const num = document.createElement("div");
+    num.className = "audit-reco-num";
+    num.textContent = String(idx + 1);
+    row.appendChild(num);
+
+    if (withCheckbox) {
+      const box = document.createElement("div");
+      box.className = "audit-check-box";
+      row.appendChild(box);
+    }
+
+    const txt = document.createElement("div");
+    txt.textContent = String(item);
+    row.appendChild(txt);
+
+    container.appendChild(row);
+  });
+}
+
+function copyAuditReport() {
+  const btn = document.getElementById("audit-copy-report-btn");
+  if (!auditMarkdownCache) return;
+
+  copyTextWithFallback(auditMarkdownCache)
+    .then(() => {
+      if (!btn) return;
+      const old = btn.textContent;
+      btn.textContent = "✓ Copiado";
+      setTimeout(() => {
+        btn.textContent = old || "Copiar relatório";
+      }, 2000);
+    })
+    .catch(() => {
+      showAuditError("Não foi possível copiar o relatório.");
+    });
 }
 
 function renderDocumentBuild(data) {
@@ -3313,12 +3876,12 @@ const showcaseBots = [
     action: () => navTo("qb"),
   },
   {
-    name: "Finance Voice IA",
+    name: "Finance AuditorIA",
     description:
-      "Entenda a experiência do cliente nas operações financeiras com VoC, fricção e temas recorrentes.",
-    tags: ["CX", "VoC", "Fricção"],
+      "Audite a experiência do cliente com análise de sentimentos, fricção, VoC e NPS — tudo em um relatório executivo acionável.",
+    tags: ["Auditoria", "VoC", "CX"],
     status: "Disponivel",
-    action: () => navTo("fa"),
+    action: () => navTo("audit"),
   },
 ];
 

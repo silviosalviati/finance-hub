@@ -431,8 +431,8 @@
                 </div>
               </article>
 
-              <!-- Finance Voice IA -->
-              <article class="bot-card bc-audit" onclick="navTo('fa')">
+              <!-- Finance AuditorIA -->
+              <article class="bot-card bc-audit" onclick="navTo('audit')">
                 <div class="bhead">
                   <div class="biw bi-porto">
                     <svg
@@ -451,18 +451,19 @@
                 </div>
 
                 <div>
-                  <div class="bname">Finance Voice IA</div>
+                  <div class="bname">Finance AuditorIA</div>
                   <div class="bdesc">
-                    Analise a experiência do cliente em operações financeiras,
-                    com foco em VoC, fricção e temas recorrentes.
+                    Audite a experiência do cliente com análise de sentimentos,
+                    fricção, VoC e NPS em visão executiva.
                   </div>
                 </div>
 
                 <div class="bfoot">
                   <div class="btags">
-                    <span class="tag">CX</span>
+                    <span class="tag">Auditoria</span>
                     <span class="tag">VoC</span>
                     <span class="tag">Fricção</span>
+                    <span class="tag">CX</span>
                   </div>
 
                   <button class="btn-open">
@@ -1996,7 +1997,7 @@ runbook_operacional</pre
           </section>
 
           <!-- ── FINANCE AUDITOR VIEW ── -->
-          <section class="view" id="view-fa" style="padding: 0">
+          <section class="view" id="view-audit" style="padding: 0">
             <div class="qa-topbar">
               <button class="btn-back" onclick="navTo('home')">
                 <svg
@@ -2027,7 +2028,7 @@ runbook_operacional</pre
                 >
                   <path d="M9 18l6-6-6-6" />
                 </svg>
-                <span class="cur">Finance Voice IA</span>
+                <span class="cur">Finance AuditorIA</span>
               </div>
             </div>
 
@@ -2048,16 +2049,17 @@ runbook_operacional</pre
                 </svg>
               </div>
               <div>
-                <div class="qa-hero-title">Finance Voice IA</div>
+                <div class="qa-hero-title">Finance AuditorIA</div>
                 <div class="qa-hero-desc">
-                  Análise de VoC e fricção com linguagem natural — pergunte
-                  sobre qualquer período e receba um relatório executivo.
+                  Auditoria de experiência do cliente com sentimentos, fricção,
+                  VoC e NPS em uma visão executiva acionável.
                 </div>
               </div>
               <div class="qa-hero-right">
+                <span class="qa-hero-tag">Auditoria</span>
                 <span class="qa-hero-tag">VoC</span>
+                <span class="qa-hero-tag">CX</span>
                 <span class="qa-hero-tag">Fricção</span>
-                <span class="qa-hero-tag">IA Generativa</span>
                 <div class="qa-live-badge">
                   <div class="qa-live-dot"></div>
                   Disponivel
@@ -2065,131 +2067,320 @@ runbook_operacional</pre
               </div>
             </div>
 
-            <div class="fa-layout">
-              <!-- Sidebar -->
-              <div class="fa-sidebar">
-                <div class="fa-ops-box" aria-label="Operações atendidas">
-                  <div class="fa-ops-title">Operações atendidas</div>
-                  <ul class="fa-ops-list">
-                    <li class="fa-ops-item">Financeiro Auto</li>
-                    <li class="fa-ops-item">Financeiro Geral</li>
-                    <li class="fa-ops-item">Financeiro Bank</li>
-                    <li class="fa-ops-item">Financeiro Produção</li>
-                    <li class="fa-ops-item">Financeiro Vida</li>
-                    <li class="fa-ops-item">Financeiro Re</li>
-                    <li class="fa-ops-item">Financeiro Saúde</li>
-                  </ul>
+            <div class="qa-body audit-body">
+              <div class="qa-form audit-form">
+                <div class="qlabel">Configuração da Auditoria</div>
+
+                <div class="qfield">
+                  <label for="audit-request">Contexto da auditoria</label>
+                  <textarea
+                    id="audit-request"
+                    placeholder="[PERÍODO] 2026-01-01 a 2026-01-31&#10;[OPERAÇÃO] JORNADA AUTO&#10;[CANAL] FONE ou DIGITAL&#10;[FOCO] fricção, VoC, NPS"
+                  ></textarea>
                 </div>
 
-                <div class="qlabel">Sugestões rápidas</div>
-                <div class="fa-suggestions" id="fa-suggestions">
-                  <button
-                    class="fa-suggestion-chip"
-                    onclick="useFASuggestion(this)"
-                  >
-                    Analise o mês passado de atendimentos
-                  </button>
-                  <button
-                    class="fa-suggestion-chip"
-                    onclick="useFASuggestion(this)"
-                  >
-                    Mostre os principais pontos de fricção dos últimos 30 dias
-                  </button>
-                  <button
-                    class="fa-suggestion-chip"
-                    onclick="useFASuggestion(this)"
-                  >
-                    Quais os temas mais recorrentes em março de 2025?
-                  </button>
-                  <button
-                    class="fa-suggestion-chip"
-                    onclick="useFASuggestion(this)"
-                  >
-                    Relatório VoC completo de fevereiro de 2025
-                  </button>
+                <div class="qfield">
+                  <label for="audit-project">Project ID — GCP</label>
+                  <input
+                    type="text"
+                    id="audit-project"
+                    placeholder="silviosalviati"
+                    autocomplete="off"
+                  />
                 </div>
 
-                <button class="fa-clear-btn" onclick="clearFAChat()">
-                  <svg
-                    width="11"
-                    height="11"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    style="margin-right: 5px"
+                <div class="qfield">
+                  <label for="audit-dataset"
+                    >Dataset hint
+                    <span
+                      id="audit-dataset-indicator"
+                      class="qb-dataset-indicator"
+                      >●</span
+                    ></label
                   >
-                    <polyline points="1 4 1 10 7 10" />
-                    <path d="M3.51 15a9 9 0 1 0 .49-3.99" />
-                  </svg>
-                  Nova conversa
+                  <input
+                    type="text"
+                    id="audit-dataset"
+                    placeholder="ds_inteligencia_analitica"
+                    autocomplete="off"
+                  />
+                </div>
+
+                <div id="audit-error" class="qa-error" role="alert"></div>
+
+                <button class="btn-analyze" id="audit-btn" onclick="runAudit()">
+                  <div class="spinner" id="audit-spinner"></div>
+                  <span id="audit-btn-text">Auditar experiência do cliente</span>
                 </button>
-              </div>
 
-              <!-- Área de chat -->
-              <div class="fa-chat-area">
-                <div class="fa-messages" id="fa-messages">
-                  <!-- Placeholder de boas-vindas -->
-                  <div class="fa-welcome" id="fa-welcome">
-                    <div class="fa-welcome-ico">
-                      <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#004691"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                        <polyline points="9 12 11 14 15 10" />
-                      </svg>
-                    </div>
-                    <h3>Finance Voice IA</h3>
-                    <p>
-                      Pergunte sobre qualquer período em linguagem natural.
-                      Analisarei sentimento, fricção e temas de atendimento e
-                      gerarei um relatório executivo.
-                    </p>
+                <div
+                  id="audit-progress"
+                  class="qa-progress"
+                  style="display: none"
+                >
+                  <div class="qa-progress-head">
+                    <span class="qa-progress-title">Processando auditoria</span>
+                    <span class="qa-progress-step" id="audit-progress-step"
+                      >Extraindo filtros</span
+                    >
+                  </div>
+                  <div class="qa-progress-track">
+                    <div
+                      class="qa-progress-fill"
+                      id="audit-progress-fill"
+                      style="width: 8%"
+                    ></div>
                   </div>
                 </div>
+              </div>
 
-                <div class="fa-input-bar">
-                  <textarea
-                    id="fa-input"
-                    placeholder="Ex: analise os atendimentos de março de 2025…"
-                    rows="1"
-                    oninput="autoResizeFAInput(this)"
-                    onkeydown="handleFAInputKey(event)"
-                  ></textarea>
-                  <button
-                    class="fa-send-btn"
-                    id="fa-send-btn"
-                    onclick="sendFAMessage()"
-                    type="button"
-                    aria-label="Enviar mensagem para Finance Voice IA"
-                    disabled
-                  >
-                    <span class="fa-send-spinner" aria-hidden="true"></span>
+              <div class="qa-results-wrap">
+                <div class="qa-empty" id="audit-empty" style="height: 100%">
+                  <div class="qa-empty-ico">
                     <svg
+                      width="22"
+                      height="22"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
+                      stroke="var(--porto)"
+                      stroke-width="1.8"
                       stroke-linecap="round"
                       stroke-linejoin="round"
                     >
-                      <line x1="22" y1="2" x2="11" y2="13" />
-                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                      <line x1="12" y1="20" x2="12" y2="10" />
+                      <line x1="18" y1="20" x2="18" y2="4" />
+                      <line x1="6" y1="20" x2="6" y2="14" />
                     </svg>
-                    <span class="fa-send-label">Enviar</span>
-                    <span class="fa-send-label fa-send-label-loading"
-                      >Enviando...</span
+                  </div>
+
+                  <h3>Aguardando auditoria</h3>
+                  <p>
+                    Informe contexto, operação e foco para gerar uma auditoria
+                    completa da experiência do cliente.
+                  </p>
+
+                  <div class="qa-empty-steps">
+                    <div class="qa-empty-step">
+                      <div class="qa-empty-step-n">1</div>
+                      Defina período, operação, canal e foco
+                    </div>
+                    <div class="qa-empty-step">
+                      <div class="qa-empty-step-n">2</div>
+                      A IA processa interações e métricas no BigQuery
+                    </div>
+                    <div class="qa-empty-step">
+                      <div class="qa-empty-step-n">3</div>
+                      Receba relatório e recomendações acionáveis
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  id="audit-tabs-area"
+                  style="
+                    display: none;
+                    flex-direction: column;
+                    height: 100%;
+                    overflow: hidden;
+                  "
+                >
+                  <div class="qa-tabs-bar">
+                    <div
+                      class="qa-tab active"
+                      id="audit-tab-overview"
+                      onclick="switchAuditTab('overview')"
                     >
-                  </button>
+                      Visão geral
+                    </div>
+                    <div
+                      class="qa-tab"
+                      id="audit-tab-sentiments"
+                      onclick="switchAuditTab('sentiments')"
+                    >
+                      Sentimentos
+                    </div>
+                    <div
+                      class="qa-tab"
+                      id="audit-tab-friction"
+                      onclick="switchAuditTab('friction')"
+                    >
+                      Fricção
+                    </div>
+                    <div
+                      class="qa-tab"
+                      id="audit-tab-voc"
+                      onclick="switchAuditTab('voc')"
+                    >
+                      VoC
+                    </div>
+                    <div
+                      class="qa-tab"
+                      id="audit-tab-report"
+                      onclick="switchAuditTab('report')"
+                    >
+                      Relatório
+                    </div>
+                    <div
+                      class="qa-tab"
+                      id="audit-tab-checklist"
+                      onclick="switchAuditTab('checklist')"
+                    >
+                      Checklist
+                    </div>
+                  </div>
+
+                  <div class="qa-tab-panels">
+                    <div class="qa-tab-panel active" id="audit-panel-overview">
+                      <div class="res-card audit-overview-hero">
+                        <div class="audit-gauge-wrap">
+                          <svg
+                            class="audit-gauge"
+                            id="audit-gauge"
+                            viewBox="0 0 240 180"
+                            role="img"
+                            aria-label="Friction Score"
+                          >
+                            <path
+                              id="audit-gauge-bg"
+                              d="M 20 150 A 100 100 0 0 1 220 150"
+                              fill="none"
+                              stroke="var(--border2)"
+                              stroke-width="16"
+                              stroke-linecap="round"
+                            ></path>
+                            <path
+                              id="audit-gauge-progress"
+                              d="M 20 150 A 100 100 0 0 1 220 150"
+                              fill="none"
+                              stroke="var(--emerald)"
+                              stroke-width="16"
+                              stroke-linecap="round"
+                              stroke-dasharray="314"
+                              stroke-dashoffset="314"
+                            ></path>
+                          </svg>
+                          <div class="audit-gauge-center">
+                            <div class="audit-gauge-score" id="audit-gauge-score">
+                              0
+                            </div>
+                            <div class="audit-gauge-label" id="audit-gauge-label">
+                              Excelente
+                            </div>
+                          </div>
+                        </div>
+                        <div class="audit-overview-meta">
+                          <div class="view-title" id="audit-title">
+                            Auditoria da Experiência do Cliente
+                          </div>
+                          <div class="view-sub" id="audit-period-text">
+                            Período não informado
+                          </div>
+                          <div class="audit-total" id="audit-total-interacoes">
+                            0 interações analisadas
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="audit-kpi-row" id="audit-kpi-row"></div>
+                    </div>
+
+                    <div class="qa-tab-panel" id="audit-panel-sentiments">
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Distribuição de sentimentos
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="sentiment-split-wrap">
+                            <div class="sentiment-split-labels">
+                              <span id="audit-sent-pos-label">0%</span>
+                              <span id="audit-sent-neu-label">0%</span>
+                              <span id="audit-sent-neg-label">0%</span>
+                            </div>
+                            <div class="sentiment-split-bar">
+                              <div
+                                class="sentiment-segment sentiment-positive"
+                                id="audit-sent-pos"
+                              ></div>
+                              <div
+                                class="sentiment-segment sentiment-neutral"
+                                id="audit-sent-neu"
+                              ></div>
+                              <div
+                                class="sentiment-segment sentiment-negative"
+                                id="audit-sent-neg"
+                              ></div>
+                            </div>
+                          </div>
+                          <div class="rec-list" id="audit-sent-list"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="qa-tab-panel" id="audit-panel-friction">
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Pontos de fricção por severidade
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="audit-friction-list" id="audit-friction-list"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="qa-tab-panel" id="audit-panel-voc">
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Temas de Voice of Customer
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="audit-voc-grid" id="audit-voc-grid"></div>
+                          <div class="audit-voc-insight" id="audit-voc-insight"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="qa-tab-panel" id="audit-panel-report">
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Relatório executivo
+                          </div>
+                          <button
+                            id="audit-copy-report-btn"
+                            class="copy-btn"
+                            onclick="copyAuditReport()"
+                          >
+                            Copiar relatório
+                          </button>
+                        </div>
+                        <div class="sec-body">
+                          <div class="sql-wrap">
+                            <pre id="audit-markdown-report"></pre>
+                          </div>
+                          <div class="rec-list" id="audit-recommendations"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="qa-tab-panel" id="audit-panel-checklist">
+                      <div class="sec-card">
+                        <div class="sec-head">
+                          <div class="sec-ttl">
+                            <span class="dot"></span>Quick wins e ações
+                          </div>
+                        </div>
+                        <div class="sec-body">
+                          <div class="audit-checklist" id="audit-checklist"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

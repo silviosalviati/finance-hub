@@ -33,7 +33,7 @@ class _DummyRegistry:
         return self._agent
 
     def list_ids(self):
-        return ["document_build", "query_analyzer", "query_build"]
+        return ["document_build", "query_analyzer", "query_build", "finance_auditor"]
 
 
 class _DummyCheckpointer:

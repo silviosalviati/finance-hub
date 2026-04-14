@@ -3380,7 +3380,7 @@ pre {
 }
 
 .fa-sidebar {
-  width: 260px;
+  width: 360px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   background: var(--white);

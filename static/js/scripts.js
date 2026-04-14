@@ -3946,7 +3946,7 @@ function renderShowcase() {
       .map((tag) => `<span class="bot-showcase-tag">${tag}</span>`)
       .join("");
 
-    statusEl.textContent = bot.status;
+    statusEl.textContent = String(bot.status || "").toUpperCase();
     statusEl.className = `bot-showcase-badge ${bot.status.toLowerCase().replace(/\s+/g, "-")}`;
 
     dotsEl.innerHTML = showcaseBots

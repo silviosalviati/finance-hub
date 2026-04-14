@@ -167,7 +167,6 @@ textarea {
 .login-vela-bg i:nth-child(3) {
   width: 8px;
 }
-
 .login-card {
   position: relative;
   z-index: 1;
@@ -178,16 +177,6 @@ textarea {
   padding: 20px 44px 36px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   animation: cardIn 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.login-brand-line {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  border-radius: 20px 20px 0 0;
-  background: linear-gradient(90deg, var(--porto-primary), var(--porto-vivid));
 }
 
 @keyframes cardIn {

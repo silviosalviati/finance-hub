@@ -3753,6 +3753,25 @@ pre {
   color: var(--ink);
 }
 
+.fa-report--typing::after {
+  content: "▋";
+  color: var(--porto-primary);
+  margin-left: 2px;
+  animation: fa-caret-blink 0.8s steps(1, end) infinite;
+}
+
+@keyframes fa-caret-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+
+  46%,
+  100% {
+    opacity: 0;
+  }
+}
+
 .fa-report h1 {
   font-family: var(--display);
   font-size: 14.5px;

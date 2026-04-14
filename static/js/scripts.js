@@ -4005,6 +4005,45 @@ let faIsLoading = false;
 let faThinkingId = null;
 let faInputListenerBound = false;
 let faMsgCounter = 0;
+const FA_TYPING_BASE_DELAY_MS = 16;
+
+function _faWait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function _faTypeMarkdownInto(container, sourceText, options = {}) {
+  if (!container) return;
+
+  const { escapeInput = false } = options;
+  const source = String(sourceText || "");
+  const prepared = escapeInput ? _escFA(source) : source;
+  const total = prepared.length;
+
+  if (!total) {
+    container.innerHTML = `<div class="fa-report"></div>`;
+    return;
+  }
+
+  if (total < 80) {
+    container.innerHTML = `<div class="fa-report">${_faMdToHtml(prepared)}</div>`;
+    _faScrollBottom();
+    return;
+  }
+
+  let cursor = 0;
+  while (cursor < total) {
+    const step =
+      total > 2400 ? 120 : total > 1400 ? 90 : total > 800 ? 60 : 34;
+    cursor = Math.min(total, cursor + step);
+    const partial = prepared.slice(0, cursor);
+    container.innerHTML = `<div class="fa-report fa-report--typing">${_faMdToHtml(partial)}</div>`;
+    _faScrollBottom();
+    await _faWait(FA_TYPING_BASE_DELAY_MS);
+  }
+
+  container.innerHTML = `<div class="fa-report">${_faMdToHtml(prepared)}</div>`;
+  _faScrollBottom();
+}
 
 function setFAInteractionLock(locked) {
   const input = document.getElementById("fa-input");
@@ -4199,7 +4238,7 @@ function appendFAErrorMessage(msg) {
   _faScrollBottom();
 }
 
-function appendFAChatTextMessage(text) {
+async function appendFAChatTextMessage(text) {
   const area = document.getElementById("fa-messages");
   if (!area) return;
 
@@ -4213,15 +4252,18 @@ function appendFAChatTextMessage(text) {
           <span class="fa-bubble-icon" aria-hidden="true">✦</span>
           <span class="fa-bubble-title">Finance Voice IA</span>
         </div>
-        <div class="fa-bubble-body"><div class="fa-report">${_faMdToHtml(_escFA(text))}</div></div>
+        <div class="fa-bubble-body"><div class="fa-report-slot"></div></div>
       </div>
       <div class="fa-msg-time">${_faNow()}</div>
     </div>`;
   area.appendChild(el);
   _faScrollBottom();
+
+  const slot = el.querySelector(".fa-report-slot");
+  await _faTypeMarkdownInto(slot, text, { escapeInput: true });
 }
 
-function appendFABotMessage(data) {
+async function appendFABotMessage(data) {
   const area = document.getElementById("fa-messages");
   if (!area) return;
 
@@ -4231,7 +4273,6 @@ function appendFABotMessage(data) {
   el.className = "fa-msg fa-msg-bot";
 
   const metricsHtml = _faMetricsHtml(data);
-  const reportHtml = _faMdToHtml(data.markdown_report || "");
   const detailsHtml = _faDetailsHtml(data);
 
   el.innerHTML = `
@@ -4244,7 +4285,7 @@ function appendFABotMessage(data) {
         </div>
         <div class="fa-bubble-body">
           ${metricsHtml}
-          <div class="fa-report">${reportHtml}</div>
+          <div class="fa-report-slot"></div>
           ${detailsHtml}
         </div>
       </div>
@@ -4253,6 +4294,9 @@ function appendFABotMessage(data) {
 
   area.appendChild(el);
   _faScrollBottom();
+
+  const slot = el.querySelector(".fa-report-slot");
+  await _faTypeMarkdownInto(slot, data.markdown_report || "");
 }
 
 function _faMetricsHtml(data) {
@@ -4574,12 +4618,12 @@ async function sendFAMessage() {
         data.error || "Não foi possível realizar a análise.",
       );
     } else if (data.response_mode === "chat") {
-      appendFAChatTextMessage(
+      await appendFAChatTextMessage(
         data.chat_answer ||
           "Não encontrei resposta para essa pergunta no momento.",
       );
     } else {
-      appendFABotMessage(data);
+      await appendFABotMessage(data);
     }
   } catch (e) {
     removeFAThinking();

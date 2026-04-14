@@ -3912,7 +3912,7 @@ const showcaseBots = [
     action: () => navTo("qb"),
   },
   {
-    name: "Finance AuditorIA",
+    name: "Finance Voice IA",
     description:
       "Audite a experiência do cliente com análise de sentimentos, fricção, VoC e NPS — tudo em um relatório executivo acionável.",
     tags: ["Auditoria", "VoC", "CX"],
@@ -4084,7 +4084,7 @@ function clearFAChat() {
           <polyline points="9 12 11 14 15 10"/>
         </svg>
       </div>
-      <h3>Finance AuditorIA</h3>
+      <h3>Finance Voice IA</h3>
       <p>Pergunte sobre qualquer período em linguagem natural. Analisarei sentimento, fricção e temas de atendimento e gerarei um relatório executivo.</p>
     </div>`;
 

@@ -865,7 +865,7 @@ function navTo(view) {
     qa: "view-qa",
     db: "view-db",
     qb: "view-qb",
-    audit: "view-audit",
+    audit: "view-fa",
     dev: "view-dev",
     hist: "view-hist",
   };
@@ -888,6 +888,7 @@ function navTo(view) {
     document.getElementById("nav-qb")?.classList.add("active");
   } else if (view === "audit") {
     document.getElementById("nav-audit")?.classList.add("active");
+    initFAInputListener();
   }
 }
 
@@ -4083,7 +4084,7 @@ function clearFAChat() {
           <polyline points="9 12 11 14 15 10"/>
         </svg>
       </div>
-      <h3>Finance Voice IA</h3>
+      <h3>Finance AuditorIA</h3>
       <p>Pergunte sobre qualquer período em linguagem natural. Analisarei sentimento, fricção e temas de atendimento e gerarei um relatório executivo.</p>
     </div>`;
 

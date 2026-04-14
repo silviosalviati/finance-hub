@@ -250,3 +250,75 @@ class TestConsolidateMetrics:
         result = consolidate_metrics(state)
         assert result["friction_score"] == pytest.approx(0.0)
         assert result["friction_label"] == "BAIXO"
+
+
+class TestDeterministicDateParsing:
+    def test_mes_atual(self):
+        from datetime import date
+
+        from src.agents.finance_auditor.nodes import _deterministic_period_from_text
+
+        start, end = _deterministic_period_from_text(
+            "Quero uma analise completa do mes atual",
+            today=date(2026, 4, 13),
+        )
+        assert start == "2026-04-01"
+        assert end == "2026-04-30"
+
+    def test_mes_passado(self):
+        from datetime import date
+
+        from src.agents.finance_auditor.nodes import _deterministic_period_from_text
+
+        start, end = _deterministic_period_from_text(
+            "analise do mês passado",
+            today=date(2026, 4, 13),
+        )
+        assert start == "2026-03-01"
+        assert end == "2026-03-31"
+
+    def test_mes_nome_e_ano(self):
+        from src.agents.finance_auditor.nodes import _deterministic_period_from_text
+
+        start, end = _deterministic_period_from_text("quero o mês de fevereiro de 2025")
+        assert start == "2025-02-01"
+        assert end == "2025-02-28"
+
+    def test_ultimos_dias(self):
+        from datetime import date
+
+        from src.agents.finance_auditor.nodes import _deterministic_period_from_text
+
+        start, end = _deterministic_period_from_text(
+            "ultimos 10 dias",
+            today=date(2026, 4, 13),
+        )
+        assert start == "2026-04-03"
+        assert end == "2026-04-13"
+
+
+class TestFetchDataPeriodSelection:
+    def test_fetch_data_uses_request_period_before_llm(self):
+        from src.agents.finance_auditor.nodes import fetch_data
+
+        llm = MagicMock()
+
+        def _fake_rows(sql: str, _project: str, max_rows: int):
+            if "COUNT(*)" in sql:
+                return [{"total": 0}]
+            return []
+
+        with patch("src.agents.finance_auditor.nodes.execute_query_rows", side_effect=_fake_rows) as mock_bq:
+            result = fetch_data(
+                {
+                    "request_text": "Quero análise da operação financeiro vida do mês atual",
+                    "project_id": "silviosalviati",
+                },
+                llm,
+            )
+
+        # Para mês atual (abril/2026), deve usar o mês completo e nem chamar LLM.
+        assert result["date_filter_start"] == "2026-04-01"
+        assert result["date_filter_end"] == "2026-04-30"
+        llm.invoke.assert_not_called()
+        assert mock_bq.call_count == 2

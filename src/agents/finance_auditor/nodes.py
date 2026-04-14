@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from datetime import date, timedelta
 from typing import Any
 
@@ -40,6 +41,38 @@ _DATA_COLUMNS = (
     "ASSUNTO",
 )
 
+_CURRENT_MONTH_PATTERN = re.compile(
+    r"\b(m[eê]s\s+atual|m[eê]s\s+corrente|este\s+m[eê]s)\b",
+    re.IGNORECASE,
+)
+_LAST_MONTH_PATTERN = re.compile(
+    r"\b(m[eê]s\s+passado|m[eê]s\s+anterior|[uú]ltimo\s+m[eê]s)\b",
+    re.IGNORECASE,
+)
+_LAST_DAYS_PATTERN = re.compile(
+    r"\b([uú]ltimos?)\s+(\d{1,3})\s+dias\b",
+    re.IGNORECASE,
+)
+_MONTH_YEAR_PATTERN = re.compile(
+    r"\bm[eê]s\s+de\s+([a-zA-ZÀ-ÿçÇ]+)\s+de\s+(\d{4})\b",
+    re.IGNORECASE,
+)
+
+_MONTHS_PT: dict[str, int] = {
+    "janeiro": 1,
+    "fevereiro": 2,
+    "marco": 3,
+    "abril": 4,
+    "maio": 5,
+    "junho": 6,
+    "julho": 7,
+    "agosto": 8,
+    "setembro": 9,
+    "outubro": 10,
+    "novembro": 11,
+    "dezembro": 12,
+}
+
 
 # ---------------------------------------------------------------------------
 # Helpers internos
@@ -67,6 +100,67 @@ def _parse_json_safe(raw: str) -> dict[str, Any]:
 def _default_period() -> tuple[str, str]:
     today = date.today()
     return (today - timedelta(days=30)).isoformat(), today.isoformat()
+
+
+def _strip_accents(text: str) -> str:
+    return "".join(
+        c
+        for c in unicodedata.normalize("NFD", text)
+        if unicodedata.category(c) != "Mn"
+    )
+
+
+def _month_bounds(year: int, month: int) -> tuple[str, str]:
+    start = date(year=year, month=month, day=1)
+    if month == 12:
+        next_month = date(year=year + 1, month=1, day=1)
+    else:
+        next_month = date(year=year, month=month + 1, day=1)
+    end = next_month - timedelta(days=1)
+    return start.isoformat(), end.isoformat()
+
+
+def _current_month_period(today: date | None = None) -> tuple[str, str]:
+    """Retorna o período completo do mês atual (1º dia ao último dia)."""
+    d = today or date.today()
+    return _month_bounds(d.year, d.month)
+
+
+def _previous_month_period(today: date | None = None) -> tuple[str, str]:
+    d = today or date.today()
+    if d.month == 1:
+        return _month_bounds(d.year - 1, 12)
+    return _month_bounds(d.year, d.month - 1)
+
+
+def _deterministic_period_from_text(
+    text: str,
+    today: date | None = None,
+) -> tuple[str, str] | None:
+    """Extrai períodos determinísticos para termos comuns em português."""
+    content = text or ""
+    if _CURRENT_MONTH_PATTERN.search(content):
+        return _current_month_period(today)
+
+    if _LAST_MONTH_PATTERN.search(content):
+        return _previous_month_period(today)
+
+    last_days_match = _LAST_DAYS_PATTERN.search(content)
+    if last_days_match:
+        d = today or date.today()
+        days = int(last_days_match.group(2))
+        start = d - timedelta(days=days)
+        return start.isoformat(), d.isoformat()
+
+    month_year_match = _MONTH_YEAR_PATTERN.search(content)
+    if month_year_match:
+        month_token = _strip_accents(month_year_match.group(1).strip().lower())
+        year = int(month_year_match.group(2))
+        month = _MONTHS_PT.get(month_token)
+        if month:
+            return _month_bounds(year, month)
+
+    return None
 
 
 def _build_fallback_report(state: FinanceAuditorState) -> str:
@@ -107,18 +201,25 @@ def _build_fallback_report(state: FinanceAuditorState) -> str:
 def fetch_data(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str, Any]:
     """Extrai período e busca dados na tabela de análise de IA."""
     try:
-        # 1. LLM extrai range de datas
-        raw_response = llm.invoke(
-            [
-                SystemMessage(content=EXTRACT_DATE_RANGE_PROMPT),
-                HumanMessage(content=state["request_text"]),
-            ]
-        )
-        date_json = _parse_json_safe(_text(raw_response))
+        request_text = state.get("request_text") or ""
 
-        default_start, default_end = _default_period()
-        date_start = date_json.get("date_start") or default_start
-        date_end = date_json.get("date_end") or default_end
+        # 1. Regras determinísticas para evitar períodos incorretos vindos do LLM
+        deterministic = _deterministic_period_from_text(request_text)
+        if deterministic is not None:
+            date_start, date_end = deterministic
+        else:
+            # 2. LLM extrai range de datas
+            raw_response = llm.invoke(
+                [
+                    SystemMessage(content=EXTRACT_DATE_RANGE_PROMPT),
+                    HumanMessage(content=request_text),
+                ]
+            )
+            date_json = _parse_json_safe(_text(raw_response))
+
+            default_start, default_end = _default_period()
+            date_start = date_json.get("date_start") or default_start
+            date_end = date_json.get("date_end") or default_end
 
         project = state.get("project_id") or DEFAULT_PROJECT
 

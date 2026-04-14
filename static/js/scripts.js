@@ -4006,6 +4006,7 @@ let faThinkingId = null;
 let faInputListenerBound = false;
 let faMsgCounter = 0;
 const FA_TYPING_BASE_DELAY_MS = 16;
+const FA_TYPING_MIN_DURATION_MS = 850;
 
 function _faWait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -4024,20 +4025,38 @@ async function _faTypeMarkdownInto(container, sourceText, options = {}) {
     return;
   }
 
-  if (total < 80) {
-    container.innerHTML = `<div class="fa-report">${_faMdToHtml(prepared)}</div>`;
-    _faScrollBottom();
-    return;
-  }
-
+  const startedAt = Date.now();
   let cursor = 0;
   while (cursor < total) {
-    const step = total > 2400 ? 120 : total > 1400 ? 90 : total > 800 ? 60 : 34;
+    const step =
+      total > 2400
+        ? 32
+        : total > 1400
+          ? 24
+          : total > 800
+            ? 16
+            : total > 280
+              ? 10
+              : 4;
+    const delay =
+      total > 1400
+        ? Math.max(FA_TYPING_BASE_DELAY_MS, 14)
+        : total > 800
+          ? Math.max(FA_TYPING_BASE_DELAY_MS, 18)
+          : total > 280
+            ? Math.max(FA_TYPING_BASE_DELAY_MS, 22)
+            : Math.max(FA_TYPING_BASE_DELAY_MS, 30);
+
     cursor = Math.min(total, cursor + step);
     const partial = prepared.slice(0, cursor);
     container.innerHTML = `<div class="fa-report fa-report--typing">${_faMdToHtml(partial)}</div>`;
     _faScrollBottom();
-    await _faWait(FA_TYPING_BASE_DELAY_MS);
+    await _faWait(delay);
+  }
+
+  const elapsed = Date.now() - startedAt;
+  if (elapsed < FA_TYPING_MIN_DURATION_MS) {
+    await _faWait(FA_TYPING_MIN_DURATION_MS - elapsed);
   }
 
   container.innerHTML = `<div class="fa-report">${_faMdToHtml(prepared)}</div>`;

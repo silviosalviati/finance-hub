@@ -1,6 +1,6 @@
-// ─────────────────────────────────────
+﻿// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // App state
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let token = null;
 let currentUser = null;
 let qaDatasetValidationTimer = null;
@@ -23,11 +23,11 @@ const qbDatasetValidationState = {
   projectId: "",
 };
 
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Utils
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function fmtBytes(n) {
-  if (n == null) return "—";
+  if (n == null) return "â€”";
   const units = ["B", "KB", "MB", "GB", "TB", "PB"];
   let value = Number(n);
 
@@ -62,7 +62,7 @@ function copyToClipboard(event) {
 }
 
 function fmtUSD(v) {
-  return v == null ? "—" : "USD " + Number(v).toFixed(4);
+  return v == null ? "â€”" : "USD " + Number(v).toFixed(4);
 }
 
 function authHeaders() {
@@ -109,25 +109,25 @@ function prettifyErrorMessage(message) {
   const msg = String(message);
 
   if (msg.includes("Project ID")) {
-    return "Informe um Project ID válido do GCP.";
+    return "Informe um Project ID vÃ¡lido do GCP.";
   }
 
   if (
     msg.toLowerCase().includes("credenciais") ||
     msg.toLowerCase().includes("credentials")
   ) {
-    return "Não foi possível autenticar no BigQuery. Verifique as credenciais do ambiente.";
+    return "NÃ£o foi possÃ­vel autenticar no BigQuery. Verifique as credenciais do ambiente.";
   }
 
   if (
     msg.includes("401") ||
-    msg.includes("Não autenticado") ||
-    msg.includes("Sessão expirada")
+    msg.includes("NÃ£o autenticado") ||
+    msg.includes("SessÃ£o expirada")
   ) {
-    return "Sua sessão expirou. Faça login novamente.";
+    return "Sua sessÃ£o expirou. FaÃ§a login novamente.";
   }
 
-  if (msg.toLowerCase().includes("query não pode ser vazia")) {
+  if (msg.toLowerCase().includes("query nÃ£o pode ser vazia")) {
     return "Cole uma query SQL antes de analisar.";
   }
 
@@ -135,7 +135,7 @@ function prettifyErrorMessage(message) {
 }
 
 function setUserUI(name, username) {
-  const safeName = name || username || "Usuário";
+  const safeName = name || username || "UsuÃ¡rio";
   const initials = safeName
     .split(" ")
     .map((w) => w[0])
@@ -287,12 +287,12 @@ function setQADatasetValidationStatus(kind, payload = {}) {
   if (statusMetaEl) statusMetaEl.innerHTML = "";
 
   if (statusIconEl) {
-    statusIconEl.textContent = "•";
+    statusIconEl.textContent = "â€¢";
   }
 
   if (indicatorEl) {
     indicatorEl.className = "qb-dataset-indicator";
-    indicatorEl.textContent = "●";
+    indicatorEl.textContent = "â—";
   }
 
   if (kind === "idle") {
@@ -320,39 +320,39 @@ function setQADatasetValidationStatus(kind, payload = {}) {
 
   if (statusIconEl) {
     statusIconEl.textContent =
-      kind === "ok" ? "✓" : kind === "checking" ? "…" : "!";
+      kind === "ok" ? "âœ“" : kind === "checking" ? "â€¦" : "!";
   }
 
   if (statusMetaEl && kind === "ok") {
     const chips = [];
     if (datasetHint) {
-      chips.push(`<span class="qb-dataset-chip">🗂️ ${datasetHint}</span>`);
+      chips.push(`<span class="qb-dataset-chip">ðŸ—‚ï¸ ${datasetHint}</span>`);
     }
     if (!Number.isNaN(tableCount)) {
       chips.push(
-        `<span class="qb-dataset-chip">📊 ${tableCount} tabelas</span>`,
+        `<span class="qb-dataset-chip">ðŸ“Š ${tableCount} tabelas</span>`,
       );
     }
     if (!Number.isNaN(queryTableCount)) {
       chips.push(
-        `<span class="qb-dataset-chip">🔎 ${queryTableCount} usadas na query</span>`,
+        `<span class="qb-dataset-chip">ðŸ”Ž ${queryTableCount} usadas na query</span>`,
       );
     }
     chips.push(
-      '<span class="qb-dataset-chip">✅ BigQuery + Data Catalog/Dataplex</span>',
+      '<span class="qb-dataset-chip">âœ… BigQuery + Data Catalog/Dataplex</span>',
     );
     statusMetaEl.innerHTML = chips.join(" ");
   }
 
   if (statusMetaEl && kind === "error") {
     statusMetaEl.innerHTML =
-      '<span class="qb-dataset-chip">⚠️ Revise o formato projeto.dataset.tabela</span>';
+      '<span class="qb-dataset-chip">âš ï¸ Revise o formato projeto.dataset.tabela</span>';
   }
 
   if (indicatorEl) {
     indicatorEl.classList.add(kind);
     indicatorEl.textContent =
-      kind === "ok" ? "✓" : kind === "checking" ? "…" : "✕";
+      kind === "ok" ? "âœ“" : kind === "checking" ? "â€¦" : "âœ•";
   }
 
   syncQAAnalyzeButtonState();
@@ -541,12 +541,12 @@ function setQBDatasetValidationStatus(kind, payload = {}) {
   if (statusMetaEl) statusMetaEl.innerHTML = "";
 
   if (statusIconEl) {
-    statusIconEl.textContent = "•";
+    statusIconEl.textContent = "â€¢";
   }
 
   if (indicatorEl) {
     indicatorEl.className = "qb-dataset-indicator";
-    indicatorEl.textContent = "●";
+    indicatorEl.textContent = "â—";
   }
 
   if (kind === "idle") {
@@ -574,32 +574,32 @@ function setQBDatasetValidationStatus(kind, payload = {}) {
 
   if (statusIconEl) {
     statusIconEl.textContent =
-      kind === "ok" ? "✓" : kind === "checking" ? "…" : "!";
+      kind === "ok" ? "âœ“" : kind === "checking" ? "â€¦" : "!";
   }
 
   if (statusMetaEl && kind === "ok") {
     const chips = [];
     if (datasetHint) {
-      chips.push(`<span class="qb-dataset-chip">🗂️ ${datasetHint}</span>`);
+      chips.push(`<span class="qb-dataset-chip">ðŸ—‚ï¸ ${datasetHint}</span>`);
     }
     if (!Number.isNaN(tableCount)) {
       chips.push(
-        `<span class="qb-dataset-chip">📊 ${tableCount} tabelas</span>`,
+        `<span class="qb-dataset-chip">ðŸ“Š ${tableCount} tabelas</span>`,
       );
     }
-    chips.push('<span class="qb-dataset-chip">✅ Metadados</span>');
+    chips.push('<span class="qb-dataset-chip">âœ… Metadados</span>');
     statusMetaEl.innerHTML = chips.join(" ");
   }
 
   if (statusMetaEl && kind === "error") {
     statusMetaEl.innerHTML =
-      '<span class="qb-dataset-chip">⚠️ Revise o nome do dataset</span>';
+      '<span class="qb-dataset-chip">âš ï¸ Revise o nome do dataset</span>';
   }
 
   if (indicatorEl) {
     indicatorEl.classList.add(kind);
     indicatorEl.textContent =
-      kind === "ok" ? "✓" : kind === "checking" ? "…" : "✕";
+      kind === "ok" ? "âœ“" : kind === "checking" ? "â€¦" : "âœ•";
   }
 
   syncQBGenerateButtonState();
@@ -668,7 +668,7 @@ async function validateQBDatasetHint() {
       const count = Number(payload.table_count || 0);
       setQBDatasetValidationStatus("ok", {
         title: "Dataset pronto",
-        message: "Validação concluída. Já pode gerar a SQL.",
+        message: "ValidaÃ§Ã£o concluÃ­da. JÃ¡ pode gerar a SQL.",
         tableCount: count,
       });
     } else {
@@ -750,9 +750,9 @@ function resetQAResultPanels() {
   if (savFill) savFill.style.width = "0%";
 }
 
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Login
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function doLogin() {
   const username = document.getElementById("inp-user")?.value.trim() || "";
   const password = document.getElementById("inp-pass")?.value || "";
@@ -764,7 +764,7 @@ async function doLogin() {
   if (errEl) errEl.style.display = "none";
 
   if (!username || !password) {
-    showLoginError("Preencha matrícula e senha.");
+    showLoginError("Preencha matrÃ­cula e senha.");
     return;
   }
 
@@ -808,14 +808,14 @@ function showLoginError(msg) {
   const el = document.getElementById("login-error");
   if (!el) return;
 
-  el.textContent = "⚠ " + prettifyErrorMessage(msg);
+  el.textContent = "âš  " + prettifyErrorMessage(msg);
   el.style.display = "block";
   document.getElementById("inp-user")?.focus();
 }
 
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Logout
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function doLogout() {
   try {
     if (token) {
@@ -844,9 +844,9 @@ async function doLogout() {
   document.getElementById("inp-user")?.focus();
 }
 
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Navigation
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function navTo(view) {
   document.querySelectorAll(".view").forEach((v) => {
     v.classList.remove("active");
@@ -895,9 +895,9 @@ function navTo(view) {
   }
 }
 
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Dev view
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const devColors = {
   teal: { bg: "var(--teal-bg)", stroke: "#0891B2" },
   violet: { bg: "var(--violet-bg)", stroke: "#6D28D9" },
@@ -942,9 +942,9 @@ function openDev(name, desc, features, eta) {
   navTo("dev");
 }
 
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // SQL Review
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function runAnalyze() {
   if (qaAnalyzeInFlight) {
     return;
@@ -1002,7 +1002,7 @@ async function runAnalyze() {
 
   try {
     setTimeout(() => setQAProgress("Estimando custo no BigQuery...", 36), 180);
-    setTimeout(() => setQAProgress("Detectando anti-padrões...", 62), 520);
+    setTimeout(() => setQAProgress("Detectando anti-padrÃµes...", 62), 520);
     setTimeout(() => setQAProgress("Consolidando resultado...", 84), 980);
 
     const res = await fetch("/api/agents/query_analyzer/analyze", {
@@ -1022,12 +1022,12 @@ async function runAnalyze() {
 
     if (!res.ok) {
       const e = await res.json();
-      throw new Error(e.detail || "Erro na análise");
+      throw new Error(e.detail || "Erro na anÃ¡lise");
     }
 
     const data = await res.json();
 
-    setQAProgress("Finalizando apresentação...", 100);
+    setQAProgress("Finalizando apresentaÃ§Ã£o...", 100);
     renderQA(data);
     saveToHistory(data, query);
   } catch (e) {
@@ -1053,7 +1053,7 @@ async function runQueryBuild() {
   const qbTabsArea = document.getElementById("qb-tabs-area");
 
   if (!requestText) {
-    showQBError("Descreva a solicitação antes de gerar SQL.");
+    showQBError("Descreva a solicitaÃ§Ã£o antes de gerar SQL.");
     return;
   }
 
@@ -1114,7 +1114,7 @@ async function runQueryBuild() {
     }
 
     const data = await res.json();
-    setQBProgress("Finalizando apresentação...", 100);
+    setQBProgress("Finalizando apresentaÃ§Ã£o...", 100);
     renderQB(data);
   } catch (e) {
     showQBError(prettifyErrorMessage(e.message));
@@ -1137,7 +1137,7 @@ async function runDocumentBuild() {
   const dbTabsArea = document.getElementById("db-tabs-area");
 
   if (!requestText) {
-    showDBError("Descreva o contexto antes de gerar a documentação.");
+    showDBError("Descreva o contexto antes de gerar a documentaÃ§Ã£o.");
     return;
   }
 
@@ -1156,8 +1156,8 @@ async function runDocumentBuild() {
   if (dbTabsArea) dbTabsArea.style.display = "none";
 
   try {
-    setTimeout(() => setDBProgress("Estruturando documentação...", 38), 180);
-    setTimeout(() => setDBProgress("Gerando conteúdo técnico...", 64), 520);
+    setTimeout(() => setDBProgress("Estruturando documentaÃ§Ã£o...", 38), 180);
+    setTimeout(() => setDBProgress("Gerando conteÃºdo tÃ©cnico...", 64), 520);
     setTimeout(() => setDBProgress("Consolidando markdown...", 86), 980);
 
     const res = await fetch("/api/agents/document_build/analyze", {
@@ -1177,15 +1177,17 @@ async function runDocumentBuild() {
 
     if (!res.ok) {
       const e = await res.json();
-      throw new Error(e.detail || "Erro ao gerar documentação");
+      throw new Error(e.detail || "Erro ao gerar documentaÃ§Ã£o");
     }
 
     const data = await res.json();
     if (data.status === "error") {
-      throw new Error(data.error || "Não foi possível gerar a documentação.");
+      throw new Error(
+        data.error || "NÃ£o foi possÃ­vel gerar a documentaÃ§Ã£o.",
+      );
     }
 
-    setDBProgress("Finalizando apresentação...", 100);
+    setDBProgress("Finalizando apresentaÃ§Ã£o...", 100);
     renderDocumentBuild(data);
   } catch (e) {
     showDBError(prettifyErrorMessage(e.message));
@@ -1223,7 +1225,7 @@ async function runAudit() {
     return;
   }
   if (!projectId) {
-    showAuditError("Informe o Project ID — GCP.");
+    showAuditError("Informe o Project ID â€” GCP.");
     return;
   }
   if (!datasetHint) {
@@ -1242,15 +1244,18 @@ async function runAudit() {
 
   const timers = [
     setTimeout(
-      () => setAuditProgress("Buscando interações no BigQuery", 28),
+      () => setAuditProgress("Buscando interaÃ§Ãµes no BigQuery", 28),
       300,
     ),
     setTimeout(
-      () => setAuditProgress("Analisando sentimentos e fricção", 52),
+      () => setAuditProgress("Analisando sentimentos e fricÃ§Ã£o", 52),
       800,
     ),
     setTimeout(() => setAuditProgress("Classificando temas VoC", 74), 1400),
-    setTimeout(() => setAuditProgress("Gerando relatório executivo", 90), 2200),
+    setTimeout(
+      () => setAuditProgress("Gerando relatÃ³rio executivo", 90),
+      2200,
+    ),
   ];
 
   try {
@@ -1278,7 +1283,7 @@ async function runAudit() {
       throw new Error(payload.error || "Falha ao gerar auditoria.");
     }
 
-    setAuditProgress("Finalizando apresentação", 100);
+    setAuditProgress("Finalizando apresentaÃ§Ã£o", 100);
     renderAudit(payload);
     if (empty) empty.style.display = "none";
     if (tabsArea) tabsArea.style.display = "flex";
@@ -1306,8 +1311,8 @@ function setAuditLoading(on) {
   if (spinner) spinner.style.display = on ? "block" : "none";
   if (text)
     text.textContent = on
-      ? "Auditando experiência do cliente..."
-      : "Auditar experiência do cliente";
+      ? "Auditando experiÃªncia do cliente..."
+      : "Auditar experiÃªncia do cliente";
 
   [request, project, dataset].forEach((el) => {
     if (el) el.disabled = on;
@@ -1317,7 +1322,7 @@ function setAuditLoading(on) {
 function showAuditError(message) {
   const box = document.getElementById("audit-error");
   if (!box) return;
-  box.textContent = "⚠ " + prettifyErrorMessage(message);
+  box.textContent = "âš  " + prettifyErrorMessage(message);
   box.style.display = "block";
 }
 
@@ -1339,9 +1344,9 @@ function renderAudit(data) {
   if (empty) empty.style.display = "none";
   if (tabsArea) tabsArea.style.display = "flex";
 
-  const title = data.audit_title || "Auditoria da Experiência do Cliente";
-  const start = data.periodo_inicio || data.date_range?.start || "—";
-  const end = data.periodo_fim || data.date_range?.end || "—";
+  const title = data.audit_title || "Auditoria da ExperiÃªncia do Cliente";
+  const start = data.periodo_inicio || data.date_range?.start || "â€”";
+  const end = data.periodo_fim || data.date_range?.end || "â€”";
   const total = Number(data.total_interacoes ?? data.total_records ?? 0);
   const metrics = data.cx_metrics || {};
 
@@ -1355,7 +1360,7 @@ function renderAudit(data) {
   if (titleEl) titleEl.textContent = title;
   if (periodEl) periodEl.textContent = `${start} a ${end}`;
   if (totalEl)
-    totalEl.textContent = `${total.toLocaleString("pt-BR")} interações analisadas`;
+    totalEl.textContent = `${total.toLocaleString("pt-BR")} interaÃ§Ãµes analisadas`;
 
   renderFrictionGauge(score);
   renderAuditKpis(metrics, score);
@@ -1383,7 +1388,7 @@ function renderAudit(data) {
   const report = document.getElementById("audit-markdown-report");
   auditMarkdownCache = String(data.markdown_report || "");
   if (report)
-    report.textContent = auditMarkdownCache || "Sem relatório disponível.";
+    report.textContent = auditMarkdownCache || "Sem relatÃ³rio disponÃ­vel.";
 
   renderRecommendationList(
     document.getElementById("audit-recommendations"),
@@ -1433,7 +1438,7 @@ function renderFrictionGauge(score) {
     gaugeLabel = "Emergencial";
   } else if (clamped > 60) {
     gaugeColor = "var(--orange)";
-    gaugeLabel = "Crítico";
+    gaugeLabel = "CrÃ­tico";
   } else if (clamped > 40) {
     gaugeColor = "var(--amber)";
     gaugeLabel = "Regular";
@@ -1498,8 +1503,8 @@ function renderAuditKpis(metrics, score) {
 
   const cards = [
     {
-      label: "NPS MÉDIO",
-      value: metrics.nps_medio ?? "—",
+      label: "NPS MÃ‰DIO",
+      value: metrics.nps_medio ?? "â€”",
       benchmark: "benchmark: > 55",
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M6 20V14"/><path d="M18 20V6"/></svg>',
       status:
@@ -1510,7 +1515,7 @@ function renderAuditKpis(metrics, score) {
             : "critical",
     },
     {
-      label: "TMA MÉDIO",
+      label: "TMA MÃ‰DIO",
       value: `${Math.round(Number(metrics.tma_medio_segundos ?? 0))}s`,
       benchmark: "benchmark: < 300s",
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>',
@@ -1570,7 +1575,7 @@ function renderSentimentList(items) {
   if (!items.length) {
     const empty = document.createElement("div");
     empty.className = "rec-item";
-    empty.textContent = "Sem detalhamento de tendências de sentimentos.";
+    empty.textContent = "Sem detalhamento de tendÃªncias de sentimentos.";
     list.appendChild(empty);
     return;
   }
@@ -1580,7 +1585,7 @@ function renderSentimentList(items) {
     row.className = "rec-item";
     row.innerHTML = `<span class="rec-n">${String(idx + 1).padStart(2, "0")}</span>`;
     const text = document.createElement("span");
-    text.textContent = `${item.dimensao || "dimensão"}: ${item.sentimento || "—"} (${Number(item.percentual || 0).toFixed(1)}%, ${item.quantidade || 0} interações)`;
+    text.textContent = `${item.dimensao || "dimensÃ£o"}: ${item.sentimento || "â€”"} (${Number(item.percentual || 0).toFixed(1)}%, ${item.quantidade || 0} interaÃ§Ãµes)`;
     row.appendChild(text);
     list.appendChild(row);
   });
@@ -1611,7 +1616,7 @@ function renderFrictionPoints(points) {
     const empty = document.createElement("div");
     empty.className = "rec-item";
     empty.textContent =
-      "Nenhum ponto de fricção retornado para o período informado.";
+      "Nenhum ponto de fricÃ§Ã£o retornado para o perÃ­odo informado.";
     list.appendChild(empty);
     return;
   }
@@ -1624,12 +1629,12 @@ function renderFrictionPoints(points) {
     card.innerHTML = `
       <div class="fp-head">
         <div class="fp-icon">${frictionTypeIcon(String(fp.tipo || "").toUpperCase())}</div>
-        <div class="fp-title">${escapeHtml(fp.tipo || "Fricção")}</div>
+        <div class="fp-title">${escapeHtml(fp.tipo || "FricÃ§Ã£o")}</div>
         <div class="fp-badge">${escapeHtml(severity)}</div>
       </div>
-      <div class="fp-count">${escapeHtml(fp.quantidade_ocorrencias ?? 0)} ocorrências</div>
-      <div class="fp-desc">${escapeHtml(fp.descricao || "Sem descrição")}</div>
-      <div class="fp-action">Ação recomendada: ${escapeHtml(fp.sugestao_acao || "Sem sugestão")}</div>
+      <div class="fp-count">${escapeHtml(fp.quantidade_ocorrencias ?? 0)} ocorrÃªncias</div>
+      <div class="fp-desc">${escapeHtml(fp.descricao || "Sem descriÃ§Ã£o")}</div>
+      <div class="fp-action">AÃ§Ã£o recomendada: ${escapeHtml(fp.sugestao_acao || "Sem sugestÃ£o")}</div>
       <div class="fp-pill-list"></div>
     `;
 
@@ -1684,10 +1689,10 @@ function renderVocThemes(themes) {
       theme.sentimento_predominante || "NEUTRO",
     ).toUpperCase();
     const sentSymbol = sent.includes("POS")
-      ? "↑"
+      ? "â†‘"
       : sent.includes("NEG")
-        ? "↓"
-        : "→";
+        ? "â†“"
+        : "â†’";
 
     card.innerHTML = `
       <div class="voc-top">
@@ -1727,7 +1732,7 @@ function renderRecommendationList(container, items, withCheckbox) {
   if (!items.length) {
     const empty = document.createElement("div");
     empty.className = "rec-item";
-    empty.textContent = "Sem itens disponíveis.";
+    empty.textContent = "Sem itens disponÃ­veis.";
     container.appendChild(empty);
     return;
   }
@@ -1763,13 +1768,13 @@ function copyAuditReport() {
     .then(() => {
       if (!btn) return;
       const old = btn.textContent;
-      btn.textContent = "✓ Copiado";
+      btn.textContent = "âœ“ Copiado";
       setTimeout(() => {
-        btn.textContent = old || "Copiar relatório";
+        btn.textContent = old || "Copiar relatÃ³rio";
       }, 2000);
     })
     .catch(() => {
-      showAuditError("Não foi possível copiar o relatório.");
+      showAuditError("NÃ£o foi possÃ­vel copiar o relatÃ³rio.");
     });
 }
 
@@ -1799,7 +1804,7 @@ function renderDocumentBuild(data) {
   }
   if (summary)
     summary.textContent =
-      data.summary || "Documentação gerada sem resumo detalhado.";
+      data.summary || "DocumentaÃ§Ã£o gerada sem resumo detalhado.";
 
   const sections = Array.isArray(data.sections) ? data.sections : [];
   const checklist = Array.isArray(data.acceptance_checklist)
@@ -1857,26 +1862,26 @@ function renderDocumentBuild(data) {
     ? effectiveGovernance.notes
     : [];
 
-  if (docType) docType.textContent = data.doc_type || "—";
+  if (docType) docType.textContent = data.doc_type || "â€”";
   if (sectionCount) sectionCount.textContent = String(sections.length);
   if (checklistCount)
     checklistCount.textContent = String(effectiveChecklist.length);
 
   if (structureList) {
     const baseItems = sections.map((section, i) => {
-      const title = translateSectionTitle(section.title || `Seção ${i + 1}`);
-      const content = section.content || "Sem conteúdo.";
+      const title = translateSectionTitle(section.title || `SeÃ§Ã£o ${i + 1}`);
+      const content = section.content || "Sem conteÃºdo.";
       return `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span><strong>${title}:</strong> ${content}</div>`;
     });
 
     const warningItems = warnings.map(
       (w) =>
-        `<div class="rec-item" style="border-color:var(--color-danger);background:var(--rose-bg);color:var(--rose)">⚠ ${w}</div>`,
+        `<div class="rec-item" style="border-color:var(--color-danger);background:var(--rose-bg);color:var(--rose)">âš  ${w}</div>`,
     );
 
     structureList.innerHTML =
       [...baseItems, ...warningItems].join("") ||
-      '<div class="rec-item">Nenhuma seção retornada.</div>';
+      '<div class="rec-item">Nenhuma seÃ§Ã£o retornada.</div>';
   }
 
   if (markdown) {
@@ -1892,7 +1897,7 @@ function renderDocumentBuild(data) {
               `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span>${item}</div>`,
           )
           .join("")
-      : '<div class="rec-item">Checklist não informado.</div>';
+      : '<div class="rec-item">Checklist nÃ£o informado.</div>';
   }
 
   if (nextStepsSec)
@@ -1985,11 +1990,11 @@ function deriveGovernanceFromSections(sections, currentGovernance) {
     "nenhum",
     "none",
     "n/a",
-    "não informado",
+    "nÃ£o informado",
     "nao informado",
     "-",
-    "nao configurado — consultar responsavel pelo dominio de dados.",
-    "não configurado — consultar responsável pelo domínio de dados.",
+    "nao configurado â€” consultar responsavel pelo dominio de dados.",
+    "nÃ£o configurado â€” consultar responsÃ¡vel pelo domÃ­nio de dados.",
   ]);
   const normalize = (items) =>
     (Array.isArray(items) ? items : [])
@@ -2034,16 +2039,16 @@ function deriveGovernanceFromSections(sections, currentGovernance) {
 const SECTION_LABELS_PT = {
   assumptions: "Premissas",
   risks: "Riscos",
-  acceptance_checklist: "Checklist de Aceitação",
-  next_steps: "Próximos Passos",
-  warnings: "Observações",
-  pending_technical: "Pendências Técnicas",
-  governance: "Governança",
+  acceptance_checklist: "Checklist de AceitaÃ§Ã£o",
+  next_steps: "PrÃ³ximos Passos",
+  warnings: "ObservaÃ§Ãµes",
+  pending_technical: "PendÃªncias TÃ©cnicas",
+  governance: "GovernanÃ§a",
 };
 
 function translateSectionTitle(title) {
   const raw = String(title || "").trim();
-  if (!raw) return "Seção";
+  if (!raw) return "SeÃ§Ã£o";
 
   const key = raw.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
   return SECTION_LABELS_PT[key] || raw;
@@ -2120,21 +2125,21 @@ function generateDocumentHtml(data, context) {
     timeStyle: "short",
   });
 
-  /* ── doc-type label ──────────────────────────────── */
+  /* â”€â”€ doc-type label â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const docTypeMap = {
     documentacao_funcional: {
-      label: "Documentação Funcional",
-      icon: "📊",
+      label: "DocumentaÃ§Ã£o Funcional",
+      icon: "ðŸ“Š",
       color: "#1a56af",
     },
     especificacao_tecnica: {
-      label: "Especificação Técnica",
-      icon: "🧩",
+      label: "EspecificaÃ§Ã£o TÃ©cnica",
+      icon: "ðŸ§©",
       color: "#0e8a5e",
     },
     runbook_operacional: {
       label: "Runbook Operacional",
-      icon: "🛟",
+      icon: "ðŸ›Ÿ",
       color: "#c05d0a",
     },
   };
@@ -2143,27 +2148,27 @@ function generateDocumentHtml(data, context) {
     .replace(/ /g, "_");
   const docType = docTypeMap[rawType] || {
     label: safe(data.doc_type || "Documento"),
-    icon: "📄",
+    icon: "ðŸ“„",
     color: "#1a56af",
   };
 
-  /* ── section icon heuristic ──────────────────────── */
+  /* â”€â”€ section icon heuristic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   function sectionIcon(title) {
     const t = String(title).toLowerCase();
-    if (/objetivo|purpose/.test(t)) return "🎯";
-    if (/contexto|negoc|business/.test(t)) return "🏢";
-    if (/fluxo|pipeline|process/.test(t)) return "🔄";
-    if (/sla|alerta|incidente|incident/.test(t)) return "🚨";
-    if (/diagnos|query|sql/.test(t)) return "🔍";
-    if (/escal|contato|responsavel/.test(t)) return "📞";
-    if (/partici|cluster|tecni|technical/.test(t)) return "⚙️";
-    if (/govern|compliance|acesso/.test(t)) return "🔒";
-    if (/publico|audienc/.test(t)) return "👥";
-    if (/histor|versao|change/.test(t)) return "📋";
-    return "📄";
+    if (/objetivo|purpose/.test(t)) return "ðŸŽ¯";
+    if (/contexto|negoc|business/.test(t)) return "ðŸ¢";
+    if (/fluxo|pipeline|process/.test(t)) return "ðŸ”„";
+    if (/sla|alerta|incidente|incident/.test(t)) return "ðŸš¨";
+    if (/diagnos|query|sql/.test(t)) return "ðŸ”";
+    if (/escal|contato|responsavel/.test(t)) return "ðŸ“ž";
+    if (/partici|cluster|tecni|technical/.test(t)) return "âš™ï¸";
+    if (/govern|compliance|acesso/.test(t)) return "ðŸ”’";
+    if (/publico|audienc/.test(t)) return "ðŸ‘¥";
+    if (/histor|versao|change/.test(t)) return "ðŸ“‹";
+    return "ðŸ“„";
   }
 
-  /* ── type badge color ────────────────────────────── */
+  /* â”€â”€ type badge color â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   function typeBadge(type) {
     const t = String(type).toUpperCase();
     const map = {
@@ -2285,7 +2290,7 @@ function generateDocumentHtml(data, context) {
   function renderSectionContent(content) {
     const text = String(content || "").trim();
     if (!text) {
-      return '<p class="sect-text">Sem conteúdo informado.</p>';
+      return '<p class="sect-text">Sem conteÃºdo informado.</p>';
     }
 
     const markdownKv = text
@@ -2321,14 +2326,14 @@ function generateDocumentHtml(data, context) {
     const html = mdToHtml(text).trim();
     return html
       ? `<div class="sect-text">${html}</div>`
-      : '<p class="sect-text">Sem conteúdo informado.</p>';
+      : '<p class="sect-text">Sem conteÃºdo informado.</p>';
   }
 
-  /* ── build section cards ─────────────────────────── */
+  /* â”€â”€ build section cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const sectionCards = sections.length
     ? sections
         .map((s) => {
-          const translatedTitle = translateSectionTitle(s.title || "Seção");
+          const translatedTitle = translateSectionTitle(s.title || "SeÃ§Ã£o");
           const icon = sectionIcon(translatedTitle);
           const body = renderSectionContent(s.content || "");
           return `
@@ -2341,9 +2346,9 @@ function generateDocumentHtml(data, context) {
         </article>`;
         })
         .join("\n")
-    : '<article class="card sect-card"><p>Sem seções retornadas.</p></article>';
+    : '<article class="card sect-card"><p>Sem seÃ§Ãµes retornadas.</p></article>';
 
-  /* ── dictionary rows ─────────────────────────────── */
+  /* â”€â”€ dictionary rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const dictionaryRows = dataDictionary.length
     ? dataDictionary
         .map(
@@ -2356,47 +2361,50 @@ function generateDocumentHtml(data, context) {
         </tr>`,
         )
         .join("\n")
-    : '<tr><td colspan="4" style="color:var(--ink-muted);text-align:center">Dicionário não disponível</td></tr>';
+    : '<tr><td colspan="4" style="color:var(--ink-muted);text-align:center">DicionÃ¡rio nÃ£o disponÃ­vel</td></tr>';
 
-  /* ── checklist ───────────────────────────────────── */
+  /* â”€â”€ checklist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const checklistHtml = checklist.length
     ? checklist
         .map(
           (item) => `
         <li class="check-item">
-          <span class="check-ico">✅</span>
+          <span class="check-ico">âœ…</span>
           <span>${safe(item)}</span>
         </li>`,
         )
         .join("\n")
-    : '<li class="check-item"><span class="check-ico">—</span><span>Checklist não informado</span></li>';
+    : '<li class="check-item"><span class="check-ico">â€”</span><span>Checklist nÃ£o informado</span></li>';
 
-  /* ── rules & pending ─────────────────────────────── */
+  /* â”€â”€ rules & pending â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const ruleItems = [...typingNotes, ...pendingTechnical];
   const ruleHtml = ruleItems.length
     ? ruleItems
         .map(
           (item) => `
         <li class="check-item">
-          <span class="check-ico">⚠️</span>
+          <span class="check-ico">âš ï¸</span>
           <span>${safe(item)}</span>
         </li>`,
         )
         .join("\n")
-    : '<li class="check-item"><span class="check-ico">—</span><span>Sem regras adicionais.</span></li>';
+    : '<li class="check-item"><span class="check-ico">â€”</span><span>Sem regras adicionais.</span></li>';
 
-  /* ── governance ──────────────────────────────────── */
+  /* â”€â”€ governance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const govItems = [
-    ...governanceAspects.map((a) => ({ ico: "🔒", text: safe(a) })),
+    ...governanceAspects.map((a) => ({ ico: "ðŸ”’", text: safe(a) })),
     ...governanceReaders.map((r) => ({
-      ico: "👤",
+      ico: "ðŸ‘¤",
       text: `Leitor: ${safe(r)}`,
     })),
     ...governanceNotes.map((n) => ({
-      ico: "📝",
+      ico: "ðŸ“",
       text: `Nota: ${safe(n)}`,
     })),
-    ...warnings.map((w) => ({ ico: "⚠️", text: `Observação: ${safe(w)}` })),
+    ...warnings.map((w) => ({
+      ico: "âš ï¸",
+      text: `ObservaÃ§Ã£o: ${safe(w)}`,
+    })),
   ];
   const govHtml = govItems.length
     ? govItems
@@ -2408,9 +2416,9 @@ function generateDocumentHtml(data, context) {
         </li>`,
         )
         .join("\n")
-    : '<li class="check-item"><span class="check-ico">—</span><span>Governança não detalhada.</span></li>';
+    : '<li class="check-item"><span class="check-ico">â€”</span><span>GovernanÃ§a nÃ£o detalhada.</span></li>';
 
-  /* ── next steps ──────────────────────────────────── */
+  /* â”€â”€ next steps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const nextHtml = nextSteps.length
     ? nextSteps
         .map(
@@ -2421,13 +2429,13 @@ function generateDocumentHtml(data, context) {
         </li>`,
         )
         .join("\n")
-    : '<li class="step-item"><span class="step-n">—</span><span>Sem próximos passos informados.</span></li>';
+    : '<li class="step-item"><span class="step-n">â€”</span><span>Sem prÃ³ximos passos informados.</span></li>';
 
-  /* ── warnings banner ─────────────────────────────── */
+  /* â”€â”€ warnings banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const warnBanner = warnings.length
     ? `
     <section class="warn-box">
-      <span class="warn-ico">⚠️</span>
+      <span class="warn-ico">âš ï¸</span>
       <div>
         <strong>Avisos do pipeline</strong>
         <ul style="margin:4px 0 0;padding-left:16px">
@@ -2437,7 +2445,7 @@ function generateDocumentHtml(data, context) {
     </section>`
     : "";
 
-  /* ── table path breadcrumb ───────────────────────── */
+  /* â”€â”€ table path breadcrumb â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const tablePath = safe(data.table_path || data.table_name || "-");
   const parts = tablePath.split(".");
   const breadcrumb =
@@ -2450,7 +2458,7 @@ function generateDocumentHtml(data, context) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${safe(data.title || "Documentação Técnica")}</title>
+  <title>${safe(data.title || "DocumentaÃ§Ã£o TÃ©cnica")}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body {
@@ -2460,7 +2468,7 @@ function generateDocumentHtml(data, context) {
     }
     .wrap { max-width: 1060px; margin: 0 auto; padding: 24px 20px 40px; }
 
-    /* ── Hero ── */
+    /* â”€â”€ Hero â”€â”€ */
     .hero {
       background: linear-gradient(135deg, #004691 0%, #00a1e4 100%);
       color: #fff; border-radius: 14px; padding: 20px 22px;
@@ -2498,7 +2506,7 @@ function generateDocumentHtml(data, context) {
     }
     .hero-pill strong { font-weight: 600; opacity: .7; margin-right: 2px; }
 
-    /* ── Executive banner ── */
+    /* â”€â”€ Executive banner â”€â”€ */
     .exec-box {
       margin-top: 14px; background: #fff;
       border: 1px solid #c8daf5; border-left: 4px solid #00a1e4;
@@ -2508,7 +2516,7 @@ function generateDocumentHtml(data, context) {
     }
     .exec-ico { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
 
-    /* ── Warning box ── */
+    /* â”€â”€ Warning box â”€â”€ */
     .warn-box {
       margin-top: 14px; background: #fffbeb;
       border: 1px solid #fbbf24; border-left: 4px solid #d97706;
@@ -2518,12 +2526,12 @@ function generateDocumentHtml(data, context) {
     }
     .warn-ico { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
 
-    /* ── Grid ── */
+    /* â”€â”€ Grid â”€â”€ */
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
     .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px; }
     .span2 { grid-column: span 2; }
 
-    /* ── Cards ── */
+    /* â”€â”€ Cards â”€â”€ */
     .card {
       background: #fff; border: 1px solid #d4e2f4;
       border-radius: 12px; padding: 14px 16px;
@@ -2576,7 +2584,7 @@ function generateDocumentHtml(data, context) {
       line-height: 1.6;
     }
     .json-list > li::before {
-      content: "•";
+      content: "â€¢";
       position: absolute;
       left: 0;
       color: #00a1e4;
@@ -2611,11 +2619,11 @@ function generateDocumentHtml(data, context) {
       font-size: 12px;
     }
 
-    /* ── Breadcrumb ── */
+    /* â”€â”€ Breadcrumb â”€â”€ */
     .breadcrumb { font-family: "Cascadia Code", "Consolas", monospace; font-size: 12px; }
     .bc-dim { opacity: .55; }
 
-    /* ── Table ── */
+    /* â”€â”€ Table â”€â”€ */
     .table-wrap { overflow-x: auto; margin-top: 6px; }
     table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
     th {
@@ -2632,12 +2640,12 @@ function generateDocumentHtml(data, context) {
     }
     .col-type { white-space: nowrap; }
 
-    /* ── Check lists ── */
+    /* â”€â”€ Check lists â”€â”€ */
     .check-list, .step-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
     .check-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: #2d3b4f; }
     .check-ico { flex-shrink: 0; font-size: 14px; margin-top: 1px; }
 
-    /* ── Numbered steps ── */
+    /* â”€â”€ Numbered steps â”€â”€ */
     .step-item { display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #2d3b4f; }
     .step-n {
       flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
@@ -2645,7 +2653,7 @@ function generateDocumentHtml(data, context) {
       display: flex; align-items: center; justify-content: center;
     }
 
-    /* ── Section title strip ── */
+    /* â”€â”€ Section title strip â”€â”€ */
     .section-title {
       display: flex; align-items: center; gap: 8px;
       margin: 18px 0 10px; font-size: 12px; font-weight: 700;
@@ -2655,7 +2663,7 @@ function generateDocumentHtml(data, context) {
       content: ""; flex: 1; height: 1px; background: #d4e2f4;
     }
 
-    /* ── Footer ── */
+    /* â”€â”€ Footer â”€â”€ */
     .footer {
       margin-top: 24px; padding-top: 14px;
       border-top: 1px solid #d4e2f4;
@@ -2673,41 +2681,41 @@ function generateDocumentHtml(data, context) {
 <body>
   <div class="wrap">
 
-    <!-- ── HERO ─────────────────────────────────── -->
+    <!-- â”€â”€ HERO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     <header class="hero">
       <div class="hero-logo"><img src="/static/img/portoseguro.png" alt="Porto Seguro" /></div>
       <div class="hero-body">
         <div class="hero-badge">${docType.icon} ${docType.label}</div>
-        <h1>${safe(data.title || "Documentação Técnica")}</h1>
+        <h1>${safe(data.title || "DocumentaÃ§Ã£o TÃ©cnica")}</h1>
         <p class="hero-summary">${safe(data.summary || "Documento gerado pelo Document Builder.")}</p>
         <div class="hero-meta">
-          <span class="hero-pill"><strong>📦 Tabela</strong> <span class="breadcrumb">${breadcrumb}</span></span>
-          <span class="hero-pill"><strong>🔄 Frequência</strong> ${safe(data.frequency || "—")}</span>
-          <span class="hero-pill"><strong>👥 Público</strong> ${safe(data.audience || "—")}</span>
-          <span class="hero-pill"><strong>📅 Gerado</strong> ${now}</span>
+          <span class="hero-pill"><strong>ðŸ“¦ Tabela</strong> <span class="breadcrumb">${breadcrumb}</span></span>
+          <span class="hero-pill"><strong>ðŸ”„ FrequÃªncia</strong> ${safe(data.frequency || "â€”")}</span>
+          <span class="hero-pill"><strong>ðŸ‘¥ PÃºblico</strong> ${safe(data.audience || "â€”")}</span>
+          <span class="hero-pill"><strong>ðŸ“… Gerado</strong> ${now}</span>
         </div>
       </div>
     </header>
 
-    <!-- ── EXECUTIVE BANNER ───────────────────── -->
+    <!-- â”€â”€ EXECUTIVE BANNER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     <div class="exec-box">
-      <span class="exec-ico">💡</span>
+      <span class="exec-ico">ðŸ’¡</span>
       <div>
-        <strong>Visão executiva</strong><br/>
-        ${safe(data.objective || "Documento estruturado para decisão e governança, com foco em contexto de negócio, confiabilidade dos dados e encaminhamentos operacionais.")}
+        <strong>VisÃ£o executiva</strong><br/>
+        ${safe(data.objective || "Documento estruturado para decisÃ£o e governanÃ§a, com foco em contexto de negÃ³cio, confiabilidade dos dados e encaminhamentos operacionais.")}
       </div>
     </div>
 
     ${warnBanner}
 
-    <!-- ── SEÇÕES PRINCIPAIS ──────────────────── -->
-    <div class="section-title">📄 Conteúdo do Documento</div>
+    <!-- â”€â”€ SEÃ‡Ã•ES PRINCIPAIS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <div class="section-title">ðŸ“„ ConteÃºdo do Documento</div>
     <div class="grid">
       ${sectionCards}
     </div>
 
-    <!-- ── DICIONÁRIO DE DADOS ────────────────── -->
-    <div class="section-title">🗂️ Dicionário de Dados</div>
+    <!-- â”€â”€ DICIONÃRIO DE DADOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <div class="section-title">ðŸ—‚ï¸ DicionÃ¡rio de Dados</div>
     <div class="card">
       <div class="table-wrap">
         <table>
@@ -2715,8 +2723,8 @@ function generateDocumentHtml(data, context) {
             <tr>
               <th>Coluna</th>
               <th>Tipo</th>
-              <th>Descrição</th>
-              <th>Regra de Negócio</th>
+              <th>DescriÃ§Ã£o</th>
+              <th>Regra de NegÃ³cio</th>
             </tr>
           </thead>
           <tbody>
@@ -2726,48 +2734,48 @@ function generateDocumentHtml(data, context) {
       </div>
     </div>
 
-    <!-- ── QUALIDADE & REGRAS ─────────────────── -->
-    <div class="section-title">✅ Qualidade & Regras</div>
+    <!-- â”€â”€ QUALIDADE & REGRAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <div class="section-title">âœ… Qualidade & Regras</div>
     <div class="grid">
       <article class="card">
         <div class="card-head">
-          <span class="card-icon">✅</span>
+          <span class="card-icon">âœ…</span>
           <h2>Checklist de Qualidade</h2>
         </div>
         <ul class="check-list">${checklistHtml}</ul>
       </article>
       <article class="card">
         <div class="card-head">
-          <span class="card-icon">⚠️</span>
-          <h2>Regras & Pendências</h2>
+          <span class="card-icon">âš ï¸</span>
+          <h2>Regras & PendÃªncias</h2>
         </div>
         <ul class="check-list">${ruleHtml}</ul>
       </article>
     </div>
 
-    <!-- ── GOVERNANÇA & PRÓXIMOS PASSOS ──────── -->
-    <div class="section-title">🔒 Governança & Ações</div>
+    <!-- â”€â”€ GOVERNANÃ‡A & PRÃ“XIMOS PASSOS â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <div class="section-title">ðŸ”’ GovernanÃ§a & AÃ§Ãµes</div>
     <div class="grid">
       <article class="card">
         <div class="card-head">
-          <span class="card-icon">🔒</span>
-          <h2>Governança</h2>
+          <span class="card-icon">ðŸ”’</span>
+          <h2>GovernanÃ§a</h2>
         </div>
         <ul class="check-list">${govHtml}</ul>
       </article>
       <article class="card">
         <div class="card-head">
-          <span class="card-icon">🚀</span>
-          <h2>Próximos Passos</h2>
+          <span class="card-icon">ðŸš€</span>
+          <h2>PrÃ³ximos Passos</h2>
         </div>
         <ul class="step-list">${nextHtml}</ul>
       </article>
     </div>
 
-    <!-- ── FOOTER ─────────────────────────────── -->
+    <!-- â”€â”€ FOOTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     <footer class="footer">
-      <span class="footer-brand">🤖 Document Builder · Finance Hub</span>
-      <span>Gerado em ${now} · Engenharia de Dados Financeiro</span>
+      <span class="footer-brand">ðŸ¤– Document Builder Â· Finance Hub</span>
+      <span>Gerado em ${now} Â· Engenharia de Dados Financeiro</span>
     </footer>
 
   </div>
@@ -2810,7 +2818,7 @@ function setDBLoading(on) {
   if (spinner) spinner.style.display = on ? "block" : "none";
   if (text) {
     text.textContent = on
-      ? "Gerando documentação..."
+      ? "Gerando documentaÃ§Ã£o..."
       : "Gerar com Document Builder";
   }
 }
@@ -2825,7 +2833,7 @@ function showDBError(message) {
     return;
   }
 
-  box.textContent = "⚠ " + message;
+  box.textContent = "âš  " + message;
   box.style.display = "block";
 }
 
@@ -2838,7 +2846,7 @@ function copyDBDocument() {
     .then(() => {
       if (!btn) return;
       const old = btn.textContent;
-      btn.textContent = "✓ Copiado!";
+      btn.textContent = "âœ“ Copiado!";
       btn.style.color = "#34D399";
       setTimeout(() => {
         btn.textContent = old || "Copiar Markdown";
@@ -2846,7 +2854,9 @@ function copyDBDocument() {
       }, 1800);
     })
     .catch(() => {
-      showDBError("Não foi possível copiar automaticamente. Tente novamente.");
+      showDBError(
+        "NÃ£o foi possÃ­vel copiar automaticamente. Tente novamente.",
+      );
     });
 }
 
@@ -2903,7 +2913,7 @@ function generateConfluenceMarkup(data, context) {
   const title = data.title || "Documenta\u00e7\u00e3o T\u00e9cnica";
   const lines = [];
 
-  /* ── Cabeçalho ── */
+  /* â”€â”€ CabeÃ§alho â”€â”€ */
   lines.push(`h1. ${title}`);
   lines.push("");
   lines.push(
@@ -2913,7 +2923,7 @@ function generateConfluenceMarkup(data, context) {
   lines.push("{panel}");
   lines.push("");
 
-  /* ── Metadados ── */
+  /* â”€â”€ Metadados â”€â”€ */
   lines.push("h2. Informa\u00e7\u00f5es Gerais");
   lines.push("");
   lines.push("|| Campo || Valor ||");
@@ -2924,7 +2934,7 @@ function generateConfluenceMarkup(data, context) {
   lines.push(`| Resumo | ${data.summary || "\u2014"} |`);
   lines.push("");
 
-  /* ── Seções ── */
+  /* â”€â”€ SeÃ§Ãµes â”€â”€ */
   if (sections.length) {
     sections.forEach((s) => {
       lines.push(`h2. ${translateSectionTitle(s.title || "Se\u00e7\u00e3o")}`);
@@ -2934,7 +2944,7 @@ function generateConfluenceMarkup(data, context) {
     });
   }
 
-  /* ── Dicion\u00e1rio de dados ── */
+  /* â”€â”€ Dicion\u00e1rio de dados â”€â”€ */
   if (dataDictionary.length) {
     lines.push("h2. \uD83D\uDDC2 Dicion\u00e1rio de Dados");
     lines.push("");
@@ -2951,7 +2961,7 @@ function generateConfluenceMarkup(data, context) {
     lines.push("");
   }
 
-  /* ── Checklist ── */
+  /* â”€â”€ Checklist â”€â”€ */
   if (checklist.length) {
     lines.push("h2. \u2705 Checklist de Qualidade");
     lines.push("");
@@ -2959,7 +2969,7 @@ function generateConfluenceMarkup(data, context) {
     lines.push("");
   }
 
-  /* ── Regras e pend\u00eancias ── */
+  /* â”€â”€ Regras e pend\u00eancias â”€â”€ */
   const ruleItems = [...typingNotes, ...pendingTechnical];
   if (ruleItems.length) {
     lines.push("h2. \u26A0\uFE0F Regras & Pend\u00eancias");
@@ -2968,7 +2978,7 @@ function generateConfluenceMarkup(data, context) {
     lines.push("");
   }
 
-  /* ── Governan\u00e7a ── */
+  /* â”€â”€ Governan\u00e7a â”€â”€ */
   const govLines = [
     ...governanceAspects.map((a) => `* *Aspecto:* ${a}`),
     ...governanceReaders.map((r) => `* *Leitor:* ${r}`),
@@ -2981,7 +2991,7 @@ function generateConfluenceMarkup(data, context) {
     lines.push("");
   }
 
-  /* ── Pr\u00f3ximos passos ── */
+  /* â”€â”€ Pr\u00f3ximos passos â”€â”€ */
   if (nextSteps.length) {
     lines.push("h2. \uD83D\uDE80 Pr\u00f3ximos Passos");
     lines.push("");
@@ -2989,7 +2999,7 @@ function generateConfluenceMarkup(data, context) {
     lines.push("");
   }
 
-  /* ── Avisos ── */
+  /* â”€â”€ Avisos â”€â”€ */
   if (warnings.length) {
     lines.push("{warning:title=Avisos do pipeline}");
     warnings.forEach((w) => lines.push(`* ${w}`));
@@ -2997,7 +3007,7 @@ function generateConfluenceMarkup(data, context) {
     lines.push("");
   }
 
-  /* ── Rodap\u00e9 ── */
+  /* â”€â”€ Rodap\u00e9 â”€â”€ */
   lines.push("----");
   lines.push(
     `{info:title=Gerado automaticamente}Gerado em ${now} por Document Builder \u00b7 Engenharia de Dados Financeiro{info}`,
@@ -3015,7 +3025,7 @@ function copyDBHtmlDocument() {
     .then(() => {
       if (!btn) return;
       const old = btn.textContent;
-      btn.textContent = "✓ Copiado!";
+      btn.textContent = "âœ“ Copiado!";
       btn.style.color = "#34D399";
       setTimeout(() => {
         btn.textContent = old || "Copiar HTML";
@@ -3023,7 +3033,7 @@ function copyDBHtmlDocument() {
       }, 1800);
     })
     .catch(() => {
-      showDBError("Não foi possível copiar o HTML automaticamente.");
+      showDBError("NÃ£o foi possÃ­vel copiar o HTML automaticamente.");
     });
 }
 
@@ -3202,7 +3212,7 @@ function renderQB(data) {
 
   if (dryRun) {
     if (dry.error) {
-      dryRun.innerHTML = `<div class="rec-item" style="border-color:var(--color-danger);background:var(--rose-bg);color:var(--rose)">⚠ ${dry.error}</div>`;
+      dryRun.innerHTML = `<div class="rec-item" style="border-color:var(--color-danger);background:var(--rose-bg);color:var(--rose)">âš  ${dry.error}</div>`;
     } else {
       dryRun.innerHTML = `
         <div class="rec-item">Bytes processados: <strong style="margin-left:6px">${fmtBytes(dry.bytes_processed)}</strong></div>
@@ -3253,7 +3263,7 @@ function showQBError(message) {
     return;
   }
 
-  box.textContent = "⚠ " + message;
+  box.textContent = "âš  " + message;
   box.style.display = "block";
 }
 
@@ -3265,7 +3275,7 @@ function copyQBSQL() {
 }
 
 function formatSampleCell(value) {
-  if (value == null) return "—";
+  if (value == null) return "â€”";
   if (typeof value === "object") {
     try {
       return JSON.stringify(value);
@@ -3284,7 +3294,7 @@ function copyQBBuiltSQL() {
 }
 
 function renderQA(d) {
-  const grade = d.grade || "—";
+  const grade = d.grade || "â€”";
   const now = new Date();
   const timeStr =
     now.getHours().toString().padStart(2, "0") +
@@ -3315,14 +3325,14 @@ function renderQA(d) {
 
   if (gradeBlock) gradeBlock.className = "grade-block gb-" + grade;
   if (gradeLtr) gradeLtr.textContent = grade;
-  if (scoreBig) scoreBig.textContent = d.efficiency_score ?? "—";
+  if (scoreBig) scoreBig.textContent = d.efficiency_score ?? "â€”";
   if (scoreFill) {
     scoreFill.className = "score-fill sf-" + grade;
     setTimeout(() => {
       scoreFill.style.width = `${d.efficiency_score || 0}%`;
     }, 80);
   }
-  if (summary) summary.textContent = d.summary || "Sem resumo disponível.";
+  if (summary) summary.textContent = d.summary || "Sem resumo disponÃ­vel.";
 
   // Tiles
   const qTiles = document.getElementById("q-tiles");
@@ -3343,15 +3353,15 @@ function renderQA(d) {
     const pct = d.savings_pct || 0;
 
     document.getElementById("q-sav").textContent =
-      pct > 0 ? `↓ ${pct}%` : "N/A";
+      pct > 0 ? `â†“ ${pct}%` : "N/A";
     document.getElementById("q-savusd").textContent =
       d.cost_saved_usd != null
         ? `USD ${Number(d.cost_saved_usd).toFixed(4)}`
-        : "—";
+        : "â€”";
 
     if (pct > 0 && qSavSec) {
       qSavSec.style.display = "block";
-      document.getElementById("q-sav-big").textContent = `↓ ${pct}%`;
+      document.getElementById("q-sav-big").textContent = `â†“ ${pct}%`;
 
       setTimeout(() => {
         document.getElementById("q-sav-fill").style.width = `${pct}%`;
@@ -3383,7 +3393,7 @@ function renderQA(d) {
     if (!apCount) {
       apList.innerHTML = `
         <div class="rec-item" style="color:var(--emerald);border-color:var(--color-success);background:var(--emerald-bg)">
-          <span>✓</span> Nenhum anti-padrão. Query eficiente!
+          <span>âœ“</span> Nenhum anti-padrÃ£o. Query eficiente!
         </div>
       `;
     } else {
@@ -3398,7 +3408,7 @@ function renderQA(d) {
             </div>
             <div class="ap-desc">${ap.description}</div>
             <div class="ap-fix">
-              <span>✦</span>
+              <span>âœ¦</span>
               <span>${ap.suggestion}</span>
             </div>
           </div>
@@ -3477,7 +3487,7 @@ function renderQA(d) {
       qTipsList.innerHTML = tips
         .map(
           (t) =>
-            `<div class="tip-item"><span style="color:var(--porto);flex-shrink:0">◆</span>${t}</div>`,
+            `<div class="tip-item"><span style="color:var(--porto);flex-shrink:0">â—†</span>${t}</div>`,
         )
         .join("");
     }
@@ -3511,7 +3521,7 @@ function copySQL() {
   navigator.clipboard.writeText(sql).then(() => {
     if (!btn) return;
 
-    btn.textContent = "✓ Copiado!";
+    btn.textContent = "âœ“ Copiado!";
     btn.style.color = "#34D399";
 
     setTimeout(() => {
@@ -3521,9 +3531,9 @@ function copySQL() {
   });
 }
 
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // History
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function saveToHistory(data, query) {
   const history = JSON.parse(localStorage.getItem("qaHistory") || "[]");
 
@@ -3532,7 +3542,7 @@ function saveToHistory(data, query) {
     date: new Date().toISOString(),
     query: query,
     suggestedQuery: data.optimized_query || null,
-    grade: data.grade || "—",
+    grade: data.grade || "â€”",
     score: data.efficiency_score || 0,
     originalBytes: data.bytes_original,
     optimizedBytes: data.bytes_optimized,
@@ -3563,7 +3573,7 @@ function loadHistory() {
     const date = new Date(item.date);
     const dateStr =
       date.toLocaleDateString("pt-BR") +
-      " às " +
+      " Ã s " +
       date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
     // Determine performance badge
@@ -3577,7 +3587,7 @@ function loadHistory() {
       performanceBadge = "Boa";
       performanceColor = "good";
     } else if (score >= 50) {
-      performanceBadge = "Média";
+      performanceBadge = "MÃ©dia";
       performanceColor = "average";
     }
 
@@ -3616,14 +3626,14 @@ function loadHistory() {
           </div>
         </div>
 
-        <!-- Métricas Principais em Grid Visual -->
+        <!-- MÃ©tricas Principais em Grid Visual -->
         <div class="hist-key-metrics">
           <div class="hist-key-metric score">
             <div class="hist-key-metric-label">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
               </svg>
-              Pontuação
+              PontuaÃ§Ã£o
             </div>
             <div class="hist-key-metric-value">${item.score}</div>
             <div class="hist-key-metric-subtext">/100</div>
@@ -3636,7 +3646,7 @@ function loadHistory() {
               Grau
             </div>
             <div class="hist-key-metric-value">${item.grade}</div>
-            <div class="hist-key-metric-subtext">Classificação</div>
+            <div class="hist-key-metric-subtext">ClassificaÃ§Ã£o</div>
           </div>
           <div class="hist-key-metric improvement">
             <div class="hist-key-metric-label">
@@ -3645,9 +3655,9 @@ function loadHistory() {
                 <polyline points="17 8 12 3 7 8"/>
                 <line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
-              Redução
+              ReduÃ§Ã£o
             </div>
-            <div class="hist-key-metric-value">${improvementPercent > 0 ? "↓" : ""}${improvementPercent}%</div>
+            <div class="hist-key-metric-value">${improvementPercent > 0 ? "â†“" : ""}${improvementPercent}%</div>
             <div class="hist-key-metric-subtext">Processamento</div>
           </div>
         </div>
@@ -3718,7 +3728,7 @@ function loadHistory() {
             </div>
             <div class="hist-byte-savings">
               <div class="hist-byte-label">Economia</div>
-              <div class="hist-byte-value">${item.savings > 0 ? "↓ " + item.savings : "—"}%</div>
+              <div class="hist-byte-value">${item.savings > 0 ? "â†“ " + item.savings : "â€”"}%</div>
             </div>
             <div class="hist-byte-item optimized">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -3740,7 +3750,7 @@ function showQAError(message) {
   const box = document.getElementById("qa-error");
   if (!box) return;
 
-  box.textContent = "⚠ " + prettifyErrorMessage(message);
+  box.textContent = "âš  " + prettifyErrorMessage(message);
   box.style.display = "block";
 }
 
@@ -3767,9 +3777,9 @@ function setQALoading(on) {
   }
 }
 
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Bot filtering
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function filterBots(q) {
   const term = String(q || "").toLowerCase();
 
@@ -3783,9 +3793,9 @@ function filterBots(q) {
   });
 }
 
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Keyboard shortcuts
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 document.addEventListener("keydown", (e) => {
   if (
     e.key === "Enter" &&
@@ -3867,25 +3877,25 @@ document.getElementById("qb-project")?.addEventListener("input", () => {
   scheduleQBDatasetValidation();
 });
 
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Init
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 window.addEventListener("load", function init() {
-  console.log("🚀 Inicializando Finance Hub IA...");
+  console.log("ðŸš€ Inicializando Finance Hub IA...");
   try {
     showScreen("screen-login");
     document.getElementById("inp-user")?.focus();
     enforceQAConfigReadOnly();
 
-    // Remover event listeners dos botões que foram removidos
+    // Remover event listeners dos botÃµes que foram removidos
     renderShowcase();
     startShowcaseAutoplay();
     setQADatasetValidationStatus("idle");
     syncQAAnalyzeButtonState();
     syncQBGenerateButtonState();
-    console.log("✅ Inicialização concluída!");
+    console.log("âœ… InicializaÃ§Ã£o concluÃ­da!");
   } catch (error) {
-    console.error("❌ Erro na inicialização:", error);
+    console.error("âŒ Erro na inicializaÃ§Ã£o:", error);
   }
 });
 
@@ -3893,7 +3903,7 @@ const showcaseBots = [
   {
     name: "SQL Review",
     description:
-      "Reduza custo e tempo de execução com revisão automática de anti-padrões e SQL otimizada.",
+      "Reduza custo e tempo de execuÃ§Ã£o com revisÃ£o automÃ¡tica de anti-padrÃµes e SQL otimizada.",
     tags: ["BigQuery", "SQL", "Performance"],
     status: "Disponivel",
     action: () => navTo("qa"),
@@ -3901,7 +3911,7 @@ const showcaseBots = [
   {
     name: "Document Builder",
     description:
-      "Gere documentação que o negócio entende e a engenharia confia: schema real, governança e exportação pronta.",
+      "Gere documentaÃ§Ã£o que o negÃ³cio entende e a engenharia confia: schema real, governanÃ§a e exportaÃ§Ã£o pronta.",
     tags: ["Docs", "Pipeline", "DataOps"],
     status: "Disponivel",
     action: () => navTo("db"),
@@ -3909,7 +3919,7 @@ const showcaseBots = [
   {
     name: "Query Builder",
     description:
-      "Da pergunta ao SQL em minutos, com contexto real para análises de receita, margem e risco.",
+      "Da pergunta ao SQL em minutos, com contexto real para anÃ¡lises de receita, margem e risco.",
     tags: ["NL2SQL", "BigQuery", "IA"],
     status: "Disponivel",
     action: () => navTo("qb"),
@@ -3917,7 +3927,7 @@ const showcaseBots = [
   {
     name: "Finance Voice IA",
     description:
-      "Audite a experiência do cliente com análise de sentimentos, fricção, VoC e NPS — tudo em um relatório executivo acionável.",
+      "Audite a experiÃªncia do cliente com anÃ¡lise de sentimentos, fricÃ§Ã£o, VoC e NPS â€” tudo em um relatÃ³rio executivo acionÃ¡vel.",
     tags: ["Auditoria", "VoC", "CX"],
     status: "Disponivel",
     action: () => navTo("audit"),
@@ -4008,9 +4018,9 @@ function restartShowcaseAutoplay() {
   startShowcaseAutoplay();
 }
 
-// ─────────────────────────────────────
-// Finance Voice IA — Chat
-// ─────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Finance Voice IA â€” Chat
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 let faIsLoading = false;
 let faThinkingId = null;
@@ -4153,7 +4163,7 @@ function clearFAChat() {
         </svg>
       </div>
       <h3>Finance Voice IA</h3>
-      <p>Pergunte sobre qualquer período em linguagem natural. Analisarei sentimento, fricção e temas de atendimento e gerarei um relatório executivo.</p>
+      <p>Pergunte sobre qualquer perÃ­odo em linguagem natural. Analisarei sentimento, fricÃ§Ã£o e temas de atendimento e gerarei um relatÃ³rio executivo.</p>
     </div>`;
 
   const input = document.getElementById("fa-input");
@@ -4203,7 +4213,7 @@ function appendFAUserMessage(text) {
     <div class="fa-msg-main">
       <div class="fa-bubble fa-bubble--user">
         <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">👤</span>
+          <span class="fa-bubble-icon" aria-hidden="true">ðŸ‘¤</span>
           <span class="fa-bubble-title">Sua pergunta</span>
         </div>
         <div class="fa-bubble-body">${_escFA(text)}</div>
@@ -4229,7 +4239,7 @@ function appendFAThinking() {
     <div class="fa-msg-main">
       <div class="fa-bubble fa-bubble--thinking">
         <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">⚙</span>
+          <span class="fa-bubble-icon" aria-hidden="true">âš™</span>
           <span class="fa-bubble-title">Finance Voice IA analisando</span>
         </div>
         <div class="fa-thinking-dots"><span></span><span></span><span></span></div>
@@ -4256,8 +4266,8 @@ function appendFAErrorMessage(msg) {
     <div class="fa-msg-main">
       <div class="fa-bubble fa-bubble--error">
         <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">⚠</span>
-          <span class="fa-bubble-title">Atenção</span>
+          <span class="fa-bubble-icon" aria-hidden="true">âš </span>
+          <span class="fa-bubble-title">AtenÃ§Ã£o</span>
         </div>
         <div class="fa-bubble-body">${_escFA(msg)}</div>
       </div>
@@ -4278,7 +4288,7 @@ async function appendFAChatTextMessage(text) {
     <div class="fa-msg-main">
       <div class="fa-bubble fa-bubble--bot">
         <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">✦</span>
+          <span class="fa-bubble-icon" aria-hidden="true">âœ¦</span>
           <span class="fa-bubble-title">Finance Voice IA</span>
         </div>
         <div class="fa-bubble-body"><div class="fa-report-slot"></div></div>
@@ -4309,8 +4319,8 @@ async function appendFABotMessage(data) {
     <div class="fa-msg-main fa-msg-main--report">
       <div class="fa-bubble fa-bubble--bot fa-bubble--report">
         <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">📊</span>
-          <span class="fa-bubble-title">Relatório Finance Voice IA</span>
+          <span class="fa-bubble-icon" aria-hidden="true">ðŸ“Š</span>
+          <span class="fa-bubble-title">RelatÃ³rio Finance Voice IA</span>
         </div>
         <div class="fa-bubble-body">
           ${metricsHtml}
@@ -4318,7 +4328,7 @@ async function appendFABotMessage(data) {
           ${detailsHtml}
         </div>
       </div>
-      <div class="fa-msg-time">${_faNow()} · Score ${data.quality_score ?? "—"}/100</div>
+      <div class="fa-msg-time">${_faNow()} Â· Score ${data.quality_score ?? "â€”"}/100</div>
     </div>`;
 
   area.appendChild(el);
@@ -4337,13 +4347,13 @@ function _faMetricsHtml(data) {
   const pct =
     data.friction_score != null
       ? (data.friction_score * 100).toFixed(1) + "%"
-      : "—";
+      : "â€”";
 
   const dateRange = data.date_range
-    ? `${data.date_range.start} → ${data.date_range.end}`
-    : "—";
+    ? `${data.date_range.start} â†’ ${data.date_range.end}`
+    : "â€”";
 
-  const dominant = (data.sentiment_analysis?.dominant || "—").toUpperCase();
+  const dominant = (data.sentiment_analysis?.dominant || "â€”").toUpperCase();
   const total = (data.total_records ?? 0).toLocaleString("pt-BR");
   const ops = Array.isArray(data.operations_analyzed)
     ? data.operations_analyzed.filter(Boolean)
@@ -4361,10 +4371,10 @@ function _faMetricsHtml(data) {
     }[dominant] || "var(--ink-secondary)";
   const sentimentIcon =
     {
-      POSITIVO: "👍",
-      NEGATIVO: "👎",
-      NEUTRO: "🤝",
-    }[dominant] || "💬";
+      POSITIVO: "ðŸ‘",
+      NEGATIVO: "ðŸ‘Ž",
+      NEUTRO: "ðŸ¤",
+    }[dominant] || "ðŸ’¬";
   const sentimentClass =
     {
       POSITIVO: "fa-metric-card--sent-positivo",
@@ -4385,8 +4395,8 @@ function _faMetricsHtml(data) {
   return `
     <div class="fa-metric-grid">
       <div class="fa-metric-card fa-metric-card--${labelKey}">
-        <div class="fa-metric-head"><span class="fa-metric-icon">⚡</span></div>
-        <div class="fa-metric-label">Fricção</div>
+        <div class="fa-metric-head"><span class="fa-metric-icon">âš¡</span></div>
+        <div class="fa-metric-label">FricÃ§Ã£o</div>
         <div class="fa-metric-value">${label} <span>${pct}</span></div>
       </div>
 
@@ -4397,27 +4407,27 @@ function _faMetricsHtml(data) {
       </div>
 
       <div class="fa-metric-card">
-        <div class="fa-metric-head"><span class="fa-metric-icon">📅</span></div>
-        <div class="fa-metric-label">Período analisado</div>
-        <div class="fa-metric-value">📅 ${dateRange}</div>
+        <div class="fa-metric-head"><span class="fa-metric-icon">ðŸ“…</span></div>
+        <div class="fa-metric-label">PerÃ­odo analisado</div>
+        <div class="fa-metric-value">ðŸ“… ${dateRange}</div>
       </div>
 
       <div class="fa-metric-card">
-        <div class="fa-metric-head"><span class="fa-metric-icon">📊</span></div>
+        <div class="fa-metric-head"><span class="fa-metric-icon">ðŸ“Š</span></div>
         <div class="fa-metric-label">Volume</div>
-        <div class="fa-metric-value">📊 ${total} registros</div>
+        <div class="fa-metric-value">ðŸ“Š ${total} registros</div>
       </div>
 
       <div class="fa-metric-card" title="${_escFA(ops.join(" | "))}">
-        <div class="fa-metric-head"><span class="fa-metric-icon">🧩</span></div>
-        <div class="fa-metric-label">Operações analisadas</div>
-        <div class="fa-metric-value">🧩 ${_escFA(opsPreview || "—")}</div>
+        <div class="fa-metric-head"><span class="fa-metric-icon">ðŸ§©</span></div>
+        <div class="fa-metric-label">OperaÃ§Ãµes analisadas</div>
+        <div class="fa-metric-value">ðŸ§© ${_escFA(opsPreview || "â€”")}</div>
       </div>
 
       <div class="fa-metric-card ${warningItems.length > 0 ? "fa-metric-card--warn" : "fa-metric-card--ok"}" title="${_escFA(warningItems.join(" | "))}">
-        <div class="fa-metric-head"><span class="fa-metric-icon">${warningItems.length > 0 ? "⚠" : "✅"}</span></div>
+        <div class="fa-metric-head"><span class="fa-metric-icon">${warningItems.length > 0 ? "âš " : "âœ…"}</span></div>
         <div class="fa-metric-label">Avisos</div>
-        <div class="fa-metric-value">${warningItems.length > 0 ? "⚠" : "✅"} ${warningsResume}</div>
+        <div class="fa-metric-value">${warningItems.length > 0 ? "âš " : "âœ…"} ${warningsResume}</div>
       </div>
     </div>
     ${warningsDetail}`;
@@ -4465,7 +4475,7 @@ function toggleFADetails(toggleId, bodyId) {
   body.classList.toggle("open");
 }
 
-// ── Simple Markdown → HTML converter ──
+// â”€â”€ Simple Markdown â†’ HTML converter â”€â”€
 function _faMdToHtml(md) {
   if (!md) return "";
 
@@ -4555,7 +4565,7 @@ function _faMdToHtml(md) {
 
       if (!inTable) {
         closeList();
-        // previous line was header → wrap in thead
+        // previous line was header â†’ wrap in thead
         const prevIdx = out.length - 1;
         const prev = out[prevIdx] || "";
         if (prev.startsWith("<tr>")) {
@@ -4633,7 +4643,7 @@ function _escFA(str) {
     .replace(/"/g, "&quot;");
 }
 
-// ── Main send function ──
+// â”€â”€ Main send function â”€â”€
 async function sendFAMessage() {
   const input = document.getElementById("fa-input");
   const text = input?.value.trim() || "";
@@ -4671,7 +4681,7 @@ async function sendFAMessage() {
 
     if (!res.ok) {
       const e = await res.json();
-      throw new Error(e.detail || "Erro na análise");
+      throw new Error(e.detail || "Erro na anÃ¡lise");
     }
 
     const data = await res.json();
@@ -4679,12 +4689,12 @@ async function sendFAMessage() {
 
     if (data.status === "error") {
       appendFAErrorMessage(
-        data.error || "Não foi possível realizar a análise.",
+        data.error || "NÃ£o foi possÃ­vel realizar a anÃ¡lise.",
       );
     } else if (data.response_mode === "chat") {
       await appendFAChatTextMessage(
         data.chat_answer ||
-          "Não encontrei resposta para essa pergunta no momento.",
+          "NÃ£o encontrei resposta para essa pergunta no momento.",
       );
     } else {
       await appendFABotMessage(data);
@@ -4703,9 +4713,9 @@ async function sendFAMessage() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  SCHEMA EXPLORER
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 let schemaState = {
   projectId: "",
@@ -4721,7 +4731,7 @@ let schemaSimulation = null;
 let sgActiveTab = "graph";
 let sgRelFilter = "ALL";
 
-// ── API ──────────────────────────────────────────────────────
+// â”€â”€ API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function runSchemaGraph() {
   const projectId = (document.getElementById("sg-project")?.value || "").trim();
@@ -4736,7 +4746,7 @@ async function runSchemaGraph() {
     return;
   }
 
-  setSchemaProgress(5, "Iniciando análise...");
+  setSchemaProgress(5, "Iniciando anÃ¡lise...");
   hideSchemaError();
   hideSchemaWarnings();
   document.getElementById("sg-stat-cards").style.display = "none";
@@ -4760,7 +4770,7 @@ async function runSchemaGraph() {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(err.detail || "Erro na requisição");
+      throw new Error(err.detail || "Erro na requisiÃ§Ã£o");
     }
 
     setSchemaProgress(70, "Construindo grafo...");
@@ -4773,7 +4783,7 @@ async function runSchemaGraph() {
     }
 
     renderSchemaGraph(data);
-    setSchemaProgress(100, "Concluído!");
+    setSchemaProgress(100, "ConcluÃ­do!");
     setTimeout(hideSchemaProgress, 600);
   } catch (err) {
     showSchemaError(String(err));
@@ -4821,7 +4831,7 @@ async function loadCachedSchema() {
   }
 }
 
-// ── Render ───────────────────────────────────────────────────
+// â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function renderSchemaGraph(data) {
   schemaState.projectId = data.project_id || "";
@@ -4858,7 +4868,7 @@ function renderSchemaGraph(data) {
   const tabsArea = document.getElementById("sg-tabs-area");
   if (tabsArea) tabsArea.style.display = "flex";
 
-  // Update rel count badge — relationship edges only (not internal)
+  // Update rel count badge â€” relationship edges only (not internal)
   const relEdgesOnly = schemaState.edges.filter((e) => e.type !== "internal");
   const relCount = document.getElementById("sg-rel-count");
   if (relCount) relCount.textContent = relEdgesOnly.length;
@@ -4876,50 +4886,128 @@ function renderSchemaGraph(data) {
   });
 }
 
-// ── D3 Force-Directed Graph – Column Lineage ─────────────────
+// â”€â”€ D3 Clustered Card Graph â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Tables are SVG foreignObject cards.  Columns render as HTML
+// list items inside each card.  Only table nodes participate in
+// the force simulation.  Relationship edges are SVG lines drawn
+// between card centres and updated on every tick.
 
 function initD3Graph(nodes, edges) {
-  const svg = document.getElementById("sg-d3-svg");
+  const svgEl = document.getElementById("sg-d3-svg");
   const legend = document.getElementById("sg-legend");
   const tooltip = document.getElementById("sg-tooltip");
+  const container = document.getElementById("sg-graph-container");
 
-  if (!svg || typeof d3 === "undefined") {
-    const container2 = document.getElementById("sg-graph-container");
-    if (container2)
-      container2.innerHTML =
-        '<p style="color:#d97706;padding:20px;font-size:13px">D3.js não carregado. Verifique a conexão e recarregue a página.</p>';
+  if (!svgEl || typeof d3 === "undefined") {
+    if (container)
+      container.innerHTML =
+        '<p style="color:#d97706;padding:20px;font-size:13px">D3.js nÃ£o carregado. Verifique a conexÃ£o e recarregue a pÃ¡gina.</p>';
     return;
   }
 
-  // Stop previous simulation
   if (schemaSimulation) {
     schemaSimulation.stop();
     schemaSimulation = null;
   }
-  while (svg.firstChild) svg.removeChild(svg.firstChild);
-
-  svg.style.display = "block";
+  while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
+  svgEl.style.display = "block";
   if (legend) legend.style.display = "flex";
 
-  const container = document.getElementById("sg-graph-container");
-  const W = container?.clientWidth || 800;
-  const H = container?.clientHeight || 520;
+  const W = container?.clientWidth || 900;
+  const H = container?.clientHeight || 560;
 
-  const svgEl = d3
+  // â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const CARD_W = 170;
+  const CARD_HDR = 38; // collapsed height (header only)
+  const COL_ROW_H = 22; // height per column row when expanded
+  const CARD_PAD_VERT = 8; // extra vertical padding at bottom
+  const CARD_R = 8; // border-radius
+
+  // â”€â”€ Data preparation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const tableNodes = nodes
+    .filter((n) => n.type === "table")
+    .map((n) => ({ ...n }));
+  const colsByTable = new Map();
+  nodes
+    .filter((n) => n.type === "column")
+    .forEach((n) => {
+      const key = n.parent_table;
+      if (!colsByTable.has(key)) colsByTable.set(key, []);
+      colsByTable.get(key).push(n);
+    });
+
+  // Sort: keys first, then alphabetical
+  colsByTable.forEach((cols, key) => {
+    cols.sort(
+      (a, b) =>
+        (b.is_key ? 1 : 0) - (a.is_key ? 1 : 0) ||
+        a.label.localeCompare(b.label),
+    );
+  });
+
+  // Relationship edges (no internals) with resolved table-node source/target
+  const tableIdSet = new Set(tableNodes.map((n) => n.id));
+  const relEdges = edges
+    .filter((e) => e.type !== "internal")
+    .map((e) => {
+      // source/target may be col: IDs â†’ map up to table
+      const resolveToTable = (id) => {
+        if (tableIdSet.has(id)) return id;
+        // col: prefix â†’ "col:project.dataset.table.column" â€“ drop last segment
+        if (typeof id === "string" && id.startsWith("col:")) {
+          const parts = id.slice(4).split(".");
+          if (parts.length >= 4) return "tb:" + parts.slice(0, 3).join(".");
+          // fewer segments: try "tb:" + all but last
+          return "tb:" + parts.slice(0, -1).join(".");
+        }
+        return id;
+      };
+      return {
+        ...e,
+        source: resolveToTable(e.source),
+        target: resolveToTable(e.target),
+      };
+    })
+    .filter(
+      (e) =>
+        tableIdSet.has(e.source) &&
+        tableIdSet.has(e.target) &&
+        e.source !== e.target,
+    );
+
+  const nodeById = new Map(tableNodes.map((n) => [n.id, n]));
+
+  // â”€â”€ Expand state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const expandedTables = new Set();
+
+  function cardHeight(tableId) {
+    if (!expandedTables.has(tableId)) return CARD_HDR;
+    const cols = colsByTable.get(tableId) || [];
+    return CARD_HDR + cols.length * COL_ROW_H + CARD_PAD_VERT;
+  }
+
+  // â”€â”€ SVG setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const svg = d3
     .select("#sg-d3-svg")
     .attr("viewBox", `0 0 ${W} ${H}`)
     .attr("preserveAspectRatio", "xMidYMid meet");
 
-  // ── Arrow markers ──────────────────────────────────────────
-  const defs = svgEl.append("defs");
-  const markerColors = ["#059669", "#d97706", "#6d28d9", "#0891b2", "#8096b2", "#00A1E4"];
+  // Arrow marker defs
+  const defs = svg.append("defs");
+  const markerColors = [
+    "#059669",
+    "#d97706",
+    "#6d28d9",
+    "#0891b2",
+    "#8096b2",
+    "#00A1E4",
+  ];
   markerColors.forEach((col) => {
-    const mid = `arrow-${col.replace("#", "")}`;
     defs
       .append("marker")
-      .attr("id", mid)
+      .attr("id", `arr-${col.replace("#", "")}`)
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 22)
+      .attr("refX", 6)
       .attr("refY", 0)
       .attr("markerWidth", 5)
       .attr("markerHeight", 5)
@@ -4929,190 +5017,111 @@ function initD3Graph(nodes, edges) {
       .attr("fill", col);
   });
 
-  const g = svgEl.append("g");
+  const g = svg.append("g");
 
-  // Zoom
-  svgEl.call(
+  // Zoom / pan
+  svg.call(
     d3
       .zoom()
-      .scaleExtent([0.08, 6])
-      .on("zoom", (event) => g.attr("transform", event.transform)),
+      .scaleExtent([0.06, 6])
+      .on("zoom", (ev) => g.attr("transform", ev.transform)),
   );
 
-  // ── Clone nodes, separate by type ─────────────────────────
-  const d3Nodes = nodes.map((n) => ({ ...n }));
-  const nodeById = new Map(d3Nodes.map((n) => [n.id, n]));
+  // â”€â”€ Layer groups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const edgeGroup = g.append("g").attr("class", "edges");
+  const cardGroup = g.append("g").attr("class", "cards");
 
-  const tableNodes = d3Nodes.filter((n) => n.type === "table");
-  const colNodes = d3Nodes.filter((n) => n.type === "column");
-
-  // Track which tables are expanded
-  const expandedTables = new Set();
-
-  // Initially fix all column nodes to their parent table's position
-  // (tables haven't been placed yet – will be fixed after first tick)
-  colNodes.forEach((n) => {
-    n.fx = W / 2 + (Math.random() - 0.5) * 60;
-    n.fy = H / 2 + (Math.random() - 0.5) * 60;
-  });
-
-  // ── Edges ──────────────────────────────────────────────────
-  const intEdges = edges
-    .filter((e) => e.type === "internal" && nodeById.has(e.source) && nodeById.has(e.target))
-    .map((e) => ({ ...e, source: e.source, target: e.target }));
-
-  const relEdges = edges
-    .filter((e) => e.type !== "internal" && nodeById.has(e.source) && nodeById.has(e.target))
-    .map((e) => ({ ...e, source: e.source, target: e.target }));
-
-  const allSimEdges = [...intEdges, ...relEdges];
-
-  // ── Force simulation ───────────────────────────────────────
-  schemaSimulation = d3
-    .forceSimulation(d3Nodes)
-    .force(
-      "link",
-      d3
-        .forceLink(allSimEdges)
-        .id((d) => d.id)
-        .distance((d) => (d.type === "internal" ? 38 : 160))
-        .strength((d) => (d.type === "internal" ? 0.9 : 0.25)),
-    )
-    .force(
-      "charge",
-      d3.forceManyBody().strength((d) => (d.type === "table" ? -450 : -8)),
-    )
-    .force("center", d3.forceCenter(W / 2, H / 2))
-    .force(
-      "collision",
-      d3.forceCollide((d) => (d.type === "table" ? 45 : 8)),
-    );
-
-  // After initial layout stabilises, pin columns to their parent table
-  // so the graph doesn't start cluttered
-  let initialTicksDone = false;
-  schemaSimulation.on("tick.init", () => {
-    if (!initialTicksDone && schemaSimulation.alpha() < 0.25) {
-      initialTicksDone = true;
-      colNodes.forEach((n) => {
-        const parent = nodeById.get(n.parent_table);
-        if (parent) {
-          n.fx = parent.x;
-          n.fy = parent.y;
-        }
-      });
-      schemaSimulation.on("tick.init", null);
-    }
-  });
-
-  // ── SVG layer groups (draw order matters) ─────────────────
-  const dsLabelGroup = g.append("g").attr("class", "ds-labels");
-  const intLinkGroup = g.append("g").attr("class", "int-links");
-  const relLinkGroup = g.append("g").attr("class", "rel-links");
-  const nodeGroup = g.append("g").attr("class", "nodes");
-  const labelGroup = g.append("g").attr("class", "labels");
-
-  // ── Draw edges ─────────────────────────────────────────────
-  const intLinkSel = intLinkGroup
-    .selectAll("line")
-    .data(intEdges)
-    .join("line")
-    .attr("stroke", "#dde1ec")
-    .attr("stroke-width", 1)
-    .attr("stroke-opacity", 0);   // hidden until column expanded
-
-  const relLinkSel = relLinkGroup
+  // â”€â”€ Draw relationship edges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const edgeSel = edgeGroup
     .selectAll("line")
     .data(relEdges)
     .join("line")
     .attr("stroke", (d) => d.color || "#8096b2")
     .attr("stroke-width", (d) => 1.5 + (d.strength || 0) * 2)
-    .attr("stroke-opacity", 0.85)
+    .attr("stroke-opacity", 0.75)
     .attr(
       "marker-end",
-      (d) => `url(#arrow-${(d.color || "#8096b2").replace("#", "")})`,
+      (d) => `url(#arr-${(d.color || "#8096b2").replace("#", "")})`,
     );
 
-  // ── Draw nodes ─────────────────────────────────────────────
-  const R_TABLE = 20;
-  const R_COL = 5;
+  // â”€â”€ Edge labels (relationship type) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const edgeLabelSel = edgeGroup
+    .selectAll("text")
+    .data(relEdges)
+    .join("text")
+    .attr("font-size", "8px")
+    .attr("font-family", "DM Sans, sans-serif")
+    .attr("fill", (d) => d.color || "#8096b2")
+    .attr("text-anchor", "middle")
+    .attr("dy", -4)
+    .style("pointer-events", "none")
+    .text((d) => {
+      const map = {
+        FATO_DIMENSAO: "Fâ†’D",
+        DIMENSAO_DIMENSAO: "Dâ†’D",
+        HIERARQUICA: "Hier",
+        TEMPORAL: "Temp",
+      };
+      return map[d.type] || d.type || "";
+    });
 
-  const nodeSel = nodeGroup
-    .selectAll("circle")
-    .data(d3Nodes)
-    .join("circle")
-    .attr("r", (d) => (d.type === "table" ? R_TABLE : 0))   // columns start invisible
-    .attr("fill", (d) => {
-      if (d.type === "table") return "#004691";
-      return d.is_key ? "#00A1E4" : "#a8b8cc";
+  // â”€â”€ Build foreignObject cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const foSel = cardGroup
+    .selectAll("foreignObject")
+    .data(tableNodes, (d) => d.id)
+    .join("foreignObject")
+    .attr("width", CARD_W)
+    .attr("height", (d) => cardHeight(d.id))
+    .attr("x", (d) => (d.x || W / 2) - CARD_W / 2)
+    .attr("y", (d) => (d.y || H / 2) - CARD_HDR / 2)
+    .style("overflow", "visible");
+
+  // Inner HTML div for each card
+  foSel
+    .append("xhtml:div")
+    .attr("xmlns", "http://www.w3.org/1999/xhtml")
+    .style("width", CARD_W + "px")
+    .style("min-height", CARD_HDR + "px")
+    .style("background", "#fff")
+    .style("border", "1.5px solid #c7d2e8")
+    .style("border-radius", CARD_R + "px")
+    .style("box-shadow", "0 2px 8px rgba(0,70,145,0.10)")
+    .style("overflow", "hidden")
+    .style("cursor", "pointer")
+    .style("font-family", "DM Sans, sans-serif")
+    .style("user-select", "none")
+    .html((d) => buildCardHtml(d, false))
+    .on("click", function (event, d) {
+      event.stopPropagation();
+      const wasExpanded = expandedTables.has(d.id);
+      if (wasExpanded) expandedTables.delete(d.id);
+      else expandedTables.add(d.id);
+      const div = d3.select(this);
+      div.html(buildCardHtml(d, !wasExpanded));
+      const newH = cardHeight(d.id);
+      // Animate height via max-height trick
+      div
+        .style("max-height", wasExpanded ? CARD_HDR + "px" : newH + "px")
+        .style("transition", "max-height 0.3s ease");
+      d3.select(this.parentNode) // foreignObject
+        .transition()
+        .duration(300)
+        .attr("height", newH)
+        .attr("y", d.y - newH / 2);
+      // Bump simulation so edges redraw
+      if (schemaSimulation) schemaSimulation.alpha(0.05).restart();
     })
-    .attr("stroke", (d) => (d.type === "table" ? "rgba(255,255,255,0.9)" : "#fff"))
-    .attr("stroke-width", (d) => (d.type === "table" ? 2.5 : 1.5))
-    .attr("opacity", (d) => (d.type === "table" ? 1 : 0))
-    .style("cursor", (d) => (d.type === "table" ? "pointer" : "default"));
-
-  // ── Table labels (always visible) ─────────────────────────
-  const tblLabelSel = labelGroup
-    .selectAll(".tbl-label")
-    .data(tableNodes)
-    .join("text")
-    .attr("class", "tbl-label")
-    .attr("font-size", "9px")
-    .attr("font-weight", "700")
-    .attr("font-family", "DM Sans, sans-serif")
-    .attr("fill", "#1a2340")
-    .attr("text-anchor", "middle")
-    .attr("dy", R_TABLE + 11)
-    .text((d) => d.label)
-    .style("pointer-events", "none");
-
-  // Dataset badge under table label
-  const dsLabelSel = labelGroup
-    .selectAll(".ds-label")
-    .data(tableNodes)
-    .join("text")
-    .attr("class", "ds-label")
-    .attr("font-size", "7px")
-    .attr("font-weight", "400")
-    .attr("font-family", "DM Sans, sans-serif")
-    .attr("fill", "#8096b2")
-    .attr("text-anchor", "middle")
-    .attr("dy", R_TABLE + 21)
-    .text((d) => d.dataset || "")
-    .style("pointer-events", "none");
-
-  // ── Column labels (hidden initially) ──────────────────────
-  const colLabelSel = labelGroup
-    .selectAll(".col-label")
-    .data(colNodes)
-    .join("text")
-    .attr("class", "col-label")
-    .attr("font-size", "7px")
-    .attr("font-family", "DM Sans, sans-serif")
-    .attr("fill", (d) => (d.is_key ? "#004691" : "#7a8aaa"))
-    .attr("font-weight", (d) => (d.is_key ? "700" : "400"))
-    .attr("text-anchor", "middle")
-    .attr("dy", R_COL + 10)
-    .attr("opacity", 0)
-    .text((d) => d.label)
-    .style("pointer-events", "none");
-
-  // ── Tooltip ────────────────────────────────────────────────
-  nodeSel
-    .on("mouseover", (event, d) => {
+    .on("mouseover", function (event, d) {
       if (!tooltip) return;
-      let html = `<strong>${d.label}</strong>`;
-      if (d.type === "table") {
-        html += `<br/><span style="color:#8096b2;font-size:10px">${d.dataset || ""}</span>`;
-        html += `<br/>${d.column_count || 0} colunas`;
-        if (d.has_more_columns) html += ` <span style="color:#d97706">+ocultas</span>`;
-        const exp = expandedTables.has(d.id);
-        html += `<br/><em style="color:#004691;font-size:10px">${exp ? "Clique para colapsar" : "Clique para expandir colunas"}</em>`;
-      } else {
-        html += `<br/><span style="color:#8096b2;font-size:10px">${d.dtype || "STRING"}</span>`;
-        if (d.is_key) html += `<br/><span style="color:#00A1E4">🔑 Chave / FK</span>`;
-      }
-      tooltip.innerHTML = html;
+      const exp = expandedTables.has(d.id);
+      tooltip.innerHTML =
+        `<strong>${d.label}</strong><br/>` +
+        `<span style="color:#8096b2;font-size:10px">${d.dataset || ""}</span><br/>` +
+        `${colsByTable.get(d.id)?.length ?? 0} colunas` +
+        (d.has_more_columns
+          ? ' <span style="color:#d97706">+ocultas</span>'
+          : "") +
+        `<br/><em style="color:#004691;font-size:10px">${exp ? "Clique para colapsar" : "Clique para expandir"}</em>`;
       tooltip.style.display = "block";
     })
     .on("mousemove", (event) => {
@@ -5125,94 +5134,57 @@ function initD3Graph(nodes, edges) {
       if (tooltip) tooltip.style.display = "none";
     });
 
-  // ── Click: expand / collapse columns ──────────────────────
-  nodeSel.on("click", (event, d) => {
-    if (d.type !== "table") return;
-    event.stopPropagation();
+  function buildCardHtml(d, expanded) {
+    const cols = colsByTable.get(d.id) || [];
+    const header = `
+      <div style="
+        padding: 0 10px;
+        height: ${CARD_HDR}px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #004691;
+        border-radius: ${expanded ? CARD_R + "px " + CARD_R + "px 0 0" : CARD_R + "px"};
+        color: #fff;
+        gap: 6px;
+      ">
+        <span style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${d.label}</span>
+        <span style="font-size:9px;opacity:0.7;flex-shrink:0">${expanded ? "â–²" : "â–¼"}</span>
+      </div>`;
 
-    const tableId = d.id;
-    const isExpanded = expandedTables.has(tableId);
+    if (!expanded) return header;
 
-    if (isExpanded) {
-      // ── Collapse ──
-      expandedTables.delete(tableId);
+    const rows = cols
+      .map((c) => {
+        const icon = c.is_key ? "ðŸ”‘" : "Â·";
+        const color = c.is_key ? "#004691" : "#475569";
+        const weight = c.is_key ? "700" : "400";
+        const dtype = (c.dtype || "STRING").split("(")[0]; // trim e.g. STRING(255)
+        return `<div style="
+          display:flex;align-items:center;gap:5px;
+          padding:0 10px;
+          height:${COL_ROW_H}px;
+          font-size:10px;
+          border-bottom:1px solid #f1f5f9;
+          color:${color};
+          font-weight:${weight};
+        ">
+          <span style="flex-shrink:0">${icon}</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${c.label}</span>
+          <span style="font-size:9px;color:#94a3b8;flex-shrink:0">${dtype}</span>
+        </div>`;
+      })
+      .join("");
 
-      // Animate columns out
-      nodeSel
-        .filter((n) => n.type === "column" && n.parent_table === tableId)
-        .transition()
-        .duration(300)
-        .attr("r", 0)
-        .attr("opacity", 0)
-        .on("end", (n) => {
-          // Pin collapsed column back to parent
-          const parent = nodeById.get(n.parent_table);
-          if (parent) { n.fx = parent.x; n.fy = parent.y; }
-        });
+    return header + rows;
+  }
 
-      colLabelSel
-        .filter((n) => n.parent_table === tableId)
-        .transition()
-        .duration(300)
-        .attr("opacity", 0);
-
-      intLinkSel
-        .filter((e) => {
-          const tgt = nodeById.get(typeof e.target === "object" ? e.target.id : e.target);
-          return tgt?.parent_table === tableId;
-        })
-        .transition()
-        .duration(300)
-        .attr("stroke-opacity", 0);
-    } else {
-      // ── Expand ──
-      expandedTables.add(tableId);
-
-      // Release columns from fixed position and scatter around parent
-      d3Nodes
-        .filter((n) => n.type === "column" && n.parent_table === tableId)
-        .forEach((n) => {
-          n.fx = null;
-          n.fy = null;
-          // Start near parent so they orbit out naturally
-          n.x = d.x + (Math.random() - 0.5) * 50;
-          n.y = d.y + (Math.random() - 0.5) * 50;
-        });
-
-      // Animate circles in
-      nodeSel
-        .filter((n) => n.type === "column" && n.parent_table === tableId)
-        .transition()
-        .duration(400)
-        .attr("r", R_COL)
-        .attr("opacity", 1);
-
-      colLabelSel
-        .filter((n) => n.parent_table === tableId)
-        .transition()
-        .duration(400)
-        .attr("opacity", 1);
-
-      intLinkSel
-        .filter((e) => {
-          const tgt = nodeById.get(typeof e.target === "object" ? e.target.id : e.target);
-          return tgt?.parent_table === tableId;
-        })
-        .transition()
-        .duration(400)
-        .attr("stroke-opacity", 0.5);
-
-      // Reheat simulation so columns scatter naturally
-      schemaSimulation.alpha(0.4).restart();
-    }
-  });
-
-  // ── Drag ──────────────────────────────────────────────────
-  nodeSel.call(
+  // â”€â”€ Drag on foreignObject â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  foSel.call(
     d3
       .drag()
       .on("start", (event, d) => {
-        if (!event.active) schemaSimulation.alphaTarget(0.3).restart();
+        if (!event.active) schemaSimulation.alphaTarget(0.2).restart();
         d.fx = d.x;
         d.fy = d.y;
       })
@@ -5222,45 +5194,79 @@ function initD3Graph(nodes, edges) {
       })
       .on("end", (event, d) => {
         if (!event.active) schemaSimulation.alphaTarget(0);
-        // Keep columns pinned if their table is collapsed
-        if (d.type === "column" && !expandedTables.has(d.parent_table)) {
-          const parent = nodeById.get(d.parent_table);
-          if (parent) { d.fx = parent.x; d.fy = parent.y; }
-        } else {
-          d.fx = null;
-          d.fy = null;
-        }
+        d.fx = null;
+        d.fy = null;
       }),
   );
 
-  // ── Tick ──────────────────────────────────────────────────
+  // â”€â”€ Force simulation â€” table nodes only â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  schemaSimulation = d3
+    .forceSimulation(tableNodes)
+    .force("charge", d3.forceManyBody().strength(-1200))
+    .force("center", d3.forceCenter(W / 2, H / 2).strength(0.05))
+    .force("collision", d3.forceCollide(CARD_W / 2 + 20))
+    .alphaDecay(0.025)
+    .velocityDecay(0.45);
+
+  // â”€â”€ Tick â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   schemaSimulation.on("tick", () => {
-    intLinkSel
-      .attr("x1", (d) => (typeof d.source === "object" ? d.source.x : 0))
-      .attr("y1", (d) => (typeof d.source === "object" ? d.source.y : 0))
-      .attr("x2", (d) => (typeof d.target === "object" ? d.target.x : 0))
-      .attr("y2", (d) => (typeof d.target === "object" ? d.target.y : 0));
+    // Update card foreignObject positions
+    foSel
+      .attr("x", (d) => d.x - CARD_W / 2)
+      .attr("y", (d) => d.y - cardHeight(d.id) / 2);
 
-    relLinkSel
-      .attr("x1", (d) => (typeof d.source === "object" ? d.source.x : 0))
-      .attr("y1", (d) => (typeof d.source === "object" ? d.source.y : 0))
-      .attr("x2", (d) => (typeof d.target === "object" ? d.target.x : 0))
-      .attr("y2", (d) => (typeof d.target === "object" ? d.target.y : 0));
+    // Update relationship edges â€” draw from/to card centre
+    edgeSel
+      .attr("x1", (d) => {
+        const n = nodeById.get(d.source);
+        return n ? n.x : 0;
+      })
+      .attr("y1", (d) => {
+        const n = nodeById.get(d.source);
+        return n ? n.y : 0;
+      })
+      .attr("x2", (d) => {
+        const src = nodeById.get(d.source);
+        const tgt = nodeById.get(d.target);
+        if (!src || !tgt) return 0;
+        // Shorten end so arrow doesn't overlap card
+        const dx = tgt.x - src.x,
+          dy = tgt.y - src.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        return tgt.x - (dx / len) * (CARD_W / 2 + 6);
+      })
+      .attr("y2", (d) => {
+        const src = nodeById.get(d.source);
+        const tgt = nodeById.get(d.target);
+        if (!src || !tgt) return 0;
+        const dx = tgt.x - src.x,
+          dy = tgt.y - src.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        return tgt.y - (dy / len) * (CARD_HDR / 2 + 6);
+      });
 
-    nodeSel.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
-    tblLabelSel.attr("x", (d) => d.x).attr("y", (d) => d.y);
-    dsLabelSel.attr("x", (d) => d.x).attr("y", (d) => d.y);
-    colLabelSel.attr("x", (d) => d.x).attr("y", (d) => d.y);
+    // Edge label midpoints
+    edgeLabelSel
+      .attr("x", (d) => {
+        const s = nodeById.get(d.source),
+          t = nodeById.get(d.target);
+        return s && t ? (s.x + t.x) / 2 : 0;
+      })
+      .attr("y", (d) => {
+        const s = nodeById.get(d.source),
+          t = nodeById.get(d.target);
+        return s && t ? (s.y + t.y) / 2 : 0;
+      });
   });
 }
 
-// ── Relationships Tab ─────────────────────────────────────────
+// â”€â”€ Relationships Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function renderRelationships(edges) {
   const container = document.getElementById("sg-rel-list");
   if (!container) return;
 
-  // Exclude internal (table→column) edges
+  // Exclude internal (tableâ†’column) edges
   const relEdges = edges.filter((e) => e.type !== "internal");
   const filtered =
     sgRelFilter === "ALL"
@@ -5282,8 +5288,10 @@ function renderRelationships(edges) {
       const tgtLabel = tgtId.replace("tb:", "").split(".").pop() || tgtId;
 
       // If edge is column-level, show column name
-      const srcRaw = typeof e.source === "string" ? e.source : (e.source?.id || "");
-      const tgtRaw = typeof e.target === "string" ? e.target : (e.target?.id || "");
+      const srcRaw =
+        typeof e.source === "string" ? e.source : e.source?.id || "";
+      const tgtRaw =
+        typeof e.target === "string" ? e.target : e.target?.id || "";
       const srcCol = srcRaw.startsWith("col:") ? srcRaw.split(".").pop() : null;
       const tgtCol = tgtRaw.startsWith("col:") ? tgtRaw.split(".").pop() : null;
 
@@ -5294,12 +5302,12 @@ function renderRelationships(edges) {
         <div class="sg-rel-header">
           <div>
             <span style="font-weight:700">${srcLabel}</span>
-            ${srcCol ? `<br/><span style="font-size:10px;color:#00A1E4">🔑 ${srcCol}</span>` : ""}
+            ${srcCol ? `<br/><span style="font-size:10px;color:#00A1E4">ðŸ”‘ ${srcCol}</span>` : ""}
           </div>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           <div>
             <span style="font-weight:700">${tgtLabel}</span>
-            ${tgtCol ? `<br/><span style="font-size:10px;color:#00A1E4">🔑 ${tgtCol}</span>` : ""}
+            ${tgtCol ? `<br/><span style="font-size:10px;color:#00A1E4">ðŸ”‘ ${tgtCol}</span>` : ""}
           </div>
           <span class="${badgeClass}">${e.type}</span>
         </div>
@@ -5321,7 +5329,7 @@ function filterRelByType(type) {
   renderRelationships(schemaState.edges);
 }
 
-// ── Catalog Tab ───────────────────────────────────────────────
+// â”€â”€ Catalog Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function renderCatalog(datasets, tables) {
   const container = document.getElementById("sg-catalog-tree");
@@ -5363,7 +5371,7 @@ function renderCatalog(datasets, tables) {
     .join("");
 }
 
-// ── Tabs ──────────────────────────────────────────────────────
+// â”€â”€ Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function switchSchemaTab(name) {
   sgActiveTab = name;
@@ -5376,7 +5384,7 @@ function switchSchemaTab(name) {
   });
 }
 
-// ── Progress / Error helpers ──────────────────────────────────
+// â”€â”€ Progress / Error helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function setSchemaProgress(pct, label) {
   const bar = document.getElementById("sg-progress");
@@ -5408,7 +5416,7 @@ function hideSchemaError() {
 function showSchemaWarnings(warnings) {
   const el = document.getElementById("sg-warnings");
   if (!el) return;
-  el.innerHTML = warnings.map((w) => `<div>⚠ ${w}</div>`).join("");
+  el.innerHTML = warnings.map((w) => `<div>âš  ${w}</div>`).join("");
   el.style.display = "block";
 }
 
@@ -5417,11 +5425,11 @@ function hideSchemaWarnings() {
   if (el) el.style.display = "none";
 }
 
-// ── Export ────────────────────────────────────────────────────
+// â”€â”€ Export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function exportSchemaJSON() {
   if (!schemaState.nodes.length) {
-    showSchemaError("Sem dados para exportar. Execute uma análise primeiro.");
+    showSchemaError("Sem dados para exportar. Execute uma anÃ¡lise primeiro.");
     return;
   }
   const payload = {
@@ -5442,7 +5450,7 @@ function exportSchemaJSON() {
 function exportSchemaSVG() {
   const svg = document.getElementById("sg-d3-svg");
   if (!svg || svg.style.display === "none") {
-    showSchemaError("Grafo não disponível. Execute uma análise primeiro.");
+    showSchemaError("Grafo nÃ£o disponÃ­vel. Execute uma anÃ¡lise primeiro.");
     return;
   }
   const serializer = new XMLSerializer();
@@ -5454,10 +5462,10 @@ function exportSchemaSVG() {
   a.click();
 }
 
-// ── Modal ─────────────────────────────────────────────────────
+// â”€â”€ Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function openSchemaConfig() {
-  /* modal removed – config is inline */
+  /* modal removed â€“ config is inline */
 }
 function closeSchemaConfig() {
   /* modal removed */

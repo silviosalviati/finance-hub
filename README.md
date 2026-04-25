@@ -59,12 +59,12 @@ Arquivos de referência:
 
 ## Agentes e Status
 
-| Agente no produto | `agent_id`       | Status       | Registro no runtime |
-| ----------------- | ---------------- | ------------ | ------------------- |
-| Query Analyzer    | `query_analyzer` | Implementado | Sim                 |
-| Query Builder     | `query_build`    | Implementado | Sim                 |
-| Document Builder  | `document_build` | Implementado | Sim                 |
-| Finance Voice IA  | `finance_auditor` | Implementado | Sim                |
+| Agente no produto | `agent_id`        | Status       | Registro no runtime |
+| ----------------- | ----------------- | ------------ | ------------------- |
+| Query Analyzer    | `query_analyzer`  | Implementado | Sim                 |
+| Query Builder     | `query_build`     | Implementado | Sim                 |
+| Document Builder  | `document_build`  | Implementado | Sim                 |
+| Finance Voice IA  | `finance_auditor` | Implementado | Sim                 |
 
 Observação: atualmente o runtime registra Query Analyzer, Query Builder, Document Builder e Finance Voice IA.
 

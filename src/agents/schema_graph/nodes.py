@@ -537,7 +537,8 @@ _REL_TYPE_COLORS: dict[str, str] = {
     "COMPARTILHADA": "#d97706",
 }
 
-_EDGE_ID_COUNTER: int = 0
+_COLOR_KEY_COL = "#00A1E4"   # porto-vivid  – colunas chave
+_COLOR_COL = "#a8b8cc"       # cinza-azulado – colunas comuns
 
 
 def _edge_id(src: str, tgt: str) -> str:
@@ -547,13 +548,19 @@ def _edge_id(src: str, tgt: str) -> str:
 
 
 def build_graph_payload(state: SchemaGraphState) -> dict[str, Any]:
-    """Monta graph_nodes, graph_edges e stats para o frontend.
+    """Monta graph_nodes + graph_edges com lineage a nível de coluna.
 
     Nós:
-      - dataset: {id: "ds:{dataset_id}", label, type:"dataset", color}
-      - table:   {id: "tb:{full_name}", label, type:"table", dataset, row_count, column_count, color}
+      - table:  id="tb:{full_name}", type="table"
+      - column: id="col:{full_name}.{col_name}", type="column",
+                parent_table, is_key, dtype, visible
 
-    Arestas ordenadas por strength DESC.
+    Arestas:
+      - type="internal" → table → column  (força de atração curta; invisible por padrão)
+      - type=<rel_type>  → col:A.col_a → col:B.col_b  (lineage de coluna)
+                           Fallback para tb:A → tb:B quando coluna não é resolvível.
+
+    Nodes de dataset removidos do grafo; dataset é atributo do nó de tabela.
     """
     datasets: list[dict[str, Any]] = state.get("datasets") or []
     tables: list[dict[str, Any]] = state.get("tables") or []
@@ -569,50 +576,117 @@ def build_graph_payload(state: SchemaGraphState) -> dict[str, Any]:
             "warnings": warnings,
         }
 
-    # ── Nós de dataset ────────────────────────────────────────────────────
-    graph_nodes: list[dict[str, Any]] = []
-    dataset_table_counts: dict[str, int] = {}
-
+    # ── Índice: full_name → {col_name → col_info} ─────────────────────────
+    table_col_map: dict[str, dict[str, dict[str, Any]]] = {}
     for tbl in tables:
-        ds_id = tbl.get("dataset_id", "")
-        dataset_table_counts[ds_id] = dataset_table_counts.get(ds_id, 0) + 1
+        fn = tbl.get("full_name", "")
+        table_col_map[fn] = {
+            col["name"]: col
+            for col in tbl.get("columns", [])
+            if col.get("name")
+        }
 
-    for ds in datasets:
-        ds_id = ds["dataset_id"]
-        graph_nodes.append({
-            "id": f"ds:{ds_id}",
-            "label": ds_id,
-            "type": "dataset",
-            "dataset": ds_id,
-            "table_count": dataset_table_counts.get(ds_id, 0),
-            "description": ds.get("description", ""),
-            "color": _COLOR_DATASET,
-        })
+    # ── Colunas que participam de algum relacionamento (por tabela) ────────
+    rel_col_names: dict[str, set[str]] = {}   # full_name → set of col names
+    for rel in relationships:
+        src_fn = rel["source_table"]
+        tgt_fn = rel["target_table"]
+        for col_name in rel.get("columns", []):
+            if col_name in table_col_map.get(src_fn, {}):
+                rel_col_names.setdefault(src_fn, set()).add(col_name)
+            if col_name in table_col_map.get(tgt_fn, {}):
+                rel_col_names.setdefault(tgt_fn, set()).add(col_name)
 
-    # ── Nós de tabela ─────────────────────────────────────────────────────
+    # ── Nós de tabela + nós de coluna ─────────────────────────────────────
+    graph_nodes: list[dict[str, Any]] = []
+
     for tbl in tables:
         full_name = tbl.get("full_name", "")
-        label = tbl.get("table_id", full_name.split(".")[-1] if "." in full_name else full_name)
+        table_id = tbl.get(
+            "table_id",
+            full_name.split(".")[-1] if "." in full_name else full_name,
+        )
+        dataset_id = tbl.get("dataset_id", "")
+        all_cols = tbl.get("columns", [])
+
+        key_names = {c["name"] for c in all_cols if _is_id_column(c["name"])}
+        in_rel = rel_col_names.get(full_name, set())
+        # Colunas "visíveis" por padrão: chaves + envolvidas em relacionamentos
+        default_visible = key_names | in_rel
+
         graph_nodes.append({
             "id": f"tb:{full_name}",
-            "label": label,
+            "label": table_id,
             "type": "table",
-            "dataset": tbl.get("dataset_id", ""),
+            "dataset": dataset_id,
             "full_name": full_name,
-            "column_count": len(tbl.get("columns", [])),
+            "column_count": len(all_cols),
             "partition_field": tbl.get("partition_field", ""),
-            "clustering_fields": tbl.get("clustering_fields", []),
-            "columns": tbl.get("columns", []),
             "color": _COLOR_TABLE,
+            "has_more_columns": len(all_cols) > len(default_visible),
         })
 
-    # ── Arestas ───────────────────────────────────────────────────────────
+        for col in all_cols:
+            col_name = col.get("name", "")
+            if not col_name:
+                continue
+            is_key = _is_id_column(col_name)
+            visible = col_name in default_visible
+            graph_nodes.append({
+                "id": f"col:{full_name}.{col_name}",
+                "label": col_name,
+                "type": "column",
+                "parent_table": f"tb:{full_name}",
+                "dataset": dataset_id,
+                "is_key": is_key,
+                "dtype": col.get("type", "STRING"),
+                "visible": visible,
+                "color": _COLOR_KEY_COL if is_key else _COLOR_COL,
+            })
+
+    # ── Arestas internas: table → column ──────────────────────────────────
     graph_edges: list[dict[str, Any]] = []
+
+    for node in graph_nodes:
+        if node["type"] != "column":
+            continue
+        parent_id = node["parent_table"]
+        eid = re.sub(r"[^a-zA-Z0-9]", "_", f"ie__{parent_id}__{node['id']}")
+        graph_edges.append({
+            "id": eid,
+            "source": parent_id,
+            "target": node["id"],
+            "type": "internal",
+            "strength": 1.0,
+            "color": "#dde1ec",
+        })
+
+    # ── Arestas de relacionamento (resolução a nível de coluna) ───────────
     seen_edges: set[str] = set()
 
     for rel in sorted(relationships, key=lambda r: r["strength"], reverse=True):
-        src_id = f"tb:{rel['source_table']}"
-        tgt_id = f"tb:{rel['target_table']}"
+        src_fn = rel["source_table"]
+        tgt_fn = rel["target_table"]
+        rel_cols = rel.get("columns", [])
+
+        src_col: str | None = None
+        tgt_col: str | None = None
+        src_tbl_cols = table_col_map.get(src_fn, {})
+        tgt_tbl_cols = table_col_map.get(tgt_fn, {})
+
+        for col_name in rel_cols:
+            if src_col is None and col_name in src_tbl_cols:
+                src_col = col_name
+            if tgt_col is None and col_name in tgt_tbl_cols:
+                tgt_col = col_name
+
+        if src_col and tgt_col:
+            src_id = f"col:{src_fn}.{src_col}"
+            tgt_id = f"col:{tgt_fn}.{tgt_col}"
+        else:
+            src_id = f"tb:{src_fn}"
+            tgt_id = f"tb:{tgt_fn}"
+
         edge_key = f"{src_id}||{tgt_id}"
         if edge_key in seen_edges:
             continue
@@ -620,40 +694,47 @@ def build_graph_payload(state: SchemaGraphState) -> dict[str, Any]:
 
         rel_type = rel.get("rel_type", "COMPARTILHADA")
         graph_edges.append({
-            "id": _edge_id(rel["source_table"], rel["target_table"]),
+            "id": _edge_id(src_fn, tgt_fn),
             "source": src_id,
             "target": tgt_id,
+            "source_table": f"tb:{src_fn}",
+            "target_table": f"tb:{tgt_fn}",
             "type": rel_type,
-            "columns": rel.get("columns", []),
+            "columns": rel_cols,
             "strength": rel.get("strength", 0.0),
             "description": rel.get("description", ""),
             "strategy": rel.get("strategy", ""),
             "color": _REL_TYPE_COLORS.get(rel_type, "#8096b2"),
         })
 
-    # ── Stats ─────────────────────────────────────────────────────────────
+    # ── Stats (apenas sobre arestas de relacionamento) ────────────────────
+    rel_edges = [e for e in graph_edges if e["type"] != "internal"]
     total_ds = len(datasets)
     total_tb = len(tables)
-    total_edges = len(graph_edges)
-    density = round(total_edges / max(total_tb * (total_tb - 1) / 2, 1), 4) if total_tb > 1 else 0.0
+    total_rel = len(rel_edges)
+    density = (
+        round(total_rel / max(total_tb * (total_tb - 1) / 2, 1), 4)
+        if total_tb > 1
+        else 0.0
+    )
 
-    # Top 5 tabelas mais conectadas (degree)
     degree: dict[str, int] = {}
-    for edge in graph_edges:
-        degree[edge["source"]] = degree.get(edge["source"], 0) + 1
-        degree[edge["target"]] = degree.get(edge["target"], 0) + 1
+    for edge in rel_edges:
+        for nid in (edge.get("source_table", edge["source"]),
+                    edge.get("target_table", edge["target"])):
+            degree[nid] = degree.get(nid, 0) + 1
 
     top_connected = sorted(degree.items(), key=lambda x: x[1], reverse=True)[:5]
 
     rel_type_dist: dict[str, int] = {}
-    for edge in graph_edges:
+    for edge in rel_edges:
         t = edge["type"]
         rel_type_dist[t] = rel_type_dist.get(t, 0) + 1
 
     stats: dict[str, Any] = {
         "total_datasets": total_ds,
         "total_tables": total_tb,
-        "total_relationships": total_edges,
+        "total_relationships": total_rel,
         "graph_density": density,
         "top_connected_tables": [
             {"node_id": nid, "degree": deg} for nid, deg in top_connected

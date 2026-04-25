@@ -4858,9 +4858,10 @@ function renderSchemaGraph(data) {
   const tabsArea = document.getElementById("sg-tabs-area");
   if (tabsArea) tabsArea.style.display = "flex";
 
-  // Update rel count badge
+  // Update rel count badge — relationship edges only (not internal)
+  const relEdgesOnly = schemaState.edges.filter((e) => e.type !== "internal");
   const relCount = document.getElementById("sg-rel-count");
-  if (relCount) relCount.textContent = schemaState.edges.length;
+  if (relCount) relCount.textContent = relEdgesOnly.length;
 
   // Populate text tabs immediately
   renderRelationships(schemaState.edges);
@@ -4875,7 +4876,7 @@ function renderSchemaGraph(data) {
   });
 }
 
-// ── D3 Force-Directed Graph ───────────────────────────────────
+// ── D3 Force-Directed Graph – Column Lineage ─────────────────
 
 function initD3Graph(nodes, edges) {
   const svg = document.getElementById("sg-d3-svg");
@@ -4890,7 +4891,7 @@ function initD3Graph(nodes, edges) {
     return;
   }
 
-  // Clear previous simulation
+  // Stop previous simulation
   if (schemaSimulation) {
     schemaSimulation.stop();
     schemaSimulation = null;
@@ -4901,7 +4902,7 @@ function initD3Graph(nodes, edges) {
   if (legend) legend.style.display = "flex";
 
   const container = document.getElementById("sg-graph-container");
-  const W = container?.clientWidth || 700;
+  const W = container?.clientWidth || 800;
   const H = container?.clientHeight || 520;
 
   const svgEl = d3
@@ -4909,19 +4910,19 @@ function initD3Graph(nodes, edges) {
     .attr("viewBox", `0 0 ${W} ${H}`)
     .attr("preserveAspectRatio", "xMidYMid meet");
 
-  // Defs for arrow markers
+  // ── Arrow markers ──────────────────────────────────────────
   const defs = svgEl.append("defs");
-  const markerColors = ["#059669", "#d97706", "#6d28d9", "#0891b2", "#8096b2"];
+  const markerColors = ["#059669", "#d97706", "#6d28d9", "#0891b2", "#8096b2", "#00A1E4"];
   markerColors.forEach((col) => {
-    const id = `arrow-${col.replace("#", "")}`;
+    const mid = `arrow-${col.replace("#", "")}`;
     defs
       .append("marker")
-      .attr("id", id)
+      .attr("id", mid)
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 20)
+      .attr("refX", 22)
       .attr("refY", 0)
-      .attr("markerWidth", 6)
-      .attr("markerHeight", 6)
+      .attr("markerWidth", 5)
+      .attr("markerHeight", 5)
       .attr("orient", "auto")
       .append("path")
       .attr("d", "M0,-5L10,0L0,5")
@@ -4934,110 +4935,182 @@ function initD3Graph(nodes, edges) {
   svgEl.call(
     d3
       .zoom()
-      .scaleExtent([0.15, 4])
-      .on("zoom", (event) => {
-        g.attr("transform", event.transform);
-      }),
+      .scaleExtent([0.08, 6])
+      .on("zoom", (event) => g.attr("transform", event.transform)),
   );
 
-  // Build D3 data (clone to avoid mutation)
+  // ── Clone nodes, separate by type ─────────────────────────
   const d3Nodes = nodes.map((n) => ({ ...n }));
   const nodeById = new Map(d3Nodes.map((n) => [n.id, n]));
 
-  const d3Edges = edges
-    .filter((e) => nodeById.has(e.source) && nodeById.has(e.target))
-    .map((e) => ({
-      ...e,
-      source: nodeById.get(e.source),
-      target: nodeById.get(e.target),
-    }));
+  const tableNodes = d3Nodes.filter((n) => n.type === "table");
+  const colNodes = d3Nodes.filter((n) => n.type === "column");
 
-  // Simulation
+  // Track which tables are expanded
+  const expandedTables = new Set();
+
+  // Initially fix all column nodes to their parent table's position
+  // (tables haven't been placed yet – will be fixed after first tick)
+  colNodes.forEach((n) => {
+    n.fx = W / 2 + (Math.random() - 0.5) * 60;
+    n.fy = H / 2 + (Math.random() - 0.5) * 60;
+  });
+
+  // ── Edges ──────────────────────────────────────────────────
+  const intEdges = edges
+    .filter((e) => e.type === "internal" && nodeById.has(e.source) && nodeById.has(e.target))
+    .map((e) => ({ ...e, source: e.source, target: e.target }));
+
+  const relEdges = edges
+    .filter((e) => e.type !== "internal" && nodeById.has(e.source) && nodeById.has(e.target))
+    .map((e) => ({ ...e, source: e.source, target: e.target }));
+
+  const allSimEdges = [...intEdges, ...relEdges];
+
+  // ── Force simulation ───────────────────────────────────────
   schemaSimulation = d3
     .forceSimulation(d3Nodes)
     .force(
       "link",
       d3
-        .forceLink(d3Edges)
+        .forceLink(allSimEdges)
         .id((d) => d.id)
-        .distance((d) => {
-          return d.source.type === "dataset" || d.target.type === "dataset"
-            ? 80
-            : 120;
-        }),
+        .distance((d) => (d.type === "internal" ? 38 : 160))
+        .strength((d) => (d.type === "internal" ? 0.9 : 0.25)),
     )
-    .force("charge", d3.forceManyBody().strength(-220))
+    .force(
+      "charge",
+      d3.forceManyBody().strength((d) => (d.type === "table" ? -450 : -8)),
+    )
     .force("center", d3.forceCenter(W / 2, H / 2))
-    .force("collision", d3.forceCollide(28));
+    .force(
+      "collision",
+      d3.forceCollide((d) => (d.type === "table" ? 45 : 8)),
+    );
 
-  // Draw edges
-  const link = g
-    .append("g")
+  // After initial layout stabilises, pin columns to their parent table
+  // so the graph doesn't start cluttered
+  let initialTicksDone = false;
+  schemaSimulation.on("tick.init", () => {
+    if (!initialTicksDone && schemaSimulation.alpha() < 0.25) {
+      initialTicksDone = true;
+      colNodes.forEach((n) => {
+        const parent = nodeById.get(n.parent_table);
+        if (parent) {
+          n.fx = parent.x;
+          n.fy = parent.y;
+        }
+      });
+      schemaSimulation.on("tick.init", null);
+    }
+  });
+
+  // ── SVG layer groups (draw order matters) ─────────────────
+  const dsLabelGroup = g.append("g").attr("class", "ds-labels");
+  const intLinkGroup = g.append("g").attr("class", "int-links");
+  const relLinkGroup = g.append("g").attr("class", "rel-links");
+  const nodeGroup = g.append("g").attr("class", "nodes");
+  const labelGroup = g.append("g").attr("class", "labels");
+
+  // ── Draw edges ─────────────────────────────────────────────
+  const intLinkSel = intLinkGroup
     .selectAll("line")
-    .data(d3Edges)
+    .data(intEdges)
+    .join("line")
+    .attr("stroke", "#dde1ec")
+    .attr("stroke-width", 1)
+    .attr("stroke-opacity", 0);   // hidden until column expanded
+
+  const relLinkSel = relLinkGroup
+    .selectAll("line")
+    .data(relEdges)
     .join("line")
     .attr("stroke", (d) => d.color || "#8096b2")
-    .attr("stroke-width", (d) => 1 + d.strength * 2)
-    .attr("stroke-opacity", 0.7)
+    .attr("stroke-width", (d) => 1.5 + (d.strength || 0) * 2)
+    .attr("stroke-opacity", 0.85)
     .attr(
       "marker-end",
       (d) => `url(#arrow-${(d.color || "#8096b2").replace("#", "")})`,
     );
 
-  // Draw nodes
-  const node = g
-    .append("g")
+  // ── Draw nodes ─────────────────────────────────────────────
+  const R_TABLE = 20;
+  const R_COL = 5;
+
+  const nodeSel = nodeGroup
     .selectAll("circle")
     .data(d3Nodes)
     .join("circle")
-    .attr("r", (d) => (d.type === "dataset" ? 18 : 11))
-    .attr("fill", (d) => d.color || "#8096b2")
-    .attr("stroke", "#fff")
-    .attr("stroke-width", 2)
-    .style("cursor", "pointer")
-    .call(
-      d3
-        .drag()
-        .on("start", (event, d) => {
-          if (!event.active) schemaSimulation.alphaTarget(0.3).restart();
-          d.fx = d.x;
-          d.fy = d.y;
-        })
-        .on("drag", (event, d) => {
-          d.fx = event.x;
-          d.fy = event.y;
-        })
-        .on("end", (event, d) => {
-          if (!event.active) schemaSimulation.alphaTarget(0);
-          d.fx = null;
-          d.fy = null;
-        }),
-    );
+    .attr("r", (d) => (d.type === "table" ? R_TABLE : 0))   // columns start invisible
+    .attr("fill", (d) => {
+      if (d.type === "table") return "#004691";
+      return d.is_key ? "#00A1E4" : "#a8b8cc";
+    })
+    .attr("stroke", (d) => (d.type === "table" ? "rgba(255,255,255,0.9)" : "#fff"))
+    .attr("stroke-width", (d) => (d.type === "table" ? 2.5 : 1.5))
+    .attr("opacity", (d) => (d.type === "table" ? 1 : 0))
+    .style("cursor", (d) => (d.type === "table" ? "pointer" : "default"));
 
-  // Labels
-  const label = g
-    .append("g")
-    .selectAll("text")
-    .data(d3Nodes)
+  // ── Table labels (always visible) ─────────────────────────
+  const tblLabelSel = labelGroup
+    .selectAll(".tbl-label")
+    .data(tableNodes)
     .join("text")
-    .attr("font-size", (d) => (d.type === "dataset" ? "9px" : "8px"))
+    .attr("class", "tbl-label")
+    .attr("font-size", "9px")
+    .attr("font-weight", "700")
     .attr("font-family", "DM Sans, sans-serif")
     .attr("fill", "#1a2340")
     .attr("text-anchor", "middle")
-    .attr("dy", (d) => (d.type === "dataset" ? 30 : 22))
+    .attr("dy", R_TABLE + 11)
     .text((d) => d.label)
     .style("pointer-events", "none");
 
-  // Tooltip
-  node
+  // Dataset badge under table label
+  const dsLabelSel = labelGroup
+    .selectAll(".ds-label")
+    .data(tableNodes)
+    .join("text")
+    .attr("class", "ds-label")
+    .attr("font-size", "7px")
+    .attr("font-weight", "400")
+    .attr("font-family", "DM Sans, sans-serif")
+    .attr("fill", "#8096b2")
+    .attr("text-anchor", "middle")
+    .attr("dy", R_TABLE + 21)
+    .text((d) => d.dataset || "")
+    .style("pointer-events", "none");
+
+  // ── Column labels (hidden initially) ──────────────────────
+  const colLabelSel = labelGroup
+    .selectAll(".col-label")
+    .data(colNodes)
+    .join("text")
+    .attr("class", "col-label")
+    .attr("font-size", "7px")
+    .attr("font-family", "DM Sans, sans-serif")
+    .attr("fill", (d) => (d.is_key ? "#004691" : "#7a8aaa"))
+    .attr("font-weight", (d) => (d.is_key ? "700" : "400"))
+    .attr("text-anchor", "middle")
+    .attr("dy", R_COL + 10)
+    .attr("opacity", 0)
+    .text((d) => d.label)
+    .style("pointer-events", "none");
+
+  // ── Tooltip ────────────────────────────────────────────────
+  nodeSel
     .on("mouseover", (event, d) => {
       if (!tooltip) return;
-      let html = `<strong>${d.label}</strong><br/>`;
-      if (d.type === "dataset") {
-        html += `Dataset · ${d.table_count || 0} tabelas`;
+      let html = `<strong>${d.label}</strong>`;
+      if (d.type === "table") {
+        html += `<br/><span style="color:#8096b2;font-size:10px">${d.dataset || ""}</span>`;
+        html += `<br/>${d.column_count || 0} colunas`;
+        if (d.has_more_columns) html += ` <span style="color:#d97706">+ocultas</span>`;
+        const exp = expandedTables.has(d.id);
+        html += `<br/><em style="color:#004691;font-size:10px">${exp ? "Clique para colapsar" : "Clique para expandir colunas"}</em>`;
       } else {
-        html += `Tabela · ${d.column_count || 0} colunas`;
-        if (d.partition_field) html += `<br/>Partição: ${d.partition_field}`;
+        html += `<br/><span style="color:#8096b2;font-size:10px">${d.dtype || "STRING"}</span>`;
+        if (d.is_key) html += `<br/><span style="color:#00A1E4">🔑 Chave / FK</span>`;
       }
       tooltip.innerHTML = html;
       tooltip.style.display = "block";
@@ -5045,21 +5118,139 @@ function initD3Graph(nodes, edges) {
     .on("mousemove", (event) => {
       const rect = container?.getBoundingClientRect();
       if (!rect || !tooltip) return;
-      tooltip.style.left = event.clientX - rect.left + 12 + "px";
-      tooltip.style.top = event.clientY - rect.top + 12 + "px";
+      tooltip.style.left = event.clientX - rect.left + 14 + "px";
+      tooltip.style.top = event.clientY - rect.top + 14 + "px";
     })
     .on("mouseout", () => {
       if (tooltip) tooltip.style.display = "none";
     });
 
+  // ── Click: expand / collapse columns ──────────────────────
+  nodeSel.on("click", (event, d) => {
+    if (d.type !== "table") return;
+    event.stopPropagation();
+
+    const tableId = d.id;
+    const isExpanded = expandedTables.has(tableId);
+
+    if (isExpanded) {
+      // ── Collapse ──
+      expandedTables.delete(tableId);
+
+      // Animate columns out
+      nodeSel
+        .filter((n) => n.type === "column" && n.parent_table === tableId)
+        .transition()
+        .duration(300)
+        .attr("r", 0)
+        .attr("opacity", 0)
+        .on("end", (n) => {
+          // Pin collapsed column back to parent
+          const parent = nodeById.get(n.parent_table);
+          if (parent) { n.fx = parent.x; n.fy = parent.y; }
+        });
+
+      colLabelSel
+        .filter((n) => n.parent_table === tableId)
+        .transition()
+        .duration(300)
+        .attr("opacity", 0);
+
+      intLinkSel
+        .filter((e) => {
+          const tgt = nodeById.get(typeof e.target === "object" ? e.target.id : e.target);
+          return tgt?.parent_table === tableId;
+        })
+        .transition()
+        .duration(300)
+        .attr("stroke-opacity", 0);
+    } else {
+      // ── Expand ──
+      expandedTables.add(tableId);
+
+      // Release columns from fixed position and scatter around parent
+      d3Nodes
+        .filter((n) => n.type === "column" && n.parent_table === tableId)
+        .forEach((n) => {
+          n.fx = null;
+          n.fy = null;
+          // Start near parent so they orbit out naturally
+          n.x = d.x + (Math.random() - 0.5) * 50;
+          n.y = d.y + (Math.random() - 0.5) * 50;
+        });
+
+      // Animate circles in
+      nodeSel
+        .filter((n) => n.type === "column" && n.parent_table === tableId)
+        .transition()
+        .duration(400)
+        .attr("r", R_COL)
+        .attr("opacity", 1);
+
+      colLabelSel
+        .filter((n) => n.parent_table === tableId)
+        .transition()
+        .duration(400)
+        .attr("opacity", 1);
+
+      intLinkSel
+        .filter((e) => {
+          const tgt = nodeById.get(typeof e.target === "object" ? e.target.id : e.target);
+          return tgt?.parent_table === tableId;
+        })
+        .transition()
+        .duration(400)
+        .attr("stroke-opacity", 0.5);
+
+      // Reheat simulation so columns scatter naturally
+      schemaSimulation.alpha(0.4).restart();
+    }
+  });
+
+  // ── Drag ──────────────────────────────────────────────────
+  nodeSel.call(
+    d3
+      .drag()
+      .on("start", (event, d) => {
+        if (!event.active) schemaSimulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      })
+      .on("drag", (event, d) => {
+        d.fx = event.x;
+        d.fy = event.y;
+      })
+      .on("end", (event, d) => {
+        if (!event.active) schemaSimulation.alphaTarget(0);
+        // Keep columns pinned if their table is collapsed
+        if (d.type === "column" && !expandedTables.has(d.parent_table)) {
+          const parent = nodeById.get(d.parent_table);
+          if (parent) { d.fx = parent.x; d.fy = parent.y; }
+        } else {
+          d.fx = null;
+          d.fy = null;
+        }
+      }),
+  );
+
+  // ── Tick ──────────────────────────────────────────────────
   schemaSimulation.on("tick", () => {
-    link
-      .attr("x1", (d) => d.source.x)
-      .attr("y1", (d) => d.source.y)
-      .attr("x2", (d) => d.target.x)
-      .attr("y2", (d) => d.target.y);
-    node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
-    label.attr("x", (d) => d.x).attr("y", (d) => d.y);
+    intLinkSel
+      .attr("x1", (d) => (typeof d.source === "object" ? d.source.x : 0))
+      .attr("y1", (d) => (typeof d.source === "object" ? d.source.y : 0))
+      .attr("x2", (d) => (typeof d.target === "object" ? d.target.x : 0))
+      .attr("y2", (d) => (typeof d.target === "object" ? d.target.y : 0));
+
+    relLinkSel
+      .attr("x1", (d) => (typeof d.source === "object" ? d.source.x : 0))
+      .attr("y1", (d) => (typeof d.source === "object" ? d.source.y : 0))
+      .attr("x2", (d) => (typeof d.target === "object" ? d.target.x : 0))
+      .attr("y2", (d) => (typeof d.target === "object" ? d.target.y : 0));
+
+    nodeSel.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+    tblLabelSel.attr("x", (d) => d.x).attr("y", (d) => d.y);
+    dsLabelSel.attr("x", (d) => d.x).attr("y", (d) => d.y);
+    colLabelSel.attr("x", (d) => d.x).attr("y", (d) => d.y);
   });
 }
 
@@ -5069,8 +5260,12 @@ function renderRelationships(edges) {
   const container = document.getElementById("sg-rel-list");
   if (!container) return;
 
+  // Exclude internal (table→column) edges
+  const relEdges = edges.filter((e) => e.type !== "internal");
   const filtered =
-    sgRelFilter === "ALL" ? edges : edges.filter((e) => e.type === sgRelFilter);
+    sgRelFilter === "ALL"
+      ? relEdges
+      : relEdges.filter((e) => e.type === sgRelFilter);
 
   if (!filtered.length) {
     container.innerHTML =
@@ -5080,24 +5275,34 @@ function renderRelationships(edges) {
 
   container.innerHTML = filtered
     .map((e) => {
-      const src = e.source?.replace("tb:", "") || e.source;
-      const tgt = e.target?.replace("tb:", "") || e.target;
-      const srcLabel = src.split(".").pop() || src;
-      const tgtLabel = tgt.split(".").pop() || tgt;
+      // Handle both col: and tb: source/target IDs
+      const srcId = e.source_table || e.source || "";
+      const tgtId = e.target_table || e.target || "";
+      const srcLabel = srcId.replace("tb:", "").split(".").pop() || srcId;
+      const tgtLabel = tgtId.replace("tb:", "").split(".").pop() || tgtId;
+
+      // If edge is column-level, show column name
+      const srcRaw = typeof e.source === "string" ? e.source : (e.source?.id || "");
+      const tgtRaw = typeof e.target === "string" ? e.target : (e.target?.id || "");
+      const srcCol = srcRaw.startsWith("col:") ? srcRaw.split(".").pop() : null;
+      const tgtCol = tgtRaw.startsWith("col:") ? tgtRaw.split(".").pop() : null;
+
       const strength = Math.round((e.strength || 0) * 100);
-      const cols = (e.columns || [])
-        .map((c) => `<span class="sg-col-chip">${c}</span>`)
-        .join(" ");
       const badgeClass = `sg-badge sg-badge-${e.type}`;
       return `
       <div class="sg-rel-card">
         <div class="sg-rel-header">
-          <span>${srcLabel}</span>
+          <div>
+            <span style="font-weight:700">${srcLabel}</span>
+            ${srcCol ? `<br/><span style="font-size:10px;color:#00A1E4">🔑 ${srcCol}</span>` : ""}
+          </div>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-          <span>${tgtLabel}</span>
+          <div>
+            <span style="font-weight:700">${tgtLabel}</span>
+            ${tgtCol ? `<br/><span style="font-size:10px;color:#00A1E4">🔑 ${tgtCol}</span>` : ""}
+          </div>
           <span class="${badgeClass}">${e.type}</span>
         </div>
-        ${cols ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${cols}</div>` : ""}
         ${e.description ? `<div class="sg-rel-desc">${e.description}</div>` : ""}
         <div class="sg-strength-bar"><div class="sg-strength-fill" style="width:${strength}%"></div></div>
       </div>`;

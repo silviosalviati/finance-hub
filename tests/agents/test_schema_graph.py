@@ -103,7 +103,7 @@ def test_infer_relationships_temporal():
 # ─── build_graph_payload ─────────────────────────────────────────────────────
 
 def test_build_graph_payload_structure():
-    """Payload deve conter nós de dataset e tabela + arestas + stats."""
+    """Payload deve conter nós de tabela e coluna + arestas internas + arestas de relacionamento."""
     from src.agents.schema_graph.nodes import build_graph_payload
 
     datasets = [{"dataset_id": "ds", "full_name": "proj.ds", "description": "", "location": "US", "table_count": 2}]
@@ -139,13 +139,33 @@ def test_build_graph_payload_structure():
     edges = result["graph_edges"]
 
     node_ids = [n["id"] for n in nodes]
-    assert "ds:ds" in node_ids
+
+    # Dataset nodes removed; only table + column nodes expected
+    assert "ds:ds" not in node_ids
     assert "tb:proj.ds.orders" in node_ids
     assert "tb:proj.ds.customers" in node_ids
 
-    assert len(edges) == 1
-    assert edges[0]["type"] == "FATO_DIMENSAO"
-    assert edges[0]["strength"] == 0.85
+    # Column nodes should exist
+    assert "col:proj.ds.orders.customer_id" in node_ids
+    assert "col:proj.ds.customers.customer_id" in node_ids
+
+    # Column metadata
+    cnode = next(n for n in nodes if n["id"] == "col:proj.ds.orders.customer_id")
+    assert cnode["type"] == "column"
+    assert cnode["parent_table"] == "tb:proj.ds.orders"
+    assert cnode["is_key"] is True   # customer_id ends with _id
+
+    # Edges: internal (table→col) + 1 relationship
+    internal = [e for e in edges if e["type"] == "internal"]
+    rel_edges = [e for e in edges if e["type"] != "internal"]
+    assert len(internal) > 0
+    assert len(rel_edges) == 1
+    assert rel_edges[0]["type"] == "FATO_DIMENSAO"
+    assert rel_edges[0]["strength"] == 0.85
+
+    # Relationship edge should be column-level
+    assert rel_edges[0]["source"].startswith("col:")
+    assert rel_edges[0]["target"].startswith("col:")
 
     stats = result["stats"]
     assert stats["total_datasets"] == 1

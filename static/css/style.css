@@ -4640,6 +4640,323 @@ pre {
   width: 360px;
 }
 
+/* ─────────────────────────────────────
+   SCHEMA EXPLORER VIEW
+───────────────────────────────────── */
+
+/* Graph container */
+.sg-graph-wrap {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  background: var(--surface-alt, #f4f6fa);
+  border: 1px solid var(--border, #dde1ec);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.sg-graph-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--text-sec, #7a8aaa);
+  font-size: 0.85rem;
+}
+
+/* Legend */
+.sg-legend {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.93);
+  border: 1px solid var(--border, #dde1ec);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.73rem;
+  color: var(--text-main, #1a2340);
+}
+
+.sg-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sg-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Tooltip */
+.sg-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.9);
+  color: #fff;
+  font-size: 0.78rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+  max-width: 260px;
+  line-height: 1.4;
+  z-index: 10;
+}
+
+/* Stat cards */
+.sg-stat-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sg-stat-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #dde1ec);
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.sg-stat-val {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--porto-primary, #004691);
+}
+
+.sg-stat-lbl {
+  font-size: 0.72rem;
+  color: var(--text-sec, #7a8aaa);
+  margin-top: 2px;
+}
+
+/* Catalog tree */
+.sg-catalog-tree {
+  padding: 12px;
+  overflow-y: auto;
+  max-height: 480px;
+}
+
+.sg-catalog-dataset {
+  margin-bottom: 8px;
+}
+
+.sg-catalog-ds-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--porto-primary, #004691);
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--surface-alt, #f4f6fa);
+  border: 1px solid var(--border, #dde1ec);
+  user-select: none;
+}
+
+.sg-catalog-ds-header:hover {
+  background: #e8eef8;
+}
+
+.sg-catalog-tables {
+  padding-left: 16px;
+  margin-top: 4px;
+}
+
+.sg-catalog-table {
+  font-size: 0.8rem;
+  color: var(--text-main, #1a2340);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sg-catalog-table:hover {
+  background: var(--surface-alt, #f4f6fa);
+}
+
+/* Relationship cards */
+.sg-rel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.sg-rel-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #dde1ec);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.sg-rel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main, #1a2340);
+  flex-wrap: wrap;
+}
+
+.sg-rel-desc {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: var(--text-sec, #7a8aaa);
+}
+
+.sg-strength-bar {
+  height: 4px;
+  background: var(--border, #dde1ec);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.sg-strength-fill {
+  height: 100%;
+  background: var(--porto-vivid, #0062e2);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+/* Type badges */
+.sg-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.sg-badge-FATO_DIMENSAO {
+  background: #d1fae5;
+  color: #065f46;
+}
+.sg-badge-DIMENSAO_DIMENSAO {
+  background: #fef3c7;
+  color: #92400e;
+}
+.sg-badge-HIERARQUICO {
+  background: #ede9fe;
+  color: #4c1d95;
+}
+.sg-badge-TEMPORAL {
+  background: #e0f2fe;
+  color: #075985;
+}
+.sg-badge-CHAVE_ESTRANGEIRA {
+  background: #d1fae5;
+  color: #065f46;
+}
+.sg-badge-COMPARTILHADA {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Filter bar (chip filters) */
+.sg-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px 0;
+}
+
+.sg-chip {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border, #dde1ec);
+  background: var(--surface-alt, #f4f6fa);
+  color: var(--text-sec, #7a8aaa);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.sg-chip:hover,
+.sg-chip.active {
+  background: var(--porto-primary, #004691);
+  color: #fff;
+  border-color: var(--porto-primary, #004691);
+}
+
+/* Column chips (inside rel cards) */
+.sg-col-chip {
+  font-size: 0.68rem;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--surface-alt, #f4f6fa);
+  border: 1px solid var(--border, #dde1ec);
+  color: var(--text-sec, #7a8aaa);
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 18, 40, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+}
+
+.modal-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #dde1ec);
+  border-radius: 14px;
+  width: min(420px, 90vw);
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border, #dde1ec);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-main, #1a2340);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--text-sec, #7a8aaa);
+}
+
+.modal-body {
+  padding: 16px 18px;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border, #dde1ec);
+}
+
 .audit-overview-hero {
   display: flex;
   align-items: center;

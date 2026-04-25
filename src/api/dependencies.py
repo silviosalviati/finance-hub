@@ -13,6 +13,7 @@ from src.agents.document_build import DocumentBuildAgent
 from src.agents.finance_auditor import FinanceAuditorAgent
 from src.agents.query_analyzer import QueryAnalyzerAgent
 from src.agents.query_build import QueryBuildAgent
+from src.agents.schema_graph import SchemaGraphAgent
 from src.core.checkpointer import CheckpointConfig, FileCheckpointer
 from src.core.registry import AgentRegistry
 from src.shared.config import SESSION_TTL_HOURS
@@ -30,6 +31,7 @@ def get_registry() -> AgentRegistry:
         registry.register(QueryBuildAgent())
         registry.register(DocumentBuildAgent())
         registry.register(FinanceAuditorAgent())
+        registry.register(SchemaGraphAgent())
         _registry = registry
     return _registry
 

@@ -9,6 +9,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/style.css" />
+    <script src="/static/js/d3.v7.min.js"></script>
   </head>
   <body>
     <main id="app">
@@ -155,6 +156,30 @@
               </div>
               Bots IA
               <span class="nbadge">4</span>
+            </div>
+
+            <div class="nitem" id="nav-schema" onclick="navTo('schema')">
+              <div class="nicon">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#3D5276"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="6" cy="6" r="3" />
+                  <circle cx="18" cy="6" r="3" />
+                  <circle cx="12" cy="18" r="3" />
+                  <line x1="9" y1="6" x2="15" y2="6" />
+                  <line x1="7.5" y1="8.5" x2="10.5" y2="15.5" />
+                  <line x1="16.5" y1="8.5" x2="13.5" y2="15.5" />
+                </svg>
+              </div>
+              Schema Explorer
+              <span class="nbadge" id="schema-table-badge">0</span>
             </div>
 
             <div class="nitem" id="nav-hist" onclick="navTo('hist')">
@@ -350,31 +375,62 @@
                 </div>
               </article>
 
-              <!-- Slot vazio -->
-              <article class="bot-card soon">
-                <div class="soon-center">
-                  <div class="soon-ico">
+              <!-- Schema Explorer -->
+              <article
+                class="bot-card"
+                onclick="navTo('schema')"
+                style="cursor: pointer"
+              >
+                <div class="bhead">
+                  <div
+                    class="biw"
+                    style="background: var(--porto-sky, #e0f2fe)"
+                  >
                     <svg
-                      width="16"
-                      height="16"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke="#8096B2"
-                      stroke-width="1.8"
+                      stroke="#0891B2"
+                      stroke-width="2"
                       stroke-linecap="round"
                       stroke-linejoin="round"
                     >
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="8" x2="12" y2="12" />
-                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                      <circle cx="6" cy="6" r="3" />
+                      <circle cx="18" cy="6" r="3" />
+                      <circle cx="12" cy="18" r="3" />
+                      <line x1="9" y1="6" x2="15" y2="6" />
+                      <line x1="7.5" y1="8.5" x2="10.5" y2="15.5" />
+                      <line x1="16.5" y1="8.5" x2="13.5" y2="15.5" />
                     </svg>
                   </div>
-                  <div class="soon-lbl">Em breve</div>
+                  <span class="bstatus st-live">DISPONIVEL</span>
                 </div>
-
+                <div>
+                  <div class="bname">Schema Explorer</div>
+                  <div class="bdesc">
+                    Varre todos os datasets e tabelas do seu projeto GCP e gera
+                    um grafo interativo de relacionamentos via catálogo de
+                    dados.
+                  </div>
+                </div>
                 <div class="bfoot">
-                  <div></div>
-                  <span class="btn-soon-label">Disponível Q2 2025</span>
+                  <div class="btags">
+                    <span class="tag">BigQuery</span>
+                    <span class="tag">Graph</span>
+                    <span class="tag">DataOps</span>
+                  </div>
+                  <button class="btn-open">
+                    Acessar
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </button>
                 </div>
               </article>
 
@@ -2185,6 +2241,439 @@ runbook_operacional</pre
                       >Enviando...</span
                     >
                   </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── SCHEMA EXPLORER VIEW ── -->
+          <section class="view" id="view-schema" style="padding: 0">
+            <div class="qa-topbar">
+              <button class="btn-back" type="button" onclick="navTo('home')">
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M19 12H5M12 5l-7 7 7 7" />
+                </svg>
+                Voltar
+              </button>
+              <div class="breadcrumb">
+                <span onclick="navTo('home')" style="cursor: pointer"
+                  >Painel</span
+                >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+                <span class="cur">Schema Explorer</span>
+              </div>
+            </div>
+
+            <div class="qa-hero">
+              <div
+                class="qa-hero-icon"
+                style="background: var(--porto-sky, #e0f2fe)"
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#0891B2"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="6" cy="6" r="3" />
+                  <circle cx="18" cy="6" r="3" />
+                  <circle cx="12" cy="18" r="3" />
+                  <line x1="9" y1="6" x2="15" y2="6" />
+                  <line x1="7.5" y1="8.5" x2="10.5" y2="15.5" />
+                  <line x1="16.5" y1="8.5" x2="13.5" y2="15.5" />
+                </svg>
+              </div>
+              <div>
+                <div class="qa-hero-title">Schema Explorer</div>
+                <div class="qa-hero-desc">
+                  Varre datasets e tabelas do projeto GCP via catálogo e
+                  constrói um grafo interativo de relacionamentos.
+                </div>
+              </div>
+              <div class="qa-hero-right">
+                <span class="qa-hero-tag">BigQuery</span>
+                <span class="qa-hero-tag">Graph</span>
+                <span class="qa-hero-tag">DataOps</span>
+                <div class="qa-live-badge">
+                  <div class="qa-live-dot"></div>
+                  DISPONIVEL
+                </div>
+              </div>
+            </div>
+
+            <div class="qa-body">
+              <!-- ── FORM PANEL ── -->
+              <div class="qa-form">
+                <div class="qlabel">Configuração</div>
+
+                <div class="qfield">
+                  <label for="sg-project">Projeto GCP *</label>
+                  <input
+                    type="text"
+                    id="sg-project"
+                    placeholder="meu-projeto-gcp"
+                    autocomplete="off"
+                  />
+                </div>
+
+                <div class="qfield">
+                  <label for="sg-datasets">Datasets (opcional)</label>
+                  <input
+                    type="text"
+                    id="sg-datasets"
+                    placeholder="dataset1, dataset2"
+                    autocomplete="off"
+                  />
+                  <p class="qhint">
+                    Filtre por datasets. Deixe vazio para varrer todos.
+                  </p>
+                </div>
+
+                <div class="qfield">
+                  <label for="sg-max-tables">Máx. tabelas por dataset</label>
+                  <input
+                    type="number"
+                    id="sg-max-tables"
+                    min="1"
+                    max="100"
+                    value="30"
+                  />
+                </div>
+
+                <div
+                  id="sg-error"
+                  class="qa-error"
+                  role="alert"
+                  style="display: none"
+                ></div>
+
+                <button
+                  class="btn-analyze"
+                  id="sg-run-btn"
+                  type="button"
+                  onclick="runSchemaGraph()"
+                >
+                  <div
+                    class="spinner"
+                    id="sg-spinner"
+                    style="display: none"
+                  ></div>
+                  <span>Analisar Schema</span>
+                </button>
+
+                <button
+                  type="button"
+                  onclick="loadCachedSchema()"
+                  style="
+                    margin-top: 8px;
+                    background: none;
+                    border: 1px solid var(--border);
+                    color: var(--ink2);
+                    font-size: 12px;
+                    padding: 8px 14px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    width: 100%;
+                    font-family: var(--display);
+                  "
+                >
+                  Carregar Cache
+                </button>
+
+                <!-- Progress -->
+                <div id="sg-progress" class="qa-progress" style="display: none">
+                  <div class="qa-progress-head">
+                    <span class="qa-progress-title">Processando análise</span>
+                    <span class="qa-progress-step" id="sg-progress-step"></span>
+                  </div>
+                  <div class="qa-progress-track">
+                    <div
+                      class="qa-progress-fill"
+                      id="sg-progress-fill"
+                      style="width: 0%"
+                    ></div>
+                  </div>
+                </div>
+
+                <!-- Stat cards -->
+                <div
+                  class="sg-stat-cards"
+                  id="sg-stat-cards"
+                  style="display: none"
+                >
+                  <div class="sg-stat-card">
+                    <div class="sg-stat-val" id="sg-stat-datasets">0</div>
+                    <div class="sg-stat-lbl">Datasets</div>
+                  </div>
+                  <div class="sg-stat-card">
+                    <div class="sg-stat-val" id="sg-stat-tables">0</div>
+                    <div class="sg-stat-lbl">Tabelas</div>
+                  </div>
+                  <div class="sg-stat-card">
+                    <div class="sg-stat-val" id="sg-stat-rels">0</div>
+                    <div class="sg-stat-lbl">Relações</div>
+                  </div>
+                  <div class="sg-stat-card">
+                    <div class="sg-stat-val" id="sg-stat-density">0%</div>
+                    <div class="sg-stat-lbl">Densidade</div>
+                  </div>
+                </div>
+
+                <!-- Warnings -->
+                <div
+                  id="sg-warnings"
+                  class="qhint"
+                  style="display: none; color: #d97706; margin-top: 8px"
+                ></div>
+              </div>
+
+              <!-- ── RESULTS PANEL ── -->
+              <div class="qa-results-wrap">
+                <!-- Empty state -->
+                <div class="qa-empty" id="sg-empty">
+                  <div class="qa-empty-ico">
+                    <svg
+                      width="22"
+                      height="22"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#0891B2"
+                      stroke-width="2"
+                    >
+                      <circle cx="6" cy="6" r="3" />
+                      <circle cx="18" cy="6" r="3" />
+                      <circle cx="12" cy="18" r="3" />
+                      <line x1="9" y1="6" x2="15" y2="6" />
+                      <line x1="7.5" y1="8.5" x2="10.5" y2="15.5" />
+                      <line x1="16.5" y1="8.5" x2="13.5" y2="15.5" />
+                    </svg>
+                  </div>
+                  <h3>Explore o Schema</h3>
+                  <p>
+                    Informe um Projeto GCP e clique em
+                    <strong>Analisar Schema</strong> para visualizar o grafo de
+                    relacionamentos entre datasets e tabelas.
+                  </p>
+                </div>
+
+                <!-- Tabs + panels (shown after analysis) -->
+                <div
+                  id="sg-tabs-area"
+                  style="
+                    display: none;
+                    flex-direction: column;
+                    height: 100%;
+                    overflow: hidden;
+                  "
+                >
+                  <div class="qa-tabs-bar">
+                    <div
+                      class="qa-tab active"
+                      onclick="switchSchemaTab('graph')"
+                      id="sg-tab-graph"
+                    >
+                      Grafo Visual
+                    </div>
+                    <div
+                      class="qa-tab"
+                      onclick="switchSchemaTab('relationships')"
+                      id="sg-tab-relationships"
+                    >
+                      Relacionamentos
+                      <span class="qa-tab-count" id="sg-rel-count">0</span>
+                    </div>
+                    <div
+                      class="qa-tab"
+                      onclick="switchSchemaTab('catalog')"
+                      id="sg-tab-catalog"
+                    >
+                      Catálogo
+                    </div>
+                    <div
+                      class="qa-tab"
+                      onclick="switchSchemaTab('export')"
+                      id="sg-tab-export"
+                    >
+                      Export
+                    </div>
+                  </div>
+
+                  <div class="qa-tab-panels">
+                    <!-- GRAPH PANEL -->
+                    <div
+                      class="qa-tab-panel active"
+                      id="sg-panel-graph"
+                      style="padding: 12px; overflow: hidden"
+                    >
+                      <div class="sg-graph-wrap" id="sg-graph-container">
+                        <svg
+                          id="sg-d3-svg"
+                          style="display: none; width: 100%; height: 100%"
+                        ></svg>
+                        <div
+                          class="sg-legend"
+                          id="sg-legend"
+                          style="display: none"
+                        >
+                          <div class="sg-legend-item">
+                            <span
+                              class="sg-legend-dot"
+                              style="background: #004691"
+                            ></span
+                            >Dataset
+                          </div>
+                          <div class="sg-legend-item">
+                            <span
+                              class="sg-legend-dot"
+                              style="background: #0891b2"
+                            ></span
+                            >Tabela
+                          </div>
+                          <div class="sg-legend-item">
+                            <span
+                              class="sg-legend-dot"
+                              style="background: #059669"
+                            ></span
+                            >Fato↔Dim
+                          </div>
+                          <div class="sg-legend-item">
+                            <span
+                              class="sg-legend-dot"
+                              style="background: #d97706"
+                            ></span
+                            >Dim↔Dim
+                          </div>
+                          <div class="sg-legend-item">
+                            <span
+                              class="sg-legend-dot"
+                              style="background: #6d28d9"
+                            ></span
+                            >Hierárquico
+                          </div>
+                          <div class="sg-legend-item">
+                            <span
+                              class="sg-legend-dot"
+                              style="background: #0891b2"
+                            ></span
+                            >Temporal
+                          </div>
+                        </div>
+                        <div
+                          class="sg-tooltip"
+                          id="sg-tooltip"
+                          style="display: none"
+                        ></div>
+                      </div>
+                    </div>
+
+                    <!-- RELATIONSHIPS PANEL -->
+                    <div class="qa-tab-panel" id="sg-panel-relationships">
+                      <div class="sg-filter-bar" id="sg-rel-filters">
+                        <button
+                          type="button"
+                          class="sg-chip active"
+                          onclick="filterRelByType('ALL')"
+                        >
+                          Todos
+                        </button>
+                        <button
+                          type="button"
+                          class="sg-chip"
+                          onclick="filterRelByType('FATO_DIMENSAO')"
+                        >
+                          Fato↔Dim
+                        </button>
+                        <button
+                          type="button"
+                          class="sg-chip"
+                          onclick="filterRelByType('DIMENSAO_DIMENSAO')"
+                        >
+                          Dim↔Dim
+                        </button>
+                        <button
+                          type="button"
+                          class="sg-chip"
+                          onclick="filterRelByType('HIERARQUICO')"
+                        >
+                          Hierárquico
+                        </button>
+                        <button
+                          type="button"
+                          class="sg-chip"
+                          onclick="filterRelByType('TEMPORAL')"
+                        >
+                          Temporal
+                        </button>
+                      </div>
+                      <div id="sg-rel-list" class="sg-rel-list"></div>
+                    </div>
+
+                    <!-- CATALOG PANEL -->
+                    <div class="qa-tab-panel" id="sg-panel-catalog">
+                      <div id="sg-catalog-tree" class="sg-catalog-tree"></div>
+                    </div>
+
+                    <!-- EXPORT PANEL -->
+                    <div class="qa-tab-panel" id="sg-panel-export">
+                      <p
+                        style="
+                          color: var(--ink3);
+                          font-size: 13px;
+                          margin-bottom: 12px;
+                        "
+                      >
+                        Exporte o grafo e os dados de schema nos formatos
+                        disponíveis.
+                      </p>
+                      <button
+                        class="btn-analyze"
+                        type="button"
+                        onclick="exportSchemaJSON()"
+                      >
+                        Baixar JSON do Grafo
+                      </button>
+                      <button
+                        type="button"
+                        onclick="exportSchemaSVG()"
+                        style="
+                          margin-top: 8px;
+                          background: none;
+                          border: 1px solid var(--border);
+                          color: var(--ink2);
+                          font-size: 12px;
+                          padding: 8px 14px;
+                          border-radius: 8px;
+                          cursor: pointer;
+                          width: 100%;
+                          font-family: var(--display);
+                        "
+                      >
+                        Baixar SVG do Grafo
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -866,6 +866,7 @@ function navTo(view) {
     db: "view-db",
     qb: "view-qb",
     audit: "view-fa",
+    schema: "view-schema",
     dev: "view-dev",
     hist: "view-hist",
   };
@@ -889,6 +890,8 @@ function navTo(view) {
   } else if (view === "audit") {
     document.getElementById("nav-audit")?.classList.add("active");
     initFAInputListener();
+  } else if (view === "schema") {
+    document.getElementById("nav-schema")?.classList.add("active");
   }
 }
 
@@ -3919,6 +3922,14 @@ const showcaseBots = [
     status: "Disponivel",
     action: () => navTo("audit"),
   },
+  {
+    name: "Schema Explorer",
+    description:
+      "Visualize a arquitetura de dados do seu projeto GCP: datasets, tabelas e relacionamentos em um grafo interativo.",
+    tags: ["BigQuery", "Graph", "DataOps"],
+    status: "Disponivel",
+    action: () => navTo("schema"),
+  },
 ];
 
 let showcaseIndex = 0;
@@ -4690,4 +4701,562 @@ async function sendFAMessage() {
     });
     input?.focus();
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SCHEMA EXPLORER
+// ═══════════════════════════════════════════════════════════════
+
+let schemaState = {
+  projectId: "",
+  datasets: [],
+  tables: [],
+  nodes: [],
+  edges: [],
+  stats: {},
+  warnings: [],
+};
+
+let schemaSimulation = null;
+let sgActiveTab = "graph";
+let sgRelFilter = "ALL";
+
+// ── API ──────────────────────────────────────────────────────
+
+async function runSchemaGraph() {
+  const projectId = (document.getElementById("sg-project")?.value || "").trim();
+  const datasets = (document.getElementById("sg-datasets")?.value || "").trim();
+  const maxTables = parseInt(
+    document.getElementById("sg-max-tables")?.value || "30",
+    10,
+  );
+
+  if (!projectId) {
+    showSchemaError("Informe o Projeto GCP.");
+    return;
+  }
+
+  setSchemaProgress(5, "Iniciando análise...");
+  hideSchemaError();
+  hideSchemaWarnings();
+  document.getElementById("sg-stat-cards").style.display = "none";
+
+  try {
+    setSchemaProgress(20, "Descobrindo datasets...");
+    const body = {
+      query: `max_tables=${maxTables}`,
+      project_id: projectId,
+      dataset_hint: datasets || null,
+    };
+
+    const res = await fetch("/api/agents/schema_graph/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || "Erro na requisição");
+    }
+
+    setSchemaProgress(70, "Construindo grafo...");
+    const data = await res.json();
+
+    if (data.status === "error") {
+      showSchemaError(data.error || "Erro desconhecido.");
+      hideSchemaProgress();
+      return;
+    }
+
+    renderSchemaGraph(data);
+    setSchemaProgress(100, "Concluído!");
+    setTimeout(hideSchemaProgress, 600);
+  } catch (err) {
+    showSchemaError(String(err));
+    hideSchemaProgress();
+  }
+}
+
+async function loadCachedSchema() {
+  const projectId = (document.getElementById("sg-project")?.value || "").trim();
+  if (!projectId) {
+    showSchemaError("Informe o Projeto GCP para carregar o cache.");
+    return;
+  }
+
+  setSchemaProgress(10, "Carregando cache...");
+  hideSchemaError();
+
+  try {
+    const res = await fetch(
+      `/api/agents/schema_graph/cached/${encodeURIComponent(projectId)}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    if (res.status === 404) {
+      showSchemaError("Nenhum grafo em cache para este projeto.");
+      hideSchemaProgress();
+      return;
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || "Erro ao carregar cache");
+    }
+
+    setSchemaProgress(80, "Renderizando...");
+    const data = await res.json();
+    renderSchemaGraph(data);
+    setSchemaProgress(100, "Cache carregado!");
+    setTimeout(hideSchemaProgress, 600);
+  } catch (err) {
+    showSchemaError(String(err));
+    hideSchemaProgress();
+  }
+}
+
+// ── Render ───────────────────────────────────────────────────
+
+function renderSchemaGraph(data) {
+  schemaState.projectId = data.project_id || "";
+  schemaState.nodes = data.graph_nodes || [];
+  schemaState.edges = data.graph_edges || [];
+  schemaState.stats = data.stats || {};
+  schemaState.tables = data.tables || [];
+  schemaState.datasets = data.datasets || [];
+  schemaState.warnings = data.warnings || [];
+
+  // Stats cards
+  const st = schemaState.stats;
+  document.getElementById("sg-stat-datasets").textContent =
+    st.total_datasets ?? schemaState.datasets.length;
+  document.getElementById("sg-stat-tables").textContent =
+    st.total_tables ?? schemaState.tables.length;
+  document.getElementById("sg-stat-rels").textContent =
+    st.total_relationships ?? schemaState.edges.length;
+  document.getElementById("sg-stat-density").textContent =
+    ((st.graph_density ?? 0) * 100).toFixed(1) + "%";
+  document.getElementById("sg-stat-cards").style.display = "grid";
+
+  // Badge counter
+  document.getElementById("schema-table-badge").textContent =
+    schemaState.tables.length;
+
+  // Warnings
+  if (schemaState.warnings.length) {
+    showSchemaWarnings(schemaState.warnings);
+  }
+
+  // Show results area
+  document.getElementById("sg-empty").style.display = "none";
+  const tabsArea = document.getElementById("sg-tabs-area");
+  if (tabsArea) tabsArea.style.display = "flex";
+
+  // Update rel count badge
+  const relCount = document.getElementById("sg-rel-count");
+  if (relCount) relCount.textContent = schemaState.edges.length;
+
+  // Populate text tabs immediately
+  renderRelationships(schemaState.edges);
+  renderCatalog(schemaState.datasets, schemaState.tables);
+
+  // Switch to graph tab
+  switchSchemaTab("graph");
+
+  // Defer D3 init until after browser has laid out the newly-visible container
+  requestAnimationFrame(() => {
+    initD3Graph(schemaState.nodes, schemaState.edges);
+  });
+}
+
+// ── D3 Force-Directed Graph ───────────────────────────────────
+
+function initD3Graph(nodes, edges) {
+  const svg = document.getElementById("sg-d3-svg");
+  const legend = document.getElementById("sg-legend");
+  const tooltip = document.getElementById("sg-tooltip");
+
+  if (!svg || typeof d3 === "undefined") {
+    const container2 = document.getElementById("sg-graph-container");
+    if (container2)
+      container2.innerHTML =
+        '<p style="color:#d97706;padding:20px;font-size:13px">D3.js não carregado. Verifique a conexão e recarregue a página.</p>';
+    return;
+  }
+
+  // Clear previous simulation
+  if (schemaSimulation) {
+    schemaSimulation.stop();
+    schemaSimulation = null;
+  }
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+  svg.style.display = "block";
+  if (legend) legend.style.display = "flex";
+
+  const container = document.getElementById("sg-graph-container");
+  const W = container?.clientWidth || 700;
+  const H = container?.clientHeight || 520;
+
+  const svgEl = d3
+    .select("#sg-d3-svg")
+    .attr("viewBox", `0 0 ${W} ${H}`)
+    .attr("preserveAspectRatio", "xMidYMid meet");
+
+  // Defs for arrow markers
+  const defs = svgEl.append("defs");
+  const markerColors = ["#059669", "#d97706", "#6d28d9", "#0891b2", "#8096b2"];
+  markerColors.forEach((col) => {
+    const id = `arrow-${col.replace("#", "")}`;
+    defs
+      .append("marker")
+      .attr("id", id)
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 20)
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-5L10,0L0,5")
+      .attr("fill", col);
+  });
+
+  const g = svgEl.append("g");
+
+  // Zoom
+  svgEl.call(
+    d3
+      .zoom()
+      .scaleExtent([0.15, 4])
+      .on("zoom", (event) => {
+        g.attr("transform", event.transform);
+      }),
+  );
+
+  // Build D3 data (clone to avoid mutation)
+  const d3Nodes = nodes.map((n) => ({ ...n }));
+  const nodeById = new Map(d3Nodes.map((n) => [n.id, n]));
+
+  const d3Edges = edges
+    .filter((e) => nodeById.has(e.source) && nodeById.has(e.target))
+    .map((e) => ({
+      ...e,
+      source: nodeById.get(e.source),
+      target: nodeById.get(e.target),
+    }));
+
+  // Simulation
+  schemaSimulation = d3
+    .forceSimulation(d3Nodes)
+    .force(
+      "link",
+      d3
+        .forceLink(d3Edges)
+        .id((d) => d.id)
+        .distance((d) => {
+          return d.source.type === "dataset" || d.target.type === "dataset"
+            ? 80
+            : 120;
+        }),
+    )
+    .force("charge", d3.forceManyBody().strength(-220))
+    .force("center", d3.forceCenter(W / 2, H / 2))
+    .force("collision", d3.forceCollide(28));
+
+  // Draw edges
+  const link = g
+    .append("g")
+    .selectAll("line")
+    .data(d3Edges)
+    .join("line")
+    .attr("stroke", (d) => d.color || "#8096b2")
+    .attr("stroke-width", (d) => 1 + d.strength * 2)
+    .attr("stroke-opacity", 0.7)
+    .attr(
+      "marker-end",
+      (d) => `url(#arrow-${(d.color || "#8096b2").replace("#", "")})`,
+    );
+
+  // Draw nodes
+  const node = g
+    .append("g")
+    .selectAll("circle")
+    .data(d3Nodes)
+    .join("circle")
+    .attr("r", (d) => (d.type === "dataset" ? 18 : 11))
+    .attr("fill", (d) => d.color || "#8096b2")
+    .attr("stroke", "#fff")
+    .attr("stroke-width", 2)
+    .style("cursor", "pointer")
+    .call(
+      d3
+        .drag()
+        .on("start", (event, d) => {
+          if (!event.active) schemaSimulation.alphaTarget(0.3).restart();
+          d.fx = d.x;
+          d.fy = d.y;
+        })
+        .on("drag", (event, d) => {
+          d.fx = event.x;
+          d.fy = event.y;
+        })
+        .on("end", (event, d) => {
+          if (!event.active) schemaSimulation.alphaTarget(0);
+          d.fx = null;
+          d.fy = null;
+        }),
+    );
+
+  // Labels
+  const label = g
+    .append("g")
+    .selectAll("text")
+    .data(d3Nodes)
+    .join("text")
+    .attr("font-size", (d) => (d.type === "dataset" ? "9px" : "8px"))
+    .attr("font-family", "DM Sans, sans-serif")
+    .attr("fill", "#1a2340")
+    .attr("text-anchor", "middle")
+    .attr("dy", (d) => (d.type === "dataset" ? 30 : 22))
+    .text((d) => d.label)
+    .style("pointer-events", "none");
+
+  // Tooltip
+  node
+    .on("mouseover", (event, d) => {
+      if (!tooltip) return;
+      let html = `<strong>${d.label}</strong><br/>`;
+      if (d.type === "dataset") {
+        html += `Dataset · ${d.table_count || 0} tabelas`;
+      } else {
+        html += `Tabela · ${d.column_count || 0} colunas`;
+        if (d.partition_field) html += `<br/>Partição: ${d.partition_field}`;
+      }
+      tooltip.innerHTML = html;
+      tooltip.style.display = "block";
+    })
+    .on("mousemove", (event) => {
+      const rect = container?.getBoundingClientRect();
+      if (!rect || !tooltip) return;
+      tooltip.style.left = event.clientX - rect.left + 12 + "px";
+      tooltip.style.top = event.clientY - rect.top + 12 + "px";
+    })
+    .on("mouseout", () => {
+      if (tooltip) tooltip.style.display = "none";
+    });
+
+  schemaSimulation.on("tick", () => {
+    link
+      .attr("x1", (d) => d.source.x)
+      .attr("y1", (d) => d.source.y)
+      .attr("x2", (d) => d.target.x)
+      .attr("y2", (d) => d.target.y);
+    node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+    label.attr("x", (d) => d.x).attr("y", (d) => d.y);
+  });
+}
+
+// ── Relationships Tab ─────────────────────────────────────────
+
+function renderRelationships(edges) {
+  const container = document.getElementById("sg-rel-list");
+  if (!container) return;
+
+  const filtered =
+    sgRelFilter === "ALL" ? edges : edges.filter((e) => e.type === sgRelFilter);
+
+  if (!filtered.length) {
+    container.innerHTML =
+      "<p style='color:var(--text-sec);padding:20px'>Nenhum relacionamento encontrado.</p>";
+    return;
+  }
+
+  container.innerHTML = filtered
+    .map((e) => {
+      const src = e.source?.replace("tb:", "") || e.source;
+      const tgt = e.target?.replace("tb:", "") || e.target;
+      const srcLabel = src.split(".").pop() || src;
+      const tgtLabel = tgt.split(".").pop() || tgt;
+      const strength = Math.round((e.strength || 0) * 100);
+      const cols = (e.columns || [])
+        .map((c) => `<span class="sg-col-chip">${c}</span>`)
+        .join(" ");
+      const badgeClass = `sg-badge sg-badge-${e.type}`;
+      return `
+      <div class="sg-rel-card">
+        <div class="sg-rel-header">
+          <span>${srcLabel}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          <span>${tgtLabel}</span>
+          <span class="${badgeClass}">${e.type}</span>
+        </div>
+        ${cols ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${cols}</div>` : ""}
+        ${e.description ? `<div class="sg-rel-desc">${e.description}</div>` : ""}
+        <div class="sg-strength-bar"><div class="sg-strength-fill" style="width:${strength}%"></div></div>
+      </div>`;
+    })
+    .join("");
+}
+
+function filterRelByType(type) {
+  sgRelFilter = type;
+  document.querySelectorAll(".sg-chip").forEach((chip) => {
+    chip.classList.toggle(
+      "active",
+      chip.getAttribute("onclick")?.includes(`'${type}'`),
+    );
+  });
+  renderRelationships(schemaState.edges);
+}
+
+// ── Catalog Tab ───────────────────────────────────────────────
+
+function renderCatalog(datasets, tables) {
+  const container = document.getElementById("sg-catalog-tree");
+  if (!container) return;
+
+  if (!tables.length) {
+    container.innerHTML =
+      "<p style='color:var(--text-sec);padding:20px'>Nenhuma tabela encontrada.</p>";
+    return;
+  }
+
+  const tablesByDs = {};
+  tables.forEach((t) => {
+    const ds = t.dataset_id || "desconhecido";
+    tablesByDs[ds] = tablesByDs[ds] || [];
+    tablesByDs[ds].push(t);
+  });
+
+  container.innerHTML = Object.entries(tablesByDs)
+    .map(
+      ([ds, tbls]) => `
+    <div class="sg-catalog-dataset">
+      <div class="sg-catalog-ds-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        ${ds} <span style="font-weight:400;color:var(--text-sec);margin-left:6px">(${tbls.length})</span>
+      </div>
+      <div class="sg-catalog-tables">
+        ${tbls
+          .map((t) => {
+            const label =
+              t.table_id || t.full_name?.split(".").pop() || t.full_name;
+            const cols = (t.columns || []).length;
+            return `<div class="sg-catalog-table">${label} <span style="color:var(--text-sec)">&nbsp;(${cols} cols)</span></div>`;
+          })
+          .join("")}
+      </div>
+    </div>`,
+    )
+    .join("");
+}
+
+// ── Tabs ──────────────────────────────────────────────────────
+
+function switchSchemaTab(name) {
+  sgActiveTab = name;
+  const tabs = ["graph", "relationships", "catalog", "export"];
+  tabs.forEach((t) => {
+    const pane = document.getElementById(`sg-panel-${t}`);
+    if (pane) pane.classList.toggle("active", t === name);
+    const btn = document.getElementById(`sg-tab-${t}`);
+    if (btn) btn.classList.toggle("active", t === name);
+  });
+}
+
+// ── Progress / Error helpers ──────────────────────────────────
+
+function setSchemaProgress(pct, label) {
+  const bar = document.getElementById("sg-progress");
+  const fill = document.getElementById("sg-progress-fill");
+  const lbl = document.getElementById("sg-progress-step");
+  if (!bar) return;
+  bar.style.display = "block";
+  if (fill) fill.style.width = pct + "%";
+  if (lbl) lbl.textContent = label || "";
+}
+
+function hideSchemaProgress() {
+  const bar = document.getElementById("sg-progress");
+  if (bar) bar.style.display = "none";
+}
+
+function showSchemaError(msg) {
+  const el = document.getElementById("sg-error");
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function hideSchemaError() {
+  const el = document.getElementById("sg-error");
+  if (el) el.style.display = "none";
+}
+
+function showSchemaWarnings(warnings) {
+  const el = document.getElementById("sg-warnings");
+  if (!el) return;
+  el.innerHTML = warnings.map((w) => `<div>⚠ ${w}</div>`).join("");
+  el.style.display = "block";
+}
+
+function hideSchemaWarnings() {
+  const el = document.getElementById("sg-warnings");
+  if (el) el.style.display = "none";
+}
+
+// ── Export ────────────────────────────────────────────────────
+
+function exportSchemaJSON() {
+  if (!schemaState.nodes.length) {
+    showSchemaError("Sem dados para exportar. Execute uma análise primeiro.");
+    return;
+  }
+  const payload = {
+    project_id: schemaState.projectId,
+    nodes: schemaState.nodes,
+    edges: schemaState.edges,
+    stats: schemaState.stats,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json",
+  });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `schema_graph_${schemaState.projectId || "export"}.json`;
+  a.click();
+}
+
+function exportSchemaSVG() {
+  const svg = document.getElementById("sg-d3-svg");
+  if (!svg || svg.style.display === "none") {
+    showSchemaError("Grafo não disponível. Execute uma análise primeiro.");
+    return;
+  }
+  const serializer = new XMLSerializer();
+  const svgStr = serializer.serializeToString(svg);
+  const blob = new Blob([svgStr], { type: "image/svg+xml" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `schema_graph_${schemaState.projectId || "export"}.svg`;
+  a.click();
+}
+
+// ── Modal ─────────────────────────────────────────────────────
+
+function openSchemaConfig() {
+  /* modal removed – config is inline */
+}
+function closeSchemaConfig() {
+  /* modal removed */
+}
+function applySchemaConfig() {
+  /* modal removed */
 }

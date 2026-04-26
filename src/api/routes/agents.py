@@ -34,6 +34,12 @@ class ValidateAnalyzerContextRequest(BaseModel):
     project_id: str | None = None
 
 
+class SuggestionsRequest(BaseModel):
+    project_id: str
+    dataset_hint: str
+    table_id: str
+
+
 _CHAT_LLM = None
 _DEFAULT_FINANCE_PROJECT = "silviosalviati"
 _NAME_PATTERNS = (
@@ -342,6 +348,77 @@ async def analyze_by_agent(
         return result
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/api/agents/query_build/suggestions")
+async def query_build_suggestions(
+    req: SuggestionsRequest,
+    _session: dict[str, Any] = Depends(get_current_user),
+):
+    from src.shared.tools.bigquery import get_dataset_tables_metadata
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    project_id = req.project_id.strip()
+    dataset_hint = req.dataset_hint.strip()
+    table_id = req.table_id.strip()
+
+    if not project_id or not dataset_hint or not table_id:
+        raise HTTPException(status_code=400, detail="project_id, dataset_hint e table_id sao obrigatorios.")
+
+    try:
+        metadata = get_dataset_tables_metadata(project_id, dataset_hint)
+        tables = metadata.get("tables", [])
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar metadata: {exc}")
+
+    # Build compact schema context
+    schema_lines: list[str] = []
+    focal_cols: list[str] = []
+    for t in tables:
+        cols = t.get("columns") or []
+        schema_lines.append(f"- {t['full_name']} | colunas: {', '.join(cols) if cols else '(desconhecidas)'}")
+        if t.get("table_name") == table_id or t.get("full_name", "").endswith(f".{table_id}"):
+            focal_cols = cols
+
+    schema_ctx = "\n".join(schema_lines) if schema_lines else "(schema nao disponivel)"
+    focal_ctx = f"Colunas de {table_id}: {', '.join(focal_cols)}" if focal_cols else ""
+
+    system_prompt = (
+        "Voce e um analista de dados senior especialista em BigQuery. "
+        "Gere exatamente 5 sugestoes de perguntas de negocio em linguagem natural "
+        "que podem ser respondidas com SQL sobre o dataset informado. "
+        "As sugestoes devem ser variadas: agregacoes, rankings, tendencias temporais, "
+        "comparacoes e analises de relacionamento entre tabelas. "
+        "Responda APENAS com JSON valido no formato: "
+        '{\"suggestions\": [\"sugestao 1\", \"sugestao 2\", \"sugestao 3\", \"sugestao 4\", \"sugestao 5\"]}'
+    )
+
+    user_prompt = (
+        f"Tabela principal em foco: {project_id}.{dataset_hint}.{table_id}\n"
+        f"{focal_ctx}\n\n"
+        f"Schema completo do dataset:\n{schema_ctx}\n\n"
+        "Gere 5 sugestoes de perguntas de negocio que explorem bem esta tabela "
+        "e seus relacionamentos com as demais tabelas do dataset."
+    )
+
+    try:
+        llm = create_llm()
+        response = llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
+        ])
+        raw = response.content if hasattr(response, "content") else str(response)
+        # Strip markdown fences if present
+        raw = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.MULTILINE)
+        raw = re.sub(r"\s*```$", "", raw.strip(), flags=re.MULTILINE)
+        import json as _json
+        parsed = _json.loads(raw)
+        suggestions = parsed.get("suggestions", [])
+        if not isinstance(suggestions, list):
+            suggestions = []
+        return {"suggestions": suggestions[:5]}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar sugestoes: {exc}")
 
 
 @router.post("/api/agents/query_build/validate-dataset")

@@ -5749,6 +5749,57 @@ function neoGoQB(dsRef, tableId) {
     if (di) di.value = parts[1];
   }
   navTo("qb");
+  // Trigger dataset validation then fetch suggestions
+  validateQBDatasetHint().then(() => {
+    _loadQBSuggestions(parts[0] || "", parts[1] || "", tableId);
+  });
+}
+
+async function _loadQBSuggestions(projectId, datasetHint, tableId) {
+  const block = document.getElementById("qb-suggestions-block");
+  const loadingEl = document.getElementById("qb-suggestions-loading");
+  const listEl = document.getElementById("qb-suggestions-list");
+
+  if (!block || !listEl) return;
+
+  listEl.innerHTML = "";
+  block.style.display = "block";
+  if (loadingEl) loadingEl.style.display = "flex";
+
+  try {
+    const res = await fetch("/api/agents/query_build/suggestions", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        project_id: projectId,
+        dataset_hint: datasetHint,
+        table_id: tableId,
+      }),
+    });
+
+    if (res.status === 401) { doLogout(); return; }
+    if (!res.ok) throw new Error("Falha ao buscar sugestoes.");
+
+    const data = await res.json();
+    const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+
+    if (loadingEl) loadingEl.style.display = "none";
+
+    if (suggestions.length === 0) {
+      listEl.innerHTML = '<p class="qb-sugg-empty">Nenhuma sugestao disponivel.</p>';
+      return;
+    }
+
+    listEl.innerHTML = suggestions
+      .map(
+        (s) =>
+          `<button class="qb-sugg-chip" onclick="document.getElementById('qb-request').value=this.dataset.text;document.getElementById('qb-suggestions-block').style.display='none';syncQBGenerateButtonState();" data-text="${s.replace(/"/g, '&quot;')}">${s}</button>`,
+      )
+      .join("");
+  } catch (e) {
+    if (loadingEl) loadingEl.style.display = "none";
+    listEl.innerHTML = '<p class="qb-sugg-empty">Erro ao carregar sugestoes.</p>';
+  }
 }
 
 // ── Edge click tooltip ────────────────────────────────────────────────────

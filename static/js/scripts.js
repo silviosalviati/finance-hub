@@ -5080,22 +5080,28 @@ function _neoRender(data) {
         .on("start", (ev, d) => {
           d.fx = d.x;
           d.fy = d.y;
+          d._dragStartX = d.x;
+          d._dragStartY = d.y;
+          // Only this node moves — column satellites follow via _neoColumnPos
+          d._dragConnected = [];
         })
         .on("drag", (ev, d) => {
+          const ddx = ev.x - d._dragStartX;
+          const ddy = ev.y - d._dragStartY;
           d.fx = ev.x;
           d.fy = ev.y;
           d.x = ev.x;
           d.y = ev.y;
-          // Reposition this node and all its column satellites directly
-          d3.select(ev.sourceEvent.target.closest(".neo-node")).attr(
-            "transform",
-            `translate(${d.fx},${d.fy})`,
-          );
-          // Redraw edges and column nodes that depend on this table node
+          // Reposition only this table node in the DOM
+          if (_neo.nodeG) {
+            _neo.nodeG
+              .filter((n) => n.id === d.id)
+              .attr("transform", `translate(${d.x},${d.y})`);
+          }
+          // Redraw edges and column nodes
           if (_neo.edgePaths) _neo.edgePaths.attr("d", (e) => _neoEdgePath(e));
           if (_neo.colNodeG) {
             _neo.colNodeG.attr("transform", (c) => {
-              if (c.tableId !== d.id) return;
               const p = _neoColumnPos(c);
               c.x = p.x;
               c.y = p.y;
@@ -5104,7 +5110,6 @@ function _neoRender(data) {
           }
           if (_neo.tableColEdgePaths) {
             _neo.tableColEdgePaths.attr("d", (e) => {
-              if (e.tableId !== d.id) return;
               const t = _neo.nodeMap[e.tableId];
               const c = e.colNode;
               if (!t?.x || !c?.x) return "";
@@ -5149,7 +5154,16 @@ function _neoRender(data) {
           }
         })
         .on("end", (_ev, _d) => {
-          // Keep fx/fy pinned so node stays where dropped
+          // Keep fx/fy pinned so all moved nodes stay where dropped
+          if (_d._dragConnected) {
+            _d._dragConnected.forEach(({ node }) => {
+              node.fx = node.x;
+              node.fy = node.y;
+            });
+          }
+          _d._dragConnected = null;
+          _d._dragStartX = null;
+          _d._dragStartY = null;
         }),
     )
     .on("click", (ev, d) => {

@@ -1059,12 +1059,12 @@ async function runQueryBuild() {
   }
 
   if (!projectId) {
-    showQBError("Preencha o Project ID do GCP.");
+    showQBError("Abra o Query Builder pelo ER Diagram para carregar o contexto do projeto.");
     return;
   }
 
   if (!datasetHint) {
-    showQBError("Preencha o Dataset hint obrigatório.");
+    showQBError("Abra o Query Builder pelo ER Diagram para carregar o dataset.");
     return;
   }
 
@@ -1074,7 +1074,7 @@ async function runQueryBuild() {
     qbDatasetValidationState.projectId === projectId;
   if (!isValidDataset) {
     showQBError(
-      "Valide o Dataset hint no BigQuery/Data Catalog antes de gerar SQL.",
+      "Contexto ainda não validado. Volte ao ER Diagram e abra novamente o Query Builder.",
     );
     return;
   }
@@ -5748,22 +5748,44 @@ function neoGoQB(dsRef, tableId) {
     if (pi) pi.value = parts[0];
     if (di) di.value = parts[1];
   }
+
+  const contextStrip = document.getElementById("qb-context-strip");
+  const contextDataset = document.getElementById("qb-context-dataset");
+  const contextTable = document.getElementById("qb-context-table");
+  if (contextStrip) contextStrip.style.display = "flex";
+  if (contextDataset) contextDataset.textContent = `dataset: ${parts[1] || "-"}`;
+  if (contextTable) contextTable.textContent = `tabela foco: ${tableId || "-"}`;
+
   navTo("qb");
+
   // Trigger dataset validation then fetch suggestions
   validateQBDatasetHint().then(() => {
     _loadQBSuggestions(parts[0] || "", parts[1] || "", tableId);
   });
 }
 
+function _escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 async function _loadQBSuggestions(projectId, datasetHint, tableId) {
   const block = document.getElementById("qb-suggestions-block");
   const loadingEl = document.getElementById("qb-suggestions-loading");
   const listEl = document.getElementById("qb-suggestions-list");
+  const subEl = document.getElementById("qb-sugg-sub");
 
   if (!block || !listEl) return;
 
   listEl.innerHTML = "";
   block.style.display = "block";
+  if (subEl) {
+    subEl.textContent = `Contexto: ${projectId}.${datasetHint}.${tableId} • clique em uma sugestão para preencher a solicitação.`;
+  }
   if (loadingEl) loadingEl.style.display = "flex";
 
   try {
@@ -5777,7 +5799,10 @@ async function _loadQBSuggestions(projectId, datasetHint, tableId) {
       }),
     });
 
-    if (res.status === 401) { doLogout(); return; }
+    if (res.status === 401) {
+      doLogout();
+      return;
+    }
     if (!res.ok) throw new Error("Falha ao buscar sugestoes.");
 
     const data = await res.json();
@@ -5786,19 +5811,21 @@ async function _loadQBSuggestions(projectId, datasetHint, tableId) {
     if (loadingEl) loadingEl.style.display = "none";
 
     if (suggestions.length === 0) {
-      listEl.innerHTML = '<p class="qb-sugg-empty">Nenhuma sugestao disponivel.</p>';
+      listEl.innerHTML =
+        '<p class="qb-sugg-empty">Nenhuma sugestao disponivel.</p>';
       return;
     }
 
     listEl.innerHTML = suggestions
       .map(
-        (s) =>
-          `<button class="qb-sugg-chip" onclick="document.getElementById('qb-request').value=this.dataset.text;document.getElementById('qb-suggestions-block').style.display='none';syncQBGenerateButtonState();" data-text="${s.replace(/"/g, '&quot;')}">${s}</button>`,
+        (s, idx) =>
+          `<button class="qb-sugg-chip" onclick="document.getElementById('qb-request').value=this.dataset.text;document.getElementById('qb-suggestions-block').style.display='none';syncQBGenerateButtonState();" data-text="${_escapeHtml(s)}"><strong>${idx + 1}.</strong> ${_escapeHtml(s)}</button>`,
       )
       .join("");
   } catch (e) {
     if (loadingEl) loadingEl.style.display = "none";
-    listEl.innerHTML = '<p class="qb-sugg-empty">Erro ao carregar sugestoes.</p>';
+    listEl.innerHTML =
+      '<p class="qb-sugg-empty">Erro ao carregar sugestoes.</p>';
   }
 }
 

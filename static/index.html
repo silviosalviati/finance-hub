@@ -1135,57 +1135,27 @@
 
             <div class="qa-body">
               <div class="qa-form">
-                <div class="qlabel">Configuração</div>
-
-                <div class="qfield">
-                  <label for="qb-project">Project ID — GCP</label>
-                  <input
-                    type="text"
-                    id="qb-project"
-                    placeholder="porto-finance-prod"
-                    autocomplete="off"
-                  />
+                <input type="hidden" id="qb-project" autocomplete="off" />
+                <input type="hidden" id="qb-dataset" autocomplete="off" />
+                <span
+                  id="qb-dataset-indicator"
+                  class="qb-dataset-indicator"
+                  style="display: none"
+                  >●</span
+                >
+                <div id="qb-dataset-status" class="qb-dataset-status" style="display: none">
+                  <div class="qb-dataset-status-head">
+                    <span id="qb-dataset-status-icon" class="qb-dataset-status-icon">•</span>
+                    <span id="qb-dataset-status-title" class="qb-dataset-status-title"></span>
+                  </div>
+                  <p id="qb-dataset-status-text" class="qb-dataset-status-text"></p>
+                  <div id="qb-dataset-status-meta" class="qb-dataset-status-meta"></div>
                 </div>
 
-                <div class="qfield">
-                  <label for="qb-dataset"
-                    >Dataset hint (obrigatorio)
-                    <span id="qb-dataset-indicator" class="qb-dataset-indicator"
-                      >●</span
-                    ></label
-                  >
-                  <input
-                    type="text"
-                    id="qb-dataset"
-                    placeholder="ex: inteligencia_negocios"
-                    required
-                    autocomplete="off"
-                  />
-                  <div
-                    id="qb-dataset-status"
-                    class="qb-dataset-status"
-                    aria-live="polite"
-                  >
-                    <div class="qb-dataset-status-head">
-                      <span
-                        id="qb-dataset-status-icon"
-                        class="qb-dataset-status-icon"
-                        >•</span
-                      >
-                      <span
-                        id="qb-dataset-status-title"
-                        class="qb-dataset-status-title"
-                      ></span>
-                    </div>
-                    <p
-                      id="qb-dataset-status-text"
-                      class="qb-dataset-status-text"
-                    ></p>
-                    <div
-                      id="qb-dataset-status-meta"
-                      class="qb-dataset-status-meta"
-                    ></div>
-                  </div>
+                <div id="qb-context-strip" class="qb-context-strip" style="display: none">
+                  <span class="qb-context-label">Contexto carregado do ER Diagram</span>
+                  <span id="qb-context-dataset" class="qb-context-chip"></span>
+                  <span id="qb-context-table" class="qb-context-chip"></span>
                 </div>
 
                 <div class="qfield">
@@ -1216,14 +1186,50 @@
                   </p>
                 </div>
                 <!-- ── Suggestions from ER Diagram ── -->
-                <div id="qb-suggestions-block" style="display:none">
+                <div id="qb-suggestions-block" style="display: none">
                   <div class="qb-sugg-header">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <polygon
+                        points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+                      />
+                    </svg>
                     Sugestões baseadas no schema
-                    <button class="qb-sugg-dismiss" onclick="document.getElementById('qb-suggestions-block').style.display='none'" title="Fechar">✕</button>
+                    <button
+                      class="qb-sugg-dismiss"
+                      onclick="
+                        document.getElementById(
+                          'qb-suggestions-block',
+                        ).style.display = 'none'
+                      "
+                      title="Fechar"
+                    >
+                      ✕
+                    </button>
                   </div>
-                  <div id="qb-suggestions-loading" class="qb-sugg-loading" style="display:none">
-                    <div class="spinner" style="display:inline-block;width:14px;height:14px;border-width:2px"></div>
+                  <p id="qb-sugg-sub" class="qb-sugg-sub"></p>
+                  <div
+                    id="qb-suggestions-loading"
+                    class="qb-sugg-loading"
+                    style="display: none"
+                  >
+                    <div
+                      class="spinner"
+                      style="
+                        display: inline-block;
+                        width: 14px;
+                        height: 14px;
+                        border-width: 2px;
+                      "
+                    ></div>
                     Gerando sugestões com IA…
                   </div>
                   <div id="qb-suggestions-list" class="qb-sugg-list"></div>

@@ -125,6 +125,13 @@ Entrada:
 - `project_id`
 - `dataset_hint` opcional, porém recomendado
 
+Fluxo de uso na interface (atual):
+
+- o Query Builder é aberto a partir do ER Diagram Explorer (botão `Abrir no Query Builder`)
+- `project_id` e `dataset_hint` são carregados automaticamente do contexto selecionado
+- o painel de configuração foi removido da UI do Query Builder (campos mantidos apenas internamente)
+- uma faixa de contexto exibe dataset e tabela foco carregados do ER Diagram
+
 Pipeline de alto nível:
 
 1. Gera SQL com contexto de tabelas reais do dataset.
@@ -146,6 +153,13 @@ Validação de dataset:
 - valida a existência do dataset no BigQuery
 - retorna `valid`, `table_count` e mensagem de status
 - o frontend bloqueia a geração da SQL quando o dataset não foi validado
+
+Sugestões automáticas vindas do ER Diagram:
+
+- endpoint: `POST /api/agents/query_build/suggestions`
+- entrada: `project_id`, `dataset_hint`, `table_id`
+- gera 5 sugestões em linguagem natural baseadas no schema real do dataset
+- o frontend renderiza as sugestões em cards clicáveis para preencher a solicitação no Query Builder
 
 ## Document Builder
 

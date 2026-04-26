@@ -181,7 +181,7 @@
                   <line x1="18" y1="9" x2="18" y2="15" />
                 </svg>
               </div>
-              ER Diagram
+              Schema Explorer
             </div>
 
             <div class="nitem" id="nav-hist" onclick="navTo('hist')">
@@ -458,7 +458,7 @@
                   <span class="bstatus st-live">DISPONÍVEL</span>
                 </div>
                 <div>
-                  <div class="bname">ER Diagram Explorer</div>
+                  <div class="bname">Schema Explorer</div>
                   <div class="bdesc">
                     Visualize o diagrama ER de qualquer dataset BigQuery com
                     relacionamentos inferidos e layout interativo.
@@ -466,7 +466,7 @@
                 </div>
                 <div class="bfoot">
                   <div class="btags">
-                    <span class="tag">ER Diagram</span>
+                    <span class="tag">Schema Explorer</span>
                     <span class="tag">BigQuery</span>
                     <span class="tag">DataOps</span>
                   </div>
@@ -1143,17 +1143,40 @@
                   style="display: none"
                   >●</span
                 >
-                <div id="qb-dataset-status" class="qb-dataset-status" style="display: none">
+                <div
+                  id="qb-dataset-status"
+                  class="qb-dataset-status"
+                  style="display: none"
+                >
                   <div class="qb-dataset-status-head">
-                    <span id="qb-dataset-status-icon" class="qb-dataset-status-icon">•</span>
-                    <span id="qb-dataset-status-title" class="qb-dataset-status-title"></span>
+                    <span
+                      id="qb-dataset-status-icon"
+                      class="qb-dataset-status-icon"
+                      >•</span
+                    >
+                    <span
+                      id="qb-dataset-status-title"
+                      class="qb-dataset-status-title"
+                    ></span>
                   </div>
-                  <p id="qb-dataset-status-text" class="qb-dataset-status-text"></p>
-                  <div id="qb-dataset-status-meta" class="qb-dataset-status-meta"></div>
+                  <p
+                    id="qb-dataset-status-text"
+                    class="qb-dataset-status-text"
+                  ></p>
+                  <div
+                    id="qb-dataset-status-meta"
+                    class="qb-dataset-status-meta"
+                  ></div>
                 </div>
 
-                <div id="qb-context-strip" class="qb-context-strip" style="display: none">
-                  <span class="qb-context-label">Contexto carregado do ER Diagram</span>
+                <div
+                  id="qb-context-strip"
+                  class="qb-context-strip"
+                  style="display: none"
+                >
+                  <span class="qb-context-label"
+                    >Contexto carregado do Schema Explorer</span
+                  >
                   <span id="qb-context-dataset" class="qb-context-chip"></span>
                   <span id="qb-context-table" class="qb-context-chip"></span>
                 </div>
@@ -2267,7 +2290,7 @@ runbook_operacional</pre
                   </svg>
                   Voltar
                 </button>
-                <span class="neo-breadcrumb">ER Diagram Explorer</span>
+                <span class="neo-breadcrumb">Schema Explorer</span>
               </div>
 
               <div class="neo-tb-inputs">
@@ -2401,7 +2424,7 @@ runbook_operacional</pre
               <!-- Empty state -->
               <div class="neo-overlay neo-empty" id="neo-empty">
                 <div class="neo-empty-icon">🔗</div>
-                <div class="neo-empty-title">ER Diagram Explorer</div>
+                <div class="neo-empty-title">Schema Explorer</div>
                 <div class="neo-empty-text">
                   Informe o Project ID e Dataset para visualizar o diagrama de
                   relacionamentos entre tabelas BigQuery.

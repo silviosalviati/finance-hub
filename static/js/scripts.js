@@ -1059,12 +1059,16 @@ async function runQueryBuild() {
   }
 
   if (!projectId) {
-    showQBError("Abra o Query Builder pelo ER Diagram para carregar o contexto do projeto.");
+    showQBError(
+      "Abra o Query Builder pelo Schema Explorer para carregar o contexto do projeto.",
+    );
     return;
   }
 
   if (!datasetHint) {
-    showQBError("Abra o Query Builder pelo ER Diagram para carregar o dataset.");
+    showQBError(
+      "Abra o Query Builder pelo Schema Explorer para carregar o dataset.",
+    );
     return;
   }
 
@@ -1074,7 +1078,7 @@ async function runQueryBuild() {
     qbDatasetValidationState.projectId === projectId;
   if (!isValidDataset) {
     showQBError(
-      "Contexto ainda não validado. Volte ao ER Diagram e abra novamente o Query Builder.",
+      "Contexto ainda não validado. Volte ao Schema Explorer e abra novamente o Query Builder.",
     );
     return;
   }
@@ -3927,10 +3931,10 @@ const showcaseBots = [
     action: () => navTo("audit"),
   },
   {
-    name: "ER Diagram Explorer",
+    name: "Schema Explorer",
     description:
       "Visualize o diagrama ER de datasets BigQuery com relacionamentos e navegação interativa.",
-    tags: ["ER Diagram", "BigQuery", "DataOps"],
+    tags: ["Schema Explorer", "BigQuery", "DataOps"],
     status: "Disponível",
     action: () => navTo("er"),
   },
@@ -5753,7 +5757,8 @@ function neoGoQB(dsRef, tableId) {
   const contextDataset = document.getElementById("qb-context-dataset");
   const contextTable = document.getElementById("qb-context-table");
   if (contextStrip) contextStrip.style.display = "flex";
-  if (contextDataset) contextDataset.textContent = `dataset: ${parts[1] || "-"}`;
+  if (contextDataset)
+    contextDataset.textContent = `dataset: ${parts[1] || "-"}`;
   if (contextTable) contextTable.textContent = `tabela foco: ${tableId || "-"}`;
 
   navTo("qb");

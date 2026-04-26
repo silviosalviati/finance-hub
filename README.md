@@ -127,10 +127,10 @@ Entrada:
 
 Fluxo de uso na interface (atual):
 
-- o Query Builder é aberto a partir do ER Diagram Explorer (botão `Abrir no Query Builder`)
+- o Query Builder é aberto a partir do Schema Explorer (botão `Abrir no Query Builder`)
 - `project_id` e `dataset_hint` são carregados automaticamente do contexto selecionado
 - o painel de configuração foi removido da UI do Query Builder (campos mantidos apenas internamente)
-- uma faixa de contexto exibe dataset e tabela foco carregados do ER Diagram
+- uma faixa de contexto exibe dataset e tabela foco carregados do Schema Explorer
 
 Pipeline de alto nível:
 
@@ -154,7 +154,7 @@ Validação de dataset:
 - retorna `valid`, `table_count` e mensagem de status
 - o frontend bloqueia a geração da SQL quando o dataset não foi validado
 
-Sugestões automáticas vindas do ER Diagram:
+Sugestões automáticas vindas do Schema Explorer:
 
 - endpoint: `POST /api/agents/query_build/suggestions`
 - entrada: `project_id`, `dataset_hint`, `table_id`

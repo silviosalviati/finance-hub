@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
@@ -10,6 +10,7 @@
     />
     <link rel="stylesheet" href="/static/css/style.css" />
     <script src="/static/js/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
   </head>
   <body>
     <main id="app">
@@ -180,6 +181,31 @@
               </div>
               Schema Explorer
               <span class="nbadge" id="schema-table-badge">0</span>
+            </div>
+
+            <div class="nitem" id="nav-er" onclick="navTo('er')">
+              <div class="nicon">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#3D5276"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="2" y="3" width="8" height="6" rx="1" />
+                  <rect x="14" y="3" width="8" height="6" rx="1" />
+                  <rect x="2" y="15" width="8" height="6" rx="1" />
+                  <rect x="14" y="15" width="8" height="6" rx="1" />
+                  <line x1="10" y1="6" x2="14" y2="6" />
+                  <line x1="10" y1="18" x2="14" y2="18" />
+                  <line x1="6" y1="9" x2="6" y2="15" />
+                  <line x1="18" y1="9" x2="18" y2="15" />
+                </svg>
+              </div>
+              ER Diagram
             </div>
 
             <div class="nitem" id="nav-hist" onclick="navTo('hist')">
@@ -434,6 +460,66 @@
                 </div>
               </article>
 
+              <!-- ER Diagram Explorer -->
+              <article
+                class="bot-card bc-er"
+                onclick="navTo('er')"
+                style="cursor: pointer"
+              >
+                <div class="bhead">
+                  <div
+                    class="biw"
+                    style="background: var(--violet-bg, #f5f3ff)"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#6D28D9"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <rect x="2" y="3" width="8" height="6" rx="1" />
+                      <rect x="14" y="3" width="8" height="6" rx="1" />
+                      <rect x="2" y="15" width="8" height="6" rx="1" />
+                      <rect x="14" y="15" width="8" height="6" rx="1" />
+                      <line x1="10" y1="6" x2="14" y2="6" />
+                      <line x1="10" y1="18" x2="14" y2="18" />
+                      <line x1="6" y1="9" x2="6" y2="15" />
+                      <line x1="18" y1="9" x2="18" y2="15" />
+                    </svg>
+                  </div>
+                  <span class="bstatus st-live">DISPONIVEL</span>
+                </div>
+                <div>
+                  <div class="bname">ER Diagram Explorer</div>
+                  <div class="bdesc">
+                    Visualize o diagrama ER de qualquer dataset BigQuery com
+                    relacionamentos inferidos e layout hierárquico interativo.
+                  </div>
+                </div>
+                <div class="bfoot">
+                  <div class="btags">
+                    <span class="tag">ER Diagram</span>
+                    <span class="tag">BigQuery</span>
+                    <span class="tag">DataOps</span>
+                  </div>
+                  <button class="btn-open">
+                    Acessar
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </article>
+
               <!-- Query Build -->
               <article class="bot-card bc-qb" onclick="navTo('qb')">
                 <div class="bhead">
@@ -532,34 +618,6 @@
                       <path d="M5 12h14M12 5l7 7-7 7" />
                     </svg>
                   </button>
-                </div>
-              </article>
-
-              <!-- Slot vazio -->
-              <article class="bot-card soon">
-                <div class="soon-center">
-                  <div class="soon-ico">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#8096B2"
-                      stroke-width="1.8"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="8" x2="12" y2="12" />
-                      <line x1="12" y1="16" x2="12.01" y2="16" />
-                    </svg>
-                  </div>
-                  <div class="soon-lbl">Em breve</div>
-                </div>
-
-                <div class="bfoot">
-                  <div></div>
-                  <span class="btn-soon-label">Disponível Q4 2025</span>
                 </div>
               </article>
             </div>
@@ -2671,6 +2729,117 @@ runbook_operacional</pre
               </div>
             </div>
           </section>
+
+
+          <!-- ── ER DIAGRAM EXPLORER VIEW ── -->
+          <section class="view" id="view-er" style="padding:0;position:relative;overflow:hidden;display:flex;flex-direction:column;">
+
+            <!-- Toolbar -->
+            <div class="neo-toolbar" id="neo-toolbar">
+              <div class="neo-tb-left">
+                <button class="btn-back" type="button" onclick="navTo('home')">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+                  Voltar
+                </button>
+                <span class="neo-breadcrumb">ER Diagram Explorer</span>
+              </div>
+
+              <div class="neo-tb-inputs">
+                <div class="neo-field">
+                  <label for="neo-project">Project ID</label>
+                  <input id="neo-project" type="text" placeholder="my-project" autocomplete="off" spellcheck="false"
+                    onkeydown="if(event.key==='Enter')loadNeoGraph()"/>
+                </div>
+                <div class="neo-field neo-field-ds">
+                  <label for="neo-dataset">Dataset</label>
+                  <div class="neo-ds-wrap">
+                    <input id="neo-dataset" type="text" placeholder="my_dataset" autocomplete="off" spellcheck="false"
+                      onkeydown="if(event.key==='Enter')loadNeoGraph()"/>
+                    <span class="neo-ds-indicator" id="neo-ds-indicator"></span>
+                  </div>
+                </div>
+                <button class="neo-map-btn" id="neo-map-btn" onclick="loadNeoGraph()" disabled>Mapear</button>
+              </div>
+
+              <div class="neo-tb-right">
+                <label class="neo-toggle-wrap">
+                  <input type="checkbox" id="neo-toggle-keys" onchange="neoToggleKeys(this.checked)"/>
+                  <span>Apenas chaves</span>
+                </label>
+                <label class="neo-toggle-wrap">
+                  <input type="checkbox" id="neo-toggle-inferred" onchange="neoToggleInferred(this.checked)"/>
+                  <span>Ocultar inferidos</span>
+                </label>
+                <div class="neo-search-wrap">
+                  <input id="neo-search" type="text" placeholder="Buscar tabela…" oninput="neoSearch(this.value)" autocomplete="off"/>
+                </div>
+                <button class="neo-icon-btn" onclick="neoResetCamera()" title="Resetar câmera">⊹ Câmera</button>
+                <button class="neo-icon-btn" onclick="neoExportPng()" title="Exportar PNG">↓ PNG</button>
+              </div>
+            </div>
+
+            <!-- Canvas -->
+            <div class="neo-canvas-wrap" id="neo-canvas-wrap">
+              <svg id="neo-svg" style="display:none;">
+                <defs>
+                  <marker id="neo-arrow-high" viewBox="0 -4 8 8" refX="8" refY="0"
+                    markerWidth="8" markerHeight="8" orient="auto">
+                    <path d="M0,-4 L8,0 L0,4 Z" fill="#94a3b8"/>
+                  </marker>
+                  <marker id="neo-arrow-medium" viewBox="0 -4 8 8" refX="8" refY="0"
+                    markerWidth="8" markerHeight="8" orient="auto">
+                    <path d="M0,-4 L8,0 L0,4 Z" fill="#d97706"/>
+                  </marker>
+                  <marker id="neo-arrow-low" viewBox="0 -4 8 8" refX="8" refY="0"
+                    markerWidth="8" markerHeight="8" orient="auto">
+                    <path d="M0,-4 L8,0 L0,4 Z" fill="#475569"/>
+                  </marker>
+                </defs>
+              </svg>
+
+              <!-- Legend -->
+              <div class="neo-legend" id="neo-legend" style="display:none;">
+                <div class="neo-legend-title">Tabelas</div>
+                <div class="neo-legend-item"><span class="neo-legend-dot" style="background:#004691;"></span>Fato</div>
+                <div class="neo-legend-item"><span class="neo-legend-dot" style="background:#0891b2;"></span>Dimensão</div>
+                <div class="neo-legend-item"><span class="neo-legend-dot" style="background:#64748b;"></span>Staging</div>
+                <div class="neo-legend-item"><span class="neo-legend-dot" style="background:#6d28d9;"></span>Agregada</div>
+                <div class="neo-legend-item"><span class="neo-legend-dot" style="background:#3d5276;"></span>Unknown</div>
+                <div class="neo-legend-sep"></div>
+                <div class="neo-legend-title">Relações</div>
+                <div class="neo-legend-item"><span class="neo-legend-line neo-legend-line-high"></span>Alta confiança</div>
+                <div class="neo-legend-item"><span class="neo-legend-line neo-legend-line-medium"></span>Média confiança</div>
+                <div class="neo-legend-item"><span class="neo-legend-line neo-legend-line-low"></span>Inferido</div>
+              </div>
+
+              <!-- Error -->
+              <div class="neo-overlay neo-error" id="neo-error" style="display:none;"></div>
+
+              <!-- Empty state -->
+              <div class="neo-overlay neo-empty" id="neo-empty">
+                <div class="neo-empty-icon">🔗</div>
+                <div class="neo-empty-title">ER Diagram Explorer</div>
+                <div class="neo-empty-text">Informe o Project ID e Dataset para visualizar o diagrama de relacionamentos entre tabelas BigQuery.</div>
+              </div>
+
+              <!-- Loading -->
+              <div class="neo-overlay neo-loading" id="neo-loading" style="display:none;">
+                <div class="neo-loading-spinner"></div>
+                <div class="neo-loading-text">Carregando schema…</div>
+              </div>
+            </div>
+
+            <!-- Detail panel -->
+            <div class="neo-detail" id="neo-detail" style="display:none;">
+              <div class="neo-detail-header">
+                <div class="neo-detail-title" id="neo-detail-title">—</div>
+                <button class="neo-detail-close" onclick="neoCloseDetail()" title="Fechar">✕</button>
+              </div>
+              <div class="neo-detail-body" id="neo-detail-body"></div>
+            </div>
+
+          </section>
+
 
           <!-- ── DEV VIEW ── -->
           <section class="view" id="view-dev">

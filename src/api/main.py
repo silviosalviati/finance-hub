@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from src.api.dependencies import session_count
 from src.api.routes.agents import router as agents_router
 from src.api.routes.auth import router as auth_router
+from src.api.routes.schema_explorer import router as schema_explorer_router
 from src.shared.config import ALLOWED_ORIGINS, LLM_PROVIDER, validate_runtime_config
 
 app = FastAPI(title="Finance Hub IA ", version="3.0.0")
@@ -31,6 +32,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(agents_router)
+app.include_router(schema_explorer_router)
 
 
 def _validate_startup_config() -> None:

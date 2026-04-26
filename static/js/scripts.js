@@ -867,6 +867,7 @@ function navTo(view) {
     qb: "view-qb",
     audit: "view-fa",
     schema: "view-schema",
+    er: "view-er",
     dev: "view-dev",
     hist: "view-hist",
   };
@@ -892,6 +893,9 @@ function navTo(view) {
     initFAInputListener();
   } else if (view === "schema") {
     document.getElementById("nav-schema")?.classList.add("active");
+  } else if (view === "er") {
+    document.getElementById("nav-er")?.classList.add("active");
+    initErView();
   }
 }
 
@@ -5472,4 +5476,656 @@ function closeSchemaConfig() {
 }
 function applySchemaConfig() {
   /* modal removed */
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+//  ER DIAGRAM EXPLORER — Neo4j-style D3 Force Graph
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── State ──────────────────────────────────────────────────────────────────
+const _neo = {
+  data: null, svg: null, inner: null, zoom: null, simulation: null,
+  nodeMap: {}, nodeG: null, edgePaths: null, edgeLblG: null,
+  expandedNodes: new Set(), selectedNode: null,
+  showKeysOnly: false, hideInferred: false, searchTerm: "",
+  dsRef: "", initialized: false, width: 0, height: 0, zoomT: null,
+};
+
+const _NEO_COLOR = {
+  fact:       { fill: "#004691", stroke: "#3b70c0" },
+  dimension:  { fill: "#0891b2", stroke: "#30b0d8" },
+  staging:    { fill: "#64748b", stroke: "#94a3b8" },
+  aggregated: { fill: "#6d28d9", stroke: "#9460f0" },
+  unknown:    { fill: "#3d5276", stroke: "#5a7090" },
+};
+
+const _NEO_EDGE_STYLE = {
+  high:   { color: "#94a3b8", dash: null },
+  medium: { color: "#d97706", dash: null },
+  low:    { color: "#475569", dash: "5,3" },
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function _neoRadius(node) {
+  const keys = node.columns.filter(c =>
+    c.is_pk_candidate || c.is_fk_candidate || c.is_partition || c.is_clustering);
+  const expanded = _neo.expandedNodes.has(node.id);
+  const vis = (_neo.showKeysOnly && !expanded)
+    ? Math.max(keys.length, 1)
+    : node.columns.length;
+  return Math.min(65 + vis * 4, 95);
+}
+
+function _neoVisibleCols(node) {
+  const expanded = _neo.expandedNodes.has(node.id);
+  if (!_neo.showKeysOnly || expanded) return node.columns;
+  const k = node.columns.filter(c =>
+    c.is_pk_candidate || c.is_fk_candidate || c.is_partition || c.is_clustering);
+  return k.length ? k : node.columns.slice(0, 3);
+}
+
+function _neoColIcon(c) {
+  if (c.is_pk_candidate) return "🔑";
+  if (c.is_partition)    return "⚡";
+  if (c.is_clustering)   return "🔷";
+  if (c.is_fk_candidate) return "🔗";
+  return " ";
+}
+
+function _neoShortType(t) {
+  if (!t) return "?";
+  const u = t.toUpperCase().split("(")[0];
+  const m = {
+    STRING:"STR", INT64:"INT", INTEGER:"INT", FLOAT64:"FLT", NUMERIC:"NUM",
+    BOOLEAN:"BOOL", DATE:"DATE", DATETIME:"DT", TIMESTAMP:"TS", BYTES:"BYT",
+    ARRAY:"ARR", STRUCT:"OBJ", BIGNUMERIC:"BNUM", FLOAT:"FLT", BIGINT:"INT",
+    SMALLINT:"INT", TINYINT:"INT", VARCHAR:"STR", CHAR:"STR", DECIMAL:"NUM",
+  };
+  return m[u] || u.slice(0, 4);
+}
+
+// ── Init (called once on navTo) ────────────────────────────────────────────
+function initErView() {
+  if (_neo.initialized) return;
+  _neo.initialized = true;
+  _neoWireValidation();
+}
+
+// ── Dataset validation (debounce 1s, mirrors QB pattern) ──────────────────
+let _neoValTimer = null;
+
+function _neoWireValidation() {
+  const pIn = document.getElementById("neo-project");
+  const dIn = document.getElementById("neo-dataset");
+  if (!pIn || !dIn) return;
+  const onChange = () => {
+    clearTimeout(_neoValTimer);
+    _neoSetBtn(false);
+    _neoDsIndicator("typing");
+    _neoValTimer = setTimeout(_neoValidate, 1000);
+  };
+  pIn.addEventListener("input", onChange);
+  dIn.addEventListener("input", onChange);
+}
+
+function _neoDsIndicator(s) {
+  const el = document.getElementById("neo-ds-indicator");
+  if (!el) return;
+  const map = {
+    idle:    "",
+    typing:  '<span style="color:rgba(255,255,255,.35);font-size:9px">•••</span>',
+    valid:   '<span style="color:#4ade80;font-size:13px;line-height:1">✓</span>',
+    invalid: '<span style="color:#f87171;font-size:13px;line-height:1">✗</span>',
+  };
+  el.innerHTML = map[s] ?? "";
+}
+
+function _neoSetBtn(enabled) {
+  const b = document.getElementById("neo-map-btn");
+  if (b) b.disabled = !enabled;
+}
+
+async function _neoValidate() {
+  const p = document.getElementById("neo-project")?.value.trim();
+  const d = document.getElementById("neo-dataset")?.value.trim();
+  if (!p || !d) { _neoDsIndicator("idle"); return; }
+  _neoDsIndicator("valid");
+  _neoSetBtn(true);
+}
+
+// ── API load ───────────────────────────────────────────────────────────────
+async function loadNeoGraph() {
+  const project = document.getElementById("neo-project")?.value.trim();
+  const dataset = document.getElementById("neo-dataset")?.value.trim();
+  if (!project || !dataset) return;
+  _neoState("loading");
+  const leg = document.getElementById("neo-legend");
+  if (leg) leg.style.display = "none";
+  try {
+    const resp = await fetch(
+      `/api/schema-explorer/graph?project_id=${encodeURIComponent(project)}&dataset_hint=${encodeURIComponent(dataset)}`,
+      { headers: { Authorization: "Bearer " + (typeof token !== "undefined" ? token : "") } }
+    );
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      throw new Error(err.detail || resp.statusText);
+    }
+    const data = await resp.json();
+    _neo.data    = data;
+    _neo.dsRef   = data.metadata?.dataset_ref || `${project}.${dataset}`;
+    _neo.expandedNodes.clear();
+    _neo.selectedNode = null;
+    neoCloseDetail();
+    _neoRender(data);
+    if (leg) leg.style.display = "";
+  } catch (e) {
+    _neoState("error", e.message);
+  }
+}
+
+// ── State display ──────────────────────────────────────────────────────────
+function _neoState(state, msg) {
+  ["neo-loading","neo-error","neo-empty","neo-svg"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+  if (state === "loading") {
+    const el = document.getElementById("neo-loading"); if (el) el.style.display = "";
+  } else if (state === "error") {
+    const el = document.getElementById("neo-error");
+    if (el) { el.style.display = ""; el.textContent = msg || "Erro"; }
+  } else if (state === "empty") {
+    const el = document.getElementById("neo-empty"); if (el) el.style.display = "";
+  } else if (state === "graph") {
+    const el = document.getElementById("neo-svg"); if (el) el.style.display = "";
+  }
+}
+
+// ── Main render (called on load + toggle-inferred) ─────────────────────────
+function _neoRender(data) {
+  _neoState("graph");
+  const wrap = document.getElementById("neo-canvas-wrap");
+  if (!wrap) return;
+  const W = wrap.clientWidth  || 900;
+  const H = wrap.clientHeight || 600;
+  _neo.width = W; _neo.height = H;
+
+  if (_neo.simulation) { _neo.simulation.stop(); _neo.simulation = null; }
+
+  // Filter edges
+  const activeEdges = data.edges.filter(e =>
+    !(_neo.hideInferred && e.confidence === "low"));
+
+  // Clone node data (D3 will mutate x/y)
+  const nodes = data.nodes.map(n => ({ ...n, r: _neoRadius(n) }));
+  const byId  = Object.fromEntries(nodes.map(n => [n.id, n]));
+  _neo.nodeMap = byId;
+
+  // Resolve edge source/target to node objects
+  const edges = activeEdges.map(e => ({
+    ...e,
+    source: byId[e.source] ?? e.source,
+    target: byId[e.target] ?? e.target,
+  }));
+
+  // Re-use existing SVG element; rebuild inner g only
+  const svg = d3.select("#neo-svg")
+    .attr("width",  W)
+    .attr("height", H);
+  svg.selectAll("g.neo-inner").remove();
+  const inner = svg.append("g").attr("class", "neo-inner");
+
+  const zoom = d3.zoom()
+    .scaleExtent([0.2, 4])
+    .on("zoom", ev => { inner.attr("transform", ev.transform); _neo.zoomT = ev.transform; });
+  svg.call(zoom).on("dblclick.zoom", null);
+  _neo.svg = svg; _neo.inner = inner; _neo.zoom = zoom;
+
+  // Draw layers (edges behind nodes)
+  const gEdge    = inner.append("g").attr("class", "neo-edges");
+  const gEdgeLbl = inner.append("g").attr("class", "neo-edge-labels");
+  const gNode    = inner.append("g").attr("class", "neo-nodes");
+
+  // ── Edges ─────────────────────────────────────────────────────────
+  const edgePaths = gEdge.selectAll(".neo-edge")
+    .data(edges, e => `${e.source?.id??e.source}→${e.target?.id??e.target}:${e.via_column}`)
+    .join("path")
+    .attr("class", "neo-edge")
+    .attr("fill", "none")
+    .attr("stroke",       e => _NEO_EDGE_STYLE[e.confidence]?.color ?? "#94a3b8")
+    .attr("stroke-width", 2)
+    .attr("stroke-dasharray", e => _NEO_EDGE_STYLE[e.confidence]?.dash ?? null)
+    .attr("marker-end",   e => `url(#neo-arrow-${e.confidence})`)
+    .style("cursor", "pointer")
+    .on("click", (ev, e) => { ev.stopPropagation(); _neoEdgeClick(ev, e); });
+
+  // ── Edge labels ────────────────────────────────────────────────────
+  const edgeLblG = gEdgeLbl.selectAll(".neo-el")
+    .data(edges, e => `${e.source?.id??e.source}→${e.target?.id??e.target}:${e.via_column}`)
+    .join("g").attr("class", "neo-el").style("pointer-events", "none");
+
+  edgeLblG.append("rect").attr("class", "neo-el-bg")
+    .attr("rx", 3).attr("ry", 3)
+    .attr("fill", "#1e293b")
+    .attr("stroke", e => _NEO_EDGE_STYLE[e.confidence]?.color ?? "#94a3b8")
+    .attr("stroke-width", 0.8);
+
+  edgeLblG.append("text").attr("class", "neo-el-text")
+    .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
+    .attr("font-size", "9").attr("font-weight", "700")
+    .attr("fill", e => _NEO_EDGE_STYLE[e.confidence]?.color ?? "#94a3b8")
+    .text(e => e.via_column);
+
+  // ── Nodes ──────────────────────────────────────────────────────────
+  const nodeG = gNode.selectAll(".neo-node")
+    .data(nodes, n => n.id)
+    .join("g").attr("class", "neo-node")
+    .call(d3.drag()
+      .on("start", (ev, d) => {
+        if (!ev.active) _neo.simulation.alphaTarget(0.15).restart();
+        d.fx = d.x; d.fy = d.y;
+      })
+      .on("drag",  (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+      .on("end",   (ev, d) => {
+        if (!ev.active) _neo.simulation.alphaTarget(0);
+        d.fx = null; d.fy = null;
+      })
+    )
+    .on("click",    (ev, d) => { ev.stopPropagation(); _neoSelectNode(d.id, nodes, edges); })
+    .on("dblclick", (ev, d) => { ev.stopPropagation(); _neoToggleExpand(d, nodes, edges); })
+    .on("mouseenter", (ev, d) => _neoHoverNode(d, nodes, edges, true))
+    .on("mouseleave", (ev, d) => _neoHoverNode(d, nodes, edges, false));
+
+  // Dismiss on canvas background click
+  svg.on("click", () => {
+    _neo.selectedNode = null;
+    neoCloseDetail();
+    nodeG.classed("neo-dimmed", false).classed("neo-selected", false);
+    edgePaths.attr("stroke-width", 2).classed("neo-edge-dimmed", false);
+    edgeLblG.classed("neo-el-dimmed", false);
+  });
+
+  _neo.nodeG = nodeG; _neo.edgePaths = edgePaths; _neo.edgeLblG = edgeLblG;
+
+  // Draw initial node content
+  nodes.forEach(n => _neoDrawNode(nodeG.filter(d => d.id === n.id), n));
+
+  // ── Force simulation ───────────────────────────────────────────────
+  const sim = d3.forceSimulation(nodes)
+    .force("link",    d3.forceLink(edges).id(d => d.id).distance(300).strength(0.5))
+    .force("charge",  d3.forceManyBody().strength(-700))
+    .force("center",  d3.forceCenter(W / 2, H / 2))
+    .force("collide", d3.forceCollide().radius(d => d.r + 25).strength(0.8))
+    .alphaDecay(0.028)
+    .velocityDecay(0.4)
+    .on("tick", () => _neoTick(edgePaths, edgeLblG, nodeG, nodes, W, H));
+
+  _neo.simulation = sim;
+}
+
+// ── Draw node SVG content ──────────────────────────────────────────────────
+function _neoDrawNode(sel, n) {
+  sel.selectAll("*").remove();
+  const r   = n.r;
+  const col = _NEO_COLOR[n.table_type] ?? _NEO_COLOR.unknown;
+
+  // Pulse ring (shown when selected)
+  sel.append("circle").attr("class", "neo-pulse-ring")
+    .attr("r", r + 7).attr("fill", "none")
+    .attr("stroke", col.stroke).attr("stroke-width", 2.5)
+    .attr("opacity", 0).attr("pointer-events", "none");
+
+  // Main circle
+  sel.append("circle").attr("class", "neo-circle")
+    .attr("r", r).attr("fill", col.fill)
+    .attr("stroke", col.stroke).attr("stroke-width", 3)
+    .style("filter", "drop-shadow(0 4px 16px rgba(0,0,0,.5))");
+
+  // foreignObject — text content inside the circle
+  const fw = r * 1.62, fh = r * 1.72;
+  const fo = sel.append("foreignObject")
+    .attr("x", -fw / 2).attr("y", -fh / 2)
+    .attr("width", fw).attr("height", fh)
+    .attr("pointer-events", "none");
+
+  const div = fo.append("xhtml:div")
+    .style("width", "100%").style("height", "100%")
+    .style("overflow", "hidden").style("box-sizing", "border-box")
+    .style("padding", "6px 4px 3px")
+    .style("display", "flex").style("flex-direction", "column")
+    .style("align-items", "center");
+
+  // Table name
+  div.append("xhtml:div")
+    .style("font-size",      r >= 88 ? "11px" : "10px")
+    .style("font-weight",    "700")
+    .style("color",          "#fff")
+    .style("text-align",     "center")
+    .style("white-space",    "nowrap")
+    .style("overflow",       "hidden")
+    .style("text-overflow",  "ellipsis")
+    .style("width",          "100%")
+    .style("flex-shrink",    "0")
+    .style("line-height",    "1.2")
+    .text(n.label);
+
+  // Divider
+  div.append("xhtml:hr")
+    .style("width",       "72%").style("border", "none")
+    .style("border-top",  "1px solid rgba(255,255,255,.2)")
+    .style("margin",      "2px 0 1px").style("flex-shrink", "0");
+
+  // Columns
+  const colDiv = div.append("xhtml:div")
+    .style("width", "100%").style("overflow", "hidden").style("flex", "1");
+
+  _neoVisibleCols(n).forEach(c => {
+    colDiv.append("xhtml:div")
+      .style("font-size",     "9px")
+      .style("color",         "rgba(255,255,255,.85)")
+      .style("white-space",   "nowrap")
+      .style("overflow",      "hidden")
+      .style("text-overflow", "ellipsis")
+      .style("line-height",   "1.45")
+      .text(`${_neoColIcon(c)} ${c.name}: ${_neoShortType(c.type)}`);
+  });
+}
+
+// ── Simulation tick ────────────────────────────────────────────────────────
+function _neoTick(edgePaths, edgeLblG, nodeG, nodes, W, H) {
+  // Clamp nodes to canvas bounds
+  nodes.forEach(n => {
+    n.x = Math.max(n.r + 12, Math.min(W - n.r - 12, n.x));
+    n.y = Math.max(n.r + 12, Math.min(H - n.r - 12, n.y));
+  });
+
+  nodeG.attr("transform", d => `translate(${d.x},${d.y})`);
+  edgePaths.attr("d", e => _neoEdgePath(e));
+
+  edgeLblG.each(function(e) {
+    const { lx, ly } = _neoEdgeMid(e);
+    const grp = d3.select(this);
+    const txt  = grp.select(".neo-el-text").attr("x", lx).attr("y", ly);
+    try {
+      const bb = txt.node().getBBox();
+      grp.select(".neo-el-bg")
+        .attr("x", bb.x - 4).attr("y", bb.y - 2)
+        .attr("width", bb.width + 8).attr("height", bb.height + 4);
+    } catch (_) {}
+  });
+}
+
+// ── Edge geometry (quadratic bezier) ──────────────────────────────────────
+function _neoEdgePath(e) {
+  const s = typeof e.source === "object" ? e.source : _neo.nodeMap[e.source];
+  const t = typeof e.target === "object" ? e.target : _neo.nodeMap[e.target];
+  if (!s?.x || !t?.x) return "";
+  const sr = s.r ?? 65, tr = t.r ?? 65;
+  const dx = t.x - s.x, dy = t.y - s.y;
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  // Start / end on circle boundaries
+  const sx = s.x + (dx / len) * sr,  sy = s.y + (dy / len) * sr;
+  const ex = t.x - (dx / len) * tr,  ey = t.y - (dy / len) * tr;
+  // Perpendicular curve offset
+  const off = Math.min(len * 0.18, 55);
+  const mx = (sx + ex) / 2 + (-dy / len) * off;
+  const my = (sy + ey) / 2 + ( dx / len) * off;
+  return `M${sx},${sy} Q${mx},${my} ${ex},${ey}`;
+}
+
+// Bezier midpoint at t=0.5: 0.25·P0 + 0.5·Ctrl + 0.25·P2
+function _neoEdgeMid(e) {
+  const s = typeof e.source === "object" ? e.source : _neo.nodeMap[e.source];
+  const t = typeof e.target === "object" ? e.target : _neo.nodeMap[e.target];
+  if (!s?.x || !t?.x) return { lx: 0, ly: 0 };
+  const sr = s.r ?? 65, tr = t.r ?? 65;
+  const dx = t.x - s.x, dy = t.y - s.y;
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  const sx = s.x + (dx / len) * sr,  sy = s.y + (dy / len) * sr;
+  const ex = t.x - (dx / len) * tr,  ey = t.y - (dy / len) * tr;
+  const off = Math.min(len * 0.18, 55);
+  const mx = (sx + ex) / 2 + (-dy / len) * off;
+  const my = (sy + ey) / 2 + ( dx / len) * off;
+  return {
+    lx: 0.25 * sx + 0.5 * mx + 0.25 * ex,
+    ly: 0.25 * sy + 0.5 * my + 0.25 * ey,
+  };
+}
+
+// ── Toggle column expansion (double-click) ────────────────────────────────
+function _neoToggleExpand(d, nodes, edges) {
+  if (_neo.expandedNodes.has(d.id)) _neo.expandedNodes.delete(d.id);
+  else _neo.expandedNodes.add(d.id);
+  const newR = _neoRadius(d);
+  d.r = newR;
+  _neoDrawNode(_neo.nodeG.filter(n => n.id === d.id), d);
+  _neo.simulation?.force("collide")?.radius(n => n.r + 25);
+  _neo.simulation?.alphaTarget(0.1).restart();
+  setTimeout(() => _neo.simulation?.alphaTarget(0), 700);
+}
+
+// ── Hover: dim non-connected ───────────────────────────────────────────────
+function _neoHoverNode(d, nodes, edges, entering) {
+  if (!entering) {
+    if (_neo.selectedNode) { _neoApplyDim(_neo.selectedNode, edges); return; }
+    _neo.nodeG?.classed("neo-dimmed", false);
+    _neo.edgePaths?.attr("stroke-width", 2).classed("neo-edge-dimmed", false);
+    _neo.edgeLblG?.classed("neo-el-dimmed", false);
+    return;
+  }
+  _neoApplyDim(d.id, edges);
+}
+
+function _neoApplyDim(id, edges) {
+  const conn = new Set([id]);
+  (edges || []).forEach(e => {
+    const sid = e.source?.id ?? e.source, tid = e.target?.id ?? e.target;
+    if (sid === id) conn.add(tid);
+    if (tid === id) conn.add(sid);
+  });
+  _neo.nodeG?.classed("neo-dimmed", n => !conn.has(n.id));
+  _neo.edgePaths
+    ?.attr("stroke-width", e => {
+      const sid = e.source?.id ?? e.source, tid = e.target?.id ?? e.target;
+      return (sid === id || tid === id) ? 3 : 2;
+    })
+    .classed("neo-edge-dimmed", e => {
+      const sid = e.source?.id ?? e.source, tid = e.target?.id ?? e.target;
+      return sid !== id && tid !== id;
+    });
+  _neo.edgeLblG?.classed("neo-el-dimmed", e => {
+    const sid = e.source?.id ?? e.source, tid = e.target?.id ?? e.target;
+    return sid !== id && tid !== id;
+  });
+}
+
+// ── Node click → detail panel ──────────────────────────────────────────────
+function _neoSelectNode(id, nodes, edges) {
+  _neo.selectedNode = id;
+  _neoApplyDim(id, edges);
+  _neo.nodeG?.classed("neo-selected", n => n.id === id);
+  _neoOpenDetail(id);
+}
+
+// ── Detail panel ───────────────────────────────────────────────────────────
+function _neoOpenDetail(nodeId) {
+  const panel = document.getElementById("neo-detail");
+  const body  = document.getElementById("neo-detail-body");
+  const title = document.getElementById("neo-detail-title");
+  if (!panel || !body || !_neo.data) return;
+
+  const node = _neo.data.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  title.textContent = node.label;
+
+  const TL = { fact:"FATO", dimension:"DIMENSÃO", staging:"STAGING", aggregated:"AGREGADA", unknown:"UNKNOWN" };
+  const TC = { fact:"#004691", dimension:"#0891b2", staging:"#64748b", aggregated:"#6d28d9", unknown:"#3d5276" };
+  const CL = { high:"Alta confiança", medium:"Média confiança", low:"Inferido" };
+
+  const nEdges = (_neo.data.edges ?? []).filter(e => e.source === nodeId || e.target === nodeId);
+
+  body.innerHTML = `
+    <div class="neo-dp-section">
+      <span class="neo-dp-badge" style="background:${TC[node.table_type]??'#3d5276'}">${TL[node.table_type]??'UNKNOWN'}</span>
+    </div>
+    <div class="neo-dp-section">
+      <span class="neo-dp-label">Caminho</span>
+      <div class="neo-dp-path">
+        <code>${_neo.dsRef}.${node.id}</code>
+        <button class="neo-dp-copy" onclick="neoCopyPath('${_neo.dsRef}.${node.id}')">Copiar</button>
+      </div>
+    </div>
+    ${node.partition_field ? `<div class="neo-dp-section"><span class="neo-dp-label">Partição</span> <code>${node.partition_field}</code></div>` : ""}
+    ${node.clustering_fields?.length ? `<div class="neo-dp-section"><span class="neo-dp-label">Clustering</span> <code>${node.clustering_fields.join(", ")}</code></div>` : ""}
+    <div class="neo-dp-section">
+      <div class="neo-dp-section-title">Colunas (${node.columns.length})</div>
+      <div class="neo-dp-cols">
+        ${node.columns.map(c => `<div class="neo-dp-col">
+          <span class="neo-dp-col-icon">${_neoColIcon(c)}</span>
+          <span class="neo-dp-col-name" title="${c.name}">${c.name}</span>
+          <span class="neo-dp-col-type">${c.type}</span>
+          ${!c.is_nullable ? '<span class="neo-dp-col-req">NN</span>' : ""}
+        </div>`).join("")}
+      </div>
+    </div>
+    ${nEdges.length ? `
+    <div class="neo-dp-section">
+      <div class="neo-dp-section-title">Relacionamentos (${nEdges.length})</div>
+      ${nEdges.map(e => {
+        const other = e.source === nodeId ? e.target : e.source;
+        const dir   = e.source === nodeId ? "→" : "←";
+        return `<div class="neo-dp-rel">
+          <span class="neo-dp-rel-dir">${dir}</span>
+          <span class="neo-dp-rel-table" title="${other}">${other}</span>
+          <span class="neo-dp-rel-col">via ${e.via_column}</span>
+          <span class="neo-dp-rel-conf neo-dp-conf-${e.confidence}">${CL[e.confidence]??e.confidence}</span>
+        </div>`;
+      }).join("")}
+    </div>` : ""}
+    <div class="neo-dp-actions">
+      <button class="neo-dp-btn" onclick="neoGoQB('${_neo.dsRef}','${node.id}')">Abrir no Query Builder</button>
+    </div>`;
+
+  panel.style.display = "";
+}
+
+function neoCloseDetail() {
+  const p = document.getElementById("neo-detail");
+  if (p) p.style.display = "none";
+  if (_neo.nodeG) _neo.nodeG.classed("neo-selected", false);
+}
+
+function neoCopyPath(path) {
+  navigator.clipboard?.writeText(path).catch(() => {});
+}
+
+function neoGoQB(dsRef, tableId) {
+  const parts = dsRef.split(".");
+  if (parts.length >= 2) {
+    const pi = document.getElementById("qb-project");
+    const di = document.getElementById("qb-dataset");
+    if (pi) pi.value = parts[0];
+    if (di) di.value = parts[1];
+  }
+  navTo("qb");
+}
+
+// ── Edge click tooltip ────────────────────────────────────────────────────
+function _neoEdgeClick(ev, e) {
+  const CL = { high:"Alta confiança", medium:"Média confiança", low:"Inferido" };
+  const RL = { one_to_many:"1:N", many_to_many:"N:N", one_to_one:"1:1", many_to_one:"N:1", unknown:"?" };
+  _neoTip(ev, `<strong>${e.via_column}</strong><br>${CL[e.confidence]??e.confidence}<br>${RL[e.relationship_type]??""}`);
+}
+
+let _neoTipTimer = null;
+function _neoTip(ev, html) {
+  let tip = document.getElementById("neo-tooltip");
+  if (!tip) {
+    tip = document.createElement("div");
+    tip.id = "neo-tooltip"; tip.className = "neo-tooltip";
+    document.body.appendChild(tip);
+  }
+  tip.innerHTML = html;
+  tip.style.cssText = `display:block;left:${ev.pageX + 14}px;top:${ev.pageY - 10}px`;
+  clearTimeout(_neoTipTimer);
+  _neoTipTimer = setTimeout(() => { tip.style.display = "none"; }, 3500);
+}
+
+// ── Toolbar: toggle keys-only ──────────────────────────────────────────────
+function neoToggleKeys(keysOnly) {
+  _neo.showKeysOnly = keysOnly;
+  if (!_neo.data || !_neo.nodeG) return;
+  _neo.data.nodes.forEach(n => {
+    const d = _neo.nodeMap[n.id];
+    if (!d) return;
+    d.r = _neoRadius(n);
+    _neoDrawNode(_neo.nodeG.filter(nd => nd.id === n.id), { ...n, r: d.r });
+  });
+  _neo.simulation?.force("collide")?.radius(d => (d.r ?? 65) + 25);
+  _neo.simulation?.alphaTarget(0.05).restart();
+  setTimeout(() => _neo.simulation?.alphaTarget(0), 500);
+}
+
+// ── Toolbar: toggle inferred edges ────────────────────────────────────────
+function neoToggleInferred(hide) {
+  _neo.hideInferred = hide;
+  if (_neo.data) _neoRender(_neo.data);
+}
+
+// ── Toolbar: search + auto-pan ────────────────────────────────────────────
+function neoSearch(q) {
+  _neo.searchTerm = q.trim().toLowerCase();
+  if (!_neo.nodeG) return;
+  if (!_neo.searchTerm) { _neo.nodeG.classed("neo-search-miss", false); return; }
+  let found = null;
+  _neo.nodeG.each(function(d) {
+    const hit = d.id.toLowerCase().includes(_neo.searchTerm);
+    d3.select(this).classed("neo-search-miss", !hit);
+    if (hit && !found) found = d;
+  });
+  if (found?.x) _neoPanTo(found.x, found.y);
+}
+
+function _neoPanTo(x, y) {
+  if (!_neo.svg || !_neo.zoom) return;
+  const t  = _neo.zoomT ?? d3.zoomIdentity;
+  const tx = _neo.width  / 2 - t.k * x;
+  const ty = _neo.height / 2 - t.k * y;
+  _neo.svg.transition().duration(600)
+    .call(_neo.zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(t.k));
+}
+
+// ── Toolbar: reset camera ──────────────────────────────────────────────────
+function neoResetCamera() {
+  if (!_neo.svg || !_neo.zoom) return;
+  _neo.svg.transition().duration(500)
+    .call(_neo.zoom.transform, d3.zoomIdentity);
+}
+
+// ── Toolbar: export PNG ────────────────────────────────────────────────────
+function neoExportPng() {
+  const svgEl = document.getElementById("neo-svg");
+  if (!svgEl) return;
+  const W = svgEl.clientWidth  || _neo.width;
+  const H = svgEl.clientHeight || _neo.height;
+  const scale = 2;
+  const svgStr = new XMLSerializer().serializeToString(svgEl);
+  const canvas = document.createElement("canvas");
+  canvas.width  = W * scale;
+  canvas.height = H * scale;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#0f172a";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const url = URL.createObjectURL(new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" }));
+  const img = new Image();
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(url);
+    const a = document.createElement("a");
+    a.download = `er_diagram_${Date.now()}.png`;
+    a.href = canvas.toDataURL("image/png");
+    a.click();
+  };
+  img.src = url;
 }

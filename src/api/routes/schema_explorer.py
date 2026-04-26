@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,11 +15,30 @@ from src.shared.config import GCP_CREDENTIALS_PATH, GCP_PROJECT_ID
 
 router = APIRouter(tags=["schema-explorer"])
 
+
+@router.get("/api/schema-explorer/datasets")
+async def list_datasets(
+    project_id: str = Query(default=""),
+    session: dict[str, Any] = Depends(get_current_user),
+) -> list[str]:
+    """Return dataset IDs accessible in the given GCP project."""
+    resolved = (project_id or GCP_PROJECT_ID).strip()
+    if not resolved:
+        raise HTTPException(status_code=400, detail="project_id \u00e9 obrigat\u00f3rio.")
+    try:
+        client = _get_bq_client(resolved)
+        return sorted(ds.dataset_id for ds in client.list_datasets())
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao listar datasets: {exc}",
+        ) from exc
+
 _cache = FileCheckpointer(
     CheckpointConfig(base_dir=Path(".sixth") / "schema_explorer_cache", ttl_hours=1)
 )
 
-# ── Column type groupings ────────────────────────────────────────────────────
+# ÔöÇÔöÇ Column type groupings ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 _INT_TYPES = frozenset(
     {"INTEGER", "INT64", "INT", "SMALLINT", "BIGINT", "TINYINT", "BYTEINT"}
@@ -44,13 +63,13 @@ def _type_group(dtype: str) -> str:
 
 def _types_compatible(t1: str, t2: str) -> bool:
     g1, g2 = _type_group(t1), _type_group(t2)
-    # int ↔ num are compatible for FK matching
+    # int Ôåö num are compatible for FK matching
     if {g1, g2} <= {"int", "num"}:
         return True
     return g1 == g2
 
 
-# ── BigQuery client ──────────────────────────────────────────────────────────
+# ÔöÇÔöÇ BigQuery client ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 
 def _get_bq_client(project_id: str) -> bigquery.Client:
@@ -66,7 +85,7 @@ def _run_query_safe(client: bigquery.Client, sql: str) -> list[dict[str, Any]]:
         return []
 
 
-# ── Relationship inference ───────────────────────────────────────────────────
+# ÔöÇÔöÇ Relationship inference ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 
 def _infer_relationships(
@@ -76,9 +95,9 @@ def _infer_relationships(
     """Infer table relationships in confidence order.
 
     Priority:
-      1. HIGH  — declared FOREIGN KEY in INFORMATION_SCHEMA
-      2. MEDIUM — identical column name + compatible type in 2+ tables
-      3. LOW   — column suffix _id/_fk/_key with prefix matching a table name
+      1. HIGH  ÔÇö declared FOREIGN KEY in INFORMATION_SCHEMA
+      2. MEDIUM ÔÇö identical column name + compatible type in 2+ tables
+      3. LOW   ÔÇö column suffix _id/_fk/_key with prefix matching a table name
     """
     table_names = set(tables.keys())
     col_to_tables: dict[str, list[str]] = {}
@@ -89,7 +108,7 @@ def _infer_relationships(
     edges: list[dict[str, Any]] = []
     seen: set[tuple[str, ...]] = set()
 
-    # HIGH — FK declared
+    # HIGH ÔÇö FK declared
     for tbl, col_name in fk_set:
         if tbl not in tables:
             continue
@@ -112,7 +131,7 @@ def _infer_relationships(
                     }
                 )
 
-    # MEDIUM — same column name, compatible types
+    # MEDIUM ÔÇö same column name, compatible types
     for col_name, tbls in col_to_tables.items():
         if len(tbls) < 2:
             continue
@@ -136,7 +155,7 @@ def _infer_relationships(
                             }
                         )
 
-    # LOW — suffix heuristic
+    # LOW ÔÇö suffix heuristic
     for tbl, cols in tables.items():
         for col in cols:
             cname = col["name"]
@@ -161,7 +180,7 @@ def _infer_relationships(
     return edges
 
 
-# ── Table type classification ────────────────────────────────────────────────
+# ÔöÇÔöÇ Table type classification ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 
 def _classify_table(name: str, columns: list[dict[str, Any]]) -> str:
@@ -192,7 +211,7 @@ def _classify_table(name: str, columns: list[dict[str, Any]]) -> str:
     return "unknown"
 
 
-# ── Main endpoint ────────────────────────────────────────────────────────────
+# ÔöÇÔöÇ Main endpoint ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 
 @router.get("/api/schema-explorer/graph")
@@ -204,11 +223,11 @@ async def get_schema_explorer_graph(
     """Return ER diagram data (nodes + edges) for a BigQuery dataset."""
     resolved_project = (project_id or GCP_PROJECT_ID).strip()
     if not resolved_project:
-        raise HTTPException(status_code=400, detail="project_id é obrigatório.")
+        raise HTTPException(status_code=400, detail="project_id ├® obrigat├│rio.")
 
     raw_dataset = dataset_hint.strip().strip("`")
     if not raw_dataset:
-        raise HTTPException(status_code=400, detail="dataset_hint é obrigatório.")
+        raise HTTPException(status_code=400, detail="dataset_hint ├® obrigat├│rio.")
 
     parts = raw_dataset.split(".")
     if len(parts) == 2:
@@ -218,7 +237,7 @@ async def get_schema_explorer_graph(
     else:
         raise HTTPException(
             status_code=400,
-            detail="dataset_hint inválido. Use 'dataset' ou 'project.dataset'.",
+            detail="dataset_hint inv├ílido. Use 'dataset' ou 'project.dataset'.",
         )
 
     cache_key = f"se_{resolved_project}_{dataset_id}"
@@ -233,7 +252,7 @@ async def get_schema_explorer_graph(
             status_code=500, detail=f"Erro ao conectar ao BigQuery: {exc}"
         ) from exc
 
-    # ── Query 1: columns ──────────────────────────────────────────
+    # ÔöÇÔöÇ Query 1: columns ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     col_sql = f"""
     SELECT
       table_name,
@@ -246,7 +265,7 @@ async def get_schema_explorer_graph(
     ORDER BY table_name, ordinal_position
     """
 
-    # ── Query 2: declared constraints (PKs / FKs) ─────────────────
+    # ÔöÇÔöÇ Query 2: declared constraints (PKs / FKs) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     constraint_sql = f"""
     SELECT
       ccu.constraint_name,
@@ -259,7 +278,7 @@ async def get_schema_explorer_graph(
          AND ccu.table_name  = tc.table_name
     """
 
-    # ── Query 3: clustering columns ───────────────────────────────
+    # ÔöÇÔöÇ Query 3: clustering columns ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     clustering_sql = f"""
     SELECT table_name, column_name, clustering_ordinal_position
     FROM `{resolved_project}.{dataset_id}.INFORMATION_SCHEMA.COLUMNS`
@@ -272,15 +291,15 @@ async def get_schema_explorer_graph(
         raise HTTPException(
             status_code=404,
             detail=(
-                f"Dataset '{resolved_project}.{dataset_id}' não encontrado "
-                "ou não contém tabelas acessíveis."
+                f"Dataset '{resolved_project}.{dataset_id}' n├úo encontrado "
+                "ou n├úo cont├®m tabelas acess├¡veis."
             ),
         )
 
     constraint_rows = _run_query_safe(client, constraint_sql)
     clustering_rows = _run_query_safe(client, clustering_sql)
 
-    # ── Build indexes ─────────────────────────────────────────────
+    # ÔöÇÔöÇ Build indexes ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     pk_set: set[tuple[str, str]] = set()
     fk_set: set[tuple[str, str]] = set()
     for r in constraint_rows:
@@ -300,7 +319,7 @@ async def get_schema_explorer_graph(
 
     partition_index: dict[str, str] = {}
 
-    # ── Group columns by table ────────────────────────────────────
+    # ÔöÇÔöÇ Group columns by table ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     tables_raw: dict[str, list[dict[str, Any]]] = {}
     for r in col_rows:
         tbl = str(r["table_name"])
@@ -329,7 +348,7 @@ async def get_schema_explorer_graph(
             }
         )
 
-    # ── Infer relationships ───────────────────────────────────────
+    # ÔöÇÔöÇ Infer relationships ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     all_edges = _infer_relationships(tables_raw, fk_set)
 
     # Deduplicate: prefer higher confidence for same source/target/column triple
@@ -342,7 +361,7 @@ async def get_schema_explorer_graph(
 
     deduped_edges = list(best.values())
 
-    # ── Build node list ───────────────────────────────────────────
+    # ÔöÇÔöÇ Build node list ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     connected_tables = {e["source"] for e in deduped_edges} | {
         e["target"] for e in deduped_edges
     }

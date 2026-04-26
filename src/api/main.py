@@ -38,7 +38,7 @@ app.include_router(schema_explorer_router)
 def _validate_startup_config() -> None:
     errors = validate_runtime_config()
     if errors:
-        raise RuntimeError("Configuracao invalida:\n- " + "\n- ".join(errors))
+        raise RuntimeError("Configuração inválida:\n- " + "\n- ".join(errors))
 
 
 def _portal_html_path() -> Path:
@@ -56,7 +56,7 @@ def startup_event() -> None:
 async def serve_portal():
     html_path = _portal_html_path()
     if not html_path.exists():
-        raise HTTPException(status_code=404, detail="Portal nao encontrado.")
+        raise HTTPException(status_code=404, detail="Portal não encontrado.")
     return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
 
 
@@ -72,7 +72,7 @@ async def health():
 async def favicon():
     favicon_path = PROJECT_ROOT / "static" / "img" / "portoseguro.png"
     if not favicon_path.exists():
-        raise HTTPException(status_code=404, detail="Favicon nao encontrado.")
+        raise HTTPException(status_code=404, detail="Favicon não encontrado.")
     return FileResponse(favicon_path, media_type="image/png")
 
 

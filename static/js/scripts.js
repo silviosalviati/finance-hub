@@ -1,6 +1,6 @@
-﻿// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+﻿// ─────────────────────────────────────
 // App state
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 let token = null;
 let currentUser = null;
 let qaDatasetValidationTimer = null;
@@ -23,11 +23,11 @@ const qbDatasetValidationState = {
   projectId: "",
 };
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 // Utils
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 function fmtBytes(n) {
-  if (n == null) return "â€”";
+  if (n == null) return "—";
   const units = ["B", "KB", "MB", "GB", "TB", "PB"];
   let value = Number(n);
 
@@ -62,7 +62,7 @@ function copyToClipboard(event) {
 }
 
 function fmtUSD(v) {
-  return v == null ? "â€”" : "USD " + Number(v).toFixed(4);
+  return v == null ? "—" : "USD " + Number(v).toFixed(4);
 }
 
 function authHeaders() {
@@ -109,25 +109,25 @@ function prettifyErrorMessage(message) {
   const msg = String(message);
 
   if (msg.includes("Project ID")) {
-    return "Informe um Project ID vÃ¡lido do GCP.";
+    return "Informe um Project ID válido do GCP.";
   }
 
   if (
     msg.toLowerCase().includes("credenciais") ||
     msg.toLowerCase().includes("credentials")
   ) {
-    return "NÃ£o foi possÃ­vel autenticar no BigQuery. Verifique as credenciais do ambiente.";
+    return "N�o foi poss�vel autenticar no BigQuery. Verifique as credenciais do ambiente.";
   }
 
   if (
     msg.includes("401") ||
-    msg.includes("NÃ£o autenticado") ||
-    msg.includes("SessÃ£o expirada")
+    msg.includes("N�o autenticado") ||
+    msg.includes("Sess�o expirada")
   ) {
-    return "Sua sessÃ£o expirou. FaÃ§a login novamente.";
+    return "Sua sess�o expirou. Fa�a login novamente.";
   }
 
-  if (msg.toLowerCase().includes("query nÃ£o pode ser vazia")) {
+  if (msg.toLowerCase().includes("query n�o pode ser vazia")) {
     return "Cole uma query SQL antes de analisar.";
   }
 
@@ -135,7 +135,7 @@ function prettifyErrorMessage(message) {
 }
 
 function setUserUI(name, username) {
-  const safeName = name || username || "UsuÃ¡rio";
+  const safeName = name || username || "Usuário";
   const initials = safeName
     .split(" ")
     .map((w) => w[0])
@@ -287,12 +287,12 @@ function setQADatasetValidationStatus(kind, payload = {}) {
   if (statusMetaEl) statusMetaEl.innerHTML = "";
 
   if (statusIconEl) {
-    statusIconEl.textContent = "â€¢";
+    statusIconEl.textContent = "•";
   }
 
   if (indicatorEl) {
     indicatorEl.className = "qb-dataset-indicator";
-    indicatorEl.textContent = "â—";
+    indicatorEl.textContent = "●";
   }
 
   if (kind === "idle") {
@@ -308,10 +308,10 @@ function setQADatasetValidationStatus(kind, payload = {}) {
     statusTitleEl.textContent =
       title ||
       (kind === "ok"
-        ? "Dataset pronto para analise"
+        ? "Dataset pronto para análise"
         : kind === "checking"
           ? "Validando contexto da query"
-          : "Validacao pendente");
+          : "Valida��o pendente");
   }
 
   if (statusTextEl) {
@@ -320,39 +320,39 @@ function setQADatasetValidationStatus(kind, payload = {}) {
 
   if (statusIconEl) {
     statusIconEl.textContent =
-      kind === "ok" ? "âœ“" : kind === "checking" ? "â€¦" : "!";
+      kind === "ok" ? "✓" : kind === "checking" ? "…" : "!";
   }
 
   if (statusMetaEl && kind === "ok") {
     const chips = [];
     if (datasetHint) {
-      chips.push(`<span class="qb-dataset-chip">ðŸ—‚ï¸ ${datasetHint}</span>`);
+      chips.push(`<span class="qb-dataset-chip">🗂️ ${datasetHint}</span>`);
     }
     if (!Number.isNaN(tableCount)) {
       chips.push(
-        `<span class="qb-dataset-chip">ðŸ“Š ${tableCount} tabelas</span>`,
+        `<span class="qb-dataset-chip">📊 ${tableCount} tabelas</span>`,
       );
     }
     if (!Number.isNaN(queryTableCount)) {
       chips.push(
-        `<span class="qb-dataset-chip">ðŸ”Ž ${queryTableCount} usadas na query</span>`,
+        `<span class="qb-dataset-chip">🔎 ${queryTableCount} usadas na query</span>`,
       );
     }
     chips.push(
-      '<span class="qb-dataset-chip">âœ… BigQuery + Data Catalog/Dataplex</span>',
+      '<span class="qb-dataset-chip">✅ BigQuery + Data Catalog/Dataplex</span>',
     );
     statusMetaEl.innerHTML = chips.join(" ");
   }
 
   if (statusMetaEl && kind === "error") {
     statusMetaEl.innerHTML =
-      '<span class="qb-dataset-chip">âš ï¸ Revise o formato projeto.dataset.tabela</span>';
+      '<span class="qb-dataset-chip">⚠️ Revise o formato projeto.dataset.tabela</span>';
   }
 
   if (indicatorEl) {
     indicatorEl.classList.add(kind);
     indicatorEl.textContent =
-      kind === "ok" ? "âœ“" : kind === "checking" ? "â€¦" : "âœ•";
+      kind === "ok" ? "✓" : kind === "checking" ? "…" : "✕";
   }
 
   syncQAAnalyzeButtonState();
@@ -409,13 +409,13 @@ async function validateQAQueryContext() {
         valid: false,
         projectId: "",
         datasetHint: "",
-        message: "Sessao expirada. Faca login novamente.",
+        message: "Sess�o expirada. Fa�a login novamente.",
       };
     }
 
     const payload = await res.json();
     if (!res.ok) {
-      throw new Error(payload?.detail || "Falha na validacao da query.");
+      throw new Error(payload?.detail || "Falha na valida��o da query.");
     }
 
     const currentQuery =
@@ -425,7 +425,7 @@ async function validateQAQueryContext() {
         valid: false,
         projectId: "",
         datasetHint: "",
-        message: "A query foi alterada durante a validacao. Tente novamente.",
+        message: "A query foi alterada durante a valida��o. Tente novamente.",
       };
     }
 
@@ -445,7 +445,7 @@ async function validateQAQueryContext() {
       qaDatasetValidationState.queryText = querySnapshot;
       setQADatasetValidationStatus("ok", {
         title: "Contexto validado",
-        message: payload.message || "Query validada. Ja pode analisar.",
+        message: payload.message || "Query validada. Já pode analisar.",
         tableCount: Number(payload.table_count || 0),
         queryTableCount: Array.isArray(payload.matched_tables)
           ? payload.matched_tables.length
@@ -460,10 +460,10 @@ async function validateQAQueryContext() {
     } else {
       qaDatasetValidationState.status = "invalid";
       setQADatasetValidationStatus("error", {
-        title: "Contexto nao validado",
+        title: "Contexto n�o validado",
         message:
           payload.message ||
-          "Nao foi possivel validar dataset e tabelas da query.",
+          "N�o foi poss�vel validar dataset e tabelas da query.",
       });
       return {
         valid: false,
@@ -471,13 +471,13 @@ async function validateQAQueryContext() {
         datasetHint: detectedDataset,
         message:
           payload.message ||
-          "Nao foi possivel validar dataset e tabelas da query.",
+          "N�o foi poss�vel validar dataset e tabelas da query.",
       };
     }
   } catch (err) {
     qaDatasetValidationState.status = "invalid";
     setQADatasetValidationStatus("error", {
-      title: "Falha na validacao",
+      title: "Falha na valida��o",
       message: prettifyErrorMessage(err.message || "Erro ao validar query."),
     });
     return {
@@ -541,12 +541,12 @@ function setQBDatasetValidationStatus(kind, payload = {}) {
   if (statusMetaEl) statusMetaEl.innerHTML = "";
 
   if (statusIconEl) {
-    statusIconEl.textContent = "â€¢";
+    statusIconEl.textContent = "•";
   }
 
   if (indicatorEl) {
     indicatorEl.className = "qb-dataset-indicator";
-    indicatorEl.textContent = "â—";
+    indicatorEl.textContent = "●";
   }
 
   if (kind === "idle") {
@@ -565,7 +565,7 @@ function setQBDatasetValidationStatus(kind, payload = {}) {
         ? "Dataset pronto para uso"
         : kind === "checking"
           ? "Validando dataset"
-          : "Validacao pendente");
+          : "Valida��o pendente");
   }
 
   if (statusTextEl) {
@@ -574,32 +574,32 @@ function setQBDatasetValidationStatus(kind, payload = {}) {
 
   if (statusIconEl) {
     statusIconEl.textContent =
-      kind === "ok" ? "âœ“" : kind === "checking" ? "â€¦" : "!";
+      kind === "ok" ? "✓" : kind === "checking" ? "…" : "!";
   }
 
   if (statusMetaEl && kind === "ok") {
     const chips = [];
     if (datasetHint) {
-      chips.push(`<span class="qb-dataset-chip">ðŸ—‚ï¸ ${datasetHint}</span>`);
+      chips.push(`<span class="qb-dataset-chip">🗂️ ${datasetHint}</span>`);
     }
     if (!Number.isNaN(tableCount)) {
       chips.push(
-        `<span class="qb-dataset-chip">ðŸ“Š ${tableCount} tabelas</span>`,
+        `<span class="qb-dataset-chip">📊 ${tableCount} tabelas</span>`,
       );
     }
-    chips.push('<span class="qb-dataset-chip">âœ… Metadados</span>');
+    chips.push('<span class="qb-dataset-chip">✅ Metadados</span>');
     statusMetaEl.innerHTML = chips.join(" ");
   }
 
   if (statusMetaEl && kind === "error") {
     statusMetaEl.innerHTML =
-      '<span class="qb-dataset-chip">âš ï¸ Revise o nome do dataset</span>';
+      '<span class="qb-dataset-chip">⚠️ Revise o nome do dataset</span>';
   }
 
   if (indicatorEl) {
     indicatorEl.classList.add(kind);
     indicatorEl.textContent =
-      kind === "ok" ? "âœ“" : kind === "checking" ? "â€¦" : "âœ•";
+      kind === "ok" ? "✓" : kind === "checking" ? "…" : "✕";
   }
 
   syncQBGenerateButtonState();
@@ -650,7 +650,7 @@ async function validateQBDatasetHint() {
 
     const payload = await res.json();
     if (!res.ok) {
-      throw new Error(payload?.detail || "Falha na validacao do dataset.");
+      throw new Error(payload?.detail || "Falha na valida��o do dataset.");
     }
 
     const currentDataset =
@@ -668,21 +668,21 @@ async function validateQBDatasetHint() {
       const count = Number(payload.table_count || 0);
       setQBDatasetValidationStatus("ok", {
         title: "Dataset pronto",
-        message: "ValidaÃ§Ã£o concluÃ­da. JÃ¡ pode gerar a SQL.",
+        message: "Valida��o conclu�da. J� pode gerar a SQL.",
         tableCount: count,
       });
     } else {
       qbDatasetValidationState.status = "invalid";
       setQBDatasetValidationStatus("error", {
-        title: "Dataset nao validado",
+        title: "Dataset n�o validado",
         message:
-          payload.message || "Dataset nao validado para uso no Query Builder.",
+          payload.message || "Dataset n�o validado para uso no Query Builder.",
       });
     }
   } catch (err) {
     qbDatasetValidationState.status = "invalid";
     setQBDatasetValidationStatus("error", {
-      title: "Falha na validacao",
+      title: "Falha na valida��o",
       message: prettifyErrorMessage(err.message || "Erro ao validar dataset."),
     });
   }
@@ -750,9 +750,9 @@ function resetQAResultPanels() {
   if (savFill) savFill.style.width = "0%";
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 // Login
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 async function doLogin() {
   const username = document.getElementById("inp-user")?.value.trim() || "";
   const password = document.getElementById("inp-pass")?.value || "";
@@ -764,7 +764,7 @@ async function doLogin() {
   if (errEl) errEl.style.display = "none";
 
   if (!username || !password) {
-    showLoginError("Preencha matrÃ­cula e senha.");
+    showLoginError("Preencha matrícula e senha.");
     return;
   }
 
@@ -808,14 +808,14 @@ function showLoginError(msg) {
   const el = document.getElementById("login-error");
   if (!el) return;
 
-  el.textContent = "âš  " + prettifyErrorMessage(msg);
+  el.textContent = "⚠ " + prettifyErrorMessage(msg);
   el.style.display = "block";
   document.getElementById("inp-user")?.focus();
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 // Logout
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 async function doLogout() {
   try {
     if (token) {
@@ -844,9 +844,9 @@ async function doLogout() {
   document.getElementById("inp-user")?.focus();
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 // Navigation
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 function navTo(view) {
   document.querySelectorAll(".view").forEach((v) => {
     v.classList.remove("active");
@@ -866,7 +866,6 @@ function navTo(view) {
     db: "view-db",
     qb: "view-qb",
     audit: "view-fa",
-    schema: "view-schema",
     er: "view-er",
     dev: "view-dev",
     hist: "view-hist",
@@ -891,17 +890,15 @@ function navTo(view) {
   } else if (view === "audit") {
     document.getElementById("nav-audit")?.classList.add("active");
     initFAInputListener();
-  } else if (view === "schema") {
-    document.getElementById("nav-schema")?.classList.add("active");
   } else if (view === "er") {
     document.getElementById("nav-er")?.classList.add("active");
     initErView();
   }
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 // Dev view
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 const devColors = {
   teal: { bg: "var(--teal-bg)", stroke: "#0891B2" },
   violet: { bg: "var(--violet-bg)", stroke: "#6D28D9" },
@@ -946,9 +943,9 @@ function openDev(name, desc, features, eta) {
   navTo("dev");
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 // SQL Review
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 async function runAnalyze() {
   if (qaAnalyzeInFlight) {
     return;
@@ -1006,7 +1003,7 @@ async function runAnalyze() {
 
   try {
     setTimeout(() => setQAProgress("Estimando custo no BigQuery...", 36), 180);
-    setTimeout(() => setQAProgress("Detectando anti-padrÃµes...", 62), 520);
+    setTimeout(() => setQAProgress("Detectando anti-padrões...", 62), 520);
     setTimeout(() => setQAProgress("Consolidando resultado...", 84), 980);
 
     const res = await fetch("/api/agents/query_analyzer/analyze", {
@@ -1026,12 +1023,12 @@ async function runAnalyze() {
 
     if (!res.ok) {
       const e = await res.json();
-      throw new Error(e.detail || "Erro na anÃ¡lise");
+      throw new Error(e.detail || "Erro na análise");
     }
 
     const data = await res.json();
 
-    setQAProgress("Finalizando apresentaÃ§Ã£o...", 100);
+    setQAProgress("Finalizando apresenta��o...", 100);
     renderQA(data);
     saveToHistory(data, query);
   } catch (e) {
@@ -1057,7 +1054,7 @@ async function runQueryBuild() {
   const qbTabsArea = document.getElementById("qb-tabs-area");
 
   if (!requestText) {
-    showQBError("Descreva a solicitaÃ§Ã£o antes de gerar SQL.");
+    showQBError("Descreva a solicita��o antes de gerar SQL.");
     return;
   }
 
@@ -1067,7 +1064,7 @@ async function runQueryBuild() {
   }
 
   if (!datasetHint) {
-    showQBError("Preencha o Dataset hint obrigatorio.");
+    showQBError("Preencha o Dataset hint obrigatório.");
     return;
   }
 
@@ -1118,7 +1115,7 @@ async function runQueryBuild() {
     }
 
     const data = await res.json();
-    setQBProgress("Finalizando apresentaÃ§Ã£o...", 100);
+    setQBProgress("Finalizando apresenta��o...", 100);
     renderQB(data);
   } catch (e) {
     showQBError(prettifyErrorMessage(e.message));
@@ -1141,7 +1138,7 @@ async function runDocumentBuild() {
   const dbTabsArea = document.getElementById("db-tabs-area");
 
   if (!requestText) {
-    showDBError("Descreva o contexto antes de gerar a documentaÃ§Ã£o.");
+    showDBError("Descreva o contexto antes de gerar a documenta��o.");
     return;
   }
 
@@ -1160,8 +1157,8 @@ async function runDocumentBuild() {
   if (dbTabsArea) dbTabsArea.style.display = "none";
 
   try {
-    setTimeout(() => setDBProgress("Estruturando documentaÃ§Ã£o...", 38), 180);
-    setTimeout(() => setDBProgress("Gerando conteÃºdo tÃ©cnico...", 64), 520);
+    setTimeout(() => setDBProgress("Estruturando documenta��o...", 38), 180);
+    setTimeout(() => setDBProgress("Gerando conteúdo técnico...", 64), 520);
     setTimeout(() => setDBProgress("Consolidando markdown...", 86), 980);
 
     const res = await fetch("/api/agents/document_build/analyze", {
@@ -1181,17 +1178,15 @@ async function runDocumentBuild() {
 
     if (!res.ok) {
       const e = await res.json();
-      throw new Error(e.detail || "Erro ao gerar documentaÃ§Ã£o");
+      throw new Error(e.detail || "Erro ao gerar documenta��o");
     }
 
     const data = await res.json();
     if (data.status === "error") {
-      throw new Error(
-        data.error || "NÃ£o foi possÃ­vel gerar a documentaÃ§Ã£o.",
-      );
+      throw new Error(data.error || "N�o foi poss�vel gerar a documenta��o.");
     }
 
-    setDBProgress("Finalizando apresentaÃ§Ã£o...", 100);
+    setDBProgress("Finalizando apresenta��o...", 100);
     renderDocumentBuild(data);
   } catch (e) {
     showDBError(prettifyErrorMessage(e.message));
@@ -1229,7 +1224,7 @@ async function runAudit() {
     return;
   }
   if (!projectId) {
-    showAuditError("Informe o Project ID â€” GCP.");
+    showAuditError("Informe o Project ID — GCP.");
     return;
   }
   if (!datasetHint) {
@@ -1241,25 +1236,22 @@ async function runAudit() {
     `${requestText}\n` +
     `[PROJECT_ID] ${projectId}\n` +
     `[DATASET_HINT] ${datasetHint}\n` +
-    "[FOCO] auditoria de experiencia do cliente, friccao, voc, nps";
+    "[FOCO] auditoria de experi�ncia do cliente, fric��o, VoC, NPS";
 
   setAuditLoading(true);
   setAuditProgress("Extraindo filtros", 10);
 
   const timers = [
     setTimeout(
-      () => setAuditProgress("Buscando interaÃ§Ãµes no BigQuery", 28),
+      () => setAuditProgress("Buscando interações no BigQuery", 28),
       300,
     ),
     setTimeout(
-      () => setAuditProgress("Analisando sentimentos e fricÃ§Ã£o", 52),
+      () => setAuditProgress("Analisando sentimentos e fric��o", 52),
       800,
     ),
     setTimeout(() => setAuditProgress("Classificando temas VoC", 74), 1400),
-    setTimeout(
-      () => setAuditProgress("Gerando relatÃ³rio executivo", 90),
-      2200,
-    ),
+    setTimeout(() => setAuditProgress("Gerando relatório executivo", 90), 2200),
   ];
 
   try {
@@ -1287,7 +1279,7 @@ async function runAudit() {
       throw new Error(payload.error || "Falha ao gerar auditoria.");
     }
 
-    setAuditProgress("Finalizando apresentaÃ§Ã£o", 100);
+    setAuditProgress("Finalizando apresenta��o", 100);
     renderAudit(payload);
     if (empty) empty.style.display = "none";
     if (tabsArea) tabsArea.style.display = "flex";
@@ -1315,8 +1307,8 @@ function setAuditLoading(on) {
   if (spinner) spinner.style.display = on ? "block" : "none";
   if (text)
     text.textContent = on
-      ? "Auditando experiÃªncia do cliente..."
-      : "Auditar experiÃªncia do cliente";
+      ? "Auditando experiência do cliente..."
+      : "Auditar experiência do cliente";
 
   [request, project, dataset].forEach((el) => {
     if (el) el.disabled = on;
@@ -1326,7 +1318,7 @@ function setAuditLoading(on) {
 function showAuditError(message) {
   const box = document.getElementById("audit-error");
   if (!box) return;
-  box.textContent = "âš  " + prettifyErrorMessage(message);
+  box.textContent = "⚠ " + prettifyErrorMessage(message);
   box.style.display = "block";
 }
 
@@ -1348,9 +1340,9 @@ function renderAudit(data) {
   if (empty) empty.style.display = "none";
   if (tabsArea) tabsArea.style.display = "flex";
 
-  const title = data.audit_title || "Auditoria da ExperiÃªncia do Cliente";
-  const start = data.periodo_inicio || data.date_range?.start || "â€”";
-  const end = data.periodo_fim || data.date_range?.end || "â€”";
+  const title = data.audit_title || "Auditoria da Experiência do Cliente";
+  const start = data.periodo_inicio || data.date_range?.start || "—";
+  const end = data.periodo_fim || data.date_range?.end || "—";
   const total = Number(data.total_interacoes ?? data.total_records ?? 0);
   const metrics = data.cx_metrics || {};
 
@@ -1364,7 +1356,7 @@ function renderAudit(data) {
   if (titleEl) titleEl.textContent = title;
   if (periodEl) periodEl.textContent = `${start} a ${end}`;
   if (totalEl)
-    totalEl.textContent = `${total.toLocaleString("pt-BR")} interaÃ§Ãµes analisadas`;
+    totalEl.textContent = `${total.toLocaleString("pt-BR")} interações analisadas`;
 
   renderFrictionGauge(score);
   renderAuditKpis(metrics, score);
@@ -1392,7 +1384,7 @@ function renderAudit(data) {
   const report = document.getElementById("audit-markdown-report");
   auditMarkdownCache = String(data.markdown_report || "");
   if (report)
-    report.textContent = auditMarkdownCache || "Sem relatÃ³rio disponÃ­vel.";
+    report.textContent = auditMarkdownCache || "Sem relatório disponível.";
 
   renderRecommendationList(
     document.getElementById("audit-recommendations"),
@@ -1442,7 +1434,7 @@ function renderFrictionGauge(score) {
     gaugeLabel = "Emergencial";
   } else if (clamped > 60) {
     gaugeColor = "var(--orange)";
-    gaugeLabel = "CrÃ­tico";
+    gaugeLabel = "Crítico";
   } else if (clamped > 40) {
     gaugeColor = "var(--amber)";
     gaugeLabel = "Regular";
@@ -1507,8 +1499,8 @@ function renderAuditKpis(metrics, score) {
 
   const cards = [
     {
-      label: "NPS MÃ‰DIO",
-      value: metrics.nps_medio ?? "â€”",
+      label: "NPS MÉDIO",
+      value: metrics.nps_medio ?? "—",
       benchmark: "benchmark: > 55",
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M6 20V14"/><path d="M18 20V6"/></svg>',
       status:
@@ -1519,7 +1511,7 @@ function renderAuditKpis(metrics, score) {
             : "critical",
     },
     {
-      label: "TMA MÃ‰DIO",
+      label: "TMA MÉDIO",
       value: `${Math.round(Number(metrics.tma_medio_segundos ?? 0))}s`,
       benchmark: "benchmark: < 300s",
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>',
@@ -1579,7 +1571,7 @@ function renderSentimentList(items) {
   if (!items.length) {
     const empty = document.createElement("div");
     empty.className = "rec-item";
-    empty.textContent = "Sem detalhamento de tendÃªncias de sentimentos.";
+    empty.textContent = "Sem detalhamento de tendências de sentimentos.";
     list.appendChild(empty);
     return;
   }
@@ -1589,7 +1581,7 @@ function renderSentimentList(items) {
     row.className = "rec-item";
     row.innerHTML = `<span class="rec-n">${String(idx + 1).padStart(2, "0")}</span>`;
     const text = document.createElement("span");
-    text.textContent = `${item.dimensao || "dimensÃ£o"}: ${item.sentimento || "â€”"} (${Number(item.percentual || 0).toFixed(1)}%, ${item.quantidade || 0} interaÃ§Ãµes)`;
+    text.textContent = `${item.dimensao || "dimensão"}: ${item.sentimento || "—"} (${Number(item.percentual || 0).toFixed(1)}%, ${item.quantidade || 0} interações)`;
     row.appendChild(text);
     list.appendChild(row);
   });
@@ -1620,7 +1612,7 @@ function renderFrictionPoints(points) {
     const empty = document.createElement("div");
     empty.className = "rec-item";
     empty.textContent =
-      "Nenhum ponto de fricÃ§Ã£o retornado para o perÃ­odo informado.";
+      "Nenhum ponto de fricção retornado para o período informado.";
     list.appendChild(empty);
     return;
   }
@@ -1633,12 +1625,12 @@ function renderFrictionPoints(points) {
     card.innerHTML = `
       <div class="fp-head">
         <div class="fp-icon">${frictionTypeIcon(String(fp.tipo || "").toUpperCase())}</div>
-        <div class="fp-title">${escapeHtml(fp.tipo || "FricÃ§Ã£o")}</div>
+        <div class="fp-title">${escapeHtml(fp.tipo || "Fricção")}</div>
         <div class="fp-badge">${escapeHtml(severity)}</div>
       </div>
-      <div class="fp-count">${escapeHtml(fp.quantidade_ocorrencias ?? 0)} ocorrÃªncias</div>
-      <div class="fp-desc">${escapeHtml(fp.descricao || "Sem descriÃ§Ã£o")}</div>
-      <div class="fp-action">AÃ§Ã£o recomendada: ${escapeHtml(fp.sugestao_acao || "Sem sugestÃ£o")}</div>
+      <div class="fp-count">${escapeHtml(fp.quantidade_ocorrencias ?? 0)} ocorrências</div>
+      <div class="fp-desc">${escapeHtml(fp.descricao || "Sem descrição")}</div>
+      <div class="fp-action">Ação recomendada: ${escapeHtml(fp.sugestao_acao || "Sem sugestão")}</div>
       <div class="fp-pill-list"></div>
     `;
 
@@ -1693,10 +1685,10 @@ function renderVocThemes(themes) {
       theme.sentimento_predominante || "NEUTRO",
     ).toUpperCase();
     const sentSymbol = sent.includes("POS")
-      ? "â†‘"
+      ? "↑"
       : sent.includes("NEG")
-        ? "â†“"
-        : "â†’";
+        ? "↓"
+        : "→";
 
     card.innerHTML = `
       <div class="voc-top">
@@ -1736,7 +1728,7 @@ function renderRecommendationList(container, items, withCheckbox) {
   if (!items.length) {
     const empty = document.createElement("div");
     empty.className = "rec-item";
-    empty.textContent = "Sem itens disponÃ­veis.";
+    empty.textContent = "Sem itens disponíveis.";
     container.appendChild(empty);
     return;
   }
@@ -1772,13 +1764,13 @@ function copyAuditReport() {
     .then(() => {
       if (!btn) return;
       const old = btn.textContent;
-      btn.textContent = "âœ“ Copiado";
+      btn.textContent = "✓ Copiado";
       setTimeout(() => {
-        btn.textContent = old || "Copiar relatÃ³rio";
+        btn.textContent = old || "Copiar relatório";
       }, 2000);
     })
     .catch(() => {
-      showAuditError("NÃ£o foi possÃ­vel copiar o relatÃ³rio.");
+      showAuditError("Não foi possível copiar o relatório.");
     });
 }
 
@@ -1808,7 +1800,7 @@ function renderDocumentBuild(data) {
   }
   if (summary)
     summary.textContent =
-      data.summary || "DocumentaÃ§Ã£o gerada sem resumo detalhado.";
+      data.summary || "Documentação gerada sem resumo detalhado.";
 
   const sections = Array.isArray(data.sections) ? data.sections : [];
   const checklist = Array.isArray(data.acceptance_checklist)
@@ -1866,26 +1858,26 @@ function renderDocumentBuild(data) {
     ? effectiveGovernance.notes
     : [];
 
-  if (docType) docType.textContent = data.doc_type || "â€”";
+  if (docType) docType.textContent = data.doc_type || "—";
   if (sectionCount) sectionCount.textContent = String(sections.length);
   if (checklistCount)
     checklistCount.textContent = String(effectiveChecklist.length);
 
   if (structureList) {
     const baseItems = sections.map((section, i) => {
-      const title = translateSectionTitle(section.title || `SeÃ§Ã£o ${i + 1}`);
-      const content = section.content || "Sem conteÃºdo.";
+      const title = translateSectionTitle(section.title || `Seção ${i + 1}`);
+      const content = section.content || "Sem conteúdo.";
       return `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span><strong>${title}:</strong> ${content}</div>`;
     });
 
     const warningItems = warnings.map(
       (w) =>
-        `<div class="rec-item" style="border-color:var(--color-danger);background:var(--rose-bg);color:var(--rose)">âš  ${w}</div>`,
+        `<div class="rec-item" style="border-color:var(--color-danger);background:var(--rose-bg);color:var(--rose)">⚠ ${w}</div>`,
     );
 
     structureList.innerHTML =
       [...baseItems, ...warningItems].join("") ||
-      '<div class="rec-item">Nenhuma seÃ§Ã£o retornada.</div>';
+      '<div class="rec-item">Nenhuma seção retornada.</div>';
   }
 
   if (markdown) {
@@ -1901,7 +1893,7 @@ function renderDocumentBuild(data) {
               `<div class="rec-item"><span class="rec-n">${String(i + 1).padStart(2, "0")}</span>${item}</div>`,
           )
           .join("")
-      : '<div class="rec-item">Checklist nÃ£o informado.</div>';
+      : '<div class="rec-item">Checklist não informado.</div>';
   }
 
   if (nextStepsSec)
@@ -1994,11 +1986,11 @@ function deriveGovernanceFromSections(sections, currentGovernance) {
     "nenhum",
     "none",
     "n/a",
-    "nÃ£o informado",
+    "não informado",
     "nao informado",
     "-",
-    "nao configurado â€” consultar responsavel pelo dominio de dados.",
-    "nÃ£o configurado â€” consultar responsÃ¡vel pelo domÃ­nio de dados.",
+    "nao configurado — consultar responsavel pelo dominio de dados.",
+    "não configurado — consultar responsável pelo domínio de dados.",
   ]);
   const normalize = (items) =>
     (Array.isArray(items) ? items : [])
@@ -2043,16 +2035,16 @@ function deriveGovernanceFromSections(sections, currentGovernance) {
 const SECTION_LABELS_PT = {
   assumptions: "Premissas",
   risks: "Riscos",
-  acceptance_checklist: "Checklist de AceitaÃ§Ã£o",
-  next_steps: "PrÃ³ximos Passos",
-  warnings: "ObservaÃ§Ãµes",
-  pending_technical: "PendÃªncias TÃ©cnicas",
-  governance: "GovernanÃ§a",
+  acceptance_checklist: "Checklist de Aceitação",
+  next_steps: "Próximos Passos",
+  warnings: "Observações",
+  pending_technical: "Pendências Técnicas",
+  governance: "Governança",
 };
 
 function translateSectionTitle(title) {
   const raw = String(title || "").trim();
-  if (!raw) return "SeÃ§Ã£o";
+  if (!raw) return "Seção";
 
   const key = raw.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
   return SECTION_LABELS_PT[key] || raw;
@@ -2129,21 +2121,21 @@ function generateDocumentHtml(data, context) {
     timeStyle: "short",
   });
 
-  /* â”€â”€ doc-type label â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── doc-type label ──────────────────────────────── */
   const docTypeMap = {
     documentacao_funcional: {
-      label: "DocumentaÃ§Ã£o Funcional",
-      icon: "ðŸ“Š",
+      label: "Documentação Funcional",
+      icon: "📊",
       color: "#1a56af",
     },
     especificacao_tecnica: {
-      label: "EspecificaÃ§Ã£o TÃ©cnica",
-      icon: "ðŸ§©",
+      label: "Especificação Técnica",
+      icon: "🧩",
       color: "#0e8a5e",
     },
     runbook_operacional: {
       label: "Runbook Operacional",
-      icon: "ðŸ›Ÿ",
+      icon: "🛟",
       color: "#c05d0a",
     },
   };
@@ -2152,27 +2144,27 @@ function generateDocumentHtml(data, context) {
     .replace(/ /g, "_");
   const docType = docTypeMap[rawType] || {
     label: safe(data.doc_type || "Documento"),
-    icon: "ðŸ“„",
+    icon: "📄",
     color: "#1a56af",
   };
 
-  /* â”€â”€ section icon heuristic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── section icon heuristic ──────────────────────── */
   function sectionIcon(title) {
     const t = String(title).toLowerCase();
-    if (/objetivo|purpose/.test(t)) return "ðŸŽ¯";
-    if (/contexto|negoc|business/.test(t)) return "ðŸ¢";
-    if (/fluxo|pipeline|process/.test(t)) return "ðŸ”„";
-    if (/sla|alerta|incidente|incident/.test(t)) return "ðŸš¨";
-    if (/diagnos|query|sql/.test(t)) return "ðŸ”";
-    if (/escal|contato|responsavel/.test(t)) return "ðŸ“ž";
-    if (/partici|cluster|tecni|technical/.test(t)) return "âš™ï¸";
-    if (/govern|compliance|acesso/.test(t)) return "ðŸ”’";
-    if (/publico|audienc/.test(t)) return "ðŸ‘¥";
-    if (/histor|versao|change/.test(t)) return "ðŸ“‹";
-    return "ðŸ“„";
+    if (/objetivo|purpose/.test(t)) return "🎯";
+    if (/contexto|negoc|business/.test(t)) return "🏢";
+    if (/fluxo|pipeline|process/.test(t)) return "🔄";
+    if (/sla|alerta|incidente|incident/.test(t)) return "🚨";
+    if (/diagnos|query|sql/.test(t)) return "🔍";
+    if (/escal|contato|responsavel/.test(t)) return "📞";
+    if (/partici|cluster|tecni|technical/.test(t)) return "⚙️";
+    if (/govern|compliance|acesso/.test(t)) return "🔒";
+    if (/publico|audienc/.test(t)) return "👥";
+    if (/histor|versao|change/.test(t)) return "📋";
+    return "📄";
   }
 
-  /* â”€â”€ type badge color â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── type badge color ────────────────────────────── */
   function typeBadge(type) {
     const t = String(type).toUpperCase();
     const map = {
@@ -2294,7 +2286,7 @@ function generateDocumentHtml(data, context) {
   function renderSectionContent(content) {
     const text = String(content || "").trim();
     if (!text) {
-      return '<p class="sect-text">Sem conteÃºdo informado.</p>';
+      return '<p class="sect-text">Sem conteúdo informado.</p>';
     }
 
     const markdownKv = text
@@ -2330,14 +2322,14 @@ function generateDocumentHtml(data, context) {
     const html = mdToHtml(text).trim();
     return html
       ? `<div class="sect-text">${html}</div>`
-      : '<p class="sect-text">Sem conteÃºdo informado.</p>';
+      : '<p class="sect-text">Sem conteúdo informado.</p>';
   }
 
-  /* â”€â”€ build section cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── build section cards ─────────────────────────── */
   const sectionCards = sections.length
     ? sections
         .map((s) => {
-          const translatedTitle = translateSectionTitle(s.title || "SeÃ§Ã£o");
+          const translatedTitle = translateSectionTitle(s.title || "Seção");
           const icon = sectionIcon(translatedTitle);
           const body = renderSectionContent(s.content || "");
           return `
@@ -2350,9 +2342,9 @@ function generateDocumentHtml(data, context) {
         </article>`;
         })
         .join("\n")
-    : '<article class="card sect-card"><p>Sem seÃ§Ãµes retornadas.</p></article>';
+    : '<article class="card sect-card"><p>Sem seções retornadas.</p></article>';
 
-  /* â”€â”€ dictionary rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── dictionary rows ─────────────────────────────── */
   const dictionaryRows = dataDictionary.length
     ? dataDictionary
         .map(
@@ -2365,49 +2357,49 @@ function generateDocumentHtml(data, context) {
         </tr>`,
         )
         .join("\n")
-    : '<tr><td colspan="4" style="color:var(--ink-muted);text-align:center">DicionÃ¡rio nÃ£o disponÃ­vel</td></tr>';
+    : '<tr><td colspan="4" style="color:var(--ink-muted);text-align:center">Dicionário não disponível</td></tr>';
 
-  /* â”€â”€ checklist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── checklist ───────────────────────────────────── */
   const checklistHtml = checklist.length
     ? checklist
         .map(
           (item) => `
         <li class="check-item">
-          <span class="check-ico">âœ…</span>
+          <span class="check-ico">✅</span>
           <span>${safe(item)}</span>
         </li>`,
         )
         .join("\n")
-    : '<li class="check-item"><span class="check-ico">â€”</span><span>Checklist nÃ£o informado</span></li>';
+    : '<li class="check-item"><span class="check-ico">—</span><span>Checklist não informado</span></li>';
 
-  /* â”€â”€ rules & pending â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── rules & pending ─────────────────────────────── */
   const ruleItems = [...typingNotes, ...pendingTechnical];
   const ruleHtml = ruleItems.length
     ? ruleItems
         .map(
           (item) => `
         <li class="check-item">
-          <span class="check-ico">âš ï¸</span>
+          <span class="check-ico">⚠️</span>
           <span>${safe(item)}</span>
         </li>`,
         )
         .join("\n")
-    : '<li class="check-item"><span class="check-ico">â€”</span><span>Sem regras adicionais.</span></li>';
+    : '<li class="check-item"><span class="check-ico">—</span><span>Sem regras adicionais.</span></li>';
 
-  /* â”€â”€ governance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── governance ──────────────────────────────────── */
   const govItems = [
-    ...governanceAspects.map((a) => ({ ico: "ðŸ”’", text: safe(a) })),
+    ...governanceAspects.map((a) => ({ ico: "🔒", text: safe(a) })),
     ...governanceReaders.map((r) => ({
-      ico: "ðŸ‘¤",
+      ico: "👤",
       text: `Leitor: ${safe(r)}`,
     })),
     ...governanceNotes.map((n) => ({
-      ico: "ðŸ“",
+      ico: "📝",
       text: `Nota: ${safe(n)}`,
     })),
     ...warnings.map((w) => ({
-      ico: "âš ï¸",
-      text: `ObservaÃ§Ã£o: ${safe(w)}`,
+      ico: "⚠️",
+      text: `Observação: ${safe(w)}`,
     })),
   ];
   const govHtml = govItems.length
@@ -2420,9 +2412,9 @@ function generateDocumentHtml(data, context) {
         </li>`,
         )
         .join("\n")
-    : '<li class="check-item"><span class="check-ico">â€”</span><span>GovernanÃ§a nÃ£o detalhada.</span></li>';
+    : '<li class="check-item"><span class="check-ico">—</span><span>Governança não detalhada.</span></li>';
 
-  /* â”€â”€ next steps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── next steps ──────────────────────────────────── */
   const nextHtml = nextSteps.length
     ? nextSteps
         .map(
@@ -2433,13 +2425,13 @@ function generateDocumentHtml(data, context) {
         </li>`,
         )
         .join("\n")
-    : '<li class="step-item"><span class="step-n">â€”</span><span>Sem prÃ³ximos passos informados.</span></li>';
+    : '<li class="step-item"><span class="step-n">—</span><span>Sem próximos passos informados.</span></li>';
 
-  /* â”€â”€ warnings banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── warnings banner ─────────────────────────────── */
   const warnBanner = warnings.length
     ? `
     <section class="warn-box">
-      <span class="warn-ico">âš ï¸</span>
+      <span class="warn-ico">⚠️</span>
       <div>
         <strong>Avisos do pipeline</strong>
         <ul style="margin:4px 0 0;padding-left:16px">
@@ -2449,7 +2441,7 @@ function generateDocumentHtml(data, context) {
     </section>`
     : "";
 
-  /* â”€â”€ table path breadcrumb â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── table path breadcrumb ───────────────────────── */
   const tablePath = safe(data.table_path || data.table_name || "-");
   const parts = tablePath.split(".");
   const breadcrumb =
@@ -2462,7 +2454,7 @@ function generateDocumentHtml(data, context) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${safe(data.title || "DocumentaÃ§Ã£o TÃ©cnica")}</title>
+  <title>${safe(data.title || "Documentação Técnica")}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body {
@@ -2472,7 +2464,7 @@ function generateDocumentHtml(data, context) {
     }
     .wrap { max-width: 1060px; margin: 0 auto; padding: 24px 20px 40px; }
 
-    /* â”€â”€ Hero â”€â”€ */
+    /* ── Hero ── */
     .hero {
       background: linear-gradient(135deg, #004691 0%, #00a1e4 100%);
       color: #fff; border-radius: 14px; padding: 20px 22px;
@@ -2510,7 +2502,7 @@ function generateDocumentHtml(data, context) {
     }
     .hero-pill strong { font-weight: 600; opacity: .7; margin-right: 2px; }
 
-    /* â”€â”€ Executive banner â”€â”€ */
+    /* ── Executive banner ── */
     .exec-box {
       margin-top: 14px; background: #fff;
       border: 1px solid #c8daf5; border-left: 4px solid #00a1e4;
@@ -2520,7 +2512,7 @@ function generateDocumentHtml(data, context) {
     }
     .exec-ico { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
 
-    /* â”€â”€ Warning box â”€â”€ */
+    /* ── Warning box ── */
     .warn-box {
       margin-top: 14px; background: #fffbeb;
       border: 1px solid #fbbf24; border-left: 4px solid #d97706;
@@ -2530,12 +2522,12 @@ function generateDocumentHtml(data, context) {
     }
     .warn-ico { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
 
-    /* â”€â”€ Grid â”€â”€ */
+    /* ── Grid ── */
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
     .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px; }
     .span2 { grid-column: span 2; }
 
-    /* â”€â”€ Cards â”€â”€ */
+    /* ── Cards ── */
     .card {
       background: #fff; border: 1px solid #d4e2f4;
       border-radius: 12px; padding: 14px 16px;
@@ -2588,7 +2580,7 @@ function generateDocumentHtml(data, context) {
       line-height: 1.6;
     }
     .json-list > li::before {
-      content: "â€¢";
+      content: "•";
       position: absolute;
       left: 0;
       color: #00a1e4;
@@ -2623,11 +2615,11 @@ function generateDocumentHtml(data, context) {
       font-size: 12px;
     }
 
-    /* â”€â”€ Breadcrumb â”€â”€ */
+    /* ── Breadcrumb ── */
     .breadcrumb { font-family: "Cascadia Code", "Consolas", monospace; font-size: 12px; }
     .bc-dim { opacity: .55; }
 
-    /* â”€â”€ Table â”€â”€ */
+    /* ── Table ── */
     .table-wrap { overflow-x: auto; margin-top: 6px; }
     table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
     th {
@@ -2644,12 +2636,12 @@ function generateDocumentHtml(data, context) {
     }
     .col-type { white-space: nowrap; }
 
-    /* â”€â”€ Check lists â”€â”€ */
+    /* ── Check lists ── */
     .check-list, .step-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
     .check-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: #2d3b4f; }
     .check-ico { flex-shrink: 0; font-size: 14px; margin-top: 1px; }
 
-    /* â”€â”€ Numbered steps â”€â”€ */
+    /* ── Numbered steps ── */
     .step-item { display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #2d3b4f; }
     .step-n {
       flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
@@ -2657,7 +2649,7 @@ function generateDocumentHtml(data, context) {
       display: flex; align-items: center; justify-content: center;
     }
 
-    /* â”€â”€ Section title strip â”€â”€ */
+    /* ── Section title strip ── */
     .section-title {
       display: flex; align-items: center; gap: 8px;
       margin: 18px 0 10px; font-size: 12px; font-weight: 700;
@@ -2667,7 +2659,7 @@ function generateDocumentHtml(data, context) {
       content: ""; flex: 1; height: 1px; background: #d4e2f4;
     }
 
-    /* â”€â”€ Footer â”€â”€ */
+    /* ── Footer ── */
     .footer {
       margin-top: 24px; padding-top: 14px;
       border-top: 1px solid #d4e2f4;
@@ -2685,41 +2677,41 @@ function generateDocumentHtml(data, context) {
 <body>
   <div class="wrap">
 
-    <!-- â”€â”€ HERO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── HERO ─────────────────────────────────── -->
     <header class="hero">
       <div class="hero-logo"><img src="/static/img/portoseguro.png" alt="Porto Seguro" /></div>
       <div class="hero-body">
         <div class="hero-badge">${docType.icon} ${docType.label}</div>
-        <h1>${safe(data.title || "DocumentaÃ§Ã£o TÃ©cnica")}</h1>
+        <h1>${safe(data.title || "Documentação Técnica")}</h1>
         <p class="hero-summary">${safe(data.summary || "Documento gerado pelo Document Builder.")}</p>
         <div class="hero-meta">
-          <span class="hero-pill"><strong>ðŸ“¦ Tabela</strong> <span class="breadcrumb">${breadcrumb}</span></span>
-          <span class="hero-pill"><strong>ðŸ”„ FrequÃªncia</strong> ${safe(data.frequency || "â€”")}</span>
-          <span class="hero-pill"><strong>ðŸ‘¥ PÃºblico</strong> ${safe(data.audience || "â€”")}</span>
-          <span class="hero-pill"><strong>ðŸ“… Gerado</strong> ${now}</span>
+          <span class="hero-pill"><strong>📦 Tabela</strong> <span class="breadcrumb">${breadcrumb}</span></span>
+          <span class="hero-pill"><strong>🔄 Frequência</strong> ${safe(data.frequency || "—")}</span>
+          <span class="hero-pill"><strong>👥 Público</strong> ${safe(data.audience || "—")}</span>
+          <span class="hero-pill"><strong>📅 Gerado</strong> ${now}</span>
         </div>
       </div>
     </header>
 
-    <!-- â”€â”€ EXECUTIVE BANNER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── EXECUTIVE BANNER ───────────────────── -->
     <div class="exec-box">
-      <span class="exec-ico">ðŸ’¡</span>
+      <span class="exec-ico">💡</span>
       <div>
-        <strong>VisÃ£o executiva</strong><br/>
-        ${safe(data.objective || "Documento estruturado para decisÃ£o e governanÃ§a, com foco em contexto de negÃ³cio, confiabilidade dos dados e encaminhamentos operacionais.")}
+        <strong>Visão executiva</strong><br/>
+        ${safe(data.objective || "Documento estruturado para decisão e governança, com foco em contexto de negócio, confiabilidade dos dados e encaminhamentos operacionais.")}
       </div>
     </div>
 
     ${warnBanner}
 
-    <!-- â”€â”€ SEÃ‡Ã•ES PRINCIPAIS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    <div class="section-title">ðŸ“„ ConteÃºdo do Documento</div>
+    <!-- ── SEÇÕES PRINCIPAIS ──────────────────── -->
+    <div class="section-title">📄 Conteúdo do Documento</div>
     <div class="grid">
       ${sectionCards}
     </div>
 
-    <!-- â”€â”€ DICIONÃRIO DE DADOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    <div class="section-title">ðŸ—‚ï¸ DicionÃ¡rio de Dados</div>
+    <!-- ── DICIONÁRIO DE DADOS ────────────────── -->
+    <div class="section-title">🗂️ Dicionário de Dados</div>
     <div class="card">
       <div class="table-wrap">
         <table>
@@ -2727,8 +2719,8 @@ function generateDocumentHtml(data, context) {
             <tr>
               <th>Coluna</th>
               <th>Tipo</th>
-              <th>DescriÃ§Ã£o</th>
-              <th>Regra de NegÃ³cio</th>
+              <th>Descrição</th>
+              <th>Regra de Negócio</th>
             </tr>
           </thead>
           <tbody>
@@ -2738,48 +2730,48 @@ function generateDocumentHtml(data, context) {
       </div>
     </div>
 
-    <!-- â”€â”€ QUALIDADE & REGRAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    <div class="section-title">âœ… Qualidade & Regras</div>
+    <!-- ── QUALIDADE & REGRAS ─────────────────── -->
+    <div class="section-title">✅ Qualidade & Regras</div>
     <div class="grid">
       <article class="card">
         <div class="card-head">
-          <span class="card-icon">âœ…</span>
+          <span class="card-icon">✅</span>
           <h2>Checklist de Qualidade</h2>
         </div>
         <ul class="check-list">${checklistHtml}</ul>
       </article>
       <article class="card">
         <div class="card-head">
-          <span class="card-icon">âš ï¸</span>
-          <h2>Regras & PendÃªncias</h2>
+          <span class="card-icon">⚠️</span>
+          <h2>Regras & Pendências</h2>
         </div>
         <ul class="check-list">${ruleHtml}</ul>
       </article>
     </div>
 
-    <!-- â”€â”€ GOVERNANÃ‡A & PRÃ“XIMOS PASSOS â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    <div class="section-title">ðŸ”’ GovernanÃ§a & AÃ§Ãµes</div>
+    <!-- ── GOVERNANÇA & PRÓXIMOS PASSOS ──────── -->
+    <div class="section-title">🔒 Governança & Ações</div>
     <div class="grid">
       <article class="card">
         <div class="card-head">
-          <span class="card-icon">ðŸ”’</span>
-          <h2>GovernanÃ§a</h2>
+          <span class="card-icon">🔒</span>
+          <h2>Governança</h2>
         </div>
         <ul class="check-list">${govHtml}</ul>
       </article>
       <article class="card">
         <div class="card-head">
-          <span class="card-icon">ðŸš€</span>
-          <h2>PrÃ³ximos Passos</h2>
+          <span class="card-icon">🚀</span>
+          <h2>Próximos Passos</h2>
         </div>
         <ul class="step-list">${nextHtml}</ul>
       </article>
     </div>
 
-    <!-- â”€â”€ FOOTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── FOOTER ─────────────────────────────── -->
     <footer class="footer">
-      <span class="footer-brand">ðŸ¤– Document Builder Â· Finance Hub</span>
-      <span>Gerado em ${now} Â· Engenharia de Dados Financeiro</span>
+      <span class="footer-brand">🤖 Document Builder · Finance Hub</span>
+      <span>Gerado em ${now} · Engenharia de Dados Financeiro</span>
     </footer>
 
   </div>
@@ -2822,7 +2814,7 @@ function setDBLoading(on) {
   if (spinner) spinner.style.display = on ? "block" : "none";
   if (text) {
     text.textContent = on
-      ? "Gerando documentaÃ§Ã£o..."
+      ? "Gerando documentação..."
       : "Gerar com Document Builder";
   }
 }
@@ -2837,7 +2829,7 @@ function showDBError(message) {
     return;
   }
 
-  box.textContent = "âš  " + message;
+  box.textContent = "⚠ " + message;
   box.style.display = "block";
 }
 
@@ -2850,7 +2842,7 @@ function copyDBDocument() {
     .then(() => {
       if (!btn) return;
       const old = btn.textContent;
-      btn.textContent = "âœ“ Copiado!";
+      btn.textContent = "✓ Copiado!";
       btn.style.color = "#34D399";
       setTimeout(() => {
         btn.textContent = old || "Copiar Markdown";
@@ -2858,9 +2850,7 @@ function copyDBDocument() {
       }, 1800);
     })
     .catch(() => {
-      showDBError(
-        "NÃ£o foi possÃ­vel copiar automaticamente. Tente novamente.",
-      );
+      showDBError("Não foi possível copiar automaticamente. Tente novamente.");
     });
 }
 
@@ -2917,7 +2907,7 @@ function generateConfluenceMarkup(data, context) {
   const title = data.title || "Documenta\u00e7\u00e3o T\u00e9cnica";
   const lines = [];
 
-  /* â”€â”€ CabeÃ§alho â”€â”€ */
+  /* ── Cabeçalho ── */
   lines.push(`h1. ${title}`);
   lines.push("");
   lines.push(
@@ -2927,7 +2917,7 @@ function generateConfluenceMarkup(data, context) {
   lines.push("{panel}");
   lines.push("");
 
-  /* â”€â”€ Metadados â”€â”€ */
+  /* ── Metadados ── */
   lines.push("h2. Informa\u00e7\u00f5es Gerais");
   lines.push("");
   lines.push("|| Campo || Valor ||");
@@ -2938,7 +2928,7 @@ function generateConfluenceMarkup(data, context) {
   lines.push(`| Resumo | ${data.summary || "\u2014"} |`);
   lines.push("");
 
-  /* â”€â”€ SeÃ§Ãµes â”€â”€ */
+  /* ── Seções ── */
   if (sections.length) {
     sections.forEach((s) => {
       lines.push(`h2. ${translateSectionTitle(s.title || "Se\u00e7\u00e3o")}`);
@@ -2948,7 +2938,7 @@ function generateConfluenceMarkup(data, context) {
     });
   }
 
-  /* â”€â”€ Dicion\u00e1rio de dados â”€â”€ */
+  /* ── Dicion\u00e1rio de dados ── */
   if (dataDictionary.length) {
     lines.push("h2. \uD83D\uDDC2 Dicion\u00e1rio de Dados");
     lines.push("");
@@ -2965,7 +2955,7 @@ function generateConfluenceMarkup(data, context) {
     lines.push("");
   }
 
-  /* â”€â”€ Checklist â”€â”€ */
+  /* ── Checklist ── */
   if (checklist.length) {
     lines.push("h2. \u2705 Checklist de Qualidade");
     lines.push("");
@@ -2973,7 +2963,7 @@ function generateConfluenceMarkup(data, context) {
     lines.push("");
   }
 
-  /* â”€â”€ Regras e pend\u00eancias â”€â”€ */
+  /* ── Regras e pend\u00eancias ── */
   const ruleItems = [...typingNotes, ...pendingTechnical];
   if (ruleItems.length) {
     lines.push("h2. \u26A0\uFE0F Regras & Pend\u00eancias");
@@ -2982,7 +2972,7 @@ function generateConfluenceMarkup(data, context) {
     lines.push("");
   }
 
-  /* â”€â”€ Governan\u00e7a â”€â”€ */
+  /* ── Governan\u00e7a ── */
   const govLines = [
     ...governanceAspects.map((a) => `* *Aspecto:* ${a}`),
     ...governanceReaders.map((r) => `* *Leitor:* ${r}`),
@@ -2995,7 +2985,7 @@ function generateConfluenceMarkup(data, context) {
     lines.push("");
   }
 
-  /* â”€â”€ Pr\u00f3ximos passos â”€â”€ */
+  /* ── Pr\u00f3ximos passos ── */
   if (nextSteps.length) {
     lines.push("h2. \uD83D\uDE80 Pr\u00f3ximos Passos");
     lines.push("");
@@ -3003,7 +2993,7 @@ function generateConfluenceMarkup(data, context) {
     lines.push("");
   }
 
-  /* â”€â”€ Avisos â”€â”€ */
+  /* ── Avisos ── */
   if (warnings.length) {
     lines.push("{warning:title=Avisos do pipeline}");
     warnings.forEach((w) => lines.push(`* ${w}`));
@@ -3011,7 +3001,7 @@ function generateConfluenceMarkup(data, context) {
     lines.push("");
   }
 
-  /* â”€â”€ Rodap\u00e9 â”€â”€ */
+  /* ── Rodap\u00e9 ── */
   lines.push("----");
   lines.push(
     `{info:title=Gerado automaticamente}Gerado em ${now} por Document Builder \u00b7 Engenharia de Dados Financeiro{info}`,
@@ -3029,7 +3019,7 @@ function copyDBHtmlDocument() {
     .then(() => {
       if (!btn) return;
       const old = btn.textContent;
-      btn.textContent = "âœ“ Copiado!";
+      btn.textContent = "✓ Copiado!";
       btn.style.color = "#34D399";
       setTimeout(() => {
         btn.textContent = old || "Copiar HTML";
@@ -3037,7 +3027,7 @@ function copyDBHtmlDocument() {
       }, 1800);
     })
     .catch(() => {
-      showDBError("NÃ£o foi possÃ­vel copiar o HTML automaticamente.");
+      showDBError("Não foi possível copiar o HTML automaticamente.");
     });
 }
 
@@ -3216,7 +3206,7 @@ function renderQB(data) {
 
   if (dryRun) {
     if (dry.error) {
-      dryRun.innerHTML = `<div class="rec-item" style="border-color:var(--color-danger);background:var(--rose-bg);color:var(--rose)">âš  ${dry.error}</div>`;
+      dryRun.innerHTML = `<div class="rec-item" style="border-color:var(--color-danger);background:var(--rose-bg);color:var(--rose)">⚠ ${dry.error}</div>`;
     } else {
       dryRun.innerHTML = `
         <div class="rec-item">Bytes processados: <strong style="margin-left:6px">${fmtBytes(dry.bytes_processed)}</strong></div>
@@ -3267,7 +3257,7 @@ function showQBError(message) {
     return;
   }
 
-  box.textContent = "âš  " + message;
+  box.textContent = "⚠ " + message;
   box.style.display = "block";
 }
 
@@ -3279,7 +3269,7 @@ function copyQBSQL() {
 }
 
 function formatSampleCell(value) {
-  if (value == null) return "â€”";
+  if (value == null) return "—";
   if (typeof value === "object") {
     try {
       return JSON.stringify(value);
@@ -3298,7 +3288,7 @@ function copyQBBuiltSQL() {
 }
 
 function renderQA(d) {
-  const grade = d.grade || "â€”";
+  const grade = d.grade || "—";
   const now = new Date();
   const timeStr =
     now.getHours().toString().padStart(2, "0") +
@@ -3329,14 +3319,14 @@ function renderQA(d) {
 
   if (gradeBlock) gradeBlock.className = "grade-block gb-" + grade;
   if (gradeLtr) gradeLtr.textContent = grade;
-  if (scoreBig) scoreBig.textContent = d.efficiency_score ?? "â€”";
+  if (scoreBig) scoreBig.textContent = d.efficiency_score ?? "—";
   if (scoreFill) {
     scoreFill.className = "score-fill sf-" + grade;
     setTimeout(() => {
       scoreFill.style.width = `${d.efficiency_score || 0}%`;
     }, 80);
   }
-  if (summary) summary.textContent = d.summary || "Sem resumo disponÃ­vel.";
+  if (summary) summary.textContent = d.summary || "Sem resumo disponível.";
 
   // Tiles
   const qTiles = document.getElementById("q-tiles");
@@ -3357,15 +3347,15 @@ function renderQA(d) {
     const pct = d.savings_pct || 0;
 
     document.getElementById("q-sav").textContent =
-      pct > 0 ? `â†“ ${pct}%` : "N/A";
+      pct > 0 ? `↓ ${pct}%` : "N/A";
     document.getElementById("q-savusd").textContent =
       d.cost_saved_usd != null
         ? `USD ${Number(d.cost_saved_usd).toFixed(4)}`
-        : "â€”";
+        : "—";
 
     if (pct > 0 && qSavSec) {
       qSavSec.style.display = "block";
-      document.getElementById("q-sav-big").textContent = `â†“ ${pct}%`;
+      document.getElementById("q-sav-big").textContent = `↓ ${pct}%`;
 
       setTimeout(() => {
         document.getElementById("q-sav-fill").style.width = `${pct}%`;
@@ -3397,7 +3387,7 @@ function renderQA(d) {
     if (!apCount) {
       apList.innerHTML = `
         <div class="rec-item" style="color:var(--emerald);border-color:var(--color-success);background:var(--emerald-bg)">
-          <span>âœ“</span> Nenhum anti-padrÃ£o. Query eficiente!
+          <span>✓</span> Nenhum anti-padrão. Query eficiente!
         </div>
       `;
     } else {
@@ -3412,7 +3402,7 @@ function renderQA(d) {
             </div>
             <div class="ap-desc">${ap.description}</div>
             <div class="ap-fix">
-              <span>âœ¦</span>
+              <span>✦</span>
               <span>${ap.suggestion}</span>
             </div>
           </div>
@@ -3491,7 +3481,7 @@ function renderQA(d) {
       qTipsList.innerHTML = tips
         .map(
           (t) =>
-            `<div class="tip-item"><span style="color:var(--porto);flex-shrink:0">â—†</span>${t}</div>`,
+            `<div class="tip-item"><span style="color:var(--porto);flex-shrink:0">◆</span>${t}</div>`,
         )
         .join("");
     }
@@ -3525,7 +3515,7 @@ function copySQL() {
   navigator.clipboard.writeText(sql).then(() => {
     if (!btn) return;
 
-    btn.textContent = "âœ“ Copiado!";
+    btn.textContent = "✓ Copiado!";
     btn.style.color = "#34D399";
 
     setTimeout(() => {
@@ -3535,9 +3525,9 @@ function copySQL() {
   });
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 // History
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 function saveToHistory(data, query) {
   const history = JSON.parse(localStorage.getItem("qaHistory") || "[]");
 
@@ -3546,7 +3536,7 @@ function saveToHistory(data, query) {
     date: new Date().toISOString(),
     query: query,
     suggestedQuery: data.optimized_query || null,
-    grade: data.grade || "â€”",
+    grade: data.grade || "—",
     score: data.efficiency_score || 0,
     originalBytes: data.bytes_original,
     optimizedBytes: data.bytes_optimized,
@@ -3577,7 +3567,7 @@ function loadHistory() {
     const date = new Date(item.date);
     const dateStr =
       date.toLocaleDateString("pt-BR") +
-      " Ã s " +
+      " às " +
       date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
     // Determine performance badge
@@ -3591,7 +3581,7 @@ function loadHistory() {
       performanceBadge = "Boa";
       performanceColor = "good";
     } else if (score >= 50) {
-      performanceBadge = "MÃ©dia";
+      performanceBadge = "Média";
       performanceColor = "average";
     }
 
@@ -3630,14 +3620,14 @@ function loadHistory() {
           </div>
         </div>
 
-        <!-- MÃ©tricas Principais em Grid Visual -->
+        <!-- Métricas Principais em Grid Visual -->
         <div class="hist-key-metrics">
           <div class="hist-key-metric score">
             <div class="hist-key-metric-label">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
               </svg>
-              PontuaÃ§Ã£o
+              Pontuação
             </div>
             <div class="hist-key-metric-value">${item.score}</div>
             <div class="hist-key-metric-subtext">/100</div>
@@ -3650,7 +3640,7 @@ function loadHistory() {
               Grau
             </div>
             <div class="hist-key-metric-value">${item.grade}</div>
-            <div class="hist-key-metric-subtext">ClassificaÃ§Ã£o</div>
+            <div class="hist-key-metric-subtext">Classificação</div>
           </div>
           <div class="hist-key-metric improvement">
             <div class="hist-key-metric-label">
@@ -3659,9 +3649,9 @@ function loadHistory() {
                 <polyline points="17 8 12 3 7 8"/>
                 <line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
-              ReduÃ§Ã£o
+              Redução
             </div>
-            <div class="hist-key-metric-value">${improvementPercent > 0 ? "â†“" : ""}${improvementPercent}%</div>
+            <div class="hist-key-metric-value">${improvementPercent > 0 ? "↓" : ""}${improvementPercent}%</div>
             <div class="hist-key-metric-subtext">Processamento</div>
           </div>
         </div>
@@ -3732,7 +3722,7 @@ function loadHistory() {
             </div>
             <div class="hist-byte-savings">
               <div class="hist-byte-label">Economia</div>
-              <div class="hist-byte-value">${item.savings > 0 ? "â†“ " + item.savings : "â€”"}%</div>
+              <div class="hist-byte-value">${item.savings > 0 ? "↓ " + item.savings : "—"}%</div>
             </div>
             <div class="hist-byte-item optimized">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -3754,7 +3744,7 @@ function showQAError(message) {
   const box = document.getElementById("qa-error");
   if (!box) return;
 
-  box.textContent = "âš  " + prettifyErrorMessage(message);
+  box.textContent = "⚠ " + prettifyErrorMessage(message);
   box.style.display = "block";
 }
 
@@ -3781,9 +3771,9 @@ function setQALoading(on) {
   }
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 // Bot filtering
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 function filterBots(q) {
   const term = String(q || "").toLowerCase();
 
@@ -3797,9 +3787,9 @@ function filterBots(q) {
   });
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 // Keyboard shortcuts
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 document.addEventListener("keydown", (e) => {
   if (
     e.key === "Enter" &&
@@ -3881,25 +3871,25 @@ document.getElementById("qb-project")?.addEventListener("input", () => {
   scheduleQBDatasetValidation();
 });
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 // Init
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
 window.addEventListener("load", function init() {
-  console.log("ðŸš€ Inicializando Finance Hub IA...");
+  console.log("🚀 Inicializando Finance Hub IA...");
   try {
     showScreen("screen-login");
     document.getElementById("inp-user")?.focus();
     enforceQAConfigReadOnly();
 
-    // Remover event listeners dos botÃµes que foram removidos
+    // Remover event listeners dos botões que foram removidos
     renderShowcase();
     startShowcaseAutoplay();
     setQADatasetValidationStatus("idle");
     syncQAAnalyzeButtonState();
     syncQBGenerateButtonState();
-    console.log("âœ… InicializaÃ§Ã£o concluÃ­da!");
+    console.log("✅ Inicialização concluída!");
   } catch (error) {
-    console.error("âŒ Erro na inicializaÃ§Ã£o:", error);
+    console.error("❌ Erro na inicialização:", error);
   }
 });
 
@@ -3907,42 +3897,42 @@ const showcaseBots = [
   {
     name: "SQL Review",
     description:
-      "Reduza custo e tempo de execuÃ§Ã£o com revisÃ£o automÃ¡tica de anti-padrÃµes e SQL otimizada.",
+      "Reduza custo e tempo de execução com revisão automática de anti-padrões e SQL otimizada.",
     tags: ["BigQuery", "SQL", "Performance"],
-    status: "Disponivel",
+    status: "Disponível",
     action: () => navTo("qa"),
   },
   {
     name: "Document Builder",
     description:
-      "Gere documentaÃ§Ã£o que o negÃ³cio entende e a engenharia confia: schema real, governanÃ§a e exportaÃ§Ã£o pronta.",
+      "Gere documentação que o negócio entende e a engenharia confia: schema real, governança e exportação pronta.",
     tags: ["Docs", "Pipeline", "DataOps"],
-    status: "Disponivel",
+    status: "Disponível",
     action: () => navTo("db"),
   },
   {
     name: "Query Builder",
     description:
-      "Da pergunta ao SQL em minutos, com contexto real para anÃ¡lises de receita, margem e risco.",
+      "Da pergunta ao SQL em minutos, com contexto real para análises de receita, margem e risco.",
     tags: ["NL2SQL", "BigQuery", "IA"],
-    status: "Disponivel",
+    status: "Disponível",
     action: () => navTo("qb"),
   },
   {
     name: "Finance Voice IA",
     description:
-      "Audite a experiÃªncia do cliente com anÃ¡lise de sentimentos, fricÃ§Ã£o, VoC e NPS â€” tudo em um relatÃ³rio executivo acionÃ¡vel.",
+      "Audite a experiência do cliente com análise de sentimentos, fricção, VoC e NPS — tudo em um relatório executivo acionável.",
     tags: ["Auditoria", "VoC", "CX"],
-    status: "Disponivel",
+    status: "Disponível",
     action: () => navTo("audit"),
   },
   {
-    name: "Schema Explorer",
+    name: "ER Diagram Explorer",
     description:
-      "Visualize a arquitetura de dados do seu projeto GCP: datasets, tabelas e relacionamentos em um grafo interativo.",
-    tags: ["BigQuery", "Graph", "DataOps"],
-    status: "Disponivel",
-    action: () => navTo("schema"),
+      "Visualize o diagrama ER de datasets BigQuery com relacionamentos e navegação interativa.",
+    tags: ["ER Diagram", "BigQuery", "DataOps"],
+    status: "Disponível",
+    action: () => navTo("er"),
   },
 ];
 
@@ -4022,9 +4012,9 @@ function restartShowcaseAutoplay() {
   startShowcaseAutoplay();
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Finance Voice IA â€” Chat
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────
+// Finance Voice IA — Chat
+// ─────────────────────────────────────
 
 let faIsLoading = false;
 let faThinkingId = null;
@@ -4167,7 +4157,7 @@ function clearFAChat() {
         </svg>
       </div>
       <h3>Finance Voice IA</h3>
-      <p>Pergunte sobre qualquer perÃ­odo em linguagem natural. Analisarei sentimento, fricÃ§Ã£o e temas de atendimento e gerarei um relatÃ³rio executivo.</p>
+      <p>Pergunte sobre qualquer período em linguagem natural. Analisarei sentimento, fricção e temas de atendimento e gerarei um relatório executivo.</p>
     </div>`;
 
   const input = document.getElementById("fa-input");
@@ -4217,7 +4207,7 @@ function appendFAUserMessage(text) {
     <div class="fa-msg-main">
       <div class="fa-bubble fa-bubble--user">
         <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">ðŸ‘¤</span>
+          <span class="fa-bubble-icon" aria-hidden="true">👤</span>
           <span class="fa-bubble-title">Sua pergunta</span>
         </div>
         <div class="fa-bubble-body">${_escFA(text)}</div>
@@ -4243,7 +4233,7 @@ function appendFAThinking() {
     <div class="fa-msg-main">
       <div class="fa-bubble fa-bubble--thinking">
         <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">âš™</span>
+          <span class="fa-bubble-icon" aria-hidden="true">⚙</span>
           <span class="fa-bubble-title">Finance Voice IA analisando</span>
         </div>
         <div class="fa-thinking-dots"><span></span><span></span><span></span></div>
@@ -4270,8 +4260,8 @@ function appendFAErrorMessage(msg) {
     <div class="fa-msg-main">
       <div class="fa-bubble fa-bubble--error">
         <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">âš </span>
-          <span class="fa-bubble-title">AtenÃ§Ã£o</span>
+          <span class="fa-bubble-icon" aria-hidden="true">⚠</span>
+          <span class="fa-bubble-title">Atenção</span>
         </div>
         <div class="fa-bubble-body">${_escFA(msg)}</div>
       </div>
@@ -4292,7 +4282,7 @@ async function appendFAChatTextMessage(text) {
     <div class="fa-msg-main">
       <div class="fa-bubble fa-bubble--bot">
         <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">âœ¦</span>
+          <span class="fa-bubble-icon" aria-hidden="true">✦</span>
           <span class="fa-bubble-title">Finance Voice IA</span>
         </div>
         <div class="fa-bubble-body"><div class="fa-report-slot"></div></div>
@@ -4323,8 +4313,8 @@ async function appendFABotMessage(data) {
     <div class="fa-msg-main fa-msg-main--report">
       <div class="fa-bubble fa-bubble--bot fa-bubble--report">
         <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">ðŸ“Š</span>
-          <span class="fa-bubble-title">RelatÃ³rio Finance Voice IA</span>
+          <span class="fa-bubble-icon" aria-hidden="true">📊</span>
+          <span class="fa-bubble-title">Relatório Finance Voice IA</span>
         </div>
         <div class="fa-bubble-body">
           ${metricsHtml}
@@ -4332,7 +4322,7 @@ async function appendFABotMessage(data) {
           ${detailsHtml}
         </div>
       </div>
-      <div class="fa-msg-time">${_faNow()} Â· Score ${data.quality_score ?? "â€”"}/100</div>
+      <div class="fa-msg-time">${_faNow()} · Score ${data.quality_score ?? "—"}/100</div>
     </div>`;
 
   area.appendChild(el);
@@ -4351,13 +4341,13 @@ function _faMetricsHtml(data) {
   const pct =
     data.friction_score != null
       ? (data.friction_score * 100).toFixed(1) + "%"
-      : "â€”";
+      : "—";
 
   const dateRange = data.date_range
-    ? `${data.date_range.start} â†’ ${data.date_range.end}`
-    : "â€”";
+    ? `${data.date_range.start} → ${data.date_range.end}`
+    : "—";
 
-  const dominant = (data.sentiment_analysis?.dominant || "â€”").toUpperCase();
+  const dominant = (data.sentiment_analysis?.dominant || "—").toUpperCase();
   const total = (data.total_records ?? 0).toLocaleString("pt-BR");
   const ops = Array.isArray(data.operations_analyzed)
     ? data.operations_analyzed.filter(Boolean)
@@ -4375,10 +4365,10 @@ function _faMetricsHtml(data) {
     }[dominant] || "var(--ink-secondary)";
   const sentimentIcon =
     {
-      POSITIVO: "ðŸ‘",
-      NEGATIVO: "ðŸ‘Ž",
-      NEUTRO: "ðŸ¤",
-    }[dominant] || "ðŸ’¬";
+      POSITIVO: "👍",
+      NEGATIVO: "👎",
+      NEUTRO: "🤝",
+    }[dominant] || "💬";
   const sentimentClass =
     {
       POSITIVO: "fa-metric-card--sent-positivo",
@@ -4399,8 +4389,8 @@ function _faMetricsHtml(data) {
   return `
     <div class="fa-metric-grid">
       <div class="fa-metric-card fa-metric-card--${labelKey}">
-        <div class="fa-metric-head"><span class="fa-metric-icon">âš¡</span></div>
-        <div class="fa-metric-label">FricÃ§Ã£o</div>
+        <div class="fa-metric-head"><span class="fa-metric-icon">⚡</span></div>
+        <div class="fa-metric-label">Fricção</div>
         <div class="fa-metric-value">${label} <span>${pct}</span></div>
       </div>
 
@@ -4411,27 +4401,27 @@ function _faMetricsHtml(data) {
       </div>
 
       <div class="fa-metric-card">
-        <div class="fa-metric-head"><span class="fa-metric-icon">ðŸ“…</span></div>
-        <div class="fa-metric-label">PerÃ­odo analisado</div>
-        <div class="fa-metric-value">ðŸ“… ${dateRange}</div>
+        <div class="fa-metric-head"><span class="fa-metric-icon">📅</span></div>
+        <div class="fa-metric-label">Período analisado</div>
+        <div class="fa-metric-value">📅 ${dateRange}</div>
       </div>
 
       <div class="fa-metric-card">
-        <div class="fa-metric-head"><span class="fa-metric-icon">ðŸ“Š</span></div>
+        <div class="fa-metric-head"><span class="fa-metric-icon">📊</span></div>
         <div class="fa-metric-label">Volume</div>
-        <div class="fa-metric-value">ðŸ“Š ${total} registros</div>
+        <div class="fa-metric-value">📊 ${total} registros</div>
       </div>
 
       <div class="fa-metric-card" title="${_escFA(ops.join(" | "))}">
-        <div class="fa-metric-head"><span class="fa-metric-icon">ðŸ§©</span></div>
-        <div class="fa-metric-label">OperaÃ§Ãµes analisadas</div>
-        <div class="fa-metric-value">ðŸ§© ${_escFA(opsPreview || "â€”")}</div>
+        <div class="fa-metric-head"><span class="fa-metric-icon">🧩</span></div>
+        <div class="fa-metric-label">Operações analisadas</div>
+        <div class="fa-metric-value">🧩 ${_escFA(opsPreview || "—")}</div>
       </div>
 
       <div class="fa-metric-card ${warningItems.length > 0 ? "fa-metric-card--warn" : "fa-metric-card--ok"}" title="${_escFA(warningItems.join(" | "))}">
-        <div class="fa-metric-head"><span class="fa-metric-icon">${warningItems.length > 0 ? "âš " : "âœ…"}</span></div>
+        <div class="fa-metric-head"><span class="fa-metric-icon">${warningItems.length > 0 ? "⚠" : "✅"}</span></div>
         <div class="fa-metric-label">Avisos</div>
-        <div class="fa-metric-value">${warningItems.length > 0 ? "âš " : "âœ…"} ${warningsResume}</div>
+        <div class="fa-metric-value">${warningItems.length > 0 ? "⚠" : "✅"} ${warningsResume}</div>
       </div>
     </div>
     ${warningsDetail}`;
@@ -4479,7 +4469,7 @@ function toggleFADetails(toggleId, bodyId) {
   body.classList.toggle("open");
 }
 
-// â”€â”€ Simple Markdown â†’ HTML converter â”€â”€
+// ── Simple Markdown → HTML converter ──
 function _faMdToHtml(md) {
   if (!md) return "";
 
@@ -4569,7 +4559,7 @@ function _faMdToHtml(md) {
 
       if (!inTable) {
         closeList();
-        // previous line was header â†’ wrap in thead
+        // previous line was header → wrap in thead
         const prevIdx = out.length - 1;
         const prev = out[prevIdx] || "";
         if (prev.startsWith("<tr>")) {
@@ -4647,7 +4637,7 @@ function _escFA(str) {
     .replace(/"/g, "&quot;");
 }
 
-// â”€â”€ Main send function â”€â”€
+// ── Main send function ──
 async function sendFAMessage() {
   const input = document.getElementById("fa-input");
   const text = input?.value.trim() || "";
@@ -4685,7 +4675,7 @@ async function sendFAMessage() {
 
     if (!res.ok) {
       const e = await res.json();
-      throw new Error(e.detail || "Erro na anÃ¡lise");
+      throw new Error(e.detail || "Erro na análise");
     }
 
     const data = await res.json();
@@ -4693,12 +4683,12 @@ async function sendFAMessage() {
 
     if (data.status === "error") {
       appendFAErrorMessage(
-        data.error || "NÃ£o foi possÃ­vel realizar a anÃ¡lise.",
+        data.error || "Não foi possível realizar a análise.",
       );
     } else if (data.response_mode === "chat") {
       await appendFAChatTextMessage(
         data.chat_answer ||
-          "NÃ£o encontrei resposta para essa pergunta no momento.",
+          "Não encontrei resposta para essa pergunta no momento.",
       );
     } else {
       await appendFABotMessage(data);
@@ -4717,767 +4707,7 @@ async function sendFAMessage() {
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-//  SCHEMA EXPLORER
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-let schemaState = {
-  projectId: "",
-  datasets: [],
-  tables: [],
-  nodes: [],
-  edges: [],
-  stats: {},
-  warnings: [],
-};
-
-let schemaSimulation = null;
-let sgActiveTab = "graph";
-let sgRelFilter = "ALL";
-
-// â”€â”€ API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-async function runSchemaGraph() {
-  const projectId = (document.getElementById("sg-project")?.value || "").trim();
-  const datasets = (document.getElementById("sg-datasets")?.value || "").trim();
-  const maxTables = parseInt(
-    document.getElementById("sg-max-tables")?.value || "30",
-    10,
-  );
-
-  if (!projectId) {
-    showSchemaError("Informe o Projeto GCP.");
-    return;
-  }
-
-  setSchemaProgress(5, "Iniciando anÃ¡lise...");
-  hideSchemaError();
-  hideSchemaWarnings();
-  document.getElementById("sg-stat-cards").style.display = "none";
-
-  try {
-    setSchemaProgress(20, "Descobrindo datasets...");
-    const body = {
-      query: `max_tables=${maxTables}`,
-      project_id: projectId,
-      dataset_hint: datasets || null,
-    };
-
-    const res = await fetch("/api/agents/schema_graph/analyze", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(err.detail || "Erro na requisiÃ§Ã£o");
-    }
-
-    setSchemaProgress(70, "Construindo grafo...");
-    const data = await res.json();
-
-    if (data.status === "error") {
-      showSchemaError(data.error || "Erro desconhecido.");
-      hideSchemaProgress();
-      return;
-    }
-
-    renderSchemaGraph(data);
-    setSchemaProgress(100, "ConcluÃ­do!");
-    setTimeout(hideSchemaProgress, 600);
-  } catch (err) {
-    showSchemaError(String(err));
-    hideSchemaProgress();
-  }
-}
-
-async function loadCachedSchema() {
-  const projectId = (document.getElementById("sg-project")?.value || "").trim();
-  if (!projectId) {
-    showSchemaError("Informe o Projeto GCP para carregar o cache.");
-    return;
-  }
-
-  setSchemaProgress(10, "Carregando cache...");
-  hideSchemaError();
-
-  try {
-    const res = await fetch(
-      `/api/agents/schema_graph/cached/${encodeURIComponent(projectId)}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-
-    if (res.status === 404) {
-      showSchemaError("Nenhum grafo em cache para este projeto.");
-      hideSchemaProgress();
-      return;
-    }
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(err.detail || "Erro ao carregar cache");
-    }
-
-    setSchemaProgress(80, "Renderizando...");
-    const data = await res.json();
-    renderSchemaGraph(data);
-    setSchemaProgress(100, "Cache carregado!");
-    setTimeout(hideSchemaProgress, 600);
-  } catch (err) {
-    showSchemaError(String(err));
-    hideSchemaProgress();
-  }
-}
-
-// â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-function renderSchemaGraph(data) {
-  schemaState.projectId = data.project_id || "";
-  schemaState.nodes = data.graph_nodes || [];
-  schemaState.edges = data.graph_edges || [];
-  schemaState.stats = data.stats || {};
-  schemaState.tables = data.tables || [];
-  schemaState.datasets = data.datasets || [];
-  schemaState.warnings = data.warnings || [];
-
-  // Stats cards
-  const st = schemaState.stats;
-  document.getElementById("sg-stat-datasets").textContent =
-    st.total_datasets ?? schemaState.datasets.length;
-  document.getElementById("sg-stat-tables").textContent =
-    st.total_tables ?? schemaState.tables.length;
-  document.getElementById("sg-stat-rels").textContent =
-    st.total_relationships ?? schemaState.edges.length;
-  document.getElementById("sg-stat-density").textContent =
-    ((st.graph_density ?? 0) * 100).toFixed(1) + "%";
-  document.getElementById("sg-stat-cards").style.display = "grid";
-
-  // Badge counter
-  document.getElementById("schema-table-badge").textContent =
-    schemaState.tables.length;
-
-  // Warnings
-  if (schemaState.warnings.length) {
-    showSchemaWarnings(schemaState.warnings);
-  }
-
-  // Show results area
-  document.getElementById("sg-empty").style.display = "none";
-  const tabsArea = document.getElementById("sg-tabs-area");
-  if (tabsArea) tabsArea.style.display = "flex";
-
-  // Update rel count badge â€” relationship edges only (not internal)
-  const relEdgesOnly = schemaState.edges.filter((e) => e.type !== "internal");
-  const relCount = document.getElementById("sg-rel-count");
-  if (relCount) relCount.textContent = relEdgesOnly.length;
-
-  // Populate text tabs immediately
-  renderRelationships(schemaState.edges);
-  renderCatalog(schemaState.datasets, schemaState.tables);
-
-  // Switch to graph tab
-  switchSchemaTab("graph");
-
-  // Defer D3 init until after browser has laid out the newly-visible container
-  requestAnimationFrame(() => {
-    initD3Graph(schemaState.nodes, schemaState.edges);
-  });
-}
-
-// â”€â”€ D3 Clustered Card Graph â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Tables are SVG foreignObject cards.  Columns render as HTML
-// list items inside each card.  Only table nodes participate in
-// the force simulation.  Relationship edges are SVG lines drawn
-// between card centres and updated on every tick.
-
-function initD3Graph(nodes, edges) {
-  const svgEl = document.getElementById("sg-d3-svg");
-  const legend = document.getElementById("sg-legend");
-  const tooltip = document.getElementById("sg-tooltip");
-  const container = document.getElementById("sg-graph-container");
-
-  if (!svgEl || typeof d3 === "undefined") {
-    if (container)
-      container.innerHTML =
-        '<p style="color:#d97706;padding:20px;font-size:13px">D3.js nÃ£o carregado. Verifique a conexÃ£o e recarregue a pÃ¡gina.</p>';
-    return;
-  }
-
-  if (schemaSimulation) {
-    schemaSimulation.stop();
-    schemaSimulation = null;
-  }
-  while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
-  svgEl.style.display = "block";
-  if (legend) legend.style.display = "flex";
-
-  const W = container?.clientWidth || 900;
-  const H = container?.clientHeight || 560;
-
-  // â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const CARD_W = 170;
-  const CARD_HDR = 38; // collapsed height (header only)
-  const COL_ROW_H = 22; // height per column row when expanded
-  const CARD_PAD_VERT = 8; // extra vertical padding at bottom
-  const CARD_R = 8; // border-radius
-
-  // â”€â”€ Data preparation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const tableNodes = nodes
-    .filter((n) => n.type === "table")
-    .map((n) => ({ ...n }));
-  const colsByTable = new Map();
-  nodes
-    .filter((n) => n.type === "column")
-    .forEach((n) => {
-      const key = n.parent_table;
-      if (!colsByTable.has(key)) colsByTable.set(key, []);
-      colsByTable.get(key).push(n);
-    });
-
-  // Sort: keys first, then alphabetical
-  colsByTable.forEach((cols, key) => {
-    cols.sort(
-      (a, b) =>
-        (b.is_key ? 1 : 0) - (a.is_key ? 1 : 0) ||
-        a.label.localeCompare(b.label),
-    );
-  });
-
-  // Relationship edges (no internals) with resolved table-node source/target
-  const tableIdSet = new Set(tableNodes.map((n) => n.id));
-  const relEdges = edges
-    .filter((e) => e.type !== "internal")
-    .map((e) => {
-      // source/target may be col: IDs â†’ map up to table
-      const resolveToTable = (id) => {
-        if (tableIdSet.has(id)) return id;
-        // col: prefix â†’ "col:project.dataset.table.column" â€“ drop last segment
-        if (typeof id === "string" && id.startsWith("col:")) {
-          const parts = id.slice(4).split(".");
-          if (parts.length >= 4) return "tb:" + parts.slice(0, 3).join(".");
-          // fewer segments: try "tb:" + all but last
-          return "tb:" + parts.slice(0, -1).join(".");
-        }
-        return id;
-      };
-      return {
-        ...e,
-        source: resolveToTable(e.source),
-        target: resolveToTable(e.target),
-      };
-    })
-    .filter(
-      (e) =>
-        tableIdSet.has(e.source) &&
-        tableIdSet.has(e.target) &&
-        e.source !== e.target,
-    );
-
-  const nodeById = new Map(tableNodes.map((n) => [n.id, n]));
-
-  // â”€â”€ Expand state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const expandedTables = new Set();
-
-  function cardHeight(tableId) {
-    if (!expandedTables.has(tableId)) return CARD_HDR;
-    const cols = colsByTable.get(tableId) || [];
-    return CARD_HDR + cols.length * COL_ROW_H + CARD_PAD_VERT;
-  }
-
-  // â”€â”€ SVG setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const svg = d3
-    .select("#sg-d3-svg")
-    .attr("viewBox", `0 0 ${W} ${H}`)
-    .attr("preserveAspectRatio", "xMidYMid meet");
-
-  // Arrow marker defs
-  const defs = svg.append("defs");
-  const markerColors = [
-    "#059669",
-    "#d97706",
-    "#6d28d9",
-    "#0891b2",
-    "#8096b2",
-    "#00A1E4",
-  ];
-  markerColors.forEach((col) => {
-    defs
-      .append("marker")
-      .attr("id", `arr-${col.replace("#", "")}`)
-      .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 6)
-      .attr("refY", 0)
-      .attr("markerWidth", 5)
-      .attr("markerHeight", 5)
-      .attr("orient", "auto")
-      .append("path")
-      .attr("d", "M0,-5L10,0L0,5")
-      .attr("fill", col);
-  });
-
-  const g = svg.append("g");
-
-  // Zoom / pan
-  svg.call(
-    d3
-      .zoom()
-      .scaleExtent([0.06, 6])
-      .on("zoom", (ev) => g.attr("transform", ev.transform)),
-  );
-
-  // â”€â”€ Layer groups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const edgeGroup = g.append("g").attr("class", "edges");
-  const cardGroup = g.append("g").attr("class", "cards");
-
-  // â”€â”€ Draw relationship edges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const edgeSel = edgeGroup
-    .selectAll("line")
-    .data(relEdges)
-    .join("line")
-    .attr("stroke", (d) => d.color || "#8096b2")
-    .attr("stroke-width", (d) => 1.5 + (d.strength || 0) * 2)
-    .attr("stroke-opacity", 0.75)
-    .attr(
-      "marker-end",
-      (d) => `url(#arr-${(d.color || "#8096b2").replace("#", "")})`,
-    );
-
-  // â”€â”€ Edge labels (relationship type) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const edgeLabelSel = edgeGroup
-    .selectAll("text")
-    .data(relEdges)
-    .join("text")
-    .attr("font-size", "8px")
-    .attr("font-family", "DM Sans, sans-serif")
-    .attr("fill", (d) => d.color || "#8096b2")
-    .attr("text-anchor", "middle")
-    .attr("dy", -4)
-    .style("pointer-events", "none")
-    .text((d) => {
-      const map = {
-        FATO_DIMENSAO: "Fâ†’D",
-        DIMENSAO_DIMENSAO: "Dâ†’D",
-        HIERARQUICA: "Hier",
-        TEMPORAL: "Temp",
-      };
-      return map[d.type] || d.type || "";
-    });
-
-  // â”€â”€ Build foreignObject cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const foSel = cardGroup
-    .selectAll("foreignObject")
-    .data(tableNodes, (d) => d.id)
-    .join("foreignObject")
-    .attr("width", CARD_W)
-    .attr("height", (d) => cardHeight(d.id))
-    .attr("x", (d) => (d.x || W / 2) - CARD_W / 2)
-    .attr("y", (d) => (d.y || H / 2) - CARD_HDR / 2)
-    .style("overflow", "visible");
-
-  // Inner HTML div for each card
-  foSel
-    .append("xhtml:div")
-    .attr("xmlns", "http://www.w3.org/1999/xhtml")
-    .style("width", CARD_W + "px")
-    .style("min-height", CARD_HDR + "px")
-    .style("background", "#fff")
-    .style("border", "1.5px solid #c7d2e8")
-    .style("border-radius", CARD_R + "px")
-    .style("box-shadow", "0 2px 8px rgba(0,70,145,0.10)")
-    .style("overflow", "hidden")
-    .style("cursor", "pointer")
-    .style("font-family", "DM Sans, sans-serif")
-    .style("user-select", "none")
-    .html((d) => buildCardHtml(d, false))
-    .on("click", function (event, d) {
-      event.stopPropagation();
-      const wasExpanded = expandedTables.has(d.id);
-      if (wasExpanded) expandedTables.delete(d.id);
-      else expandedTables.add(d.id);
-      const div = d3.select(this);
-      div.html(buildCardHtml(d, !wasExpanded));
-      const newH = cardHeight(d.id);
-      // Animate height via max-height trick
-      div
-        .style("max-height", wasExpanded ? CARD_HDR + "px" : newH + "px")
-        .style("transition", "max-height 0.3s ease");
-      d3.select(this.parentNode) // foreignObject
-        .transition()
-        .duration(300)
-        .attr("height", newH)
-        .attr("y", d.y - newH / 2);
-      // Bump simulation so edges redraw
-      if (schemaSimulation) schemaSimulation.alpha(0.05).restart();
-    })
-    .on("mouseover", function (event, d) {
-      if (!tooltip) return;
-      const exp = expandedTables.has(d.id);
-      tooltip.innerHTML =
-        `<strong>${d.label}</strong><br/>` +
-        `<span style="color:#8096b2;font-size:10px">${d.dataset || ""}</span><br/>` +
-        `${colsByTable.get(d.id)?.length ?? 0} colunas` +
-        (d.has_more_columns
-          ? ' <span style="color:#d97706">+ocultas</span>'
-          : "") +
-        `<br/><em style="color:#004691;font-size:10px">${exp ? "Clique para colapsar" : "Clique para expandir"}</em>`;
-      tooltip.style.display = "block";
-    })
-    .on("mousemove", (event) => {
-      const rect = container?.getBoundingClientRect();
-      if (!rect || !tooltip) return;
-      tooltip.style.left = event.clientX - rect.left + 14 + "px";
-      tooltip.style.top = event.clientY - rect.top + 14 + "px";
-    })
-    .on("mouseout", () => {
-      if (tooltip) tooltip.style.display = "none";
-    });
-
-  function buildCardHtml(d, expanded) {
-    const cols = colsByTable.get(d.id) || [];
-    const header = `
-      <div style="
-        padding: 0 10px;
-        height: ${CARD_HDR}px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: #004691;
-        border-radius: ${expanded ? CARD_R + "px " + CARD_R + "px 0 0" : CARD_R + "px"};
-        color: #fff;
-        gap: 6px;
-      ">
-        <span style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${d.label}</span>
-        <span style="font-size:9px;opacity:0.7;flex-shrink:0">${expanded ? "â–²" : "â–¼"}</span>
-      </div>`;
-
-    if (!expanded) return header;
-
-    const rows = cols
-      .map((c) => {
-        const icon = c.is_key ? "ðŸ”‘" : "Â·";
-        const color = c.is_key ? "#004691" : "#475569";
-        const weight = c.is_key ? "700" : "400";
-        const dtype = (c.dtype || "STRING").split("(")[0]; // trim e.g. STRING(255)
-        return `<div style="
-          display:flex;align-items:center;gap:5px;
-          padding:0 10px;
-          height:${COL_ROW_H}px;
-          font-size:10px;
-          border-bottom:1px solid #f1f5f9;
-          color:${color};
-          font-weight:${weight};
-        ">
-          <span style="flex-shrink:0">${icon}</span>
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${c.label}</span>
-          <span style="font-size:9px;color:#94a3b8;flex-shrink:0">${dtype}</span>
-        </div>`;
-      })
-      .join("");
-
-    return header + rows;
-  }
-
-  // â”€â”€ Drag on foreignObject â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  foSel.call(
-    d3
-      .drag()
-      .on("start", (event, d) => {
-        if (!event.active) schemaSimulation.alphaTarget(0.2).restart();
-        d.fx = d.x;
-        d.fy = d.y;
-      })
-      .on("drag", (event, d) => {
-        d.fx = event.x;
-        d.fy = event.y;
-      })
-      .on("end", (event, d) => {
-        if (!event.active) schemaSimulation.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
-      }),
-  );
-
-  // â”€â”€ Force simulation â€” table nodes only â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  schemaSimulation = d3
-    .forceSimulation(tableNodes)
-    .force("charge", d3.forceManyBody().strength(-1200))
-    .force("center", d3.forceCenter(W / 2, H / 2).strength(0.05))
-    .force("collision", d3.forceCollide(CARD_W / 2 + 20))
-    .alphaDecay(0.025)
-    .velocityDecay(0.45);
-
-  // â”€â”€ Tick â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  schemaSimulation.on("tick", () => {
-    // Update card foreignObject positions
-    foSel
-      .attr("x", (d) => d.x - CARD_W / 2)
-      .attr("y", (d) => d.y - cardHeight(d.id) / 2);
-
-    // Update relationship edges â€” draw from/to card centre
-    edgeSel
-      .attr("x1", (d) => {
-        const n = nodeById.get(d.source);
-        return n ? n.x : 0;
-      })
-      .attr("y1", (d) => {
-        const n = nodeById.get(d.source);
-        return n ? n.y : 0;
-      })
-      .attr("x2", (d) => {
-        const src = nodeById.get(d.source);
-        const tgt = nodeById.get(d.target);
-        if (!src || !tgt) return 0;
-        // Shorten end so arrow doesn't overlap card
-        const dx = tgt.x - src.x,
-          dy = tgt.y - src.y;
-        const len = Math.sqrt(dx * dx + dy * dy) || 1;
-        return tgt.x - (dx / len) * (CARD_W / 2 + 6);
-      })
-      .attr("y2", (d) => {
-        const src = nodeById.get(d.source);
-        const tgt = nodeById.get(d.target);
-        if (!src || !tgt) return 0;
-        const dx = tgt.x - src.x,
-          dy = tgt.y - src.y;
-        const len = Math.sqrt(dx * dx + dy * dy) || 1;
-        return tgt.y - (dy / len) * (CARD_HDR / 2 + 6);
-      });
-
-    // Edge label midpoints
-    edgeLabelSel
-      .attr("x", (d) => {
-        const s = nodeById.get(d.source),
-          t = nodeById.get(d.target);
-        return s && t ? (s.x + t.x) / 2 : 0;
-      })
-      .attr("y", (d) => {
-        const s = nodeById.get(d.source),
-          t = nodeById.get(d.target);
-        return s && t ? (s.y + t.y) / 2 : 0;
-      });
-  });
-}
-
-// â”€â”€ Relationships Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-function renderRelationships(edges) {
-  const container = document.getElementById("sg-rel-list");
-  if (!container) return;
-
-  // Exclude internal (tableâ†’column) edges
-  const relEdges = edges.filter((e) => e.type !== "internal");
-  const filtered =
-    sgRelFilter === "ALL"
-      ? relEdges
-      : relEdges.filter((e) => e.type === sgRelFilter);
-
-  if (!filtered.length) {
-    container.innerHTML =
-      "<p style='color:var(--text-sec);padding:20px'>Nenhum relacionamento encontrado.</p>";
-    return;
-  }
-
-  container.innerHTML = filtered
-    .map((e) => {
-      // Handle both col: and tb: source/target IDs
-      const srcId = e.source_table || e.source || "";
-      const tgtId = e.target_table || e.target || "";
-      const srcLabel = srcId.replace("tb:", "").split(".").pop() || srcId;
-      const tgtLabel = tgtId.replace("tb:", "").split(".").pop() || tgtId;
-
-      // If edge is column-level, show column name
-      const srcRaw =
-        typeof e.source === "string" ? e.source : e.source?.id || "";
-      const tgtRaw =
-        typeof e.target === "string" ? e.target : e.target?.id || "";
-      const srcCol = srcRaw.startsWith("col:") ? srcRaw.split(".").pop() : null;
-      const tgtCol = tgtRaw.startsWith("col:") ? tgtRaw.split(".").pop() : null;
-
-      const strength = Math.round((e.strength || 0) * 100);
-      const badgeClass = `sg-badge sg-badge-${e.type}`;
-      return `
-      <div class="sg-rel-card">
-        <div class="sg-rel-header">
-          <div>
-            <span style="font-weight:700">${srcLabel}</span>
-            ${srcCol ? `<br/><span style="font-size:10px;color:#00A1E4">ðŸ”‘ ${srcCol}</span>` : ""}
-          </div>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-          <div>
-            <span style="font-weight:700">${tgtLabel}</span>
-            ${tgtCol ? `<br/><span style="font-size:10px;color:#00A1E4">ðŸ”‘ ${tgtCol}</span>` : ""}
-          </div>
-          <span class="${badgeClass}">${e.type}</span>
-        </div>
-        ${e.description ? `<div class="sg-rel-desc">${e.description}</div>` : ""}
-        <div class="sg-strength-bar"><div class="sg-strength-fill" style="width:${strength}%"></div></div>
-      </div>`;
-    })
-    .join("");
-}
-
-function filterRelByType(type) {
-  sgRelFilter = type;
-  document.querySelectorAll(".sg-chip").forEach((chip) => {
-    chip.classList.toggle(
-      "active",
-      chip.getAttribute("onclick")?.includes(`'${type}'`),
-    );
-  });
-  renderRelationships(schemaState.edges);
-}
-
-// â”€â”€ Catalog Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-function renderCatalog(datasets, tables) {
-  const container = document.getElementById("sg-catalog-tree");
-  if (!container) return;
-
-  if (!tables.length) {
-    container.innerHTML =
-      "<p style='color:var(--text-sec);padding:20px'>Nenhuma tabela encontrada.</p>";
-    return;
-  }
-
-  const tablesByDs = {};
-  tables.forEach((t) => {
-    const ds = t.dataset_id || "desconhecido";
-    tablesByDs[ds] = tablesByDs[ds] || [];
-    tablesByDs[ds].push(t);
-  });
-
-  container.innerHTML = Object.entries(tablesByDs)
-    .map(
-      ([ds, tbls]) => `
-    <div class="sg-catalog-dataset">
-      <div class="sg-catalog-ds-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        ${ds} <span style="font-weight:400;color:var(--text-sec);margin-left:6px">(${tbls.length})</span>
-      </div>
-      <div class="sg-catalog-tables">
-        ${tbls
-          .map((t) => {
-            const label =
-              t.table_id || t.full_name?.split(".").pop() || t.full_name;
-            const cols = (t.columns || []).length;
-            return `<div class="sg-catalog-table">${label} <span style="color:var(--text-sec)">&nbsp;(${cols} cols)</span></div>`;
-          })
-          .join("")}
-      </div>
-    </div>`,
-    )
-    .join("");
-}
-
-// â”€â”€ Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-function switchSchemaTab(name) {
-  sgActiveTab = name;
-  const tabs = ["graph", "relationships", "catalog", "export"];
-  tabs.forEach((t) => {
-    const pane = document.getElementById(`sg-panel-${t}`);
-    if (pane) pane.classList.toggle("active", t === name);
-    const btn = document.getElementById(`sg-tab-${t}`);
-    if (btn) btn.classList.toggle("active", t === name);
-  });
-}
-
-// â”€â”€ Progress / Error helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-function setSchemaProgress(pct, label) {
-  const bar = document.getElementById("sg-progress");
-  const fill = document.getElementById("sg-progress-fill");
-  const lbl = document.getElementById("sg-progress-step");
-  if (!bar) return;
-  bar.style.display = "block";
-  if (fill) fill.style.width = pct + "%";
-  if (lbl) lbl.textContent = label || "";
-}
-
-function hideSchemaProgress() {
-  const bar = document.getElementById("sg-progress");
-  if (bar) bar.style.display = "none";
-}
-
-function showSchemaError(msg) {
-  const el = document.getElementById("sg-error");
-  if (!el) return;
-  el.textContent = msg;
-  el.style.display = "block";
-}
-
-function hideSchemaError() {
-  const el = document.getElementById("sg-error");
-  if (el) el.style.display = "none";
-}
-
-function showSchemaWarnings(warnings) {
-  const el = document.getElementById("sg-warnings");
-  if (!el) return;
-  el.innerHTML = warnings.map((w) => `<div>âš  ${w}</div>`).join("");
-  el.style.display = "block";
-}
-
-function hideSchemaWarnings() {
-  const el = document.getElementById("sg-warnings");
-  if (el) el.style.display = "none";
-}
-
-// â”€â”€ Export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-function exportSchemaJSON() {
-  if (!schemaState.nodes.length) {
-    showSchemaError("Sem dados para exportar. Execute uma anÃ¡lise primeiro.");
-    return;
-  }
-  const payload = {
-    project_id: schemaState.projectId,
-    nodes: schemaState.nodes,
-    edges: schemaState.edges,
-    stats: schemaState.stats,
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: "application/json",
-  });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `schema_graph_${schemaState.projectId || "export"}.json`;
-  a.click();
-}
-
-function exportSchemaSVG() {
-  const svg = document.getElementById("sg-d3-svg");
-  if (!svg || svg.style.display === "none") {
-    showSchemaError("Grafo nÃ£o disponÃ­vel. Execute uma anÃ¡lise primeiro.");
-    return;
-  }
-  const serializer = new XMLSerializer();
-  const svgStr = serializer.serializeToString(svg);
-  const blob = new Blob([svgStr], { type: "image/svg+xml" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `schema_graph_${schemaState.projectId || "export"}.svg`;
-  a.click();
-}
-
-// â”€â”€ Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-function openSchemaConfig() {
-  /* modal removed â€“ config is inline */
-}
-function closeSchemaConfig() {
-  /* modal removed */
-}
-function applySchemaConfig() {
-  /* modal removed */
-}
-
+// ═══════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════════════════
 //  ER DIAGRAM EXPLORER — Neo4j-style D3 Force Graph
@@ -5485,50 +4715,69 @@ function applySchemaConfig() {
 
 // ── State ──────────────────────────────────────────────────────────────────
 const _neo = {
-  data: null, svg: null, inner: null, zoom: null, simulation: null,
-  nodeMap: {}, nodeG: null, edgePaths: null, edgeLblG: null,
-  expandedNodes: new Set(), selectedNode: null,
-  showKeysOnly: false, hideInferred: false, searchTerm: "",
-  dsRef: "", initialized: false, width: 0, height: 0, zoomT: null,
+  data: null,
+  svg: null,
+  inner: null,
+  zoom: null,
+  simulation: null,
+  nodeMap: {},
+  nodeG: null,
+  edgePaths: null,
+  edgeLblG: null,
+  colNodeG: null,
+  colEdgePaths: null,
+  tableColEdgePaths: null,
+  colNodes: [],
+  colEdges: [],
+  tableColEdges: [],
+  expandedNodes: new Set(),
+  selectedNode: null,
+  showKeysOnly: false,
+  hideInferred: false,
+  searchTerm: "",
+  dsRef: "",
+  initialized: false,
+  width: 0,
+  height: 0,
+  zoomT: null,
 };
 
 const _NEO_COLOR = {
-  fact:       { fill: "#004691", stroke: "#3b70c0" },
-  dimension:  { fill: "#0891b2", stroke: "#30b0d8" },
-  staging:    { fill: "#64748b", stroke: "#94a3b8" },
+  fact: { fill: "#004691", stroke: "#3b70c0" },
+  dimension: { fill: "#0891b2", stroke: "#30b0d8" },
+  staging: { fill: "#64748b", stroke: "#94a3b8" },
   aggregated: { fill: "#6d28d9", stroke: "#9460f0" },
-  unknown:    { fill: "#3d5276", stroke: "#5a7090" },
+  unknown: { fill: "#3d5276", stroke: "#5a7090" },
 };
 
 const _NEO_EDGE_STYLE = {
-  high:   { color: "#94a3b8", dash: null },
+  high: { color: "#94a3b8", dash: null },
   medium: { color: "#d97706", dash: null },
-  low:    { color: "#475569", dash: "5,3" },
+  low: { color: "#475569", dash: "5,3" },
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-function _neoRadius(node) {
-  const keys = node.columns.filter(c =>
-    c.is_pk_candidate || c.is_fk_candidate || c.is_partition || c.is_clustering);
-  const expanded = _neo.expandedNodes.has(node.id);
-  const vis = (_neo.showKeysOnly && !expanded)
-    ? Math.max(keys.length, 1)
-    : node.columns.length;
-  return Math.min(65 + vis * 4, 95);
+function _neoRadius() {
+  return 38;
 }
 
 function _neoVisibleCols(node) {
   const expanded = _neo.expandedNodes.has(node.id);
   if (!_neo.showKeysOnly || expanded) return node.columns;
-  const k = node.columns.filter(c =>
-    c.is_pk_candidate || c.is_fk_candidate || c.is_partition || c.is_clustering);
+  const k = node.columns.filter(
+    (c) =>
+      c.is_pk_candidate ||
+      c.is_fk_candidate ||
+      c.is_partition ||
+      c.is_clustering,
+  );
   return k.length ? k : node.columns.slice(0, 3);
 }
 
 function _neoColIcon(c) {
   if (c.is_pk_candidate) return "🔑";
-  if (c.is_partition)    return "⚡";
-  if (c.is_clustering)   return "🔷";
+  if (c.is_partition) return "⚡";
+  if (c.is_clustering) return "🔷";
   if (c.is_fk_candidate) return "🔗";
   return " ";
 }
@@ -5537,10 +4786,26 @@ function _neoShortType(t) {
   if (!t) return "?";
   const u = t.toUpperCase().split("(")[0];
   const m = {
-    STRING:"STR", INT64:"INT", INTEGER:"INT", FLOAT64:"FLT", NUMERIC:"NUM",
-    BOOLEAN:"BOOL", DATE:"DATE", DATETIME:"DT", TIMESTAMP:"TS", BYTES:"BYT",
-    ARRAY:"ARR", STRUCT:"OBJ", BIGNUMERIC:"BNUM", FLOAT:"FLT", BIGINT:"INT",
-    SMALLINT:"INT", TINYINT:"INT", VARCHAR:"STR", CHAR:"STR", DECIMAL:"NUM",
+    STRING: "STR",
+    INT64: "INT",
+    INTEGER: "INT",
+    FLOAT64: "FLT",
+    NUMERIC: "NUM",
+    BOOLEAN: "BOOL",
+    DATE: "DATE",
+    DATETIME: "DT",
+    TIMESTAMP: "TS",
+    BYTES: "BYT",
+    ARRAY: "ARR",
+    STRUCT: "OBJ",
+    BIGNUMERIC: "BNUM",
+    FLOAT: "FLT",
+    BIGINT: "INT",
+    SMALLINT: "INT",
+    TINYINT: "INT",
+    VARCHAR: "STR",
+    CHAR: "STR",
+    DECIMAL: "NUM",
   };
   return m[u] || u.slice(0, 4);
 }
@@ -5554,29 +4819,66 @@ function initErView() {
 
 // ── Dataset validation (debounce 1s, mirrors QB pattern) ──────────────────
 let _neoValTimer = null;
+let _neoProjTimer = null;
 
 function _neoWireValidation() {
   const pIn = document.getElementById("neo-project");
   const dIn = document.getElementById("neo-dataset");
   if (!pIn || !dIn) return;
-  const onChange = () => {
+
+  // Project change → fetch datasets after 800ms idle
+  pIn.addEventListener("input", () => {
+    clearTimeout(_neoProjTimer);
+    _neoProjTimer = setTimeout(() => _neoLoadDatasets(pIn.value.trim()), 800);
+    // Also re-validate dataset combo if already filled
     clearTimeout(_neoValTimer);
     _neoSetBtn(false);
     _neoDsIndicator("typing");
     _neoValTimer = setTimeout(_neoValidate, 1000);
-  };
-  pIn.addEventListener("input", onChange);
-  dIn.addEventListener("input", onChange);
+  });
+
+  // Dataset change → validate after 1s idle
+  dIn.addEventListener("input", () => {
+    clearTimeout(_neoValTimer);
+    _neoSetBtn(false);
+    _neoDsIndicator("typing");
+    _neoValTimer = setTimeout(_neoValidate, 1000);
+  });
+}
+
+async function _neoLoadDatasets(project) {
+  const dl = document.getElementById("neo-dataset-list");
+  if (!dl || !project) return;
+  try {
+    const resp = await fetch(
+      `/api/schema-explorer/datasets?project_id=${encodeURIComponent(project)}`,
+      {
+        headers: {
+          Authorization:
+            "Bearer " + (typeof token !== "undefined" ? token : ""),
+        },
+      },
+    );
+    if (!resp.ok) return;
+    const datasets = await resp.json();
+    dl.innerHTML = datasets
+      .map((d) => `<option value="${d}"></option>`)
+      .join("");
+  } catch (_) {
+    // silently ignore — datalist is best-effort
+  }
 }
 
 function _neoDsIndicator(s) {
   const el = document.getElementById("neo-ds-indicator");
   if (!el) return;
   const map = {
-    idle:    "",
-    typing:  '<span style="color:rgba(255,255,255,.35);font-size:9px">•••</span>',
-    valid:   '<span style="color:#4ade80;font-size:13px;line-height:1">✓</span>',
-    invalid: '<span style="color:#f87171;font-size:13px;line-height:1">✗</span>',
+    idle: "",
+    typing:
+      '<span style="color:rgba(255,255,255,.35);font-size:9px">•••</span>',
+    valid: '<span style="color:#4ade80;font-size:13px;line-height:1">✓</span>',
+    invalid:
+      '<span style="color:#f87171;font-size:13px;line-height:1">✗</span>',
   };
   el.innerHTML = map[s] ?? "";
 }
@@ -5589,7 +4891,10 @@ function _neoSetBtn(enabled) {
 async function _neoValidate() {
   const p = document.getElementById("neo-project")?.value.trim();
   const d = document.getElementById("neo-dataset")?.value.trim();
-  if (!p || !d) { _neoDsIndicator("idle"); return; }
+  if (!p || !d) {
+    _neoDsIndicator("idle");
+    return;
+  }
   _neoDsIndicator("valid");
   _neoSetBtn(true);
 }
@@ -5600,25 +4905,27 @@ async function loadNeoGraph() {
   const dataset = document.getElementById("neo-dataset")?.value.trim();
   if (!project || !dataset) return;
   _neoState("loading");
-  const leg = document.getElementById("neo-legend");
-  if (leg) leg.style.display = "none";
   try {
     const resp = await fetch(
       `/api/schema-explorer/graph?project_id=${encodeURIComponent(project)}&dataset_hint=${encodeURIComponent(dataset)}`,
-      { headers: { Authorization: "Bearer " + (typeof token !== "undefined" ? token : "") } }
+      {
+        headers: {
+          Authorization:
+            "Bearer " + (typeof token !== "undefined" ? token : ""),
+        },
+      },
     );
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ detail: resp.statusText }));
       throw new Error(err.detail || resp.statusText);
     }
     const data = await resp.json();
-    _neo.data    = data;
-    _neo.dsRef   = data.metadata?.dataset_ref || `${project}.${dataset}`;
+    _neo.data = data;
+    _neo.dsRef = data.metadata?.dataset_ref || `${project}.${dataset}`;
     _neo.expandedNodes.clear();
     _neo.selectedNode = null;
     neoCloseDetail();
     _neoRender(data);
-    if (leg) leg.style.display = "";
   } catch (e) {
     _neoState("error", e.message);
   }
@@ -5626,19 +4933,25 @@ async function loadNeoGraph() {
 
 // ── State display ──────────────────────────────────────────────────────────
 function _neoState(state, msg) {
-  ["neo-loading","neo-error","neo-empty","neo-svg"].forEach(id => {
+  ["neo-loading", "neo-error", "neo-empty", "neo-svg"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });
   if (state === "loading") {
-    const el = document.getElementById("neo-loading"); if (el) el.style.display = "";
+    const el = document.getElementById("neo-loading");
+    if (el) el.style.display = "";
   } else if (state === "error") {
     const el = document.getElementById("neo-error");
-    if (el) { el.style.display = ""; el.textContent = msg || "Erro"; }
+    if (el) {
+      el.style.display = "";
+      el.textContent = msg || "Erro";
+    }
   } else if (state === "empty") {
-    const el = document.getElementById("neo-empty"); if (el) el.style.display = "";
+    const el = document.getElementById("neo-empty");
+    if (el) el.style.display = "";
   } else if (state === "graph") {
-    const el = document.getElementById("neo-svg"); if (el) el.style.display = "";
+    const el = document.getElementById("neo-svg");
+    if (el) el.style.display = "";
   }
 }
 
@@ -5647,93 +4960,206 @@ function _neoRender(data) {
   _neoState("graph");
   const wrap = document.getElementById("neo-canvas-wrap");
   if (!wrap) return;
-  const W = wrap.clientWidth  || 900;
+  const W = wrap.clientWidth || 900;
   const H = wrap.clientHeight || 600;
-  _neo.width = W; _neo.height = H;
+  _neo.width = W;
+  _neo.height = H;
 
-  if (_neo.simulation) { _neo.simulation.stop(); _neo.simulation = null; }
+  if (_neo.simulation) {
+    _neo.simulation.stop();
+    _neo.simulation = null;
+  }
 
   // Filter edges
-  const activeEdges = data.edges.filter(e =>
-    !(_neo.hideInferred && e.confidence === "low"));
+  const activeEdges = data.edges.filter(
+    (e) => !(_neo.hideInferred && e.confidence === "low"),
+  );
 
   // Clone node data (D3 will mutate x/y)
-  const nodes = data.nodes.map(n => ({ ...n, r: _neoRadius(n) }));
-  const byId  = Object.fromEntries(nodes.map(n => [n.id, n]));
+  const nodes = data.nodes.map((n) => ({ ...n, r: _neoRadius(n) }));
+  const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
   _neo.nodeMap = byId;
 
   // Resolve edge source/target to node objects
-  const edges = activeEdges.map(e => ({
+  const edges = activeEdges.map((e) => ({
     ...e,
     source: byId[e.source] ?? e.source,
     target: byId[e.target] ?? e.target,
   }));
 
   // Re-use existing SVG element; rebuild inner g only
-  const svg = d3.select("#neo-svg")
-    .attr("width",  W)
-    .attr("height", H);
+  const svg = d3.select("#neo-svg").attr("width", W).attr("height", H);
   svg.selectAll("g.neo-inner").remove();
   const inner = svg.append("g").attr("class", "neo-inner");
 
-  const zoom = d3.zoom()
+  const zoom = d3
+    .zoom()
     .scaleExtent([0.2, 4])
-    .on("zoom", ev => { inner.attr("transform", ev.transform); _neo.zoomT = ev.transform; });
+    .on("zoom", (ev) => {
+      inner.attr("transform", ev.transform);
+      _neo.zoomT = ev.transform;
+    });
   svg.call(zoom).on("dblclick.zoom", null);
-  _neo.svg = svg; _neo.inner = inner; _neo.zoom = zoom;
+  _neo.svg = svg;
+  _neo.inner = inner;
+  _neo.zoom = zoom;
 
   // Draw layers (edges behind nodes)
-  const gEdge    = inner.append("g").attr("class", "neo-edges");
+  const gEdge = inner.append("g").attr("class", "neo-edges");
   const gEdgeLbl = inner.append("g").attr("class", "neo-edge-labels");
-  const gNode    = inner.append("g").attr("class", "neo-nodes");
+  const gTableColEdge = inner.append("g").attr("class", "neo-table-col-edges");
+  const gColEdge = inner.append("g").attr("class", "neo-col-edges");
+  const gNode = inner.append("g").attr("class", "neo-nodes");
+  const gColNode = inner.append("g").attr("class", "neo-col-nodes");
 
   // ── Edges ─────────────────────────────────────────────────────────
-  const edgePaths = gEdge.selectAll(".neo-edge")
-    .data(edges, e => `${e.source?.id??e.source}→${e.target?.id??e.target}:${e.via_column}`)
+  const edgePaths = gEdge
+    .selectAll(".neo-edge")
+    .data(
+      edges,
+      (e) =>
+        `${e.source?.id ?? e.source}→${e.target?.id ?? e.target}:${e.via_column}`,
+    )
     .join("path")
     .attr("class", "neo-edge")
     .attr("fill", "none")
-    .attr("stroke",       e => _NEO_EDGE_STYLE[e.confidence]?.color ?? "#94a3b8")
+    .attr("stroke", (e) => _NEO_EDGE_STYLE[e.confidence]?.color ?? "#94a3b8")
     .attr("stroke-width", 2)
-    .attr("stroke-dasharray", e => _NEO_EDGE_STYLE[e.confidence]?.dash ?? null)
-    .attr("marker-end",   e => `url(#neo-arrow-${e.confidence})`)
+    .attr("stroke-linecap", "round")
+    .attr(
+      "stroke-dasharray",
+      (e) => _NEO_EDGE_STYLE[e.confidence]?.dash ?? null,
+    )
+    .attr("marker-end", (e) => `url(#neo-arrow-${e.confidence})`)
     .style("cursor", "pointer")
-    .on("click", (ev, e) => { ev.stopPropagation(); _neoEdgeClick(ev, e); });
+    .on("click", (ev, e) => {
+      ev.stopPropagation();
+      _neoEdgeClick(ev, e);
+    });
 
   // ── Edge labels ────────────────────────────────────────────────────
-  const edgeLblG = gEdgeLbl.selectAll(".neo-el")
-    .data(edges, e => `${e.source?.id??e.source}→${e.target?.id??e.target}:${e.via_column}`)
-    .join("g").attr("class", "neo-el").style("pointer-events", "none");
+  const edgeLblG = gEdgeLbl
+    .selectAll(".neo-el")
+    .data(
+      edges,
+      (e) =>
+        `${e.source?.id ?? e.source}→${e.target?.id ?? e.target}:${e.via_column}`,
+    )
+    .join("g")
+    .attr("class", "neo-el")
+    .style("pointer-events", "none");
 
-  edgeLblG.append("rect").attr("class", "neo-el-bg")
-    .attr("rx", 3).attr("ry", 3)
+  edgeLblG
+    .append("rect")
+    .attr("class", "neo-el-bg")
+    .attr("rx", 3)
+    .attr("ry", 3)
     .attr("fill", "#1e293b")
-    .attr("stroke", e => _NEO_EDGE_STYLE[e.confidence]?.color ?? "#94a3b8")
+    .attr("stroke", (e) => _NEO_EDGE_STYLE[e.confidence]?.color ?? "#94a3b8")
     .attr("stroke-width", 0.8);
 
-  edgeLblG.append("text").attr("class", "neo-el-text")
-    .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
-    .attr("font-size", "9").attr("font-weight", "700")
-    .attr("fill", e => _NEO_EDGE_STYLE[e.confidence]?.color ?? "#94a3b8")
-    .text(e => e.via_column);
+  edgeLblG
+    .append("text")
+    .attr("class", "neo-el-text")
+    .attr("text-anchor", "middle")
+    .attr("dominant-baseline", "middle")
+    .attr("font-size", "10")
+    .attr("font-weight", "700")
+    .attr("fill", (e) => _NEO_EDGE_STYLE[e.confidence]?.color ?? "#94a3b8")
+    .text((e) => e.via_column);
 
   // ── Nodes ──────────────────────────────────────────────────────────
-  const nodeG = gNode.selectAll(".neo-node")
-    .data(nodes, n => n.id)
-    .join("g").attr("class", "neo-node")
-    .call(d3.drag()
-      .on("start", (ev, d) => {
-        if (!ev.active) _neo.simulation.alphaTarget(0.15).restart();
-        d.fx = d.x; d.fy = d.y;
-      })
-      .on("drag",  (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
-      .on("end",   (ev, d) => {
-        if (!ev.active) _neo.simulation.alphaTarget(0);
-        d.fx = null; d.fy = null;
-      })
+  const nodeG = gNode
+    .selectAll(".neo-node")
+    .data(nodes, (n) => n.id)
+    .join("g")
+    .attr("class", "neo-node")
+    .call(
+      d3
+        .drag()
+        .on("start", (ev, d) => {
+          d.fx = d.x;
+          d.fy = d.y;
+        })
+        .on("drag", (ev, d) => {
+          d.fx = ev.x;
+          d.fy = ev.y;
+          d.x = ev.x;
+          d.y = ev.y;
+          // Reposition this node and all its column satellites directly
+          d3.select(ev.sourceEvent.target.closest(".neo-node")).attr(
+            "transform",
+            `translate(${d.fx},${d.fy})`,
+          );
+          // Redraw edges and column nodes that depend on this table node
+          if (_neo.edgePaths) _neo.edgePaths.attr("d", (e) => _neoEdgePath(e));
+          if (_neo.colNodeG) {
+            _neo.colNodeG.attr("transform", (c) => {
+              if (c.tableId !== d.id) return;
+              const p = _neoColumnPos(c);
+              c.x = p.x;
+              c.y = p.y;
+              return `translate(${p.x},${p.y})`;
+            });
+          }
+          if (_neo.tableColEdgePaths) {
+            _neo.tableColEdgePaths.attr("d", (e) => {
+              if (e.tableId !== d.id) return;
+              const t = _neo.nodeMap[e.tableId];
+              const c = e.colNode;
+              if (!t?.x || !c?.x) return "";
+              const dx = c.x - t.x,
+                dy = c.y - t.y;
+              const len = Math.sqrt(dx * dx + dy * dy) || 1;
+              const sx = t.x + (dx / len) * (t.r ?? 20);
+              const sy = t.y + (dy / len) * (t.r ?? 20);
+              const ex = c.x - (dx / len) * 6;
+              const ey = c.y - (dy / len) * 6;
+              return `M${sx},${sy} L${ex},${ey}`;
+            });
+          }
+          if (_neo.colEdgePaths) {
+            _neo.colEdgePaths.attr("d", (e) => {
+              const s = e.sourceCol,
+                t = e.targetCol;
+              if (!s?.x || !t?.x) return "";
+              const mx = (s.x + t.x) / 2,
+                my = (s.y + t.y) / 2 - 18;
+              return `M${s.x},${s.y} Q${mx},${my} ${t.x},${t.y}`;
+            });
+          }
+          if (_neo.edgeLblG) {
+            _neo.edgeLblG.each(function (e) {
+              const { lx, ly } = _neoEdgeMid(e);
+              const grp = d3.select(this);
+              const txt = grp
+                .select(".neo-el-text")
+                .attr("x", lx)
+                .attr("y", ly);
+              try {
+                const bb = txt.node().getBBox();
+                grp
+                  .select(".neo-el-bg")
+                  .attr("x", bb.x - 4)
+                  .attr("y", bb.y - 2)
+                  .attr("width", bb.width + 8)
+                  .attr("height", bb.height + 4);
+              } catch (_) {}
+            });
+          }
+        })
+        .on("end", (_ev, _d) => {
+          // Keep fx/fy pinned so node stays where dropped
+        }),
     )
-    .on("click",    (ev, d) => { ev.stopPropagation(); _neoSelectNode(d.id, nodes, edges); })
-    .on("dblclick", (ev, d) => { ev.stopPropagation(); _neoToggleExpand(d, nodes, edges); })
+    .on("click", (ev, d) => {
+      ev.stopPropagation();
+      _neoSelectNode(d.id, nodes, edges);
+    })
+    .on("dblclick", (ev, d) => {
+      ev.stopPropagation();
+      _neoToggleExpand(d, nodes, edges);
+    })
     .on("mouseenter", (ev, d) => _neoHoverNode(d, nodes, edges, true))
     .on("mouseleave", (ev, d) => _neoHoverNode(d, nodes, edges, false));
 
@@ -5746,112 +5172,344 @@ function _neoRender(data) {
     edgeLblG.classed("neo-el-dimmed", false);
   });
 
-  _neo.nodeG = nodeG; _neo.edgePaths = edgePaths; _neo.edgeLblG = edgeLblG;
+  _neo.nodeG = nodeG;
+  _neo.edgePaths = edgePaths;
+  _neo.edgeLblG = edgeLblG;
+
+  const colNodes = _neoBuildColumnNodes(nodes);
+  const tableColEdges = _neoBuildTableColumnEdges(colNodes);
+  const colEdges = _neoBuildColumnKeyEdges(colNodes, edges);
+  _neo.colNodes = colNodes;
+  _neo.tableColEdges = tableColEdges;
+  _neo.colEdges = colEdges;
+
+  const tableColEdgePaths = gTableColEdge
+    .selectAll(".neo-table-col-edge")
+    .data(tableColEdges, (e) => `${e.tableId}->${e.colNode.id}`)
+    .join("path")
+    .attr("class", "neo-table-col-edge")
+    .attr("fill", "none")
+    .attr("stroke", "rgba(148,163,184,0.55)")
+    .attr("stroke-width", 1.25);
+
+  const colEdgePaths = gColEdge
+    .selectAll(".neo-col-edge")
+    .data(colEdges, (e) => `${e.sourceCol.id}->${e.targetCol.id}`)
+    .join("path")
+    .attr("class", "neo-col-edge")
+    .attr("fill", "none")
+    .attr("stroke", "rgba(251,191,36,0.72)")
+    .attr("stroke-width", 1.5)
+    .attr("stroke-dasharray", "2,2");
+
+  const colNodeG = gColNode
+    .selectAll(".neo-col-node")
+    .data(colNodes, (c) => c.id)
+    .join("g")
+    .attr(
+      "class",
+      (c) => `neo-col-node ${c.isKey ? "neo-col-key" : "neo-col-regular"}`,
+    )
+    .style("pointer-events", "none");
+
+  colNodeG
+    .append("circle")
+    .attr("class", "neo-col-circle")
+    .attr("r", 28)
+    .attr("fill", (c) => (c.isKey ? "#431407" : "#0c2543"))
+    .attr("stroke", (c) => (c.isKey ? "#f97316" : "#38bdf8"))
+    .attr("stroke-width", (c) => (c.isKey ? 2.5 : 2))
+    .style("filter", (c) =>
+      c.isKey ? "drop-shadow(0 0 6px rgba(249,115,22,0.75))" : "none",
+    );
+
+  colNodeG
+    .append("text")
+    .attr("class", "neo-col-label")
+    .attr("text-anchor", "middle")
+    .attr("pointer-events", "none")
+    .attr("fill", (c) => (c.isKey ? "#fed7aa" : "#e0f2fe"))
+    .attr("font-weight", (c) => (c.isKey ? "700" : "500"))
+    .each(function (c) {
+      _neoWrapSvgText(d3.select(this), c.col.name, 28, 8);
+    });
+
+  _neo.colNodeG = colNodeG;
+  _neo.colEdgePaths = colEdgePaths;
+  _neo.tableColEdgePaths = tableColEdgePaths;
 
   // Draw initial node content
-  nodes.forEach(n => _neoDrawNode(nodeG.filter(d => d.id === n.id), n));
+  nodes.forEach((n) =>
+    _neoDrawNode(
+      nodeG.filter((d) => d.id === n.id),
+      n,
+    ),
+  );
 
-  // ── Force simulation ───────────────────────────────────────────────
-  const sim = d3.forceSimulation(nodes)
-    .force("link",    d3.forceLink(edges).id(d => d.id).distance(300).strength(0.5))
-    .force("charge",  d3.forceManyBody().strength(-700))
-    .force("center",  d3.forceCenter(W / 2, H / 2))
-    .force("collide", d3.forceCollide().radius(d => d.r + 25).strength(0.8))
-    .alphaDecay(0.028)
-    .velocityDecay(0.4)
-    .on("tick", () => _neoTick(edgePaths, edgeLblG, nodeG, nodes, W, H));
+  // ── Force simulation ─────────────────────────────────────────────────────
+  // Run the simulation fully offline so nodes start static (no vibration).
+  const sim = d3
+    .forceSimulation(nodes)
+    .force(
+      "link",
+      d3
+        .forceLink(edges)
+        .id((d) => d.id)
+        .distance(300)
+        .strength(0.5),
+    )
+    .force("charge", d3.forceManyBody().strength(-700))
+    .force("center", d3.forceCenter(W / 2, H / 2))
+    .force(
+      "collide",
+      d3
+        .forceCollide()
+        .radius((d) => d.r + 25)
+        .strength(0.8),
+    )
+    .stop();
+
+  // Advance enough ticks for a stable layout (~300 is sufficient)
+  const tickCount = Math.ceil(
+    Math.log(sim.alphaMin()) / Math.log(1 - sim.alphaDecay()),
+  );
+  for (let i = 0; i < tickCount; i++) sim.tick();
+
+  // Pin every node so it never drifts after render
+  nodes.forEach((n) => {
+    n.fx = n.x;
+    n.fy = n.y;
+  });
+
+  // Single render pass
+  _neoTick(
+    edgePaths,
+    edgeLblG,
+    nodeG,
+    colNodeG,
+    tableColEdgePaths,
+    colEdgePaths,
+    nodes,
+    W,
+    H,
+  );
 
   _neo.simulation = sim;
+  _neo.nodes = nodes;
 }
 
 // ── Draw node SVG content ──────────────────────────────────────────────────
 function _neoDrawNode(sel, n) {
   sel.selectAll("*").remove();
-  const r   = n.r;
+  const r = n.r;
   const col = _NEO_COLOR[n.table_type] ?? _NEO_COLOR.unknown;
 
   // Pulse ring (shown when selected)
-  sel.append("circle").attr("class", "neo-pulse-ring")
-    .attr("r", r + 7).attr("fill", "none")
-    .attr("stroke", col.stroke).attr("stroke-width", 2.5)
-    .attr("opacity", 0).attr("pointer-events", "none");
-
-  // Main circle
-  sel.append("circle").attr("class", "neo-circle")
-    .attr("r", r).attr("fill", col.fill)
-    .attr("stroke", col.stroke).attr("stroke-width", 3)
-    .style("filter", "drop-shadow(0 4px 16px rgba(0,0,0,.5))");
-
-  // foreignObject — text content inside the circle
-  const fw = r * 1.62, fh = r * 1.72;
-  const fo = sel.append("foreignObject")
-    .attr("x", -fw / 2).attr("y", -fh / 2)
-    .attr("width", fw).attr("height", fh)
+  sel
+    .append("circle")
+    .attr("class", "neo-pulse-ring")
+    .attr("r", r + 7)
+    .attr("fill", "none")
+    .attr("stroke", col.stroke)
+    .attr("stroke-width", 2.5)
+    .attr("opacity", 0)
     .attr("pointer-events", "none");
 
-  const div = fo.append("xhtml:div")
-    .style("width", "100%").style("height", "100%")
-    .style("overflow", "hidden").style("box-sizing", "border-box")
-    .style("padding", "6px 4px 3px")
-    .style("display", "flex").style("flex-direction", "column")
-    .style("align-items", "center");
+  // Main table node (filled background)
+  sel
+    .append("circle")
+    .attr("class", "neo-circle")
+    .attr("r", r)
+    .attr("fill", col.fill)
+    .attr("fill-opacity", 0.96)
+    .attr("stroke", col.stroke)
+    .attr("stroke-width", 3)
+    .style("filter", "drop-shadow(0 4px 16px rgba(0,0,0,.5))");
 
-  // Table name
-  div.append("xhtml:div")
-    .style("font-size",      r >= 88 ? "11px" : "10px")
-    .style("font-weight",    "700")
-    .style("color",          "#fff")
-    .style("text-align",     "center")
-    .style("white-space",    "nowrap")
-    .style("overflow",       "hidden")
-    .style("text-overflow",  "ellipsis")
-    .style("width",          "100%")
-    .style("flex-shrink",    "0")
-    .style("line-height",    "1.2")
-    .text(n.label);
+  // Table name label inside the node — wrapped to fit the circle
+  const lbl = n.label ?? n.id ?? "";
+  const labelEl = sel
+    .append("text")
+    .attr("class", "neo-node-label")
+    .attr("text-anchor", "middle")
+    .attr("fill", "#f8fafc")
+    .attr("font-weight", "700")
+    .attr("pointer-events", "none");
+  _neoWrapSvgText(labelEl, lbl, r, 10);
+}
 
-  // Divider
-  div.append("xhtml:hr")
-    .style("width",       "72%").style("border", "none")
-    .style("border-top",  "1px solid rgba(255,255,255,.2)")
-    .style("margin",      "2px 0 1px").style("flex-shrink", "0");
+function _neoBuildColumnNodes(nodes) {
+  const out = [];
+  nodes.forEach((t) => {
+    const cols = _neoVisibleCols(t);
+    const count = Math.max(cols.length, 1);
+    cols.forEach((col, idx) => {
+      out.push({
+        id: `${t.id}::${col.name}`,
+        tableId: t.id,
+        col,
+        idx,
+        count,
+        isKey: Boolean(col.is_pk_candidate || col.is_fk_candidate),
+      });
+    });
+  });
+  return out;
+}
 
-  // Columns
-  const colDiv = div.append("xhtml:div")
-    .style("width", "100%").style("overflow", "hidden").style("flex", "1");
+function _neoBuildTableColumnEdges(colNodes) {
+  return colNodes.map((c) => ({
+    tableId: c.tableId,
+    colNode: c,
+  }));
+}
 
-  _neoVisibleCols(n).forEach(c => {
-    colDiv.append("xhtml:div")
-      .style("font-size",     "9px")
-      .style("color",         "rgba(255,255,255,.85)")
-      .style("white-space",   "nowrap")
-      .style("overflow",      "hidden")
-      .style("text-overflow", "ellipsis")
-      .style("line-height",   "1.45")
-      .text(`${_neoColIcon(c)} ${c.name}: ${_neoShortType(c.type)}`);
+function _neoFriendlyTableLabel(label) {
+  if (!label) return "";
+  return label.length > 18 ? `${label.slice(0, 17)}...` : label;
+}
+
+// Wraps text into <tspan> elements fitted inside a circle of radius r
+function _neoWrapSvgText(sel, text, r, baseFontSize) {
+  const maxW = r * 1.7;
+  const charW = baseFontSize * 0.6;
+  const charsPerLine = Math.max(4, Math.floor(maxW / charW));
+  const words = text.replace(/_/g, " ").split(/\s+/);
+  const lines = [];
+  let cur = "";
+  for (const w of words) {
+    const candidate = cur ? cur + " " + w : w;
+    if (candidate.length <= charsPerLine) {
+      cur = candidate;
+    } else {
+      if (cur) lines.push(cur);
+      cur =
+        w.length > charsPerLine ? w.slice(0, charsPerLine - 1) + "\u2026" : w;
+    }
+  }
+  if (cur) lines.push(cur);
+  const maxLines = 3;
+  if (lines.length > maxLines) {
+    lines.splice(maxLines);
+    const last = lines[maxLines - 1];
+    lines[maxLines - 1] = last.slice(0, charsPerLine - 2) + "\u2026";
+  }
+  const fontSize =
+    lines.length >= 3 ? Math.max(6, baseFontSize - 2) : baseFontSize;
+  const lineH = fontSize * 1.35;
+  sel.attr("font-size", fontSize);
+  lines.forEach((line, i) => {
+    sel
+      .append("tspan")
+      .attr("x", 0)
+      .attr("dy", i === 0 ? -((lines.length - 1) / 2) * lineH : lineH)
+      .text(line);
   });
 }
 
+function _neoBuildColumnKeyEdges(colNodes, tableEdges) {
+  const byId = new Map(colNodes.map((c) => [c.id, c]));
+  const out = [];
+  const seen = new Set();
+
+  (tableEdges || []).forEach((e) => {
+    const sid = e.source?.id ?? e.source;
+    const tid = e.target?.id ?? e.target;
+    const col = e.via_column;
+    const a = byId.get(`${sid}::${col}`);
+    const b = byId.get(`${tid}::${col}`);
+    if (!a || !b) return;
+    if (!(a.isKey || b.isKey)) return;
+    const key = [a.id, b.id].sort().join("|");
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ sourceCol: a, targetCol: b, confidence: e.confidence });
+  });
+  return out;
+}
+
+function _neoColumnPos(colNode) {
+  const table = _neo.nodeMap[colNode.tableId];
+  if (!table) return { x: 0, y: 0 };
+  const angle =
+    (Math.PI * 2 * colNode.idx) / Math.max(colNode.count, 1) - Math.PI / 2;
+  const ring = (table.r ?? 38) + 72;
+  return {
+    x: (table.x ?? 0) + Math.cos(angle) * ring,
+    y: (table.y ?? 0) + Math.sin(angle) * ring,
+  };
+}
+
 // ── Simulation tick ────────────────────────────────────────────────────────
-function _neoTick(edgePaths, edgeLblG, nodeG, nodes, W, H) {
+function _neoTick(
+  edgePaths,
+  edgeLblG,
+  nodeG,
+  colNodeG,
+  tableColEdgePaths,
+  colEdgePaths,
+  nodes,
+  W,
+  H,
+) {
   // Clamp nodes to canvas bounds
-  nodes.forEach(n => {
+  nodes.forEach((n) => {
     n.x = Math.max(n.r + 12, Math.min(W - n.r - 12, n.x));
     n.y = Math.max(n.r + 12, Math.min(H - n.r - 12, n.y));
   });
 
-  nodeG.attr("transform", d => `translate(${d.x},${d.y})`);
-  edgePaths.attr("d", e => _neoEdgePath(e));
+  nodeG.attr("transform", (d) => `translate(${d.x},${d.y})`);
+  edgePaths.attr("d", (e) => _neoEdgePath(e));
 
-  edgeLblG.each(function(e) {
+  if (colNodeG) {
+    colNodeG.attr("transform", (c) => {
+      const p = _neoColumnPos(c);
+      c.x = p.x;
+      c.y = p.y;
+      return `translate(${p.x},${p.y})`;
+    });
+  }
+
+  if (tableColEdgePaths) {
+    tableColEdgePaths.attr("d", (e) => {
+      const t = _neo.nodeMap[e.tableId];
+      const c = e.colNode;
+      if (!t?.x || !c?.x) return "";
+
+      const dx = c.x - t.x;
+      const dy = c.y - t.y;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      const sx = t.x + (dx / len) * (t.r ?? 20);
+      const sy = t.y + (dy / len) * (t.r ?? 20);
+      const ex = c.x - (dx / len) * 6;
+      const ey = c.y - (dy / len) * 6;
+      return `M${sx},${sy} L${ex},${ey}`;
+    });
+  }
+
+  if (colEdgePaths) {
+    colEdgePaths.attr("d", (e) => {
+      const s = e.sourceCol;
+      const t = e.targetCol;
+      if (!s?.x || !t?.x) return "";
+      const mx = (s.x + t.x) / 2;
+      const my = (s.y + t.y) / 2 - 18;
+      return `M${s.x},${s.y} Q${mx},${my} ${t.x},${t.y}`;
+    });
+  }
+
+  edgeLblG.each(function (e) {
     const { lx, ly } = _neoEdgeMid(e);
     const grp = d3.select(this);
-    const txt  = grp.select(".neo-el-text").attr("x", lx).attr("y", ly);
+    const txt = grp.select(".neo-el-text").attr("x", lx).attr("y", ly);
     try {
       const bb = txt.node().getBBox();
-      grp.select(".neo-el-bg")
-        .attr("x", bb.x - 4).attr("y", bb.y - 2)
-        .attr("width", bb.width + 8).attr("height", bb.height + 4);
+      grp
+        .select(".neo-el-bg")
+        .attr("x", bb.x - 4)
+        .attr("y", bb.y - 2)
+        .attr("width", bb.width + 8)
+        .attr("height", bb.height + 4);
     } catch (_) {}
   });
 }
@@ -5861,16 +5519,20 @@ function _neoEdgePath(e) {
   const s = typeof e.source === "object" ? e.source : _neo.nodeMap[e.source];
   const t = typeof e.target === "object" ? e.target : _neo.nodeMap[e.target];
   if (!s?.x || !t?.x) return "";
-  const sr = s.r ?? 65, tr = t.r ?? 65;
-  const dx = t.x - s.x, dy = t.y - s.y;
+  const sr = s.r ?? 65,
+    tr = t.r ?? 65;
+  const dx = t.x - s.x,
+    dy = t.y - s.y;
   const len = Math.sqrt(dx * dx + dy * dy) || 1;
   // Start / end on circle boundaries
-  const sx = s.x + (dx / len) * sr,  sy = s.y + (dy / len) * sr;
-  const ex = t.x - (dx / len) * tr,  ey = t.y - (dy / len) * tr;
+  const sx = s.x + (dx / len) * sr,
+    sy = s.y + (dy / len) * sr;
+  const ex = t.x - (dx / len) * tr,
+    ey = t.y - (dy / len) * tr;
   // Perpendicular curve offset
   const off = Math.min(len * 0.18, 55);
   const mx = (sx + ex) / 2 + (-dy / len) * off;
-  const my = (sy + ey) / 2 + ( dx / len) * off;
+  const my = (sy + ey) / 2 + (dx / len) * off;
   return `M${sx},${sy} Q${mx},${my} ${ex},${ey}`;
 }
 
@@ -5879,14 +5541,18 @@ function _neoEdgeMid(e) {
   const s = typeof e.source === "object" ? e.source : _neo.nodeMap[e.source];
   const t = typeof e.target === "object" ? e.target : _neo.nodeMap[e.target];
   if (!s?.x || !t?.x) return { lx: 0, ly: 0 };
-  const sr = s.r ?? 65, tr = t.r ?? 65;
-  const dx = t.x - s.x, dy = t.y - s.y;
+  const sr = s.r ?? 65,
+    tr = t.r ?? 65;
+  const dx = t.x - s.x,
+    dy = t.y - s.y;
   const len = Math.sqrt(dx * dx + dy * dy) || 1;
-  const sx = s.x + (dx / len) * sr,  sy = s.y + (dy / len) * sr;
-  const ex = t.x - (dx / len) * tr,  ey = t.y - (dy / len) * tr;
+  const sx = s.x + (dx / len) * sr,
+    sy = s.y + (dy / len) * sr;
+  const ex = t.x - (dx / len) * tr,
+    ey = t.y - (dy / len) * tr;
   const off = Math.min(len * 0.18, 55);
   const mx = (sx + ex) / 2 + (-dy / len) * off;
-  const my = (sy + ey) / 2 + ( dx / len) * off;
+  const my = (sy + ey) / 2 + (dx / len) * off;
   return {
     lx: 0.25 * sx + 0.5 * mx + 0.25 * ex,
     ly: 0.25 * sy + 0.5 * my + 0.25 * ey,
@@ -5899,16 +5565,24 @@ function _neoToggleExpand(d, nodes, edges) {
   else _neo.expandedNodes.add(d.id);
   const newR = _neoRadius(d);
   d.r = newR;
-  _neoDrawNode(_neo.nodeG.filter(n => n.id === d.id), d);
-  _neo.simulation?.force("collide")?.radius(n => n.r + 25);
-  _neo.simulation?.alphaTarget(0.1).restart();
-  setTimeout(() => _neo.simulation?.alphaTarget(0), 700);
+  _neoDrawNode(
+    _neo.nodeG.filter((n) => n.id === d.id),
+    d,
+  );
+  // No simulation restart — just rebuild column satellites for this node
+  const colNodes = _neoBuildColumnNodes(_neo.nodes ?? []);
+  const tableColEdges = _neoBuildTableColumnEdges(colNodes);
+  _neo.colNodes = colNodes;
+  _neo.tableColEdges = tableColEdges;
 }
 
 // ── Hover: dim non-connected ───────────────────────────────────────────────
 function _neoHoverNode(d, nodes, edges, entering) {
   if (!entering) {
-    if (_neo.selectedNode) { _neoApplyDim(_neo.selectedNode, edges); return; }
+    if (_neo.selectedNode) {
+      _neoApplyDim(_neo.selectedNode, edges);
+      return;
+    }
     _neo.nodeG?.classed("neo-dimmed", false);
     _neo.edgePaths?.attr("stroke-width", 2).classed("neo-edge-dimmed", false);
     _neo.edgeLblG?.classed("neo-el-dimmed", false);
@@ -5919,23 +5593,27 @@ function _neoHoverNode(d, nodes, edges, entering) {
 
 function _neoApplyDim(id, edges) {
   const conn = new Set([id]);
-  (edges || []).forEach(e => {
-    const sid = e.source?.id ?? e.source, tid = e.target?.id ?? e.target;
+  (edges || []).forEach((e) => {
+    const sid = e.source?.id ?? e.source,
+      tid = e.target?.id ?? e.target;
     if (sid === id) conn.add(tid);
     if (tid === id) conn.add(sid);
   });
-  _neo.nodeG?.classed("neo-dimmed", n => !conn.has(n.id));
+  _neo.nodeG?.classed("neo-dimmed", (n) => !conn.has(n.id));
   _neo.edgePaths
-    ?.attr("stroke-width", e => {
-      const sid = e.source?.id ?? e.source, tid = e.target?.id ?? e.target;
-      return (sid === id || tid === id) ? 3 : 2;
+    ?.attr("stroke-width", (e) => {
+      const sid = e.source?.id ?? e.source,
+        tid = e.target?.id ?? e.target;
+      return sid === id || tid === id ? 3 : 2;
     })
-    .classed("neo-edge-dimmed", e => {
-      const sid = e.source?.id ?? e.source, tid = e.target?.id ?? e.target;
+    .classed("neo-edge-dimmed", (e) => {
+      const sid = e.source?.id ?? e.source,
+        tid = e.target?.id ?? e.target;
       return sid !== id && tid !== id;
     });
-  _neo.edgeLblG?.classed("neo-el-dimmed", e => {
-    const sid = e.source?.id ?? e.source, tid = e.target?.id ?? e.target;
+  _neo.edgeLblG?.classed("neo-el-dimmed", (e) => {
+    const sid = e.source?.id ?? e.source,
+      tid = e.target?.id ?? e.target;
     return sid !== id && tid !== id;
   });
 }
@@ -5944,30 +5622,48 @@ function _neoApplyDim(id, edges) {
 function _neoSelectNode(id, nodes, edges) {
   _neo.selectedNode = id;
   _neoApplyDim(id, edges);
-  _neo.nodeG?.classed("neo-selected", n => n.id === id);
+  _neo.nodeG?.classed("neo-selected", (n) => n.id === id);
   _neoOpenDetail(id);
 }
 
 // ── Detail panel ───────────────────────────────────────────────────────────
 function _neoOpenDetail(nodeId) {
   const panel = document.getElementById("neo-detail");
-  const body  = document.getElementById("neo-detail-body");
+  const body = document.getElementById("neo-detail-body");
   const title = document.getElementById("neo-detail-title");
   if (!panel || !body || !_neo.data) return;
 
-  const node = _neo.data.nodes.find(n => n.id === nodeId);
+  const node = _neo.data.nodes.find((n) => n.id === nodeId);
   if (!node) return;
   title.textContent = node.label;
 
-  const TL = { fact:"FATO", dimension:"DIMENSÃO", staging:"STAGING", aggregated:"AGREGADA", unknown:"UNKNOWN" };
-  const TC = { fact:"#004691", dimension:"#0891b2", staging:"#64748b", aggregated:"#6d28d9", unknown:"#3d5276" };
-  const CL = { high:"Alta confiança", medium:"Média confiança", low:"Inferido" };
+  const TL = {
+    fact: "FATO",
+    dimension: "DIMENS\u00C3O",
+    staging: "STAGING",
+    aggregated: "AGREGADA",
+    unknown: "UNKNOWN",
+  };
+  const TC = {
+    fact: "#004691",
+    dimension: "#0891b2",
+    staging: "#64748b",
+    aggregated: "#6d28d9",
+    unknown: "#3d5276",
+  };
+  const CL = {
+    high: "Alta confian\u00E7a",
+    medium: "M\u00E9dia confian\u00E7a",
+    low: "Inferido",
+  };
 
-  const nEdges = (_neo.data.edges ?? []).filter(e => e.source === nodeId || e.target === nodeId);
+  const nEdges = (_neo.data.edges ?? []).filter(
+    (e) => e.source === nodeId || e.target === nodeId,
+  );
 
   body.innerHTML = `
     <div class="neo-dp-section">
-      <span class="neo-dp-badge" style="background:${TC[node.table_type]??'#3d5276'}">${TL[node.table_type]??'UNKNOWN'}</span>
+      <span class="neo-dp-badge" style="background:${TC[node.table_type] ?? "#3d5276"}">${TL[node.table_type] ?? "UNKNOWN"}</span>
     </div>
     <div class="neo-dp-section">
       <span class="neo-dp-label">Caminho</span>
@@ -5976,33 +5672,43 @@ function _neoOpenDetail(nodeId) {
         <button class="neo-dp-copy" onclick="neoCopyPath('${_neo.dsRef}.${node.id}')">Copiar</button>
       </div>
     </div>
-    ${node.partition_field ? `<div class="neo-dp-section"><span class="neo-dp-label">Partição</span> <code>${node.partition_field}</code></div>` : ""}
+    ${node.partition_field ? `<div class="neo-dp-section"><span class="neo-dp-label">Parti\u00E7\u00E3o</span> <code>${node.partition_field}</code></div>` : ""}
     ${node.clustering_fields?.length ? `<div class="neo-dp-section"><span class="neo-dp-label">Clustering</span> <code>${node.clustering_fields.join(", ")}</code></div>` : ""}
     <div class="neo-dp-section">
       <div class="neo-dp-section-title">Colunas (${node.columns.length})</div>
       <div class="neo-dp-cols">
-        ${node.columns.map(c => `<div class="neo-dp-col">
+        ${node.columns
+          .map(
+            (c) => `<div class="neo-dp-col">
           <span class="neo-dp-col-icon">${_neoColIcon(c)}</span>
           <span class="neo-dp-col-name" title="${c.name}">${c.name}</span>
           <span class="neo-dp-col-type">${c.type}</span>
           ${!c.is_nullable ? '<span class="neo-dp-col-req">NN</span>' : ""}
-        </div>`).join("")}
+        </div>`,
+          )
+          .join("")}
       </div>
     </div>
-    ${nEdges.length ? `
+    ${
+      nEdges.length
+        ? `
     <div class="neo-dp-section">
       <div class="neo-dp-section-title">Relacionamentos (${nEdges.length})</div>
-      ${nEdges.map(e => {
-        const other = e.source === nodeId ? e.target : e.source;
-        const dir   = e.source === nodeId ? "→" : "←";
-        return `<div class="neo-dp-rel">
+      ${nEdges
+        .map((e) => {
+          const other = e.source === nodeId ? e.target : e.source;
+          const dir = e.source === nodeId ? "→" : "←";
+          return `<div class="neo-dp-rel">
           <span class="neo-dp-rel-dir">${dir}</span>
           <span class="neo-dp-rel-table" title="${other}">${other}</span>
           <span class="neo-dp-rel-col">via ${e.via_column}</span>
-          <span class="neo-dp-rel-conf neo-dp-conf-${e.confidence}">${CL[e.confidence]??e.confidence}</span>
+          <span class="neo-dp-rel-conf neo-dp-conf-${e.confidence}">${CL[e.confidence] ?? e.confidence}</span>
         </div>`;
-      }).join("")}
-    </div>` : ""}
+        })
+        .join("")}
+    </div>`
+        : ""
+    }
     <div class="neo-dp-actions">
       <button class="neo-dp-btn" onclick="neoGoQB('${_neo.dsRef}','${node.id}')">Abrir no Query Builder</button>
     </div>`;
@@ -6033,9 +5739,22 @@ function neoGoQB(dsRef, tableId) {
 
 // ── Edge click tooltip ────────────────────────────────────────────────────
 function _neoEdgeClick(ev, e) {
-  const CL = { high:"Alta confiança", medium:"Média confiança", low:"Inferido" };
-  const RL = { one_to_many:"1:N", many_to_many:"N:N", one_to_one:"1:1", many_to_one:"N:1", unknown:"?" };
-  _neoTip(ev, `<strong>${e.via_column}</strong><br>${CL[e.confidence]??e.confidence}<br>${RL[e.relationship_type]??""}`);
+  const CL = {
+    high: "Alta confiança",
+    medium: "Média confiança",
+    low: "Inferido",
+  };
+  const RL = {
+    one_to_many: "1:N",
+    many_to_many: "N:N",
+    one_to_one: "1:1",
+    many_to_one: "N:1",
+    unknown: "?",
+  };
+  _neoTip(
+    ev,
+    `<strong>${e.via_column}</strong><br>${CL[e.confidence] ?? e.confidence}<br>${RL[e.relationship_type] ?? ""}`,
+  );
 }
 
 let _neoTipTimer = null;
@@ -6043,26 +5762,32 @@ function _neoTip(ev, html) {
   let tip = document.getElementById("neo-tooltip");
   if (!tip) {
     tip = document.createElement("div");
-    tip.id = "neo-tooltip"; tip.className = "neo-tooltip";
+    tip.id = "neo-tooltip";
+    tip.className = "neo-tooltip";
     document.body.appendChild(tip);
   }
   tip.innerHTML = html;
   tip.style.cssText = `display:block;left:${ev.pageX + 14}px;top:${ev.pageY - 10}px`;
   clearTimeout(_neoTipTimer);
-  _neoTipTimer = setTimeout(() => { tip.style.display = "none"; }, 3500);
+  _neoTipTimer = setTimeout(() => {
+    tip.style.display = "none";
+  }, 3500);
 }
 
 // ── Toolbar: toggle keys-only ──────────────────────────────────────────────
 function neoToggleKeys(keysOnly) {
   _neo.showKeysOnly = keysOnly;
   if (!_neo.data || !_neo.nodeG) return;
-  _neo.data.nodes.forEach(n => {
+  _neo.data.nodes.forEach((n) => {
     const d = _neo.nodeMap[n.id];
     if (!d) return;
     d.r = _neoRadius(n);
-    _neoDrawNode(_neo.nodeG.filter(nd => nd.id === n.id), { ...n, r: d.r });
+    _neoDrawNode(
+      _neo.nodeG.filter((nd) => nd.id === n.id),
+      { ...n, r: d.r },
+    );
   });
-  _neo.simulation?.force("collide")?.radius(d => (d.r ?? 65) + 25);
+  _neo.simulation?.force("collide")?.radius((d) => (d.r ?? 65) + 25);
   _neo.simulation?.alphaTarget(0.05).restart();
   setTimeout(() => _neo.simulation?.alphaTarget(0), 500);
 }
@@ -6077,9 +5802,12 @@ function neoToggleInferred(hide) {
 function neoSearch(q) {
   _neo.searchTerm = q.trim().toLowerCase();
   if (!_neo.nodeG) return;
-  if (!_neo.searchTerm) { _neo.nodeG.classed("neo-search-miss", false); return; }
+  if (!_neo.searchTerm) {
+    _neo.nodeG.classed("neo-search-miss", false);
+    return;
+  }
   let found = null;
-  _neo.nodeG.each(function(d) {
+  _neo.nodeG.each(function (d) {
     const hit = d.id.toLowerCase().includes(_neo.searchTerm);
     d3.select(this).classed("neo-search-miss", !hit);
     if (hit && !found) found = d;
@@ -6089,17 +5817,21 @@ function neoSearch(q) {
 
 function _neoPanTo(x, y) {
   if (!_neo.svg || !_neo.zoom) return;
-  const t  = _neo.zoomT ?? d3.zoomIdentity;
-  const tx = _neo.width  / 2 - t.k * x;
+  const t = _neo.zoomT ?? d3.zoomIdentity;
+  const tx = _neo.width / 2 - t.k * x;
   const ty = _neo.height / 2 - t.k * y;
-  _neo.svg.transition().duration(600)
+  _neo.svg
+    .transition()
+    .duration(600)
     .call(_neo.zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(t.k));
 }
 
 // ── Toolbar: reset camera ──────────────────────────────────────────────────
 function neoResetCamera() {
   if (!_neo.svg || !_neo.zoom) return;
-  _neo.svg.transition().duration(500)
+  _neo.svg
+    .transition()
+    .duration(500)
     .call(_neo.zoom.transform, d3.zoomIdentity);
 }
 
@@ -6107,17 +5839,19 @@ function neoResetCamera() {
 function neoExportPng() {
   const svgEl = document.getElementById("neo-svg");
   if (!svgEl) return;
-  const W = svgEl.clientWidth  || _neo.width;
+  const W = svgEl.clientWidth || _neo.width;
   const H = svgEl.clientHeight || _neo.height;
   const scale = 2;
   const svgStr = new XMLSerializer().serializeToString(svgEl);
   const canvas = document.createElement("canvas");
-  canvas.width  = W * scale;
+  canvas.width = W * scale;
   canvas.height = H * scale;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#0f172a";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  const url = URL.createObjectURL(new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" }));
+  const url = URL.createObjectURL(
+    new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" }),
+  );
   const img = new Image();
   img.onload = () => {
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);

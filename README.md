@@ -8,6 +8,7 @@ O projeto centraliza assistentes especializados para analytics, documentação e
 
 - Query Analyzer: analisa SQL existente, detecta antipadrões e sugere otimizações.
 - Query Builder: gera SQL a partir de linguagem natural com contexto real de dataset.
+- Schema Explorer: mapeia relações entre tabelas, exibe detalhe de nós e aciona fluxos de Query Builder e Finance Voice IA.
 - Document Builder: gera documentação técnica, funcional e operacional com base em artefatos reais do BigQuery e do Dataplex Catalog.
 - Finance Voice IA: analisa Voice of Customer em operações financeiras, identifica fricção e também responde em modo conversacional com memória de sessão.
 
@@ -27,6 +28,7 @@ bot-query/
 │   ├── agents/
 │   │   ├── query_analyzer/          # agente implementado
 │   │   ├── query_build/             # agente implementado
+│   │   ├── schema_graph/            # agente implementado (Schema Explorer)
 │   │   ├── document_build/          # agente implementado
 │   │   └── finance_auditor/         # agente implementado (Finance Voice IA)
 │   ├── core/
@@ -63,10 +65,11 @@ Arquivos de referência:
 | ----------------- | ----------------- | ------------ | ------------------- |
 | Query Analyzer    | `query_analyzer`  | Implementado | Sim                 |
 | Query Builder     | `query_build`     | Implementado | Sim                 |
+| Schema Explorer   | `schema_graph`    | Implementado | Sim                 |
 | Document Builder  | `document_build`  | Implementado | Sim                 |
 | Finance Voice IA  | `finance_auditor` | Implementado | Sim                 |
 
-Observação: atualmente o runtime registra Query Analyzer, Query Builder, Document Builder e Finance Voice IA.
+Observação: atualmente o runtime registra Query Analyzer, Query Builder, Schema Explorer, Document Builder e Finance Voice IA.
 
 ## Fluxo Técnico
 
@@ -127,17 +130,26 @@ Entrada:
 
 Fluxo de uso na interface (atual):
 
-- o Query Builder é aberto a partir do Schema Explorer (botão `Abrir no Query Builder`)
+- o Query Builder é aberto a partir do Schema Explorer pela ação `Gerar insights analíticos`
 - `project_id` e `dataset_hint` são carregados automaticamente do contexto selecionado
 - o painel de configuração foi removido da UI do Query Builder (campos mantidos apenas internamente)
-- uma faixa de contexto exibe dataset e tabela foco carregados do Schema Explorer
+- a antiga faixa de contexto textual foi removida da UI
+- os insights sugeridos por IA aparecem em bloco dedicado acima do estado vazio, com sugestões clicáveis
 
 Pipeline de alto nível:
 
 1. Gera SQL com contexto de tabelas reais do dataset.
 2. Revisa e otimiza a SQL gerada.
-3. Executa dry-run.
-4. Coleta amostra de dados.
+3. Valida consistência de execução antes de rodar no BigQuery.
+4. Executa dry-run.
+5. Coleta amostra de dados quando as validações anteriores passam.
+
+Guardrails de consistência (atuais):
+
+- bloqueio de placeholders de template não resolvidos (ex.: `{{DATA_FIM_PERIODO}}`, `${LIMITE}`)
+- bloqueio de parâmetros nomeados sem valor (ex.: `@valor_limite`)
+- validação semântica de colunas qualificadas (`alias.coluna`) contra schema real do dataset
+- bloqueio de referências de tabelas fora do catálogo carregado
 
 Saída principal:
 
@@ -146,6 +158,7 @@ Saída principal:
 - warnings de validação
 - dry-run com bytes, custo e erro
 - sample de colunas e linhas
+- serialização JSON-safe nas amostras (normalização de `Decimal`, `date`, `datetime`, `time` e estruturas aninhadas)
 
 Validação de dataset:
 
@@ -159,7 +172,22 @@ Sugestões automáticas vindas do Schema Explorer:
 - endpoint: `POST /api/agents/query_build/suggestions`
 - entrada: `project_id`, `dataset_hint`, `table_id`
 - gera 5 sugestões em linguagem natural baseadas no schema real do dataset
-- o frontend renderiza as sugestões em cards clicáveis para preencher a solicitação no Query Builder
+- o frontend renderiza sugestões clicáveis lado a lado para preencher a solicitação no Query Builder
+
+## Schema Explorer
+
+Entrada principal:
+
+- `query` com contexto do projeto/dataset na UI
+- `project_id`
+
+Capacidades atuais:
+
+- visualização de grafo de relacionamentos entre tabelas do dataset
+- painel de detalhe por nó com metadados essenciais
+- ação `Gerar insights analíticos` para abrir Query Builder com contexto
+- ação `Gerar diagnóstico operacional` para abrir Finance Voice IA com prompt contextual
+- cache de último grafo por projeto para aceleração de carregamento
 
 ## Document Builder
 
@@ -400,9 +428,11 @@ Protegidos por sessão:
 - `GET /api/me`
 - `GET /api/agents`
 - `POST /api/agents/{agent_id}/analyze`
+- `POST /api/agents/query_build/suggestions`
 - `POST /api/agents/query_build/validate-dataset`
 - `POST /api/agents/query_analyzer/validate-query-context`
 - `GET /api/agents/{agent_id}/checkpoint`
+- `GET /api/agents/schema_graph/cached/{project_id}`
 
 ## Frontend
 
@@ -420,6 +450,7 @@ Comportamentos atuais relevantes:
 - Query Analyzer com `Project ID` e `Dataset hint` em modo somente leitura
 - validação assíncrona do contexto da query no Query Analyzer
 - validação assíncrona de `dataset_hint` no Query Builder
+- sugestões de IA no Query Builder com ação de refresh contextual
 - Document Builder com guia de uso em 4 blocos
 - Document Builder sem campos visíveis de `Project ID` e `Dataset hint`
 - Document Builder com schema real e Dataplex Catalog antes da etapa LLM
@@ -469,6 +500,7 @@ Suites atuais:
 - [tests/api/test_finance_auditor_chat_memory.py](tests/api/test_finance_auditor_chat_memory.py)
 - [tests/agents/test_query_analyzer.py](tests/agents/test_query_analyzer.py)
 - [tests/agents/test_query_build.py](tests/agents/test_query_build.py)
+- [tests/agents/test_schema_graph.py](tests/agents/test_schema_graph.py)
 - [tests/agents/test_document_build.py](tests/agents/test_document_build.py)
 - [tests/agents/test_finance_auditor.py](tests/agents/test_finance_auditor.py)
 - [tests/shared/test_bigquery_tools.py](tests/shared/test_bigquery_tools.py)

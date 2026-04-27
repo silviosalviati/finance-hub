@@ -17,6 +17,8 @@ Regras:
 - Prefira limitar volume com filtros temporais quando a solicitacao indicar periodo.
 - Se faltar contexto de tabela/campo, explicite em assumptions.
 - Nao invente campos sensiveis.
+- Use somente tabelas e colunas que existirem no schema recebido no contexto.
+- Nunca invente valores literais de dominio (ex.: UFs, status, categorias, niveis) sem evidencia no contexto; quando nao houver dominio explicito, mantenha o filtro generico e registre o ponto em assumptions.
 - Priorize agregacoes simples: realize metricas como lucro, ROI e ticket medio em um unico bloco SELECT quando estiverem na mesma tabela e no mesmo nivel de agregacao.
 - Evite complexidade desnecessaria: nao use WITH (CTEs), JOINs ou self-joins para calculos que podem ser feitos com leitura unica da mesma tabela.
 - Otimize para custo: gere SQL com single scan sempre que possivel, minimizando leituras repetidas.
@@ -33,6 +35,8 @@ Framework de Restricoes (obrigatorio):
 - Regra de Schema: nunca assuma que colunas com o mesmo nome possuem o mesmo tipo entre tabelas; valide os tipos no schema fornecido pelo contexto.
 - Regra de Agregacao Numerica: nunca aplique SUM/AVG/MIN/MAX sobre STRING; para colunas potencialmente textuais em metricas numericas, use SAFE_CAST para tipo numerico adequado.
 - Regra de Ordenacao: quando o usuario pedir ordenacao por KPI especifico, ordene pelo alias desse KPI (evite ORDER BY posicional, ex.: ORDER BY 3).
+- Regra de Parametros: nao use placeholders nomeados (ex.: @limite, @data_inicio) na SQL final. Se o usuario nao informar um valor literal, nao invente parametro; registre a lacuna em assumptions.
+- Regra de Template: nao use placeholders de template (ex.: {{DATA_INICIO}}, {{DATA_FIM}}, ${LIMITE}) na SQL final.
 """
 
 
@@ -49,6 +53,8 @@ Sua missao:
 - Quando houver ambiguidade STRING vs INT64 em JOIN/FILTER, padronize para CAST(... AS STRING).
 - Nunca mantenha agregacao numerica com CAST(... AS STRING) em SUM/AVG/MIN/MAX; use SAFE_CAST numerico.
 - Se houver ordenacao por KPI solicitado, prefira ORDER BY alias explicito em vez de posicao ordinal.
+- Nao introduza placeholders nomeados (ex.: @param) na SQL final.
+- Nao introduza placeholders de template (ex.: {{VAR}} ou ${VAR}) na SQL final.
 
 Responda APENAS com SQL final (sem markdown, sem comentarios).
 """

@@ -17,6 +17,7 @@ let qbIsLoading = false;
 let dbIsLoading = false;
 let auditIsLoading = false;
 let auditMarkdownCache = "";
+let _qbSuggCtx = null; // stores { projectId, datasetHint, tableId } for suggestion refresh
 const qbDatasetValidationState = {
   status: "idle",
   datasetHint: "",
@@ -5172,10 +5173,11 @@ function _neoRender(data) {
     )
     .on("click", (ev, d) => {
       ev.stopPropagation();
-      _neoSelectNode(d.id, nodes, edges);
+      _neoSelectNode(d.id, edges, false);
     })
     .on("dblclick", (ev, d) => {
       ev.stopPropagation();
+      _neoSelectNode(d.id, edges, true);
       _neoToggleExpand(d, nodes, edges);
     })
     .on("mouseenter", (ev, d) => _neoHoverNode(d, nodes, edges, true))
@@ -5637,11 +5639,11 @@ function _neoApplyDim(id, edges) {
 }
 
 // ── Node click → detail panel ──────────────────────────────────────────────
-function _neoSelectNode(id, nodes, edges) {
+function _neoSelectNode(id, edges, openDetail = false) {
   _neo.selectedNode = id;
   _neoApplyDim(id, edges);
   _neo.nodeG?.classed("neo-selected", (n) => n.id === id);
-  _neoOpenDetail(id);
+  if (openDetail) _neoOpenDetail(id);
 }
 
 // ── Detail panel ───────────────────────────────────────────────────────────
@@ -5660,7 +5662,7 @@ function _neoOpenDetail(nodeId) {
     dimension: "DIMENS\u00C3O",
     staging: "STAGING",
     aggregated: "AGREGADA",
-    unknown: "UNKNOWN",
+    unknown: "SEM CLASSIFICA\u00C7\u00C3O",
   };
   const TC = {
     fact: "#004691",
@@ -5681,7 +5683,7 @@ function _neoOpenDetail(nodeId) {
 
   body.innerHTML = `
     <div class="neo-dp-section">
-      <span class="neo-dp-badge" style="background:${TC[node.table_type] ?? "#3d5276"}">${TL[node.table_type] ?? "UNKNOWN"}</span>
+      <span class="neo-dp-badge" style="background:${TC[node.table_type] ?? "#3d5276"}">${TL[node.table_type] ?? "SEM CLASSIFICAÇÃO"}</span>
     </div>
     <div class="neo-dp-section">
       <span class="neo-dp-label">Caminho</span>
@@ -5727,8 +5729,16 @@ function _neoOpenDetail(nodeId) {
     </div>`
         : ""
     }
-    <div class="neo-dp-actions">
-      <button class="neo-dp-btn" onclick="neoGoQB('${_neo.dsRef}','${node.id}')">Abrir no Query Builder</button>
+    <div class="neo-dp-next">
+      <div class="neo-dp-next-title">Qual ação deseja executar agora?</div>
+      <div class="neo-dp-next-actions">
+        <a class="neo-dp-action-link" href="#" onclick="neoGoQB('${_neo.dsRef}','${node.id}');return false;">
+          <span class="neo-dp-action-arrow">→</span>Gerar insights analíticos
+        </a>
+        <a class="neo-dp-action-link" href="#" onclick="neoGoAudit('${_neo.dsRef}','${node.id}');return false;">
+          <span class="neo-dp-action-arrow">→</span>Gerar diagnóstico operacional
+        </a>
+      </div>
     </div>`;
 
   panel.style.display = "";
@@ -5753,20 +5763,30 @@ function neoGoQB(dsRef, tableId) {
     if (di) di.value = parts[1];
   }
 
-  const contextStrip = document.getElementById("qb-context-strip");
-  const contextDataset = document.getElementById("qb-context-dataset");
-  const contextTable = document.getElementById("qb-context-table");
-  if (contextStrip) contextStrip.style.display = "flex";
-  if (contextDataset)
-    contextDataset.textContent = `dataset: ${parts[1] || "-"}`;
-  if (contextTable) contextTable.textContent = `tabela foco: ${tableId || "-"}`;
-
   navTo("qb");
 
   // Trigger dataset validation then fetch suggestions
   validateQBDatasetHint().then(() => {
     _loadQBSuggestions(parts[0] || "", parts[1] || "", tableId);
   });
+}
+
+function neoGoAudit(dsRef, tableId) {
+  const parts = dsRef.split(".");
+  const dataset = parts[1] || "-";
+
+  navTo("audit");
+
+  const input = document.getElementById("fa-input");
+  if (!input) return;
+
+  input.value = `Gerar um diagnostico da tabela ${tableId} no dataset ${dataset}. Quero sinais de risco, anomalias potenciais, hipoteses e proximos passos de investigacao.`;
+  autoResizeFAInput(input);
+  setFASendButtonState({
+    disabled: !input.value.trim(),
+    loading: false,
+  });
+  input.focus();
 }
 
 function _escapeHtml(value) {
@@ -5782,15 +5802,14 @@ async function _loadQBSuggestions(projectId, datasetHint, tableId) {
   const block = document.getElementById("qb-suggestions-block");
   const loadingEl = document.getElementById("qb-suggestions-loading");
   const listEl = document.getElementById("qb-suggestions-list");
-  const subEl = document.getElementById("qb-sugg-sub");
-
   if (!block || !listEl) return;
 
+  // Persist context for refresh button
+  _qbSuggCtx = { projectId, datasetHint, tableId };
+
   listEl.innerHTML = "";
-  block.style.display = "block";
-  if (subEl) {
-    subEl.textContent = `Contexto: ${projectId}.${datasetHint}.${tableId} • clique em uma sugestão para preencher a solicitação.`;
-  }
+  block.style.display = "";
+  // sub-label removed — context stored in _qbSuggCtx for refresh only
   if (loadingEl) loadingEl.style.display = "flex";
 
   try {
@@ -5824,7 +5843,7 @@ async function _loadQBSuggestions(projectId, datasetHint, tableId) {
     listEl.innerHTML = suggestions
       .map(
         (s, idx) =>
-          `<button class="qb-sugg-chip" onclick="document.getElementById('qb-request').value=this.dataset.text;document.getElementById('qb-suggestions-block').style.display='none';syncQBGenerateButtonState();" data-text="${_escapeHtml(s)}"><strong>${idx + 1}.</strong> ${_escapeHtml(s)}</button>`,
+          `<a class="qb-sugg-item" href="#" onclick="_selectQBSuggestion(this);return false;" data-text="${_escapeHtml(s)}"><span class="qb-sugg-item-head"><span class="qb-sugg-item-star">&#9733;</span><span class="qb-sugg-item-num">${idx + 1}</span></span><span class="qb-sugg-item-text">${_escapeHtml(s)}</span></a>`,
       )
       .join("");
   } catch (e) {
@@ -5832,6 +5851,35 @@ async function _loadQBSuggestions(projectId, datasetHint, tableId) {
     listEl.innerHTML =
       '<p class="qb-sugg-empty">Erro ao carregar sugestoes.</p>';
   }
+}
+
+function _selectQBSuggestion(btn) {
+  const text =
+    btn.dataset.text ||
+    btn.querySelector(".qb-sugg-item-text")?.textContent.trim() ||
+    btn.textContent.replace(/^\d+\.?\s*/, "").trim();
+  const textarea = document.getElementById("qb-request");
+  if (textarea) {
+    textarea.value = text;
+    textarea.dispatchEvent(new Event("input"));
+  }
+  btn.classList.add("qb-sugg-item--selected");
+  btn.disabled = true;
+  btn.setAttribute("aria-disabled", "true");
+  if (typeof syncQBGenerateButtonState === "function")
+    syncQBGenerateButtonState();
+}
+
+function _refreshQBSuggestions() {
+  if (!_qbSuggCtx) return;
+  // Re-enable all chips before reloading
+  document.querySelectorAll(".qb-sugg-item--selected").forEach((c) => {
+    c.classList.remove("qb-sugg-item--selected");
+    c.disabled = false;
+    c.removeAttribute("aria-disabled");
+  });
+  const { projectId, datasetHint, tableId } = _qbSuggCtx;
+  _loadQBSuggestions(projectId, datasetHint, tableId);
 }
 
 // ── Edge click tooltip ────────────────────────────────────────────────────

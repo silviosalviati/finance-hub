@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date, datetime, time
+from decimal import Decimal
 import re
 from functools import lru_cache
 from typing import Any
@@ -445,7 +447,7 @@ def fetch_query_sample(
         job = client.query(sample_query, job_config=job_config)
         result = job.result(max_results=safe_limit)
 
-        rows = [dict(row.items()) for row in result]
+        rows = [_json_safe_row(dict(row.items())) for row in result]
         columns = list(rows[0].keys()) if rows else []
 
         return {
@@ -534,11 +536,38 @@ def execute_query_rows(
         job_config = bigquery.QueryJobConfig(use_query_cache=False)
         job = client.query(query, job_config=job_config)
         result = job.result(max_results=max_rows)
-        return [dict(row.items()) for row in result]
+        return [_json_safe_row(dict(row.items())) for row in result]
     except GoogleCloudError as exc:
         raise RuntimeError(f"Falha na execução da query BigQuery: {exc}") from exc
     except Exception as exc:
         raise RuntimeError(f"Erro inesperado ao executar query: {exc}") from exc
+
+
+def _json_safe_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {key: _json_safe_value(value) for key, value in row.items()}
+
+
+def _json_safe_value(value: Any) -> Any:
+    if value is None:
+        return None
+
+    if isinstance(value, Decimal):
+        # Preserve precision for NUMERIC/BIGNUMERIC instead of forcing float.
+        return str(value)
+
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+
+    if isinstance(value, dict):
+        return {str(k): _json_safe_value(v) for k, v in value.items()}
+
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe_value(item) for item in value]
+
+    return value
 
 
 __all__ = [

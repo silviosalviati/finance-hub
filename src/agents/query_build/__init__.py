@@ -43,6 +43,7 @@ class QueryBuildAgent(BaseAgent):
 
 		dry = final_state.get("dry_run_generated")
 		warnings = final_state.get("warnings") or []
+		has_error = bool(final_state.get("error") or (dry and dry.error))
 
 		return {
 			"request_text": query,
@@ -60,7 +61,7 @@ class QueryBuildAgent(BaseAgent):
 				"rows": final_state.get("sample_rows") or [],
 				"error": final_state.get("sample_error"),
 			},
-			"status": "ok" if final_state.get("generated_sql") else "error",
+			"status": "ok" if final_state.get("generated_sql") and not has_error else "error",
 			"error": final_state.get("error"),
 		}
 

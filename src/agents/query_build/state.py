@@ -12,6 +12,7 @@ class QueryBuildState(BaseModel):
 	project_id: str
 	dataset_hint: Optional[str] = None
 	dataset_tables: list[str] = Field(default_factory=list)
+	dataset_table_columns: dict[str, list[str]] = Field(default_factory=dict)
 	dataset_tables_context: str = ""
 
 	generated_sql: Optional[str] = None

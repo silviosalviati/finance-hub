@@ -1169,18 +1169,6 @@
                   ></div>
                 </div>
 
-                <div
-                  id="qb-context-strip"
-                  class="qb-context-strip"
-                  style="display: none"
-                >
-                  <span class="qb-context-label"
-                    >Contexto carregado do Schema Explorer</span
-                  >
-                  <span id="qb-context-dataset" class="qb-context-chip"></span>
-                  <span id="qb-context-table" class="qb-context-chip"></span>
-                </div>
-
                 <div class="qfield">
                   <label for="qb-request"
                     >Solicitação em linguagem natural</label
@@ -1208,56 +1196,6 @@
                     Ctrl+Enter para gerar SQL
                   </p>
                 </div>
-                <!-- ── Suggestions from ER Diagram ── -->
-                <div id="qb-suggestions-block" style="display: none">
-                  <div class="qb-sugg-header">
-                    <svg
-                      width="13"
-                      height="13"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <polygon
-                        points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
-                      />
-                    </svg>
-                    Sugestões baseadas no schema
-                    <button
-                      class="qb-sugg-dismiss"
-                      onclick="
-                        document.getElementById(
-                          'qb-suggestions-block',
-                        ).style.display = 'none'
-                      "
-                      title="Fechar"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <p id="qb-sugg-sub" class="qb-sugg-sub"></p>
-                  <div
-                    id="qb-suggestions-loading"
-                    class="qb-sugg-loading"
-                    style="display: none"
-                  >
-                    <div
-                      class="spinner"
-                      style="
-                        display: inline-block;
-                        width: 14px;
-                        height: 14px;
-                        border-width: 2px;
-                      "
-                    ></div>
-                    Gerando sugestões com IA…
-                  </div>
-                  <div id="qb-suggestions-list" class="qb-sugg-list"></div>
-                </div>
-
                 <div id="qb-error" class="qa-error" role="alert"></div>
 
                 <button
@@ -1287,6 +1225,68 @@
               </div>
 
               <div class="qa-results-wrap">
+                <!-- ── Insights strip ── -->
+                <div
+                  id="qb-suggestions-block"
+                  class="qb-sugg-strip"
+                  style="display: none"
+                >
+                  <div class="qb-sugg-strip-head">
+                    <div class="qb-sugg-strip-title">
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        stroke="none"
+                      >
+                        <polygon
+                          points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+                        />
+                      </svg>
+                      Insights sugeridos pela IA
+                    </div>
+                    <button
+                      class="qb-sugg-refresh-btn"
+                      onclick="_refreshQBSuggestions()"
+                    >
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <polyline points="23 4 23 10 17 10" />
+                        <polyline points="1 20 1 14 7 14" />
+                        <path
+                          d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+                        />
+                      </svg>
+                      Novos insights
+                    </button>
+                  </div>
+                  <div
+                    id="qb-suggestions-loading"
+                    class="qb-sugg-loading"
+                    style="display: none"
+                  >
+                    <div
+                      class="spinner"
+                      style="
+                        display: inline-block;
+                        width: 14px;
+                        height: 14px;
+                        border-width: 2px;
+                      "
+                    ></div>
+                    Gerando sugestões com IA…
+                  </div>
+                  <div id="qb-suggestions-list" class="qb-sugg-list"></div>
+                </div>
                 <div class="qa-empty" id="qb-empty" style="height: 100%">
                   <div class="qa-empty-ico">
                     <svg

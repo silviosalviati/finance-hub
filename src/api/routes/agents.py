@@ -40,6 +40,76 @@ class SuggestionsRequest(BaseModel):
     table_id: str
 
 
+def _extract_known_schema_tokens(tables: list[dict[str, Any]]) -> tuple[set[str], set[str]]:
+    known_tables: set[str] = set()
+    known_columns: set[str] = set()
+
+    for table in tables:
+        table_name = str(table.get("table_name") or "").strip().lower()
+        full_name = str(table.get("full_name") or "").strip().lower()
+        if table_name:
+            known_tables.add(table_name)
+        if full_name:
+            known_tables.add(full_name)
+            known_tables.add(full_name.split(".")[-1])
+
+        for col in table.get("columns") or []:
+            col_name = str(col or "").strip().lower()
+            if col_name:
+                known_columns.add(col_name)
+
+    return known_tables, known_columns
+
+
+def _suggestion_has_unknown_field_refs(
+    text: str,
+    known_tables: set[str],
+    known_columns: set[str],
+) -> bool:
+    suggestion = str(text or "")
+
+    # Pattern like UF='SP' or campo = 10 should reference an existing column.
+    for match in re.finditer(
+        r"\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:=|!=|<>|>=|<=|>|<)\s*(?:'[^']*'|\"[^\"]*\"|\d+(?:\.\d+)?)",
+        suggestion,
+    ):
+        field = match.group(1).lower()
+        if field not in known_columns:
+            return True
+
+    # Tokens with underscore are usually schema identifiers.
+    for token in re.findall(r"\b[A-Za-z][A-Za-z0-9_]*\b", suggestion):
+        token_l = token.lower()
+        if "_" not in token_l:
+            continue
+        if token_l not in known_columns and token_l not in known_tables:
+            return True
+
+    # Explicit table references like dataset.table or project.dataset.table.
+    for token in re.findall(r"\b[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+){1,2}\b", suggestion):
+        table_tail = token.split(".")[-1].lower()
+        token_l = token.lower()
+        if token_l not in known_tables and table_tail not in known_tables:
+            return True
+
+    return False
+
+
+def _fallback_schema_safe_suggestions(table_id: str, focal_cols: list[str]) -> list[str]:
+    cols = [str(c).strip() for c in (focal_cols or []) if str(c).strip()]
+    c1 = cols[0] if len(cols) > 0 else "id"
+    c2 = cols[1] if len(cols) > 1 else c1
+    c3 = cols[2] if len(cols) > 2 else c2
+
+    return [
+        f"Qual a distribuicao de registros por {c1} na tabela {table_id}?",
+        f"Quais sao os valores mais frequentes de {c1} e {c2} em {table_id}?",
+        f"Existem inconsistencias ou valores nulos em {c1}, {c2} e {c3} na tabela {table_id}?",
+        f"Quais combinacoes de {c1} e {c2} concentram maior volume em {table_id}?",
+        f"Como a tabela {table_id} se relaciona com outras tabelas do dataset por chaves em comum?",
+    ]
+
+
 _CHAT_LLM = None
 _DEFAULT_FINANCE_PROJECT = "silviosalviati"
 _NAME_PATTERNS = (
@@ -389,6 +459,12 @@ async def query_build_suggestions(
         "que podem ser respondidas com SQL sobre o dataset informado. "
         "As sugestoes devem ser variadas: agregacoes, rankings, tendencias temporais, "
         "comparacoes e analises de relacionamento entre tabelas. "
+        "REGRAS OBRIGATORIAS DE CONFIABILIDADE: "
+        "(1) Use somente tabelas e colunas que existam no schema fornecido. "
+        "(2) Nao invente nomes de campos, codigos, UFs, niveis, categorias ou valores literais especificos. "
+        "(3) Quando um filtro depender de dominio de valores nao informado no schema, escreva de forma generica (ex: por estado de destino, por nivel de servico), sem chutar valores. "
+        "(4) Se o schema nao suportar uma ideia, troque por outra pergunta viavel com as colunas reais. "
+        "(5) Nao use markdown. "
         "Responda APENAS com JSON valido no formato: "
         '{\"suggestions\": [\"sugestao 1\", \"sugestao 2\", \"sugestao 3\", \"sugestao 4\", \"sugestao 5\"]}'
     )
@@ -398,7 +474,8 @@ async def query_build_suggestions(
         f"{focal_ctx}\n\n"
         f"Schema completo do dataset:\n{schema_ctx}\n\n"
         "Gere 5 sugestoes de perguntas de negocio que explorem bem esta tabela "
-        "e seus relacionamentos com as demais tabelas do dataset."
+        "e seus relacionamentos com as demais tabelas do dataset. "
+        "Priorize perguntas validas com o schema acima, sem citar valores especificos nao confirmados."
     )
 
     try:
@@ -416,7 +493,36 @@ async def query_build_suggestions(
         suggestions = parsed.get("suggestions", [])
         if not isinstance(suggestions, list):
             suggestions = []
-        return {"suggestions": suggestions[:5]}
+
+        known_tables, known_columns = _extract_known_schema_tokens(tables)
+
+        filtered: list[str] = []
+        seen: set[str] = set()
+        for item in suggestions:
+            text = str(item or "").strip()
+            if not text:
+                continue
+            key = text.lower()
+            if key in seen:
+                continue
+            if _suggestion_has_unknown_field_refs(text, known_tables, known_columns):
+                continue
+            filtered.append(text)
+            seen.add(key)
+            if len(filtered) == 5:
+                break
+
+        if len(filtered) < 5:
+            for fb in _fallback_schema_safe_suggestions(table_id, focal_cols):
+                key = fb.lower()
+                if key in seen:
+                    continue
+                filtered.append(fb)
+                seen.add(key)
+                if len(filtered) == 5:
+                    break
+
+        return {"suggestions": filtered[:5]}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Erro ao gerar sugestoes: {exc}")
 

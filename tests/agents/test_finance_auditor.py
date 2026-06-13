@@ -335,9 +335,15 @@ class TestFetchDataPeriodSelection:
                 llm,
             )
 
-        # Para mês atual (abril/2026), deve usar o mês completo e nem chamar LLM.
-        assert result["date_filter_start"] == "2026-04-01"
-        assert result["date_filter_end"] == "2026-04-30"
+        # Para mês atual, deve usar o mês completo sem chamar LLM.
+        from datetime import date
+        import calendar
+        today = date.today()
+        expected_start = today.replace(day=1).isoformat()
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        expected_end = today.replace(day=last_day).isoformat()
+        assert result["date_filter_start"] == expected_start
+        assert result["date_filter_end"] == expected_end
         assert result["operations_analyzed"] == ["Financeiro Vida"]
         llm.invoke.assert_not_called()
         assert mock_bq.call_count == 2

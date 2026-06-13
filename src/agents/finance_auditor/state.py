@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
-TABLE_REF = "silviosalviati.ds_inteligencia_analitica.analitica_analise_ia"
-DEFAULT_PROJECT = "silviosalviati"
+from src.shared.config import FINANCE_AUDITOR_DEFAULT_PROJECT, FINANCE_AUDITOR_TABLE_REF
+
+TABLE_REF = FINANCE_AUDITOR_TABLE_REF
+DEFAULT_PROJECT = FINANCE_AUDITOR_DEFAULT_PROJECT
 
 
 class FinanceAuditorState(TypedDict, total=False):

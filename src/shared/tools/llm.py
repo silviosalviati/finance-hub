@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import time
+from typing import Any
+
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -34,3 +37,25 @@ def create_llm() -> BaseChatModel:
         f"Provedor configurado nao suportado neste ambiente: {LLM_PROVIDER}. "
         "Atualmente o wrapper ativo usa Vertex AI."
     )
+
+
+def invoke_with_retry(
+    llm: BaseChatModel,
+    messages: list,
+    max_attempts: int = 3,
+    base_delay: float = 2.0,
+) -> Any:
+    """Invoca o LLM com retry exponencial para erros transitórios.
+
+    Tenta até max_attempts vezes com backoff exponencial entre tentativas.
+    Levanta a última exceção se todas as tentativas falharem.
+    """
+    last_exc: BaseException = RuntimeError("Nenhuma tentativa realizada")
+    for attempt in range(max_attempts):
+        try:
+            return llm.invoke(messages)
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_attempts - 1:
+                time.sleep(base_delay * (2 ** attempt))
+    raise last_exc

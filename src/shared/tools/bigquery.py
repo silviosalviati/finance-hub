@@ -7,7 +7,7 @@ from functools import lru_cache
 from typing import Any
 
 from google.cloud import bigquery
-from google.cloud import datacatalog_v1
+from google.cloud import dataplex_v1
 from google.cloud.exceptions import GoogleCloudError
 from google.api_core.exceptions import NotFound
 from google.oauth2 import service_account
@@ -105,16 +105,22 @@ def validate_dataset_for_query_build(
         }
 
     if require_datacatalog:
-        linked_resource = (
-            f"//bigquery.googleapis.com/projects/{dataset_project}/datasets/{dataset_id}"
-        )
-
         try:
-            catalog_client = datacatalog_v1.DataCatalogClient(credentials=_get_base_credentials())
-            entry = catalog_client.lookup_entry(
-                request={"linked_resource": linked_resource}
+            dataplex_client = dataplex_v1.CatalogServiceClient(
+                credentials=_get_base_credentials()
             )
-            datacatalog_ok = bool(getattr(entry, "name", ""))
+            request = dataplex_v1.SearchEntriesRequest(
+                name=f"projects/{dataset_project}/locations/global",
+                query=f"{dataset_project}.{dataset_id} system=BIGQUERY",
+                page_size=10,
+            )
+
+            results = list(dataplex_client.search_entries(request=request))
+            dataset_marker = f"/datasets/{dataset_id}".lower()
+            datacatalog_ok = any(
+                dataset_marker in str(getattr(result, "linked_resource", "")).lower()
+                for result in results
+            )
         except NotFound:
             datacatalog_ok = False
         except Exception as exc:

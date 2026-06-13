@@ -11,6 +11,7 @@ from src.agents.query_analyzer.prompts import ANALYZE_SYSTEM_PROMPT
 from src.agents.query_analyzer.state import AgentState
 from src.shared.config import BQ_ANTIPATTERNS, BYTES_CRITICAL_THRESHOLD, BYTES_WARNING_THRESHOLD
 from src.shared.tools.bigquery import dry_run_query, format_bytes, get_schemas_for_query
+from src.shared.tools.llm import invoke_with_retry
 from src.shared.tools.schemas import OptimizationReport, QueryAntiPattern
 
 TABLE_PATTERN = r"`?([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)`?"
@@ -414,13 +415,14 @@ def _detect_antipatterns_with_llm(
     system_prompt: str,
     user_prompt: str,
 ) -> list[QueryAntiPattern]:
-    full_prompt = f"""<start_of_turn>user
-{system_prompt}
-{user_prompt}<end_of_turn>
-<start_of_turn>model"""
-
     try:
-        response = llm.invoke(full_prompt)
+        response = invoke_with_retry(
+            llm,
+            [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt),
+            ],
+        )
         raw = _extract_message_content(response)
         return _parse_antipatterns_json(raw)
     except Exception:

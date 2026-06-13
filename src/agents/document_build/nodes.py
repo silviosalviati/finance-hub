@@ -13,6 +13,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from src.agents.document_build.prompts import DOCUMENT_BUILD_SYSTEM_PROMPT
 from src.agents.document_build.state import DocumentBuildState
 from src.shared.config import GCP_CREDENTIALS_PATH
+from src.shared.tools.llm import invoke_with_retry
 from src.shared.tools.bigquery import get_dataset_tables_schema
 
 
@@ -274,11 +275,12 @@ Gere a documentacao completa no formato solicitado.
 """
 
 	try:
-		response = llm.invoke(
+		response = invoke_with_retry(
+			llm,
 			[
 				SystemMessage(content=DOCUMENT_BUILD_SYSTEM_PROMPT),
 				HumanMessage(content=prompt),
-			]
+			],
 		)
 
 		raw = _extract_message_content(response)

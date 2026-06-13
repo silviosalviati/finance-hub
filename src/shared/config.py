@@ -73,6 +73,15 @@ ALLOWED_ORIGINS = _get_list(
 GCP_PROJECT_ID = _get_required_str("GCP_PROJECT_ID")
 GCP_CREDENTIALS_PATH = _get_required_str("GOOGLE_APPLICATION_CREDENTIALS")
 
+FINANCE_AUDITOR_TABLE_REF = _get_optional_str(
+    "FINANCE_AUDITOR_TABLE_REF",
+    "silviosalviati.ds_inteligencia_analitica.analitica_analise_ia",
+)
+FINANCE_AUDITOR_DEFAULT_PROJECT = _get_optional_str(
+    "FINANCE_AUDITOR_DEFAULT_PROJECT",
+    "silviosalviati",
+)
+
 BQ_COST_PER_TB_USD = _get_float("BQ_COST_PER_TB_USD", 5.0)
 
 BYTES_WARNING_THRESHOLD = _get_int("BYTES_WARNING_THRESHOLD", 10 * 1024**3)

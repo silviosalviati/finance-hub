@@ -8,6 +8,7 @@ Dependências de execução:
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import re
 import unicodedata
@@ -28,6 +29,7 @@ from src.agents.finance_auditor.state import (
     FinanceAuditorState,
 )
 from src.shared.tools.bigquery import execute_query_rows
+from src.shared.tools.llm import invoke_with_retry
 
 # Número máximo de linhas buscadas para análise
 _MAX_ROWS = 500
@@ -244,11 +246,12 @@ def fetch_data(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str, Any]
             date_start, date_end = deterministic
         else:
             # 2. LLM extrai range de datas
-            raw_response = llm.invoke(
+            raw_response = invoke_with_retry(
+                llm,
                 [
                     SystemMessage(content=EXTRACT_DATE_RANGE_PROMPT),
                     HumanMessage(content=request_text),
-                ]
+                ],
             )
             date_json = _parse_json_safe(_text(raw_response))
 
@@ -432,15 +435,21 @@ def node_themes(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str, Any
     sample_text = "\n".join(sample_lines)
 
     try:
-        response = llm.invoke(
-            [
-                SystemMessage(content=CATEGORIZE_THEMES_PROMPT),
-                HumanMessage(content=sample_text),
-            ]
-        )
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(
+                invoke_with_retry,
+                llm,
+                [
+                    SystemMessage(content=CATEGORIZE_THEMES_PROMPT),
+                    HumanMessage(content=sample_text),
+                ],
+            )
+            response = future.result(timeout=60)
         data = _parse_json_safe(_text(response))
         if data.get("themes"):
             return {"themes_result": data}
+    except concurrent.futures.TimeoutError:
+        pass  # LLM demorou demais; cai no fallback de frequência de palavras
     except Exception:  # noqa: BLE001
         pass
 
@@ -532,11 +541,12 @@ def report_generator(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str
 
     try:
         metrics_json = json.dumps(metrics, ensure_ascii=False, indent=2)
-        response = llm.invoke(
+        response = invoke_with_retry(
+            llm,
             [
                 SystemMessage(content=REPORT_GENERATOR_PROMPT),
                 HumanMessage(content=metrics_json),
-            ]
+            ],
         )
         data = _parse_json_safe(_text(response))
         report = data.get("markdown_report", "")

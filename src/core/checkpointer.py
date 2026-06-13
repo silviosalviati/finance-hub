@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +24,7 @@ class FileCheckpointer:
 
     def save(self, key: str, payload: dict[str, Any]) -> None:
         data = {
-            "saved_at": datetime.utcnow().isoformat(),
+            "saved_at": datetime.now(timezone.utc).isoformat(),
             "payload": payload,
         }
         self._file_path(key).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -37,7 +37,9 @@ class FileCheckpointer:
         try:
             data = json.loads(file_path.read_text(encoding="utf-8"))
             saved_at = datetime.fromisoformat(data["saved_at"])
-            if datetime.utcnow() - saved_at > timedelta(hours=self.config.ttl_hours):
+            if saved_at.tzinfo is None:
+                saved_at = saved_at.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) - saved_at > timedelta(hours=self.config.ttl_hours):
                 file_path.unlink(missing_ok=True)
                 return None
             return data.get("payload")

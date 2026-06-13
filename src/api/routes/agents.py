@@ -1,43 +1,47 @@
 from __future__ import annotations
 
+import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_checkpointer, get_current_user, get_registry
-from src.shared.tools.llm import create_llm
+from src.shared.config import FINANCE_AUDITOR_DEFAULT_PROJECT
 from src.shared.tools.bigquery import (
+    get_dataset_tables_metadata,
     validate_dataset_for_query_build,
     validate_query_context_for_query_analyzer,
 )
+from src.shared.tools.llm import create_llm, invoke_with_retry
 
 router = APIRouter(tags=["agents"])
 
 
 class AnalyzeRequest(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=32_000)
     project_id: str | None = None
     dataset_hint: str | None = None
 
 
 class ValidateDatasetRequest(BaseModel):
-    project_id: str
-    dataset_hint: str
+    project_id: str = Field(..., min_length=1, max_length=256)
+    dataset_hint: str = Field(..., min_length=1, max_length=256)
 
 
 class ValidateAnalyzerContextRequest(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=32_000)
     project_id: str | None = None
 
 
 class SuggestionsRequest(BaseModel):
-    project_id: str
-    dataset_hint: str
-    table_id: str
+    project_id: str = Field(..., min_length=1, max_length=256)
+    dataset_hint: str = Field(..., min_length=1, max_length=256)
+    table_id: str = Field(..., min_length=1, max_length=256)
 
 
 def _extract_known_schema_tokens(tables: list[dict[str, Any]]) -> tuple[set[str], set[str]]:
@@ -110,8 +114,7 @@ def _fallback_schema_safe_suggestions(table_id: str, focal_cols: list[str]) -> l
     ]
 
 
-_CHAT_LLM = None
-_DEFAULT_FINANCE_PROJECT = "silviosalviati"
+_SHARED_LLM: BaseChatModel | None = None
 _NAME_PATTERNS = (
     re.compile(r"\bmeu nome\s*(?:é|e)\s*([a-zA-ZÀ-ÿ][\wÀ-ÿ\- ]{0,40})", re.IGNORECASE),
     re.compile(r"\bme chamo\s+([a-zA-ZÀ-ÿ][\wÀ-ÿ\- ]{0,40})", re.IGNORECASE),
@@ -123,7 +126,7 @@ _ASK_NAME_PATTERN = re.compile(
 
 
 def _now_iso() -> str:
-    return datetime.utcnow().isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _normalize_text(text: str) -> str:
@@ -231,11 +234,11 @@ def _retrieve_relevant_turns(turns: list[dict[str, Any]], query: str, top_k: int
     return [turn for _, turn in scored[:top_k]]
 
 
-def _llm_for_chat():
-    global _CHAT_LLM
-    if _CHAT_LLM is None:
-        _CHAT_LLM = create_llm()
-    return _CHAT_LLM
+def _get_shared_llm() -> BaseChatModel:
+    global _SHARED_LLM
+    if _SHARED_LLM is None:
+        _SHARED_LLM = create_llm()
+    return _SHARED_LLM
 
 
 def _llm_text(response: Any) -> str:
@@ -260,26 +263,27 @@ def _build_rag_chat_answer(query: str, profile: dict[str, Any], relevant_turns: 
         context_lines.append("- Sem contexto anterior relevante na sessão.")
 
     try:
-        llm = _llm_for_chat()
-        response = llm.invoke(
+        llm = _get_shared_llm()
+        response = invoke_with_retry(
+            llm,
             [
                 SystemMessage(
                     content=(
                         "Você é o Finance Voice IA em modo conversacional. "
                         "Responda em português, de forma objetiva e útil. "
                         "NÃO gere relatório VoC nesta resposta. "
-                        "Quando houver memória de sessão, use-a para responder." 
+                        "Quando houver memória de sessão, use-a para responder."
                     )
                 ),
                 HumanMessage(
                     content=(
                         f"Pergunta atual do usuário: {query}\n\n"
                         "Contexto recuperado (RAG lexical da sessão):\n"
-                        f"{'\n'.join(context_lines)}\n\n"
+                        f"{chr(10).join(context_lines)}\n\n"
                         "Responda em até 5 linhas."
                     )
                 ),
-            ]
+            ],
         )
         text = _llm_text(response).strip()
         if text:
@@ -333,7 +337,7 @@ async def analyze_by_agent(
     if agent_id not in {"query_analyzer", "finance_auditor"} and not project_id:
         raise HTTPException(status_code=400, detail="Project ID nao pode ser vazio.")
     if agent_id == "finance_auditor" and not project_id:
-        project_id = _DEFAULT_FINANCE_PROJECT
+        project_id = FINANCE_AUDITOR_DEFAULT_PROJECT
 
     registry = get_registry()
     try:
@@ -425,9 +429,6 @@ async def query_build_suggestions(
     req: SuggestionsRequest,
     _session: dict[str, Any] = Depends(get_current_user),
 ):
-    from src.shared.tools.bigquery import get_dataset_tables_metadata
-    from langchain_core.messages import HumanMessage, SystemMessage
-
     project_id = req.project_id.strip()
     dataset_hint = req.dataset_hint.strip()
     table_id = req.table_id.strip()
@@ -479,17 +480,15 @@ async def query_build_suggestions(
     )
 
     try:
-        llm = create_llm()
-        response = llm.invoke([
+        llm = _get_shared_llm()
+        response = invoke_with_retry(llm, [
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),
         ])
         raw = response.content if hasattr(response, "content") else str(response)
-        # Strip markdown fences if present
         raw = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.MULTILINE)
         raw = re.sub(r"\s*```$", "", raw.strip(), flags=re.MULTILINE)
-        import json as _json
-        parsed = _json.loads(raw)
+        parsed = json.loads(raw)
         suggestions = parsed.get("suggestions", [])
         if not isinstance(suggestions, list):
             suggestions = []

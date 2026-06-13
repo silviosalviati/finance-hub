@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import bcrypt
-from fastapi import Header, HTTPException
+from fastapi import Depends, Header, HTTPException
 
 from src.agents.document_build import DocumentBuildAgent
 from src.agents.finance_auditor import FinanceAuditorAgent
@@ -15,6 +15,7 @@ from src.agents.query_analyzer import QueryAnalyzerAgent
 from src.agents.query_build import QueryBuildAgent
 from src.agents.schema_graph import SchemaGraphAgent
 from src.core.checkpointer import CheckpointConfig, FileCheckpointer
+from src.core.database import get_config_value, get_user
 from src.core.registry import AgentRegistry
 from src.shared.config import SESSION_TTL_HOURS
 
@@ -49,12 +50,13 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-def create_session(username: str, name: str) -> dict[str, Any]:
+def create_session(username: str, name: str, is_admin: bool = False) -> dict[str, Any]:
     token = str(uuid.uuid4())
     session = {
         "token": token,
         "username": username,
         "name": name,
+        "is_admin": is_admin,
         "expires": _utcnow() + timedelta(hours=SESSION_TTL_HOURS),
         "login_at": _utcnow().isoformat(),
     }
@@ -112,8 +114,24 @@ def verify_password(plain_password: str, stored_password: str) -> bool:
 
 
 def load_users() -> dict[str, dict[str, str]]:
-    users: dict[str, dict[str, str]] = {}
+    try:
+        from src.core.database import get_user as _get_user, list_users as _list_users
 
+        db_users = _list_users()
+        if db_users:
+            return {
+                u["username"]: {
+                    "password": _get_user(u["username"])["password_hash"],
+                    "name": u["name"],
+                    "is_admin": str(u["is_admin"]),
+                }
+                for u in db_users
+            }
+    except Exception:
+        pass
+
+    # Fallback to .env before first DB init
+    users: dict[str, dict[str, str]] = {}
     raw = os.getenv("APP_USERS", "").strip()
     if raw:
         for entry in raw.split(","):
@@ -123,14 +141,18 @@ def load_users() -> dict[str, dict[str, str]]:
                 password = parts[1].strip()
                 name = parts[2].strip() if len(parts) == 3 else username.title()
                 if username:
-                    users[username] = {"password": password, "name": name}
-
+                    users[username] = {"password": password, "name": name, "is_admin": "0"}
     if users:
         return users
 
     username = os.getenv("APP_USERNAME", "admin").strip()
     password = os.getenv("APP_PASSWORD", "porto2024").strip()
     name = os.getenv("APP_NAME", "Administrador").strip()
-
-    users[username] = {"password": password, "name": name}
+    users[username] = {"password": password, "name": name, "is_admin": "0"}
     return users
+
+
+def get_admin_user(session: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+    if not session.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores.")
+    return session

@@ -31,12 +31,14 @@ async def login(req: LoginRequest):
     if not user_data or not verify_password(req.password, user_data["password"]):
         raise HTTPException(status_code=401, detail="Matricula ou senha incorretos.")
 
-    session = create_session(username=username, name=user_data["name"])
+    is_admin = user_data.get("is_admin", "0") in ("1", "True", "true", True)
+    session = create_session(username=username, name=user_data["name"], is_admin=is_admin)
 
     return {
         "token": session["token"],
         "username": session["username"],
         "name": session["name"],
+        "is_admin": session["is_admin"],
         "expires_in_hours": SESSION_TTL_HOURS,
     }
 
@@ -55,5 +57,6 @@ async def me(session: dict[str, Any] = Depends(get_current_user)):
     return {
         "username": session["username"],
         "name": session["name"],
+        "is_admin": session.get("is_admin", False),
         "login_at": session["login_at"],
     }

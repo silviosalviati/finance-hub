@@ -15,9 +15,11 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.dependencies import session_count
+from src.api.routes.admin import router as admin_router
 from src.api.routes.agents import router as agents_router
 from src.api.routes.auth import router as auth_router
 from src.api.routes.schema_explorer import router as schema_explorer_router
+from src.core.database import init_db
 from src.shared.config import ALLOWED_ORIGINS, LLM_PROVIDER, validate_runtime_config
 
 
@@ -34,6 +36,7 @@ def _portal_html_path() -> Path:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _validate_startup_config()
+    init_db()
     print(f"LLM_PROVIDER: {LLM_PROVIDER}")
     print(f"ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")
     yield
@@ -52,6 +55,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(agents_router)
 app.include_router(schema_explorer_router)
+app.include_router(admin_router)
 
 
 @app.get("/", response_class=HTMLResponse)

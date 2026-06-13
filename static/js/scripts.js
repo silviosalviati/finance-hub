@@ -791,9 +791,12 @@ async function doLogin() {
     currentUser = {
       username: data.username,
       name: data.name,
+      is_admin: !!data.is_admin,
     };
 
     setUserUI(data.name, data.username);
+    const adminNav = document.getElementById("admin-nav-section");
+    if (adminNav) adminNav.style.display = currentUser.is_admin ? "" : "none";
     showScreen("screen-portal");
     navTo("home");
   } catch (e) {
@@ -870,6 +873,8 @@ function navTo(view) {
     er: "view-er",
     dev: "view-dev",
     hist: "view-hist",
+    "admin-users": "view-admin-users",
+    "admin-config": "view-admin-config",
   };
 
   const el = document.getElementById(mapping[view] || "view-home");
@@ -894,6 +899,12 @@ function navTo(view) {
   } else if (view === "er") {
     document.getElementById("nav-er")?.classList.add("active");
     initErView();
+  } else if (view === "admin-users") {
+    document.getElementById("nav-admin-users")?.classList.add("active");
+    adminLoadUsers();
+  } else if (view === "admin-config") {
+    document.getElementById("nav-admin-config")?.classList.add("active");
+    adminLoadConfig();
   }
 }
 
@@ -6007,4 +6018,190 @@ function neoExportPng() {
     a.click();
   };
   img.src = url;
+}
+
+// ─────────────────────────────────────
+// Admin — Users
+// ─────────────────────────────────────
+let _adminEditingUsername = null;
+
+async function adminLoadUsers() {
+  const tbody = document.getElementById("admin-users-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;color:var(--ink3)'>Carregando...</td></tr>";
+
+  try {
+    const res = await fetch("/admin/users", { headers: authHeaders() });
+    if (!res.ok) throw new Error((await res.json()).detail || "Erro");
+    const users = await res.json();
+
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td><code>${u.username}</code></td>
+        <td>${u.name}</td>
+        <td><span class="admin-badge ${u.is_admin ? 'badge-admin' : 'badge-user'}">${u.is_admin ? 'Admin' : 'Usuário'}</span></td>
+        <td style="font-size:11px;color:var(--ink3)">${u.created_at ? u.created_at.slice(0, 10) : '—'}</td>
+        <td class="admin-actions">
+          <button class="btn-table-edit" onclick="adminOpenUserModal('${u.username}')">Editar</button>
+          ${u.username !== currentUser?.username
+            ? `<button class="btn-table-del" onclick="adminDeleteUser('${u.username}')">Excluir</button>`
+            : ''}
+        </td>
+      </tr>
+    `).join("") || "<tr><td colspan='5' style='text-align:center'>Nenhum usuário cadastrado.</td></tr>";
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan='5' style='color:#c0392b'>${e.message}</td></tr>`;
+  }
+}
+
+async function adminOpenUserModal(username = null) {
+  _adminEditingUsername = username;
+  const title = document.getElementById("admin-modal-title");
+  const passLabel = document.getElementById("modal-pass-label");
+  const errEl = document.getElementById("admin-modal-error");
+
+  if (errEl) errEl.style.display = "none";
+  document.getElementById("modal-username").value = "";
+  document.getElementById("modal-name").value = "";
+  document.getElementById("modal-password").value = "";
+  document.getElementById("modal-is-admin").checked = false;
+  document.getElementById("modal-username").disabled = false;
+
+  if (username) {
+    if (title) title.textContent = "Editar Usuário";
+    if (passLabel) passLabel.textContent = "Nova senha (deixe em branco para não alterar)";
+    try {
+      const res = await fetch("/admin/users", { headers: authHeaders() });
+      const users = await res.json();
+      const u = users.find(x => x.username === username);
+      if (u) {
+        document.getElementById("modal-username").value = u.username;
+        document.getElementById("modal-username").disabled = true;
+        document.getElementById("modal-name").value = u.name;
+        document.getElementById("modal-is-admin").checked = !!u.is_admin;
+      }
+    } catch (_) {}
+  } else {
+    if (title) title.textContent = "Novo Usuário";
+    if (passLabel) passLabel.textContent = "Senha";
+  }
+
+  document.getElementById("admin-user-modal").style.display = "flex";
+}
+
+function adminCloseUserModal(event) {
+  if (event && event.target !== document.getElementById("admin-user-modal")) return;
+  document.getElementById("admin-user-modal").style.display = "none";
+  _adminEditingUsername = null;
+}
+
+async function adminSaveUser() {
+  const username = document.getElementById("modal-username").value.trim();
+  const name = document.getElementById("modal-name").value.trim();
+  const password = document.getElementById("modal-password").value;
+  const is_admin = document.getElementById("modal-is-admin").checked;
+  const errEl = document.getElementById("admin-modal-error");
+  const saveBtn = document.getElementById("admin-modal-save");
+
+  if (errEl) errEl.style.display = "none";
+
+  if (!username || !name) {
+    if (errEl) { errEl.textContent = "Matrícula e nome são obrigatórios."; errEl.style.display = "block"; }
+    return;
+  }
+  if (!_adminEditingUsername && !password) {
+    if (errEl) { errEl.textContent = "Informe uma senha para o novo usuário."; errEl.style.display = "block"; }
+    return;
+  }
+
+  if (saveBtn) saveBtn.disabled = true;
+
+  try {
+    let res;
+    if (_adminEditingUsername) {
+      const body = { name, is_admin };
+      if (password) body.password = password;
+      res = await fetch(`/admin/users/${_adminEditingUsername}`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      });
+    } else {
+      res = await fetch("/admin/users", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ username, name, password, is_admin }),
+      });
+    }
+
+    if (!res.ok) throw new Error((await res.json()).detail || "Erro ao salvar");
+    document.getElementById("admin-user-modal").style.display = "none";
+    _adminEditingUsername = null;
+    adminLoadUsers();
+  } catch (e) {
+    if (errEl) { errEl.textContent = e.message; errEl.style.display = "block"; }
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
+async function adminDeleteUser(username) {
+  if (!confirm(`Excluir o usuário "${username}"? Esta ação não pode ser desfeita.`)) return;
+  try {
+    const res = await fetch(`/admin/users/${username}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || "Erro ao excluir");
+    adminLoadUsers();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+// ─────────────────────────────────────
+// Admin — Config
+// ─────────────────────────────────────
+async function adminLoadConfig() {
+  const tbody = document.getElementById("admin-config-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;color:var(--ink3)'>Carregando...</td></tr>";
+
+  try {
+    const res = await fetch("/admin/config", { headers: authHeaders() });
+    if (!res.ok) throw new Error((await res.json()).detail || "Erro");
+    const configs = await res.json();
+
+    tbody.innerHTML = configs.map(c => `
+      <tr>
+        <td><code>${c.key}</code></td>
+        <td style="font-size:12px;color:var(--ink3)">${c.description}</td>
+        <td><input class="admin-config-input" id="cfg-${c.key}" type="text" value="${c.value}" /></td>
+        <td>
+          <button class="btn-table-edit" onclick="adminSaveConfig('${c.key}')">Salvar</button>
+        </td>
+      </tr>
+    `).join("") || "<tr><td colspan='4'>Nenhum parâmetro encontrado.</td></tr>";
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan='4' style='color:#c0392b'>${e.message}</td></tr>`;
+  }
+}
+
+async function adminSaveConfig(key) {
+  const input = document.getElementById(`cfg-${key}`);
+  if (!input) return;
+  const value = input.value.trim();
+
+  try {
+    const res = await fetch(`/admin/config/${key}`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify({ value }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || "Erro ao salvar");
+    input.style.outline = "2px solid #22c55e";
+    setTimeout(() => { input.style.outline = ""; }, 1500);
+  } catch (e) {
+    alert(e.message);
+  }
 }

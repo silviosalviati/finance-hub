@@ -164,6 +164,16 @@ def validate_runtime_config() -> list[str]:
     return errors
 
 
+def get_runtime_config(key: str, default: str = "") -> str:
+    """Read a config value from SQLite at runtime; falls back to default."""
+    try:
+        from src.core.database import get_config_value
+
+        return get_config_value(key, default)
+    except Exception:
+        return os.getenv(key, default)
+
+
 def print_runtime_summary() -> None:
     print("CONFIG")
     print(f"LLM_PROVIDER: {LLM_PROVIDER}")

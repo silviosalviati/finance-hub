@@ -204,6 +204,33 @@
             </div>
           </div>
 
+          <div class="sidebar-section" id="admin-nav-section" style="display:none">
+            <div class="shead">Administração</div>
+
+            <div class="nitem" id="nav-admin-users" onclick="navTo('admin-users')">
+              <div class="nicon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3D5276" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              Usuários
+            </div>
+
+            <div class="nitem" id="nav-admin-config" onclick="navTo('admin-config')">
+              <div class="nicon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3D5276" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+                  <path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>
+                </svg>
+              </div>
+              Parâmetros
+            </div>
+          </div>
+
           <div class="suser">
             <div class="upic" id="sb-avatar">--</div>
             <div>
@@ -2458,6 +2485,54 @@ runbook_operacional</pre
             </div>
           </section>
 
+          <!-- ── ADMIN: USERS VIEW ── -->
+          <section class="view" id="view-admin-users">
+            <div class="view-hd">
+              <div>
+                <div class="view-title">Gerenciar Usuários</div>
+                <div class="view-sub">Cadastre, edite e remova usuários da plataforma</div>
+              </div>
+              <button class="btn-primary" onclick="adminOpenUserModal()">+ Novo Usuário</button>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="admin-table" id="admin-users-table">
+                <thead>
+                  <tr>
+                    <th>Matrícula</th>
+                    <th>Nome</th>
+                    <th>Perfil</th>
+                    <th>Criado em</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-users-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- ── ADMIN: CONFIG VIEW ── -->
+          <section class="view" id="view-admin-config">
+            <div class="view-hd">
+              <div>
+                <div class="view-title">Parâmetros do Sistema</div>
+                <div class="view-sub">Configurações da plataforma armazenadas no banco de dados</div>
+              </div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="admin-table" id="admin-config-table">
+                <thead>
+                  <tr>
+                    <th>Parâmetro</th>
+                    <th>Descrição</th>
+                    <th>Valor</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-config-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+
           <!-- ── DEV VIEW ── -->
           <section class="view" id="view-dev">
             <div class="dev-card" id="dev-card">
@@ -2471,6 +2546,41 @@ runbook_operacional</pre
             </div>
           </section>
         </main>
+      </div>
+
+      <!-- ADMIN: User Modal -->
+      <div id="admin-user-modal" class="modal-overlay" style="display:none" onclick="adminCloseUserModal(event)">
+        <div class="modal-card" onclick="event.stopPropagation()">
+          <div class="modal-header">
+            <div class="modal-title" id="admin-modal-title">Novo Usuário</div>
+            <button class="modal-close" onclick="adminCloseUserModal()">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="modal-field">
+              <label>Matrícula</label>
+              <input type="text" id="modal-username" placeholder="ex: F0123456" autocomplete="off" />
+            </div>
+            <div class="modal-field">
+              <label>Nome completo</label>
+              <input type="text" id="modal-name" placeholder="ex: Silvio Salviati" autocomplete="off" />
+            </div>
+            <div class="modal-field">
+              <label id="modal-pass-label">Senha</label>
+              <input type="password" id="modal-password" placeholder="Mínimo 4 caracteres" autocomplete="new-password" />
+            </div>
+            <div class="modal-field modal-field-check">
+              <label>
+                <input type="checkbox" id="modal-is-admin" />
+                Administrador
+              </label>
+            </div>
+            <div id="admin-modal-error" class="admin-error" style="display:none"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-secondary" onclick="adminCloseUserModal()">Cancelar</button>
+            <button class="btn-primary" id="admin-modal-save" onclick="adminSaveUser()">Salvar</button>
+          </div>
+        </div>
       </div>
 
       <footer>

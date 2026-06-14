@@ -1,13 +1,33 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
+from pathlib import Path
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.shared.config import get_runtime_config
+
+
+def _ensure_google_adc_env() -> None:
+    """Garante GOOGLE_APPLICATION_CREDENTIALS para SDKs que usam ADC.
+
+    O runtime config pode estar no SQLite mesmo quando a variavel de ambiente
+    nao foi exportada na sessao do processo.
+    """
+    configured = get_runtime_config("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+    if not configured:
+        return
+
+    candidate = Path(configured).expanduser()
+    if not candidate.is_absolute():
+        candidate = (Path(__file__).resolve().parents[3] / candidate).resolve()
+
+    if candidate.exists() and candidate.is_file():
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(candidate)
 
 
 def create_llm(temperature: float | None = None) -> BaseChatModel:
@@ -20,6 +40,7 @@ def create_llm(temperature: float | None = None) -> BaseChatModel:
     """
     provider = get_runtime_config("LLM_PROVIDER", "vertexai")
     if provider == "vertexai":
+        _ensure_google_adc_env()
         t = temperature if temperature is not None else float(
             get_runtime_config("VERTEXAI_TEMPERATURE", "0.05")
         )

@@ -4,10 +4,12 @@ from functools import partial
 from typing import Literal
 
 from langchain_core.language_models import BaseChatModel
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from src.agents.query_analyzer.nodes import (
     analyze_patterns,
+    await_human_approval,
     dry_run_estimate,
     generate_report,
     optimize_query,
@@ -17,25 +19,21 @@ from src.agents.query_analyzer.nodes import (
 from src.agents.query_analyzer.state import AgentState
 
 
-def should_optimize(state: AgentState) -> Literal["optimize_query", "generate_report"]:
-    needs_opt = getattr(state, "needs_optimization", False)
-    iter_count = getattr(state, "iteration", 0)
-    max_iters = getattr(state, "max_iterations", 2)
+def _route_after_human(state: AgentState) -> Literal["optimize_query", "generate_report"]:
+    """Roteia com base na decisão humana.
 
-    if needs_opt and iter_count < max_iters:
+    'skip' (ou ausência de otimização necessária) → relatório direto.
+    Qualquer outra decisão ('approve', texto de feedback, etc.) → otimização.
+    """
+    if state.human_decision == "skip":
+        return "generate_report"
+    return "optimize_query" if state.needs_optimization else "generate_report"
+
+
+def _should_optimize(state: AgentState) -> Literal["optimize_query", "generate_report"]:
+    """Controla o loop de re-otimização após validate_optimized."""
+    if state.needs_optimization and state.iteration < state.max_iterations:
         return "optimize_query"
-
-    return "generate_report"
-
-
-def should_reoptimize(state: AgentState) -> Literal["optimize_query", "generate_report"]:
-    needs_opt = getattr(state, "needs_optimization", False)
-    iter_count = getattr(state, "iteration", 0)
-    max_iters = getattr(state, "max_iterations", 3)
-
-    if needs_opt and iter_count < max_iters:
-        return "optimize_query"
-
     return "generate_report"
 
 
@@ -45,6 +43,7 @@ def build_graph(llm: BaseChatModel):
     workflow.add_node("parse_query", parse_query)
     workflow.add_node("dry_run_estimate", dry_run_estimate)
     workflow.add_node("analyze_patterns", partial(analyze_patterns, llm=llm))
+    workflow.add_node("await_human_approval", await_human_approval)
     workflow.add_node("optimize_query", partial(optimize_query, llm=llm))
     workflow.add_node("validate_optimized", validate_optimized)
     workflow.add_node("generate_report", partial(generate_report, llm=llm))
@@ -52,10 +51,12 @@ def build_graph(llm: BaseChatModel):
     workflow.add_edge(START, "parse_query")
     workflow.add_edge("parse_query", "dry_run_estimate")
     workflow.add_edge("dry_run_estimate", "analyze_patterns")
+    workflow.add_edge("analyze_patterns", "await_human_approval")
 
+    # Após aprovação humana: otimizar ou ir direto ao relatório
     workflow.add_conditional_edges(
-        "analyze_patterns",
-        should_optimize,
+        "await_human_approval",
+        _route_after_human,
         {
             "optimize_query": "optimize_query",
             "generate_report": "generate_report",
@@ -63,14 +64,18 @@ def build_graph(llm: BaseChatModel):
     )
 
     workflow.add_edge("optimize_query", "validate_optimized")
+
+    # Loop de re-otimização: repete até atingir qualidade ou max_iterations
     workflow.add_conditional_edges(
         "validate_optimized",
-        should_reoptimize,
+        _should_optimize,
         {
             "optimize_query": "optimize_query",
             "generate_report": "generate_report",
         },
     )
+
     workflow.add_edge("generate_report", END)
 
-    return workflow.compile()
+    # MemorySaver persiste o estado entre analyze() e resume() na mesma sessão
+    return workflow.compile(checkpointer=MemorySaver())

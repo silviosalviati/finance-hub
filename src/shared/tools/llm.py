@@ -6,35 +6,28 @@ from typing import Any
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from src.shared.config import (
-    LLM_PROVIDER,
-    VERTEXAI_LOCATION,
-    VERTEXAI_MAX_OUTPUT_TOKENS,
-    VERTEXAI_MAX_RETRIES,
-    VERTEXAI_MODEL,
-    VERTEXAI_PROJECT,
-    VERTEXAI_TEMPERATURE,
-)
+from src.shared.config import get_runtime_config
 
 
 def create_vertexai_llm() -> BaseChatModel:
     return ChatGoogleGenerativeAI(
-        model=VERTEXAI_MODEL,
+        model=get_runtime_config("VERTEXAI_MODEL", "gemini-2.5-flash"),
         vertexai=True,
-        project=VERTEXAI_PROJECT,
-        location=VERTEXAI_LOCATION,
-        temperature=VERTEXAI_TEMPERATURE,
-        max_tokens=VERTEXAI_MAX_OUTPUT_TOKENS,
-        max_retries=VERTEXAI_MAX_RETRIES,
+        project=get_runtime_config("VERTEXAI_PROJECT", "silviosalviati"),
+        location=get_runtime_config("VERTEXAI_LOCATION", "us-central1"),
+        temperature=float(get_runtime_config("VERTEXAI_TEMPERATURE", "0.05")),
+        max_tokens=int(get_runtime_config("VERTEXAI_MAX_OUTPUT_TOKENS", "8192")),
+        max_retries=int(get_runtime_config("VERTEXAI_MAX_RETRIES", "1")),
     )
 
 
 def create_llm() -> BaseChatModel:
-    if LLM_PROVIDER == "vertexai":
+    provider = get_runtime_config("LLM_PROVIDER", "vertexai")
+    if provider == "vertexai":
         return create_vertexai_llm()
 
     raise ValueError(
-        f"Provedor configurado nao suportado neste ambiente: {LLM_PROVIDER}. "
+        f"Provedor configurado nao suportado neste ambiente: {provider}. "
         "Atualmente o wrapper ativo usa Vertex AI."
     )
 
@@ -45,11 +38,6 @@ def invoke_with_retry(
     max_attempts: int = 3,
     base_delay: float = 2.0,
 ) -> Any:
-    """Invoca o LLM com retry exponencial para erros transitórios.
-
-    Tenta até max_attempts vezes com backoff exponencial entre tentativas.
-    Levanta a última exceção se todas as tentativas falharem.
-    """
     last_exc: BaseException = RuntimeError("Nenhuma tentativa realizada")
     for attempt in range(max_attempts):
         try:

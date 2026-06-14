@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+import operator
+from typing import Annotated, Any, TypedDict
 
 
 class SchemaGraphState(TypedDict, total=False):
@@ -10,6 +11,9 @@ class SchemaGraphState(TypedDict, total=False):
 
     Campos opcionais (total=False) para que os nós possam atualizar
     chaves distintas sem conflito durante a execução linear.
+
+    `warnings` usa reducer operator.add — cada nó retorna apenas os
+    avisos NOVOS que gerou; o LangGraph acumula automaticamente.
     """
 
     # ── Entrada ──────────────────────────────────────────────────────
@@ -35,5 +39,6 @@ class SchemaGraphState(TypedDict, total=False):
     stats: dict[str, Any]               # métricas consolidadas
 
     # ── Controle ─────────────────────────────────────────────────────
-    warnings: list[str]
+    # Reducer: cada nó contribui apenas com seus novos avisos
+    warnings: Annotated[list[str], operator.add]
     error: str | None

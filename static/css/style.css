@@ -89,8 +89,9 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--body);
-  font-size: 13px;
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
   min-height: 100vh;
   display: flex;
@@ -184,11 +185,11 @@ textarea {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
   background: var(--white);
-  border-radius: 18px;
-  padding: 32px 44px 40px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22), 0 4px 16px rgba(0, 0, 0, 0.1);
+  border-radius: 20px;
+  padding: 36px 48px 44px;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.24), 0 4px 16px rgba(0, 0, 0, 0.08);
   animation: cardIn 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -393,13 +394,12 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 14px;
+  padding: 0 24px;
   border-top: 1px solid var(--border);
-  background: var(--white);
+  background: linear-gradient(180deg, var(--white) 0%, #f8fbff 100%);
   color: var(--ink3);
   font-size: 11px;
-  letter-spacing: 0.01em;
-  text-align: center;
+  letter-spacing: 0.2px;
   flex-shrink: 0;
 }
 
@@ -410,16 +410,17 @@ textarea {
 
 /* TOPBAR */
 .topbar {
-  height: 56px;
-  min-height: 56px;
-  background: var(--porto-primary);
+  height: 58px;
+  min-height: 58px;
+  background: linear-gradient(135deg, var(--porto-primary-dark) 0%, var(--porto-primary) 60%, var(--porto-primary-mid) 100%);
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 24px;
   gap: 14px;
-  box-shadow: 0 2px 8px rgba(0, 30, 80, 0.22), 0 1px 0 rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 12px rgba(0, 30, 80, 0.28), 0 1px 0 rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   z-index: 10;
+  position: relative;
 }
 
 /* The vela bars are kept in HTML but visually hidden for a cleaner topbar */
@@ -512,11 +513,11 @@ textarea {
 }
 
 .avatar {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.18);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -525,6 +526,7 @@ textarea {
   font-weight: 700;
   color: #fff;
   flex-shrink: 0;
+  letter-spacing: 0.5px;
 }
 
 .btn-logout {
@@ -550,22 +552,23 @@ textarea {
 
 /* SUBBAR */
 .subbar {
-  height: 36px;
-  min-height: 36px;
+  height: 38px;
+  min-height: 38px;
   background: var(--white);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 24px;
   gap: 2px;
   flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(10, 22, 40, 0.04);
 }
 
 .snav {
-  height: 36px;
+  height: 38px;
   display: flex;
   align-items: center;
-  padding: 0 14px;
+  padding: 0 16px;
   font-family: var(--body);
   font-size: 12px;
   font-weight: 500;
@@ -575,10 +578,11 @@ textarea {
   transition: color 0.15s, border-color 0.15s;
   position: relative;
   top: 1px;
+  letter-spacing: 0.1px;
 }
 
 .snav:first-child {
-  padding-left: 4px;
+  padding-left: 0;
 }
 
 .snav:hover {
@@ -600,22 +604,22 @@ textarea {
 
 /* SIDEBAR */
 .sidebar {
-  width: 216px;
-  min-width: 216px;
+  width: 224px;
+  min-width: 224px;
   background: var(--white);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 16px 0 8px;
+  padding: 20px 0 10px;
 }
 
 .sidebar-section {
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .shead {
-  padding: 0 16px;
+  padding: 0 18px;
   margin-bottom: 6px;
   font-size: 10px;
   font-weight: 700;
@@ -627,34 +631,36 @@ textarea {
 .nitem {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 7px 14px 7px 16px;
-  border-left: 2px solid transparent;
+  gap: 10px;
+  padding: 9px 14px 9px 18px;
+  border-left: 3px solid transparent;
   border-radius: 0;
   font-size: 13px;
   font-weight: 400;
   color: var(--ink2);
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
-  margin: 1px 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  margin: 1px 8px 1px 0;
+  border-radius: 0 8px 8px 0;
 }
 
 .nitem:hover {
   background: var(--porto-sky);
   color: var(--porto);
+  border-left-color: var(--porto-sky2);
 }
 
 .nitem.active {
-  background: var(--porto-sky);
+  background: linear-gradient(90deg, var(--porto-sky) 0%, rgba(235, 242, 252, 0.6) 100%);
   color: var(--porto);
   border-left-color: var(--porto);
   font-weight: 600;
 }
 
 .nicon {
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -662,7 +668,8 @@ textarea {
 }
 
 .nitem.active .nicon {
-  background: rgba(0, 70, 145, 0.1);
+  background: rgba(0, 70, 145, 0.12);
+  box-shadow: 0 1px 3px rgba(0, 70, 145, 0.15);
 }
 
 .nitem:not(.active) .nicon {
@@ -676,8 +683,9 @@ textarea {
   font-size: 10px;
   font-weight: 700;
   border-radius: 99px;
-  padding: 1px 7px;
+  padding: 2px 8px;
   font-family: var(--mono);
+  border: 1px solid rgba(0, 70, 145, 0.12);
 }
 
 .sdiv {
@@ -688,18 +696,20 @@ textarea {
 
 .suser {
   margin-top: auto;
-  padding: 12px 16px;
+  padding: 14px 18px;
   border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: 10px;
+  background: linear-gradient(180deg, transparent 0%, rgba(235, 242, 252, 0.4) 100%);
 }
 
 .upic {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: var(--porto-sky);
+  background: linear-gradient(135deg, var(--porto-sky2) 0%, var(--porto-sky) 100%);
+  border: 1.5px solid rgba(0, 70, 145, 0.18);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -708,6 +718,7 @@ textarea {
   font-weight: 700;
   color: var(--porto);
   flex-shrink: 0;
+  letter-spacing: 0.3px;
 }
 
 .uname {
@@ -735,9 +746,9 @@ textarea {
 
 .view {
   display: none;
-  padding: 24px 28px;
+  padding: 28px 32px;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
   min-height: 0;
   overflow-x: hidden;
 }
@@ -764,19 +775,25 @@ textarea {
 .stat-card {
   background: var(--white);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px 16px;
+  border-radius: 14px;
+  padding: 16px 18px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  box-shadow: 0 2px 8px rgba(10, 22, 40, 0.04);
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
   animation: fu 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .stico {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -785,17 +802,19 @@ textarea {
 
 .stval {
   font-family: var(--display);
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   line-height: 1;
   color: var(--ink);
+  letter-spacing: -0.5px;
 }
 
 .stlbl {
-  margin-top: 2px;
-  font-size: 10px;
-  letter-spacing: 0.3px;
+  margin-top: 3px;
+  font-size: 11px;
+  letter-spacing: 0.2px;
   color: var(--ink3);
+  font-weight: 500;
 }
 
 .view-hd {
@@ -808,18 +827,19 @@ textarea {
 
 .view-title {
   font-family: var(--display);
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--ink);
-  letter-spacing: -0.3px;
+  letter-spacing: -0.4px;
   line-height: 1.15;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 
 .view-sub {
   font-size: 13px;
   color: var(--ink3);
   font-weight: 400;
+  line-height: 1.5;
 }
 
 #view-admin-users,
@@ -828,18 +848,19 @@ textarea {
 }
 
 .search-wrap {
-  width: 200px;
+  width: 220px;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   background: var(--white);
   border: 1.5px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 11px;
+  border-radius: 10px;
+  padding: 7px 13px;
   transition:
     border-color 0.15s,
     box-shadow 0.15s,
     background 0.15s;
+  box-shadow: var(--shadow-xs);
 }
 
 .search-wrap:focus-within {
@@ -869,13 +890,13 @@ textarea {
   height: auto;
   min-height: 200px;
   max-height: none;
-  background: linear-gradient(145deg, #f4f9ff 0%, #eaf2ff 100%);
-  border: 1px solid rgba(0, 70, 145, 0.12);
-  border-radius: 16px;
-  padding: 20px 22px;
+  background: linear-gradient(150deg, #f0f7ff 0%, #e6f0fc 50%, #eaf2ff 100%);
+  border: 1px solid rgba(0, 70, 145, 0.14);
+  border-radius: 18px;
+  padding: 24px 26px;
   box-shadow:
-    0 4px 16px rgba(0, 70, 145, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    0 4px 20px rgba(0, 70, 145, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
   transition:
     transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     box-shadow 0.3s;
@@ -1087,11 +1108,11 @@ textarea {
 
 .bot-showcase-content h2 {
   font-family: var(--display);
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.5px;
   color: var(--ink);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   line-height: 1.08;
 }
 
@@ -1193,7 +1214,7 @@ textarea {
 .bot-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 18px;
 }
 
 .bot-card {
@@ -1201,17 +1222,18 @@ textarea {
   overflow: hidden;
   background: var(--white);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px 18px 16px;
+  border-radius: 16px;
+  padding: 22px 20px 18px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  box-shadow: var(--shadow-xs);
+  gap: 14px;
+  box-shadow: var(--shadow-sm);
   transition:
     transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 0.2s,
     border-color 0.2s;
   animation: fu 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  cursor: pointer;
 }
 
 .bot-card::before {
@@ -1220,15 +1242,15 @@ textarea {
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
-  border-radius: 14px 14px 0 0;
-  opacity: 0.35;
+  height: 4px;
+  border-radius: 16px 16px 0 0;
+  opacity: 0.65;
   transition: opacity 0.2s;
 }
 
 .bot-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
   border-color: var(--porto-sky2);
 }
 
@@ -1265,6 +1287,10 @@ textarea {
   background: var(--porto);
 }
 
+.bc-er::before {
+  background: var(--violet);
+}
+
 .bhead {
   display: flex;
   align-items: flex-start;
@@ -1272,18 +1298,19 @@ textarea {
 }
 
 .biw {
-  width: 44px;
-  height: 44px;
-  border-radius: 11px;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
 .biw svg {
-  width: 20px;
-  height: 20px;
+  width: 21px;
+  height: 21px;
 }
 
 .bi-porto {
@@ -1324,19 +1351,19 @@ textarea {
 }
 
 .bname {
-  margin-bottom: 3px;
+  margin-bottom: 4px;
   font-family: var(--display);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink);
   line-height: 1.2;
-  letter-spacing: -0.1px;
+  letter-spacing: -0.2px;
 }
 
 .bdesc {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ink3);
-  line-height: 1.65;
+  line-height: 1.6;
   flex: 1;
 }
 
@@ -1344,8 +1371,9 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 10px;
+  padding-top: 12px;
   border-top: 1px solid var(--border);
+  margin-top: auto;
 }
 
 .btags {
@@ -1356,12 +1384,12 @@ textarea {
 
 .tag {
   font-family: var(--body);
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 600;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 3px;
+  padding: 3px 7px;
+  border-radius: 4px;
   background: var(--bg);
   color: var(--ink3);
   border: 1px solid var(--border);
@@ -1370,28 +1398,29 @@ textarea {
 .btn-open {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-family: var(--body);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
   color: var(--porto);
   background: var(--porto-sky);
-  border: none;
+  border: 1px solid var(--porto-sky2);
   border-radius: 8px;
-  padding: 5px 10px;
+  padding: 6px 12px;
   transition: all 0.15s;
   white-space: nowrap;
 }
 
 .btn-open:hover {
   background: var(--porto-sky2);
+  border-color: rgba(0, 70, 145, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 70, 145, 0.12);
 }
 
 .btn-open svg {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
 }
 
 .btn-soon-label {
@@ -1977,11 +2006,12 @@ textarea {
 .qa-topbar {
   background: var(--white);
   border-bottom: 1px solid var(--border);
-  padding: 12px 20px;
+  padding: 13px 24px;
   display: flex;
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(10, 22, 40, 0.04);
 }
 
 .btn-back {
@@ -1990,9 +2020,9 @@ textarea {
   gap: 5px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 5px 10px;
-  font-size: 11px;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--ink2);
   transition: all 0.15s;
@@ -2001,6 +2031,7 @@ textarea {
 .btn-back:hover {
   border-color: var(--border2);
   background: var(--porto-sky);
+  color: var(--porto);
 }
 
 .breadcrumb {
@@ -2023,41 +2054,42 @@ textarea {
 }
 
 .qa-hero {
-  background: var(--white);
+  background: linear-gradient(135deg, var(--white) 0%, #f8fbff 100%);
   border-bottom: 1px solid var(--border);
-  padding: 16px 22px;
+  padding: 18px 24px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   flex-shrink: 0;
 }
 
 .qa-hero-icon {
-  width: 44px;
-  height: 44px;
-  background: var(--porto-sky);
-  border-radius: 11px;
+  width: 46px;
+  height: 46px;
+  background: linear-gradient(135deg, var(--porto-sky2) 0%, var(--porto-sky) 100%);
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border: 1px solid var(--porto-sky2);
+  border: 1px solid rgba(0, 70, 145, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 70, 145, 0.1);
 }
 
 .qa-hero-title {
   margin-bottom: 3px;
   font-family: var(--display);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--ink);
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
   line-height: 1;
 }
 
 .qa-hero-desc {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ink3);
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
 .qa-hero-right {
@@ -2110,40 +2142,40 @@ textarea {
   overflow: hidden;
   min-height: 0;
   display: grid;
-  grid-template-columns: 360px 1fr;
-  background: linear-gradient(180deg, #f7faff 0%, #f2f6fb 100%);
+  grid-template-columns: 370px 1fr;
+  background: linear-gradient(180deg, #f6f9ff 0%, #f1f5fb 100%);
 }
 
 .qa-form {
   background: var(--white);
   border-right: 1px solid var(--border);
-  padding: 16px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   overflow-y: auto;
   min-height: 0;
   height: 100%;
-  box-shadow: inset -1px 0 0 rgba(0, 70, 145, 0.05);
+  box-shadow: 2px 0 12px rgba(0, 70, 145, 0.04);
 }
 
 .qlabel {
-  margin-bottom: 2px;
-  font-size: 9px;
+  margin-bottom: 4px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--ink3);
-  letter-spacing: 1.4px;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
 }
 
 .qfield {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .qfield label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--ink2);
 }
@@ -2447,26 +2479,26 @@ textarea {
 
 .btn-analyze {
   width: 100%;
-  background: linear-gradient(135deg, #004691, #0066cc);
+  background: linear-gradient(135deg, var(--porto-primary-dark), #0066cc);
   color: #fff;
   border: none;
   border-radius: 12px;
-  padding: 12px 18px;
+  padding: 13px 18px;
   font-family: var(--display);
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 8px;
   transition:
     background 0.18s,
     box-shadow 0.18s,
     transform 0.15s;
-  box-shadow: 0 6px 16px rgba(0, 48, 135, 0.22);
-  margin-top: 2px;
+  box-shadow: 0 6px 20px rgba(0, 48, 135, 0.28);
+  margin-top: 4px;
   position: sticky;
   bottom: 0;
   z-index: 2;
@@ -5851,3 +5883,114 @@ pre {
   font-size: 12px;
   color: var(--rose);
 }
+
+/* ─────────────────────────────────────
+   POLISH — micro-melhorias UX globais
+───────────────────────────────────── */
+
+/* Scrollbar refinado (Webkit) */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink3);
+}
+
+/* Foco acessível sem anel padrão feio */
+:focus-visible {
+  outline: 2px solid var(--porto-vivid);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Bstatus badge mais polido */
+.bstatus {
+  font-size: 9.5px;
+  letter-spacing: 0.4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+/* Topbar app title refinado */
+.app-title {
+  font-size: 15px;
+  letter-spacing: -0.2px;
+}
+
+/* Topbar name refinado */
+.topbar-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Separador topbar */
+.tsep {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 2px;
+}
+
+/* Login field label refinado */
+.login-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink2);
+  letter-spacing: 0.1px;
+}
+
+/* Login title refinado */
+.login-title {
+  font-size: 24px;
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+}
+
+/* Login desc refinado */
+.login-desc {
+  font-size: 13px;
+  color: var(--ink3);
+  line-height: 1.65;
+  margin-bottom: 28px;
+}
+
+/* QA live badge refinado */
+.qa-live-badge {
+  padding: 4px 12px;
+  border-radius: 10px;
+  font-size: 10.5px;
+}
+
+/* Bot showcase top área */
+.bot-showcase-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+/* Hist card hover suave */
+.hist-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Btn showcase open refinado */
+.btn-showcase-open {
+  font-size: 12px;
+  padding: 13px 22px;
+  border-radius: 12px;
+  letter-spacing: 0.5px;
+}
+

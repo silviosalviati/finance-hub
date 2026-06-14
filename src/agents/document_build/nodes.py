@@ -12,7 +12,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.agents.document_build.prompts import DOCUMENT_BUILD_SYSTEM_PROMPT
 from src.agents.document_build.state import DocumentBuildState
-from src.shared.config import GCP_CREDENTIALS_PATH
+from src.shared.config import get_runtime_config
 from src.shared.tools.llm import invoke_with_retry
 from src.shared.tools.bigquery import get_dataset_tables_schema
 
@@ -197,7 +197,9 @@ def fetch_dataplex_tags(state: DocumentBuildState) -> dict[str, Any]:
 
 	try:
 		project, dataset, table = table_path.split(".")
-		credentials = service_account.Credentials.from_service_account_file(GCP_CREDENTIALS_PATH)
+		credentials = service_account.Credentials.from_service_account_file(
+			get_runtime_config("GOOGLE_APPLICATION_CREDENTIALS", "secrets/credentials.json")
+		)
 		dataplex_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
 
 		# Busca a entry do BigQuery via Dataplex Catalog (substituto do Data Catalog depreciado)
@@ -433,14 +435,6 @@ def finalize_document_markdown(state: DocumentBuildState) -> dict[str, Any]:
 	else:
 		lines.append("- Nao informado")
 	lines.append("")
-
-	lines.append("## 5. Atencao a tipagem")
-	if state.typing_notes:
-		for item in state.typing_notes:
-			lines.append(f"- {item}")
-	else:
-		lines.append("- Validar colunas de ID para CAST explicito em JOINs quando houver divergencia de tipo.")
-	lines.append("")
 	lines.append("**Permissoes de leitura**")
 	if readers:
 		for item in readers:
@@ -452,6 +446,14 @@ def finalize_document_markdown(state: DocumentBuildState) -> dict[str, Any]:
 		lines.append("**Notas de governanca**")
 		for item in notes:
 			lines.append(f"- {item}")
+	lines.append("")
+
+	lines.append("## 5. Atencao a tipagem")
+	if state.typing_notes:
+		for item in state.typing_notes:
+			lines.append(f"- {item}")
+	else:
+		lines.append("- Validar colunas de ID para CAST explicito em JOINs quando houver divergencia de tipo.")
 	lines.append("")
 
 	_append_list_section(lines, "Premissas", state.assumptions)

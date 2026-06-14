@@ -4,6 +4,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 import re
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from google.cloud import bigquery
@@ -12,33 +13,34 @@ from google.cloud.exceptions import GoogleCloudError
 from google.api_core.exceptions import NotFound
 from google.oauth2 import service_account
 
-from src.shared.config import (
-    BQ_COST_PER_TB_USD,
-    BYTES_WARNING_THRESHOLD,
-    GCP_CREDENTIALS_PATH,
-    GCP_PROJECT_ID,
-)
+from src.shared.config import get_runtime_config
 from src.shared.tools.schemas import DryRunResult
 from src.shared.utils.formatting import format_bytes
 
 TABLE_PATTERN = r"`?([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)`?"
 
+_DEFAULT_CREDENTIALS_PATH = str(Path("secrets") / "credentials.json")
+
 
 def _resolve_project_id(project_id: str | None) -> str:
-    resolved = (project_id or GCP_PROJECT_ID).strip()
+    default = get_runtime_config("GCP_PROJECT_ID", "silviosalviati")
+    resolved = (project_id or default).strip()
     if not resolved:
         raise ValueError("Project ID do BigQuery nao informado.")
     return resolved
 
 
-@lru_cache(maxsize=1)
-def _get_base_credentials():
-    return service_account.Credentials.from_service_account_file(GCP_CREDENTIALS_PATH)
+@lru_cache(maxsize=4)
+def _get_base_credentials(credentials_path: str):
+    return service_account.Credentials.from_service_account_file(credentials_path)
 
 
 def _get_client(project_id: str | None) -> bigquery.Client:
     resolved_project_id = _resolve_project_id(project_id)
-    credentials = _get_base_credentials()
+    credentials_path = get_runtime_config(
+        "GOOGLE_APPLICATION_CREDENTIALS", _DEFAULT_CREDENTIALS_PATH
+    )
+    credentials = _get_base_credentials(credentials_path)
 
     return bigquery.Client(
         project=resolved_project_id,
@@ -411,7 +413,8 @@ def dry_run_query(query: str, project_id: str | None) -> DryRunResult:
         bytes_processed = job.total_bytes_processed or 0
         bytes_billed = job.total_bytes_billed or bytes_processed
         tb_processed = bytes_billed / (1024**4)
-        estimated_cost = round(tb_processed * BQ_COST_PER_TB_USD, 6)
+        bq_cost_per_tb = float(get_runtime_config("BQ_COST_PER_TB_USD", "5.0"))
+        estimated_cost = round(tb_processed * bq_cost_per_tb, 6)
 
         referenced_tables = _extract_referenced_tables(job)
 
@@ -446,9 +449,10 @@ def fetch_query_sample(
 
     try:
         client = _get_client(project_id)
+        bytes_warning = int(get_runtime_config("BYTES_WARNING_THRESHOLD", str(10 * 1024**3)))
         job_config = bigquery.QueryJobConfig(
             use_query_cache=False,
-            maximum_bytes_billed=BYTES_WARNING_THRESHOLD,
+            maximum_bytes_billed=bytes_warning,
         )
         job = client.query(sample_query, job_config=job_config)
         result = job.result(max_results=safe_limit)
@@ -482,7 +486,11 @@ def _normalize_query_for_subquery(query: str) -> str:
     return cleaned
 
 
-def get_table_schema(table_ref: str, project_id: str | None) -> str:
+def get_table_schema(
+    table_ref: str,
+    project_id: str | None,
+    max_columns: int = 50,
+) -> str:
     try:
         client = _get_client(project_id)
         table = client.get_table(table_ref)
@@ -496,10 +504,14 @@ def get_table_schema(table_ref: str, project_id: str | None) -> str:
         if table.clustering_fields:
             lines.append(f"  Clusterizada por: {', '.join(table.clustering_fields)}")
 
+        total_cols = len(table.schema)
         lines.append("  Colunas:")
-        for field in table.schema:
-            description = f" - {field.description}" if field.description else ""
+        for field in table.schema[:max_columns]:
+            description = f" — {field.description}" if field.description else ""
             lines.append(f"    - {field.name} ({field.field_type}, {field.mode}){description}")
+
+        if total_cols > max_columns:
+            lines.append(f"    ... (+{total_cols - max_columns} colunas omitidas)")
 
         return "\n".join(lines)
 
@@ -507,12 +519,12 @@ def get_table_schema(table_ref: str, project_id: str | None) -> str:
         return f"[Nao foi possivel obter schema de {table_ref}: {exc}]"
 
 
-def get_schemas_for_query(query: str, project_id: str | None) -> str:
+def get_schemas_for_query(query: str, project_id: str | None, max_columns: int = 50) -> str:
     tables = list(set(re.findall(TABLE_PATTERN, query)))
     if not tables:
         return "(schema nao disponivel - nenhuma tabela totalmente qualificada encontrada)"
 
-    schemas = [get_table_schema(table_ref, project_id) for table_ref in tables[:5]]
+    schemas = [get_table_schema(t, project_id, max_columns=max_columns) for t in tables[:5]]
     return "\n\n".join(schemas)
 
 

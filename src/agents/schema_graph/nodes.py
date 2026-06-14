@@ -11,6 +11,7 @@ import json
 import re
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache
 from typing import Any
 
 from google.cloud import bigquery
@@ -20,7 +21,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.agents.schema_graph.prompts import ENRICH_RELATIONSHIPS_PROMPT
 from src.agents.schema_graph.state import SchemaGraphState
-from src.shared.config import GCP_CREDENTIALS_PATH
+from src.shared.config import get_runtime_config
 from src.shared.tools.bigquery import get_dataset_tables_schema
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
@@ -68,10 +69,14 @@ def _sanitize_identifier(value: str) -> str:
     return cleaned
 
 
+@lru_cache(maxsize=4)
+def _get_cached_credentials(credentials_path: str):
+    return service_account.Credentials.from_service_account_file(credentials_path)
+
+
 def _get_bq_client(project_id: str) -> bigquery.Client:
-    credentials = service_account.Credentials.from_service_account_file(
-        GCP_CREDENTIALS_PATH
-    )
+    credentials_path = get_runtime_config("GOOGLE_APPLICATION_CREDENTIALS", "secrets/credentials.json")
+    credentials = _get_cached_credentials(credentials_path)
     return bigquery.Client(project=project_id, credentials=credentials)
 
 
@@ -126,7 +131,7 @@ def discover_datasets(state: SchemaGraphState) -> dict[str, Any]:
         f.strip() for f in (state.get("dataset_filter") or []) if f.strip()
     ]
 
-    warnings: list[str] = list(state.get("warnings") or [])
+    new_warnings: list[str] = []
     datasets: list[dict[str, Any]] = []
 
     try:
@@ -136,7 +141,7 @@ def discover_datasets(state: SchemaGraphState) -> dict[str, Any]:
         return {
             "error": f"Falha ao listar datasets do projeto {project_id}: {exc}",
             "datasets": [],
-            "warnings": warnings,
+            "warnings": new_warnings,
         }
 
     for ds_item in bq_datasets:
@@ -155,17 +160,17 @@ def discover_datasets(state: SchemaGraphState) -> dict[str, Any]:
                 "table_count": table_count,
             })
         except Exception as exc:
-            warnings.append(f"Dataset {ds_id} ignorado: {exc}")
+            new_warnings.append(f"Dataset {ds_id} ignorado: {exc}")
 
     if not datasets:
         filter_msg = f" (filtro: {dataset_filter})" if dataset_filter else ""
         return {
             "error": f"Nenhum dataset encontrado no projeto {project_id}{filter_msg}.",
             "datasets": [],
-            "warnings": warnings,
+            "warnings": new_warnings,
         }
 
-    return {"datasets": datasets, "warnings": warnings, "error": None}
+    return {"datasets": datasets, "warnings": new_warnings, "error": None}
 
 
 # ─── Nó 2: discover_tables ───────────────────────────────────────────────────
@@ -208,7 +213,7 @@ def discover_tables(state: SchemaGraphState) -> dict[str, Any]:
     max_tables = int(state.get("max_tables_per_dataset") or 30)
     max_tables = min(max(1, max_tables), 100)
 
-    warnings: list[str] = list(state.get("warnings") or [])
+    new_warnings: list[str] = []
     all_tables: list[dict[str, Any]] = []
 
     dataset_ids = [ds["dataset_id"] for ds in datasets]
@@ -216,7 +221,7 @@ def discover_tables(state: SchemaGraphState) -> dict[str, Any]:
     with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as executor:
         futures = {
             executor.submit(
-                _fetch_dataset_schema, project_id, ds_id, max_tables, warnings
+                _fetch_dataset_schema, project_id, ds_id, max_tables, new_warnings
             ): ds_id
             for ds_id in dataset_ids
         }
@@ -228,10 +233,10 @@ def discover_tables(state: SchemaGraphState) -> dict[str, Any]:
         return {
             "error": "Nenhuma tabela encontrada nos datasets do projeto.",
             "tables": [],
-            "warnings": warnings,
+            "warnings": new_warnings,
         }
 
-    return {"tables": all_tables, "warnings": warnings, "error": None}
+    return {"tables": all_tables, "warnings": new_warnings, "error": None}
 
 
 # ─── Nó 3: infer_relationships ───────────────────────────────────────────────
@@ -282,9 +287,8 @@ def infer_relationships(state: SchemaGraphState) -> dict[str, Any]:
     """
     tables: list[dict[str, Any]] = state.get("tables") or []
     if not tables:
-        return {"raw_relationships": [], "warnings": state.get("warnings") or []}
+        return {"raw_relationships": []}
 
-    warnings: list[str] = list(state.get("warnings") or [])
     raw: list[dict[str, Any]] = []
 
     col_index = _build_column_index(tables)
@@ -471,7 +475,7 @@ def enrich_with_llm(state: SchemaGraphState, llm: BaseChatModel) -> dict[str, An
     if not raw:
         return {"relationships": [], "error": None}
 
-    warnings: list[str] = list(state.get("warnings") or [])
+    new_warnings: list[str] = []
     enriched_all: list[dict[str, Any]] = []
 
     batches = [
@@ -491,12 +495,6 @@ def enrich_with_llm(state: SchemaGraphState, llm: BaseChatModel) -> dict[str, An
             for r in batch
         ]
 
-        prompt_content = (
-            f"{ENRICH_RELATIONSHIPS_PROMPT}\n\n"
-            f"RELACIONAMENTOS PARA ENRIQUECER:\n"
-            f"{json.dumps(batch_summary, ensure_ascii=False, indent=2)}"
-        )
-
         try:
             response = llm.invoke(
                 [
@@ -513,7 +511,7 @@ def enrich_with_llm(state: SchemaGraphState, llm: BaseChatModel) -> dict[str, An
             text = str(response.content) if hasattr(response, "content") else str(response)
             enriched_batch = _parse_enrich_response(text, batch)
         except Exception as exc:
-            warnings.append(
+            new_warnings.append(
                 f"Enriquecimento LLM falhou no batch {batch_idx + 1}: {exc}. "
                 "Usando categorização determinística."
             )
@@ -523,7 +521,7 @@ def enrich_with_llm(state: SchemaGraphState, llm: BaseChatModel) -> dict[str, An
 
     enriched_all.sort(key=lambda r: r["strength"], reverse=True)
 
-    return {"relationships": enriched_all, "warnings": warnings, "error": None}
+    return {"relationships": enriched_all, "warnings": new_warnings, "error": None}
 
 
 # ─── Nó 5: build_graph_payload ───────────────────────────────────────────────
@@ -565,7 +563,6 @@ def build_graph_payload(state: SchemaGraphState) -> dict[str, Any]:
     datasets: list[dict[str, Any]] = state.get("datasets") or []
     tables: list[dict[str, Any]] = state.get("tables") or []
     relationships: list[dict[str, Any]] = state.get("relationships") or []
-    warnings: list[str] = list(state.get("warnings") or [])
 
     if not tables:
         return {
@@ -573,7 +570,6 @@ def build_graph_payload(state: SchemaGraphState) -> dict[str, Any]:
             "graph_nodes": [],
             "graph_edges": [],
             "stats": {},
-            "warnings": warnings,
         }
 
     # ── Índice: full_name → {col_name → col_info} ─────────────────────────
@@ -746,6 +742,5 @@ def build_graph_payload(state: SchemaGraphState) -> dict[str, Any]:
         "graph_nodes": graph_nodes,
         "graph_edges": graph_edges,
         "stats": stats,
-        "warnings": warnings,
         "error": None,
     }

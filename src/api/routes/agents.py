@@ -11,7 +11,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_checkpointer, get_current_user, get_registry
-from src.shared.config import FINANCE_AUDITOR_DEFAULT_PROJECT
+from src.shared.config import get_runtime_config
 from src.shared.tools.bigquery import (
     get_dataset_tables_metadata,
     validate_dataset_for_query_build,
@@ -26,6 +26,12 @@ class AnalyzeRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=32_000)
     project_id: str | None = None
     dataset_hint: str | None = None
+    thread_id: str | None = None
+
+
+class ResumeAnalyzerRequest(BaseModel):
+    thread_id: str = Field(..., min_length=1, max_length=128)
+    decision: str = Field(..., min_length=1, max_length=2048)  # "approve" | "skip"
 
 
 class ValidateDatasetRequest(BaseModel):
@@ -337,7 +343,7 @@ async def analyze_by_agent(
     if agent_id not in {"query_analyzer", "finance_auditor"} and not project_id:
         raise HTTPException(status_code=400, detail="Project ID nao pode ser vazio.")
     if agent_id == "finance_auditor" and not project_id:
-        project_id = FINANCE_AUDITOR_DEFAULT_PROJECT
+        project_id = get_runtime_config("FINANCE_AUDITOR_DEFAULT_PROJECT", "silviosalviati")
 
     registry = get_registry()
     try:
@@ -413,7 +419,10 @@ async def analyze_by_agent(
             checkpointer.save(checkpoint_key, response)
             return response
 
-        result = agent.analyze(query=query, project_id=project_id, dataset_hint=req.dataset_hint)
+        analyze_kwargs: dict = {"query": query, "project_id": project_id, "dataset_hint": req.dataset_hint}
+        if agent_id == "query_analyzer" and req.thread_id:
+            analyze_kwargs["thread_id"] = req.thread_id
+        result = agent.analyze(**analyze_kwargs)
         checkpoint_key = f"{session['token']}-{agent_id}"
         checkpointer.save(checkpoint_key, result)
         # Para schema_graph persiste também com chave de projeto para cache compartilhado
@@ -570,6 +579,31 @@ async def validate_query_analyzer_context(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/api/agents/query_analyzer/resume")
+async def resume_query_analyzer(
+    req: ResumeAnalyzerRequest,
+    session: dict[str, Any] = Depends(get_current_user),
+):
+    """Retoma o pipeline do Query Analyzer após decisão humana.
+
+    Envie `decision: "approve"` para prosseguir com a otimização ou
+    `decision: "skip"` para ir direto ao relatório sem otimizar.
+    """
+    registry = get_registry()
+    try:
+        agent = registry.get("query_analyzer")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    try:
+        result = agent.resume(thread_id=req.thread_id, human_decision=req.decision)
+        checkpointer = get_checkpointer()
+        checkpointer.save(f"{session['token']}-query_analyzer", result)
+        return result
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 _SAFE_ID = re.compile(r"^[a-zA-Z0-9_\-]+$")

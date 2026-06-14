@@ -896,6 +896,7 @@ function navTo(view) {
   } else if (view === "audit") {
     document.getElementById("nav-audit")?.classList.add("active");
     initFAInputListener();
+    initFASuggestions();
   } else if (view === "er") {
     document.getElementById("nav-er")?.classList.add("active");
     initErView();
@@ -3937,8 +3938,8 @@ const showcaseBots = [
   {
     name: "Finance Voice IA",
     description:
-      "Audite a experiência do cliente com análise de sentimentos, fricção, VoC e NPS — tudo em um relatório executivo acionável.",
-    tags: ["Auditoria", "VoC", "CX"],
+      "Converse com os dados da Diretoria Financeira — contas a pagar, contas a receber, cobrança e experiência do cliente em linguagem natural.",
+    tags: ["Financeiro", "Cobrança", "IA"],
     status: "Disponível",
     action: () => navTo("audit"),
   },
@@ -4105,11 +4106,46 @@ function setFAInteractionLock(locked) {
       el.disabled = !!locked;
     }
   });
+}
 
-  const clearBtn = document.querySelector(".fa-clear-btn");
-  if (clearBtn instanceof HTMLButtonElement) {
-    clearBtn.disabled = !!locked;
-  }
+function initFASuggestions() {
+  const container = document.getElementById("fa-suggestions");
+  if (!container) return;
+
+  const now = new Date();
+  const monthNames = [
+    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+  ];
+
+  const curMonth = monthNames[now.getMonth()];
+  const curYear = now.getFullYear();
+
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonth = monthNames[prevDate.getMonth()];
+  const prevYear = prevDate.getFullYear();
+
+  const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  const twoMonth = monthNames[twoMonthsAgo.getMonth()];
+  const twoYear = twoMonthsAgo.getFullYear();
+
+  const suggestions = [
+    `Status de contas a receber de ${prevMonth} de ${prevYear}`,
+    `Resumo de contas a pagar dos últimos 30 dias`,
+    `Análise de cobrança de ${twoMonth} de ${twoYear}`,
+    `Compare inadimplência de ${prevMonth} e ${twoMonth}: causas e tendências`,
+    `Experiência do cliente na área financeira em ${curMonth} de ${curYear}`,
+    `Visão geral da Diretoria Financeira no último trimestre`,
+  ];
+
+  container.innerHTML = "";
+  suggestions.forEach((text) => {
+    const btn = document.createElement("button");
+    btn.className = "fa-suggestion-chip";
+    btn.textContent = text;
+    btn.onclick = () => useFASuggestion(btn);
+    container.appendChild(btn);
+  });
 }
 
 function setFASendButtonState({ disabled, loading }) {

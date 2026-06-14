@@ -60,6 +60,14 @@ _MONTH_YEAR_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_DATE_RE = re.compile(r"^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$")
+
+
+def _validate_date(value: str, fallback: str) -> str:
+    """Garante formato YYYY-MM-DD antes de usar em SQL."""
+    return value if _DATE_RE.match(str(value or "")) else fallback
+
+
 _MONTHS_PT: dict[str, int] = {
     "janeiro": 1,
     "fevereiro": 2,
@@ -256,8 +264,8 @@ def fetch_data(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str, Any]
             date_json = _parse_json_safe(_text(raw_response))
 
             default_start, default_end = _default_period()
-            date_start = date_json.get("date_start") or default_start
-            date_end = date_json.get("date_end") or default_end
+            date_start = _validate_date(date_json.get("date_start", ""), default_start)
+            date_end = _validate_date(date_json.get("date_end", ""), default_end)
 
         project = state.get("project_id") or DEFAULT_PROJECT
 
@@ -421,9 +429,28 @@ def node_themes(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str, Any
             }
         }
 
-    # Monta amostra textual para o LLM
+    # Amostra estratificada: prioriza NEGATIVO (mais acionável para análise de temas)
+    neg = [r for r in raw_rows if str(r.get("SENTIMENTO_CLIENTE") or "").upper() == "NEGATIVO"]
+    neu = [r for r in raw_rows if str(r.get("SENTIMENTO_CLIENTE") or "").upper() == "NEUTRO"]
+    pos = [r for r in raw_rows if str(r.get("SENTIMENTO_CLIENTE") or "").upper() == "POSITIVO"]
+    outros = [r for r in raw_rows if str(r.get("SENTIMENTO_CLIENTE") or "").upper() not in {"NEGATIVO", "NEUTRO", "POSITIVO"}]
+
+    n_neg = min(len(neg), int(_THEMES_SAMPLE_SIZE * 0.60))
+    n_neu = min(len(neu), int(_THEMES_SAMPLE_SIZE * 0.25))
+    n_pos = min(len(pos), int(_THEMES_SAMPLE_SIZE * 0.10))
+    remaining = max(0, _THEMES_SAMPLE_SIZE - n_neg - n_neu - n_pos)
+    sample_rows = neg[:n_neg] + neu[:n_neu] + pos[:n_pos] + outros[:remaining]
+
+    total = len(raw_rows)
+    dist_header = (
+        f"[Amostra estratificada: {len(sample_rows)} de {total} registros | "
+        f"NEGATIVO: {len(neg)} ({len(neg)*100//total if total else 0}%) | "
+        f"NEUTRO: {len(neu)} ({len(neu)*100//total if total else 0}%) | "
+        f"POSITIVO: {len(pos)} ({len(pos)*100//total if total else 0}%)]"
+    )
+
     sample_lines = []
-    for row in raw_rows[:_THEMES_SAMPLE_SIZE]:
+    for row in sample_rows:
         keywords = str(row.get("PALAVRAS_CHAVE") or "").strip()
         assunto = str(row.get("ASSUNTO") or "").strip()
         sentiment = str(row.get("SENTIMENTO_CLIENTE") or "").strip()
@@ -432,7 +459,7 @@ def node_themes(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str, Any
                 f"- Assunto: {assunto} | Palavras-chave: {keywords} | Sentimento: {sentiment}"
             )
 
-    sample_text = "\n".join(sample_lines)
+    sample_text = f"{dist_header}\n\n" + "\n".join(sample_lines)
 
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
@@ -550,7 +577,10 @@ def report_generator(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str
         )
         data = _parse_json_safe(_text(response))
         report = data.get("markdown_report", "")
-        quality = int(data.get("quality_score", 70))
+        try:
+            quality = max(0, min(100, int(str(data.get("quality_score") or 70).split("/")[0].strip())))
+        except (ValueError, TypeError):
+            quality = 70
         if report:
             return {"markdown_report": report, "quality_score": quality}
     except Exception:  # noqa: BLE001

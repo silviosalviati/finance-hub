@@ -3,89 +3,62 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 
-load_dotenv(override=True)
-
-
-def _get_required_str(name: str) -> str:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        raise RuntimeError(f"Variavel obrigatoria nao configurada: {name}")
-    return value.strip()
-
-
-def _get_optional_str(name: str, default: str = "") -> str:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return value.strip()
-
-
-def _get_int(name: str, default: int) -> int:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        return default
+def _from_db(key: str, default: str = "") -> str:
+    """Lê do SQLite; cai em os.getenv(); usa default hardcoded."""
     try:
-        return int(value)
-    except ValueError as exc:
-        raise RuntimeError(f"Variavel {name} deve ser um inteiro valido.") from exc
+        from src.core.database import get_config_value
+        val = get_config_value(key, "")
+        if val:
+            return val
+    except Exception:
+        pass
+    return os.getenv(key, default)
 
 
-def _get_float(name: str, default: float) -> float:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        return default
-    try:
-        return float(value)
-    except ValueError as exc:
-        raise RuntimeError(f"Variavel {name} deve ser um numero valido.") from exc
+# ── Constantes de módulo (lidas na inicialização, usadas pelo CORS/FastAPI) ──
+# Na primeira execução o DB ainda não existe → usa o default hardcoded.
+# Nas execuções seguintes o DB já foi semeado e o valor vem do SQLite.
 
+LLM_PROVIDER = _from_db("LLM_PROVIDER", "vertexai")
 
-def _get_list(name: str, default: list[str]) -> list[str]:
-    raw = os.getenv(name)
-    if raw is None or not raw.strip():
-        return default
-    return [item.strip() for item in raw.split(",") if item.strip()]
-
-
-LLM_PROVIDER = _get_required_str("LLM_PROVIDER").lower()
-
-VERTEXAI_PROJECT = _get_optional_str("VERTEXAI_PROJECT")
-VERTEXAI_LOCATION = _get_optional_str("VERTEXAI_LOCATION", "us-central1")
-VERTEXAI_MODEL = _get_optional_str("VERTEXAI_MODEL", "gemini-2.5-flash")
-VERTEXAI_MAX_OUTPUT_TOKENS = _get_int("VERTEXAI_MAX_OUTPUT_TOKENS", 4096)
-VERTEXAI_MAX_RETRIES = _get_int("VERTEXAI_MAX_RETRIES", 1)
-VERTEXAI_TEMPERATURE = _get_float("VERTEXAI_TEMPERATURE", 0.05)
-
+VERTEXAI_PROJECT = _from_db("VERTEXAI_PROJECT", "silviosalviati")
+VERTEXAI_LOCATION = _from_db("VERTEXAI_LOCATION", "us-central1")
+VERTEXAI_MODEL = _from_db("VERTEXAI_MODEL", "gemini-2.5-flash")
+VERTEXAI_MAX_OUTPUT_TOKENS = int(_from_db("VERTEXAI_MAX_OUTPUT_TOKENS", "8192"))
+VERTEXAI_MAX_RETRIES = int(_from_db("VERTEXAI_MAX_RETRIES", "1"))
+VERTEXAI_TEMPERATURE = float(_from_db("VERTEXAI_TEMPERATURE", "0.05"))
 LLM_TEMPERATURE = VERTEXAI_TEMPERATURE
 
-SESSION_TTL_HOURS = _get_int("SESSION_TTL_HOURS", 8)
+SESSION_TTL_HOURS = int(_from_db("SESSION_TTL_HOURS", "8"))
 
-ALLOWED_ORIGINS = _get_list(
-    "ALLOWED_ORIGINS",
-    [
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ],
+ALLOWED_ORIGINS = [
+    s.strip()
+    for s in _from_db(
+        "ALLOWED_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000",
+    ).split(",")
+    if s.strip()
+]
+
+GCP_PROJECT_ID = _from_db("GCP_PROJECT_ID", "silviosalviati")
+GCP_CREDENTIALS_PATH = _from_db(
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    str(Path("secrets") / "credentials.json"),
 )
 
-GCP_PROJECT_ID = _get_required_str("GCP_PROJECT_ID")
-GCP_CREDENTIALS_PATH = _get_required_str("GOOGLE_APPLICATION_CREDENTIALS")
-
-FINANCE_AUDITOR_TABLE_REF = _get_optional_str(
+FINANCE_AUDITOR_TABLE_REF = _from_db(
     "FINANCE_AUDITOR_TABLE_REF",
     "silviosalviati.ds_inteligencia_analitica.analitica_analise_ia",
 )
-FINANCE_AUDITOR_DEFAULT_PROJECT = _get_optional_str(
+FINANCE_AUDITOR_DEFAULT_PROJECT = _from_db(
     "FINANCE_AUDITOR_DEFAULT_PROJECT",
     "silviosalviati",
 )
 
-BQ_COST_PER_TB_USD = _get_float("BQ_COST_PER_TB_USD", 5.0)
-
-BYTES_WARNING_THRESHOLD = _get_int("BYTES_WARNING_THRESHOLD", 10 * 1024**3)
-BYTES_CRITICAL_THRESHOLD = _get_int("BYTES_CRITICAL_THRESHOLD", 100 * 1024**3)
+BQ_COST_PER_TB_USD = float(_from_db("BQ_COST_PER_TB_USD", "5.0"))
+BYTES_WARNING_THRESHOLD = int(_from_db("BYTES_WARNING_THRESHOLD", str(10 * 1024**3)))
+BYTES_CRITICAL_THRESHOLD = int(_from_db("BYTES_CRITICAL_THRESHOLD", str(100 * 1024**3)))
 
 BQ_ANTIPATTERNS = [
     "SELECT *",
@@ -106,90 +79,86 @@ BQ_ANTIPATTERNS = [
 SUPPORTED_LLM_PROVIDERS = {"vertexai"}
 
 
+def get_runtime_config(key: str, default: str = "") -> str:
+    """Lê configuração em tempo de execução — sempre consulta o SQLite primeiro."""
+    return _from_db(key, default)
+
+
 def validate_runtime_config() -> list[str]:
+    """Valida a configuração atual (lida do SQLite após init_db)."""
     errors: list[str] = []
 
-    if LLM_PROVIDER not in SUPPORTED_LLM_PROVIDERS:
+    provider = get_runtime_config("LLM_PROVIDER", "vertexai")
+    if provider not in SUPPORTED_LLM_PROVIDERS:
         errors.append(
-            f"LLM_PROVIDER invalido: {LLM_PROVIDER}. "
+            f"LLM_PROVIDER invalido: '{provider}'. "
             f"Use um de: {', '.join(sorted(SUPPORTED_LLM_PROVIDERS))}."
         )
 
-    if LLM_PROVIDER == "vertexai":
-        if not VERTEXAI_PROJECT:
+    if provider == "vertexai":
+        if not get_runtime_config("VERTEXAI_PROJECT"):
             errors.append("VERTEXAI_PROJECT nao configurado.")
-        if not VERTEXAI_LOCATION:
+        if not get_runtime_config("VERTEXAI_LOCATION"):
             errors.append("VERTEXAI_LOCATION nao configurado.")
-        if not VERTEXAI_MODEL:
+        if not get_runtime_config("VERTEXAI_MODEL"):
             errors.append("VERTEXAI_MODEL nao configurado.")
-        if VERTEXAI_MAX_OUTPUT_TOKENS <= 0:
+        max_tokens = int(get_runtime_config("VERTEXAI_MAX_OUTPUT_TOKENS", "0"))
+        if max_tokens <= 0:
             errors.append("VERTEXAI_MAX_OUTPUT_TOKENS deve ser maior que zero.")
-        if VERTEXAI_MAX_RETRIES < 0:
+        retries = int(get_runtime_config("VERTEXAI_MAX_RETRIES", "0"))
+        if retries < 0:
             errors.append("VERTEXAI_MAX_RETRIES deve ser maior ou igual a zero.")
-        if VERTEXAI_TEMPERATURE < 0:
+        temp = float(get_runtime_config("VERTEXAI_TEMPERATURE", "0"))
+        if temp < 0:
             errors.append("VERTEXAI_TEMPERATURE deve ser maior ou igual a zero.")
 
-    if SESSION_TTL_HOURS <= 0:
+    ttl = int(get_runtime_config("SESSION_TTL_HOURS", "0"))
+    if ttl <= 0:
         errors.append("SESSION_TTL_HOURS deve ser maior que zero.")
 
-    if not ALLOWED_ORIGINS:
+    if not get_runtime_config("ALLOWED_ORIGINS"):
         errors.append("ALLOWED_ORIGINS nao pode ficar vazio.")
 
-    if not GCP_PROJECT_ID:
+    gcp_project = get_runtime_config("GCP_PROJECT_ID")
+    if not gcp_project:
         errors.append("GCP_PROJECT_ID nao configurado.")
 
-    if not GCP_CREDENTIALS_PATH:
+    credentials_path = get_runtime_config(
+        "GOOGLE_APPLICATION_CREDENTIALS",
+        str(Path("secrets") / "credentials.json"),
+    )
+    if not credentials_path:
         errors.append("GOOGLE_APPLICATION_CREDENTIALS nao configurado.")
     else:
-        credentials_path = Path(GCP_CREDENTIALS_PATH)
-        if not credentials_path.exists():
-            errors.append(f"Arquivo de credenciais nao encontrado: {GCP_CREDENTIALS_PATH}")
-        elif not credentials_path.is_file():
-            errors.append(
-                "GOOGLE_APPLICATION_CREDENTIALS nao aponta para um arquivo valido: "
-                f"{GCP_CREDENTIALS_PATH}"
-            )
+        creds = Path(credentials_path)
+        if not creds.exists():
+            errors.append(f"Arquivo de credenciais nao encontrado: {credentials_path}")
+        elif not creds.is_file():
+            errors.append(f"GOOGLE_APPLICATION_CREDENTIALS nao é um arquivo: {credentials_path}")
 
-    if BYTES_WARNING_THRESHOLD <= 0:
+    bq_warn = int(get_runtime_config("BYTES_WARNING_THRESHOLD", "0"))
+    bq_crit = int(get_runtime_config("BYTES_CRITICAL_THRESHOLD", "0"))
+    if bq_warn <= 0:
         errors.append("BYTES_WARNING_THRESHOLD deve ser maior que zero.")
-
-    if BYTES_CRITICAL_THRESHOLD <= 0:
+    if bq_crit <= 0:
         errors.append("BYTES_CRITICAL_THRESHOLD deve ser maior que zero.")
-
-    if BYTES_CRITICAL_THRESHOLD < BYTES_WARNING_THRESHOLD:
-        errors.append(
-            "BYTES_CRITICAL_THRESHOLD deve ser maior ou igual a BYTES_WARNING_THRESHOLD."
-        )
+    if bq_crit > 0 and bq_warn > 0 and bq_crit < bq_warn:
+        errors.append("BYTES_CRITICAL_THRESHOLD deve ser >= BYTES_WARNING_THRESHOLD.")
 
     return errors
 
 
-def get_runtime_config(key: str, default: str = "") -> str:
-    """Read a config value from SQLite at runtime; falls back to default."""
-    try:
-        from src.core.database import get_config_value
-
-        return get_config_value(key, default)
-    except Exception:
-        return os.getenv(key, default)
-
-
 def print_runtime_summary() -> None:
-    print("CONFIG")
-    print(f"LLM_PROVIDER: {LLM_PROVIDER}")
-
-    if LLM_PROVIDER == "vertexai":
-        print(f"VERTEXAI_PROJECT: {VERTEXAI_PROJECT}")
-        print(f"VERTEXAI_LOCATION: {VERTEXAI_LOCATION}")
-        print(f"VERTEXAI_MODEL: {VERTEXAI_MODEL}")
-        print(f"VERTEXAI_MAX_OUTPUT_TOKENS: {VERTEXAI_MAX_OUTPUT_TOKENS}")
-        print(f"VERTEXAI_MAX_RETRIES: {VERTEXAI_MAX_RETRIES}")
-        print(f"VERTEXAI_TEMPERATURE: {VERTEXAI_TEMPERATURE}")
-
-    print(f"GCP_PROJECT_ID: {GCP_PROJECT_ID}")
-    print(
-        "GOOGLE_APPLICATION_CREDENTIALS: "
-        f"{GCP_CREDENTIALS_PATH if Path(GCP_CREDENTIALS_PATH).exists() else 'arquivo nao encontrado'}"
-    )
-    print(f"SESSION_TTL_HOURS: {SESSION_TTL_HOURS}")
-    print(f"ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")
+    provider = get_runtime_config("LLM_PROVIDER", "vertexai")
+    print(f"LLM_PROVIDER: {provider}")
+    if provider == "vertexai":
+        print(f"VERTEXAI_PROJECT:            {get_runtime_config('VERTEXAI_PROJECT')}")
+        print(f"VERTEXAI_LOCATION:           {get_runtime_config('VERTEXAI_LOCATION')}")
+        print(f"VERTEXAI_MODEL:              {get_runtime_config('VERTEXAI_MODEL')}")
+        print(f"VERTEXAI_MAX_OUTPUT_TOKENS:  {get_runtime_config('VERTEXAI_MAX_OUTPUT_TOKENS')}")
+        print(f"VERTEXAI_MAX_RETRIES:        {get_runtime_config('VERTEXAI_MAX_RETRIES')}")
+        print(f"VERTEXAI_TEMPERATURE:        {get_runtime_config('VERTEXAI_TEMPERATURE')}")
+    print(f"GCP_PROJECT_ID:              {get_runtime_config('GCP_PROJECT_ID')}")
+    print(f"GOOGLE_APPLICATION_CREDENTIALS: {get_runtime_config('GOOGLE_APPLICATION_CREDENTIALS')}")
+    print(f"SESSION_TTL_HOURS:           {get_runtime_config('SESSION_TTL_HOURS')}")
+    print(f"ALLOWED_ORIGINS:             {get_runtime_config('ALLOWED_ORIGINS')}")

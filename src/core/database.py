@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -12,19 +11,32 @@ import bcrypt
 _DB_PATH = Path(".sixth") / "app.db"
 
 _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
+    # LLM / Vertex AI
+    "LLM_PROVIDER": ("vertexai", "Provedor LLM (vertexai)"),
+    "VERTEXAI_PROJECT": ("silviosalviati", "Projeto Vertex AI"),
+    "VERTEXAI_LOCATION": ("us-central1", "Região Vertex AI"),
     "VERTEXAI_MODEL": ("gemini-2.5-flash", "Modelo Vertex AI / Gemini"),
     "VERTEXAI_MAX_OUTPUT_TOKENS": ("8192", "Máximo de tokens de saída do LLM"),
     "VERTEXAI_MAX_RETRIES": ("1", "Tentativas de retry do Vertex AI SDK"),
     "VERTEXAI_TEMPERATURE": ("0.05", "Temperatura do LLM (0.0 – 1.0)"),
-    "SESSION_TTL_HOURS": ("8", "Tempo de vida da sessão em horas"),
+    # GCP / BigQuery
+    "GCP_PROJECT_ID": ("silviosalviati", "ID do projeto GCP padrão"),
+    "GOOGLE_APPLICATION_CREDENTIALS": (
+        "secrets/credentials.json",
+        "Caminho do arquivo de credenciais GCP (relativo à raiz do projeto)",
+    ),
     "BQ_COST_PER_TB_USD": ("5.0", "Custo por TB processado no BigQuery (USD)"),
     "BYTES_WARNING_THRESHOLD": ("10737418240", "Limite de alerta de bytes (10 GB)"),
     "BYTES_CRITICAL_THRESHOLD": ("107374182400", "Limite crítico de bytes (100 GB)"),
+    # App
+    "SESSION_TTL_HOURS": ("8", "Tempo de vida da sessão em horas"),
     "ALLOWED_ORIGINS": (
         "http://localhost:8000,http://127.0.0.1:8000",
         "Origens CORS permitidas (separadas por vírgula)",
     ),
 }
+
+_DEFAULT_ADMIN_USER = ("admin", "porto2024", "Administrador", True)
 
 
 def _utcnow() -> str:
@@ -72,6 +84,7 @@ def init_db() -> None:
         """)
 
         _seed_if_empty(conn)
+        _ensure_config_keys(conn)
 
 
 def _seed_if_empty(conn: sqlite3.Connection) -> None:
@@ -79,50 +92,41 @@ def _seed_if_empty(conn: sqlite3.Connection) -> None:
     config_count = conn.execute("SELECT COUNT(*) FROM app_config").fetchone()[0]
 
     if user_count == 0:
-        _seed_users_from_env(conn)
+        _seed_users_default(conn)
 
     if config_count == 0:
-        _seed_config_from_env(conn)
+        _seed_config_defaults(conn)
 
 
-def _seed_users_from_env(conn: sqlite3.Connection) -> None:
-    now = _utcnow()
-    raw = os.getenv("APP_USERS", "").strip()
-    entries: list[tuple[str, str, str]] = []
-
-    if raw:
-        for i, entry in enumerate(raw.split(",")):
-            parts = entry.strip().split(":", 2)
-            if len(parts) >= 2:
-                username = parts[0].strip()
-                password = parts[1].strip()
-                name = parts[2].strip() if len(parts) == 3 else username.title()
-                if username:
-                    entries.append((username, password, name, i == 0))
-    else:
-        username = os.getenv("APP_USERNAME", "admin").strip()
-        password = os.getenv("APP_PASSWORD", "porto2024").strip()
-        name = os.getenv("APP_NAME", "Administrador").strip()
-        entries.append((username, password, name, True))
-
-    for username, password, name, is_first in entries:
-        if not _looks_like_bcrypt(password):
-            password = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-        conn.execute(
-            "INSERT OR IGNORE INTO users (username, password_hash, name, is_admin, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (username, password, name, 1 if is_first else 0, now, now),
-        )
-
-
-def _seed_config_from_env(conn: sqlite3.Connection) -> None:
+def _ensure_config_keys(conn: sqlite3.Connection) -> None:
+    """Add any new config keys added to _CONFIG_DEFAULTS that don't exist yet."""
     now = _utcnow()
     for key, (default, description) in _CONFIG_DEFAULTS.items():
-        value = os.getenv(key, default).strip() or default
         conn.execute(
             "INSERT OR IGNORE INTO app_config (key, value, description, updated_at, updated_by)"
             " VALUES (?, ?, ?, ?, 'system')",
-            (key, value, description, now),
+            (key, default, description, now),
+        )
+
+
+def _seed_users_default(conn: sqlite3.Connection) -> None:
+    now = _utcnow()
+    username, password, name, is_admin = _DEFAULT_ADMIN_USER
+    password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    conn.execute(
+        "INSERT OR IGNORE INTO users (username, password_hash, name, is_admin, created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        (username, password_hash, name, 1 if is_admin else 0, now, now),
+    )
+
+
+def _seed_config_defaults(conn: sqlite3.Connection) -> None:
+    now = _utcnow()
+    for key, (default, description) in _CONFIG_DEFAULTS.items():
+        conn.execute(
+            "INSERT OR IGNORE INTO app_config (key, value, description, updated_at, updated_by)"
+            " VALUES (?, ?, ?, ?, 'system')",
+            (key, default, description, now),
         )
 
 

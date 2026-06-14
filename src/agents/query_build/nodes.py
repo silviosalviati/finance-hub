@@ -15,7 +15,7 @@ from src.agents.query_build.state import QueryBuildState
 from src.shared.tools.bigquery import (
 	fetch_query_sample,
 	dry_run_query,
-	get_dataset_tables_metadata,
+	get_dataset_tables_schema,
 )
 
 SQL_FENCE_PATTERN = r"```sql\s*([\s\S]+?)\s*```"
@@ -41,18 +41,33 @@ def generate_sql_from_request(state: QueryBuildState, llm: BaseChatModel) -> dic
 
 	if state.dataset_hint:
 		try:
-			metadata = get_dataset_tables_metadata(state.project_id, state.dataset_hint)
-			dataset_tables = [item["full_name"] for item in metadata.get("tables", [])]
-			dataset_table_columns = _build_table_columns_map(metadata.get("tables", []))
+			schema = get_dataset_tables_schema(state.project_id, state.dataset_hint)
+			dataset_tables = [item["full_name"] for item in schema.get("tables", [])]
+			dataset_table_columns = _build_table_columns_map(schema.get("tables", []))
 
 			if dataset_tables:
 				lines = [
 					"Catalogo real de tabelas disponiveis no dataset (use somente estas tabelas):"
 				]
-				for item in metadata.get("tables", []):
-					columns = item.get("columns") or []
-					cols = ", ".join(columns) if columns else "(colunas nao carregadas)"
-					lines.append(f"- {item['full_name']} | colunas: {cols}")
+				for item in schema.get("tables", []):
+					cols_raw: list[dict] = item.get("columns") or []
+					col_parts = [
+						f"{c['name']} ({c.get('type', '?')})" for c in cols_raw
+					] if cols_raw else ["(colunas nao carregadas)"]
+					partition = item.get("partition_field") or ""
+					clustering = ", ".join(item.get("clustering_fields") or [])
+
+					meta_parts: list[str] = []
+					if partition:
+						meta_parts.append(f"particionada por: {partition}")
+					if clustering:
+						meta_parts.append(f"clusterizada por: {clustering}")
+					meta_suffix = f" | {'; '.join(meta_parts)}" if meta_parts else ""
+
+					lines.append(
+						f"- {item['full_name']}{meta_suffix}"
+						f"\n  colunas: {', '.join(col_parts)}"
+					)
 				dataset_context = "\n".join(lines)
 			else:
 				dataset_warning = (
@@ -202,9 +217,7 @@ def validate_generated_sql_consistency(state: QueryBuildState) -> dict[str, Any]
 		}
 
 	named_params = _find_named_parameters(state.generated_sql)
-	if not named_params:
-		pass
-	else:
+	if named_params:
 		param_list = ", ".join(sorted(named_params))
 		warnings = list(state.warnings)
 		warnings.append(
@@ -426,7 +439,16 @@ def _build_table_columns_map(tables: list[dict[str, Any]]) -> dict[str, list[str
 		full_name = str(item.get("full_name") or "").strip()
 		if not full_name:
 			continue
-		cols = [str(col).strip() for col in (item.get("columns") or []) if str(col).strip()]
+		cols: list[str] = []
+		for col in (item.get("columns") or []):
+			# Schema returns list[dict] with {name, type, mode, description}
+			# Metadata returns list[str]
+			if isinstance(col, dict):
+				name = str(col.get("name") or "").strip()
+			else:
+				name = str(col).strip()
+			if name:
+				cols.append(name)
 		columns_map[full_name.lower()] = cols
 	return columns_map
 

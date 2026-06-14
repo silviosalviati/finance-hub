@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import uuid
 from typing import Any
+
+from langgraph.types import Command
 
 from src.agents.query_analyzer.graph import build_graph
 from src.agents.query_analyzer.state import AgentState
 from src.core.base_agent import BaseAgent
-from src.shared.config import LLM_PROVIDER, VERTEXAI_MODEL
+from src.shared.config import get_runtime_config
 from src.shared.tools.llm import create_llm
 
 
@@ -23,12 +26,26 @@ class QueryAnalyzerAgent(BaseAgent):
 
     def _get_graph(self):
         if self._graph is None:
-            llm = create_llm()
-            self._graph = build_graph(llm)
+            self._graph = build_graph(create_llm())
         return self._graph
 
-    def analyze(self, query: str, project_id: str, dataset_hint: str | None = None) -> dict[str, Any]:
+    def analyze(
+        self,
+        query: str,
+        project_id: str,
+        dataset_hint: str | None = None,
+        thread_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Executa o pipeline de análise.
+
+        Retorna `{"status": "ok", ...}` quando concluído normalmente ou
+        `{"status": "awaiting_approval", "thread_id": ..., ...}` quando o
+        pipeline pausou para aprovação humana dos antipadrões detectados.
+        Use `resume(thread_id, decision)` para continuar.
+        """
         graph = self._get_graph()
+        tid = thread_id or str(uuid.uuid4())
+        config = {"configurable": {"thread_id": tid}}
 
         initial_state = AgentState(
             original_query=query,
@@ -36,18 +53,74 @@ class QueryAnalyzerAgent(BaseAgent):
             dataset_hint=dataset_hint,
         )
 
-        final_state = None
-        for event in graph.stream(initial_state, stream_mode="values"):
-            final_state = event
+        final_event: dict[str, Any] | None = None
+        for event in graph.stream(initial_state, config=config, stream_mode="values"):
+            final_event = event
 
-        if not final_state or not final_state.get("report"):
+        # Detecta pausa por interrupt() no nó await_human_approval
+        snapshot = graph.get_state(config)
+        if snapshot.next:
+            return self._interrupted_response(tid, final_event)
+
+        if not final_event or not final_event.get("report"):
             raise RuntimeError("Analise nao produziu relatorio.")
 
-        report = final_state["report"]
-        dry_orig = final_state.get("dry_run_original")
-        dry_opt = final_state.get("dry_run_optimized")
+        return self._format_result(final_event)
+
+    def resume(self, thread_id: str, human_decision: str) -> dict[str, Any]:
+        """Retoma o pipeline após decisão humana.
+
+        Args:
+            thread_id: Identificador retornado pelo `analyze()` em estado
+                       'awaiting_approval'.
+            human_decision: 'approve' para prosseguir com otimização,
+                            'skip' para ir direto ao relatório.
+        """
+        graph = self._get_graph()
+        config = {"configurable": {"thread_id": thread_id}}
+
+        final_event: dict[str, Any] | None = None
+        for event in graph.stream(
+            Command(resume=human_decision),
+            config=config,
+            stream_mode="values",
+        ):
+            final_event = event
+
+        if not final_event or not final_event.get("report"):
+            raise RuntimeError("Analise nao produziu relatorio apos retomada.")
+
+        return self._format_result(final_event)
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _interrupted_response(
+        self,
+        thread_id: str,
+        last_event: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        antipatterns_raw = (last_event or {}).get("antipatterns") or []
+        antipatterns_data = [
+            ap.model_dump() if hasattr(ap, "model_dump") else ap
+            for ap in antipatterns_raw
+        ]
+        dry = (last_event or {}).get("dry_run_original")
+        return {
+            "status": "awaiting_approval",
+            "thread_id": thread_id,
+            "needs_optimization": bool((last_event or {}).get("needs_optimization")),
+            "antipatterns": antipatterns_data,
+            "bytes_processed": dry.bytes_processed if dry and not dry.error else None,
+            "estimated_cost_usd": dry.estimated_cost_usd if dry and not dry.error else None,
+        }
+
+    def _format_result(self, final_event: dict[str, Any]) -> dict[str, Any]:
+        report = final_event["report"]
+        dry_orig = final_event.get("dry_run_original")
+        dry_opt = final_event.get("dry_run_optimized")
 
         return {
+            "status": "ok",
             "efficiency_score": report.efficiency_score,
             "grade": report.grade,
             "summary": report.summary,
@@ -76,13 +149,13 @@ class QueryAnalyzerAgent(BaseAgent):
         }
 
     def runtime_info(self) -> dict[str, str]:
-        provider = LLM_PROVIDER.lower()
+        provider = get_runtime_config("LLM_PROVIDER", "vertexai").lower()
 
         if provider == "vertexai":
             return {
                 "provider": "vertexai",
                 "provider_label": "Vertex AI",
-                "model": VERTEXAI_MODEL or "nao definido",
+                "model": get_runtime_config("VERTEXAI_MODEL", "gemini-2.5-flash"),
             }
 
         return {

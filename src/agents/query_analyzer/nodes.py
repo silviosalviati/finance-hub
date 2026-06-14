@@ -6,10 +6,11 @@ from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.types import interrupt
 
 from src.agents.query_analyzer.prompts import ANALYZE_SYSTEM_PROMPT
 from src.agents.query_analyzer.state import AgentState
-from src.shared.config import BQ_ANTIPATTERNS, BYTES_CRITICAL_THRESHOLD, BYTES_WARNING_THRESHOLD
+from src.shared.config import BQ_ANTIPATTERNS, get_runtime_config
 from src.shared.tools.bigquery import dry_run_query, format_bytes, get_schemas_for_query
 from src.shared.tools.llm import invoke_with_retry
 from src.shared.tools.schemas import OptimizationReport, QueryAntiPattern
@@ -79,6 +80,7 @@ def analyze_patterns(state: AgentState, llm: BaseChatModel) -> dict:
     dry = state.dry_run_original
 
     cost_context = _build_cost_context(dry)
+    # Fetch schema once here; stored in state for optimize_query to reuse
     schema_context = _safe_get_schema_context(state)
     antipatterns_list = "\n".join(f"- {pattern}" for pattern in BQ_ANTIPATTERNS)
 
@@ -109,19 +111,54 @@ ANTIPADROES POSSIVEIS:
     antipatterns = _merge_antipatterns(antipatterns, forced_antipatterns)
 
     needs_optimization = bool(antipatterns)
-    if dry and not dry.error and dry.bytes_processed > BYTES_WARNING_THRESHOLD:
+    bytes_warn = int(get_runtime_config("BYTES_WARNING_THRESHOLD", str(10 * 1024**3)))
+    if dry and not dry.error and dry.bytes_processed > bytes_warn:
         needs_optimization = True
 
     return {
         "antipatterns": antipatterns,
         "needs_optimization": needs_optimization,
+        "schema_context": schema_context,
     }
+
+
+def await_human_approval(state: AgentState) -> dict:
+    """Pausa o pipeline e apresenta os antipadrões ao usuário para aprovação.
+
+    Sem antipadrões detectados: encaminha automaticamente para o relatório.
+    Com antipadrões: chama interrupt() e aguarda decisão — 'approve' para
+    prosseguir com a otimização, 'skip' para ir direto ao relatório.
+    """
+    if not state.needs_optimization:
+        return {"human_decision": "skip"}
+
+    payload: dict[str, Any] = {
+        "message": "Antipadrões identificados. Deseja prosseguir com a otimização?",
+        "antipatterns": [
+            {
+                "pattern": ap.pattern,
+                "severity": ap.severity,
+                "description": ap.description,
+                "suggestion": ap.suggestion,
+            }
+            for ap in state.antipatterns
+        ],
+    }
+
+    dry = state.dry_run_original
+    if dry and not dry.error:
+        payload["bytes_processed"] = dry.bytes_processed
+        payload["estimated_cost_usd"] = dry.estimated_cost_usd
+
+    decision: str = interrupt(payload)
+    return {"human_decision": decision}
 
 
 def optimize_query(state: AgentState, llm: BaseChatModel) -> dict:
     antipatterns_text = _build_antipatterns_text(state.antipatterns)
     cost_info = _build_optimization_cost_context(state.dry_run_original)
-    schema_context = _safe_get_schema_context(state)
+    # Reuse schema fetched during analyze_patterns — avoids a second BigQuery API call
+    schema_context = state.schema_context or _safe_get_schema_context(state)
     is_complex_analytical = _is_complex_analytical_query(state)
     optimization_feedback = "\n".join(
         f"- {item}" for item in (state.optimization_feedback or [])
@@ -283,7 +320,6 @@ def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
     power_bi_tips = _generate_power_bi_tips(state)
 
     summary = _generate_summary(
-        llm=llm,
         state=state,
         score=score,
         grade=grade,
@@ -674,14 +710,12 @@ def _build_applied_optimizations(state: AgentState) -> list[str]:
 
 
 def _generate_summary(
-    llm: BaseChatModel,
     state: AgentState,
     score: int,
     grade: str,
     savings_pct: float | None,
     dry_orig: Any,
 ) -> str:
-    _ = llm
     bytes_text = format_bytes(dry_orig.bytes_processed) if dry_orig else "N/A"
     savings_text = f"{savings_pct}%" if savings_pct is not None else "nao calculada"
     return (
@@ -730,9 +764,11 @@ def _calculate_score(state: AgentState) -> int:
 
     dry = dry_opt if (dry_opt and not dry_opt.error) else dry_orig
     if dry and not dry.error:
-        if dry.bytes_processed > BYTES_CRITICAL_THRESHOLD:
+        bytes_crit = int(get_runtime_config("BYTES_CRITICAL_THRESHOLD", str(100 * 1024**3)))
+        bytes_warn2 = int(get_runtime_config("BYTES_WARNING_THRESHOLD", str(10 * 1024**3)))
+        if dry.bytes_processed > bytes_crit:
             score -= 15
-        elif dry.bytes_processed > BYTES_WARNING_THRESHOLD:
+        elif dry.bytes_processed > bytes_warn2:
             score -= 8
 
     original_structural_keys = _structural_flags_to_keys(state.query_structure)

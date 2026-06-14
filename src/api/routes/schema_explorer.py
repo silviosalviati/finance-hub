@@ -11,7 +11,7 @@ from google.oauth2 import service_account
 
 from src.api.dependencies import get_current_user
 from src.core.checkpointer import CheckpointConfig, FileCheckpointer
-from src.shared.config import GCP_CREDENTIALS_PATH, GCP_PROJECT_ID
+from src.shared.config import get_runtime_config
 
 router = APIRouter(tags=["schema-explorer"])
 
@@ -22,7 +22,7 @@ async def list_datasets(
     session: dict[str, Any] = Depends(get_current_user),
 ) -> list[str]:
     """Return dataset IDs accessible in the given GCP project."""
-    resolved = (project_id or GCP_PROJECT_ID).strip()
+    resolved = (project_id or get_runtime_config("GCP_PROJECT_ID", "silviosalviati")).strip()
     if not resolved:
         raise HTTPException(status_code=400, detail="project_id \u00e9 obrigat\u00f3rio.")
     try:
@@ -73,7 +73,8 @@ def _types_compatible(t1: str, t2: str) -> bool:
 
 
 def _get_bq_client(project_id: str) -> bigquery.Client:
-    creds = service_account.Credentials.from_service_account_file(GCP_CREDENTIALS_PATH)
+    creds_path = get_runtime_config("GOOGLE_APPLICATION_CREDENTIALS", "secrets/credentials.json")
+    creds = service_account.Credentials.from_service_account_file(creds_path)
     return bigquery.Client(project=project_id, credentials=creds)
 
 

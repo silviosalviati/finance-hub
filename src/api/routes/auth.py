@@ -12,7 +12,7 @@ from src.api.dependencies import (
     remove_current_session,
     verify_password,
 )
-from src.shared.config import SESSION_TTL_HOURS
+from src.shared.config import get_runtime_config
 
 router = APIRouter(prefix="/api", tags=["auth"])
 
@@ -39,7 +39,7 @@ async def login(req: LoginRequest):
         "username": session["username"],
         "name": session["name"],
         "is_admin": session["is_admin"],
-        "expires_in_hours": SESSION_TTL_HOURS,
+        "expires_in_hours": int(get_runtime_config("SESSION_TTL_HOURS", "8")),
     }
 
 

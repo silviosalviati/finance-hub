@@ -13,6 +13,7 @@ class AgentState(BaseModel):
     dataset_hint: Optional[str] = None
 
     query_structure: dict = Field(default_factory=dict)
+    schema_context: str = ""  # fetched once in analyze_patterns, reused in optimize_query
 
     dry_run_original: Optional[DryRunResult] = None
 
@@ -27,4 +28,5 @@ class AgentState(BaseModel):
 
     error: Optional[str] = None
     iteration: int = 0
-    max_iterations: int = 1
+    max_iterations: int = 2
+    human_decision: Optional[str] = None  # "approve" | "skip" | texto livre

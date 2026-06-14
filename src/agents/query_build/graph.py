@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
+from typing import Literal
 
 from langchain_core.language_models import BaseChatModel
 from langgraph.graph import END, START, StateGraph
@@ -10,9 +11,14 @@ from src.agents.query_build.nodes import (
     fetch_generated_sample,
     generate_sql_from_request,
     review_and_optimize_sql,
-     validate_generated_sql_consistency,
+    validate_generated_sql_consistency,
 )
 from src.agents.query_build.state import QueryBuildState
+
+
+def _guard(state: QueryBuildState) -> Literal["continue", "__end__"]:
+    """Encerra o pipeline imediatamente se um nó anterior registrou erro."""
+    return END if state.error else "continue"
 
 
 def build_graph(llm: BaseChatModel):
@@ -25,10 +31,30 @@ def build_graph(llm: BaseChatModel):
     workflow.add_node("sample_generated", fetch_generated_sample)
 
     workflow.add_edge(START, "generate_sql")
-    workflow.add_edge("generate_sql", "review_sql")
+
+    # Encerra se generate_sql falhou (tabela inválida, schema ausente, etc.)
+    workflow.add_conditional_edges(
+        "generate_sql",
+        _guard,
+        {"continue": "review_sql", END: END},
+    )
+
     workflow.add_edge("review_sql", "validate_sql")
-    workflow.add_edge("validate_sql", "dry_run_generated")
-    workflow.add_edge("dry_run_generated", "sample_generated")
+
+    # Encerra se validate_sql detectou placeholder ou coluna inexistente
+    workflow.add_conditional_edges(
+        "validate_sql",
+        _guard,
+        {"continue": "dry_run_generated", END: END},
+    )
+
+    # Encerra se o dry-run BigQuery falhou (SQL inválido para o engine)
+    workflow.add_conditional_edges(
+        "dry_run_generated",
+        _guard,
+        {"continue": "sample_generated", END: END},
+    )
+
     workflow.add_edge("sample_generated", END)
 
     return workflow.compile()

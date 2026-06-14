@@ -20,7 +20,7 @@ from typing import Any
 from src.agents.schema_graph.graph import build_graph
 from src.agents.schema_graph.state import SchemaGraphState
 from src.core.base_agent import BaseAgent
-from src.shared.config import VERTEXAI_MODEL
+from src.shared.config import get_runtime_config
 from src.shared.tools.llm import create_llm
 
 
@@ -123,6 +123,6 @@ class SchemaGraphAgent(BaseAgent):
         return {
             "agent_id": self.agent_id,
             "display_name": self.display_name,
-            "model": VERTEXAI_MODEL or "nao definido",
+            "model": get_runtime_config("VERTEXAI_MODEL", "gemini-2.5-flash"),
             "provider": "vertexai",
         }

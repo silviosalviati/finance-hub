@@ -257,20 +257,39 @@ function syncQAAnalyzeButtonState() {
 }
 
 function setQADatasetValidationStatus(kind, payload = {}) {
-  const indicator = document.getElementById("qa-ctx-indicator");
-  if (indicator) {
-    indicator.className = "qa-ctx-indicator";
-    if (kind === "checking") {
-      indicator.classList.add("checking");
-      indicator.textContent = "… Validando";
-    } else if (kind === "ok") {
-      indicator.classList.add("ok");
-      indicator.textContent = "✓ Contexto válido";
-    } else if (kind === "error") {
-      indicator.classList.add("error");
-      indicator.textContent = "✕ Inválido";
-    }
+  const box = document.getElementById("qa-ctx-indicator");
+  const titleEl = document.getElementById("qa-ctx-title");
+  const msgEl = document.getElementById("qa-ctx-message");
+  const iconChecking = document.getElementById("qa-ctx-icon-checking");
+  const iconOk = document.getElementById("qa-ctx-icon-ok");
+  const iconError = document.getElementById("qa-ctx-icon-error");
+
+  if (!box) { syncQAAnalyzeButtonState(); return; }
+
+  [iconChecking, iconOk, iconError].forEach(ic => { if (ic) ic.style.display = "none"; });
+
+  if (kind === "idle") {
+    box.style.display = "none";
+  } else if (kind === "checking") {
+    box.style.display = "flex";
+    box.className = "qa-ctx-box qa-ctx-checking";
+    if (iconChecking) iconChecking.style.display = "block";
+    if (titleEl) titleEl.textContent = payload.title || "Validando contexto…";
+    if (msgEl) msgEl.textContent = payload.message || "Detectando dataset e tabelas na query…";
+  } else if (kind === "ok") {
+    box.style.display = "flex";
+    box.className = "qa-ctx-box qa-ctx-ok";
+    if (iconOk) iconOk.style.display = "block";
+    if (titleEl) titleEl.textContent = payload.title || "Contexto válido";
+    if (msgEl) msgEl.textContent = payload.message || "Query validada. Já pode analisar.";
+  } else if (kind === "error") {
+    box.style.display = "flex";
+    box.className = "qa-ctx-box qa-ctx-error";
+    if (iconError) iconError.style.display = "block";
+    if (titleEl) titleEl.textContent = payload.title || "Contexto inválido";
+    if (msgEl) msgEl.textContent = payload.message || "Não foi possível validar dataset e tabelas.";
   }
+
   syncQAAnalyzeButtonState();
 }
 

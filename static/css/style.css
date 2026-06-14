@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --porto-primary: #004691;
   --porto-primary-mid: #00519e;
   --porto-primary-dark: #003f84;
@@ -6210,5 +6210,222 @@ button:focus:not(:focus-visible) {
   padding: 13px 22px;
   border-radius: 12px;
   letter-spacing: 0.5px;
+}
+
+/* ── HITL Panel ─────────────────────────────────────────────────── */
+.hitl-panel {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.hitl-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%);
+  border-bottom: 1px solid #fde68a;
+  flex-shrink: 0;
+}
+
+.hitl-header-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 1px solid #fcd34d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hitl-header-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.hitl-title {
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+.hitl-subtitle {
+  font-size: 11.5px;
+  color: var(--ink2);
+}
+
+.hitl-header-badge {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  padding: 4px 9px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.hitl-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 22px;
+}
+
+.hitl-desc {
+  font-size: 12.5px;
+  color: var(--ink2);
+  line-height: 1.65;
+  margin: 0;
+}
+
+.hitl-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink3);
+  margin-bottom: 10px;
+}
+
+.hitl-divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.hitl-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hitl-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  border: 1.5px solid;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.15s ease;
+  width: 100%;
+  font-family: var(--body);
+}
+
+.hitl-action-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hitl-icon-primary {
+  background: linear-gradient(135deg, var(--porto-primary-dark), #0066cc);
+  box-shadow: 0 4px 12px rgba(0, 48, 135, 0.22);
+}
+
+.hitl-icon-secondary {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+}
+
+.hitl-action-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.hitl-action-title {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.hitl-action-desc {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.hitl-action-arrow {
+  flex-shrink: 0;
+  opacity: 0.35;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.hitl-action-btn:hover .hitl-action-arrow {
+  opacity: 0.7;
+  transform: translateX(3px);
+}
+
+/* Primary: Otimizar */
+.hitl-action-primary {
+  background: linear-gradient(135deg, #f0f7ff 0%, #e8f2fe 100%);
+  border-color: color-mix(in srgb, var(--porto) 22%, white);
+}
+
+.hitl-action-primary:hover {
+  background: linear-gradient(135deg, #deeeff 0%, #d2e8fd 100%);
+  border-color: color-mix(in srgb, var(--porto) 38%, white);
+  box-shadow: 0 4px 18px rgba(0, 70, 145, 0.1);
+  transform: translateY(-1px);
+}
+
+.hitl-action-primary .hitl-action-title {
+  color: var(--porto);
+}
+
+.hitl-action-primary .hitl-action-desc {
+  color: var(--ink2);
+}
+
+.hitl-action-primary .hitl-action-arrow {
+  color: var(--porto);
+}
+
+/* Secondary: Apenas analisar */
+.hitl-action-secondary {
+  background: var(--white);
+  border-color: var(--border);
+}
+
+.hitl-action-secondary:hover {
+  background: var(--bg);
+  border-color: var(--ink3);
+  box-shadow: 0 2px 10px rgba(10, 22, 40, 0.06);
+  transform: translateY(-1px);
+}
+
+.hitl-action-secondary .hitl-action-title {
+  color: var(--ink);
+}
+
+.hitl-action-secondary .hitl-action-desc {
+  color: var(--ink3);
+}
+
+.hitl-action-secondary .hitl-action-arrow {
+  color: var(--ink3);
 }
 

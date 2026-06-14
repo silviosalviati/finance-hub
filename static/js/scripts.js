@@ -1,4 +1,4 @@
-﻿// ─────────────────────────────────────
+// ─────────────────────────────────────
 // App state
 // ─────────────────────────────────────
 let token = null;
@@ -3689,17 +3689,21 @@ function showQAHitlPanel(data) {
   if (panel) panel.style.display = "flex";
 
   if (container) {
-    const severityColor = { CRITICAL: "#d63031", HIGH: "#e17055", MEDIUM: "#fdcb6e", LOW: "#74b9ff" };
-    container.innerHTML = (data.antipatterns || []).map(ap => `
-      <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:12px 14px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-          <strong style="font-size:13px;">${ap.pattern}</strong>
-          <span style="font-size:11px; font-weight:600; color:${severityColor[ap.severity] || '#888'};">${ap.severity}</span>
+    const sevClass = { CRITICAL: "sev-critical", HIGH: "sev-high", MEDIUM: "sev-medium", LOW: "sev-low" };
+    const chipClass = { CRITICAL: "chip-critical", HIGH: "chip-high", MEDIUM: "chip-medium", LOW: "chip-low" };
+    container.innerHTML = (data.antipatterns || []).map(ap => {
+      const sev = (ap.severity || "").toUpperCase();
+      return `
+        <div class="ap-card ${sevClass[sev] || "sev-low"}">
+          <div class="ap-top">
+            <span class="ap-chip ${chipClass[sev] || "chip-low"}">${sev}</span>
+            <span class="ap-name">${ap.pattern}</span>
+          </div>
+          <div class="ap-desc">${ap.description}</div>
+          ${ap.suggestion ? `<div class="ap-fix"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>${ap.suggestion}</div>` : ""}
         </div>
-        <p style="font-size:12px; color:var(--text-muted); margin:0 0 4px;">${ap.description}</p>
-        <p style="font-size:12px; margin:0;">💡 ${ap.suggestion}</p>
-      </div>
-    `).join("");
+      `;
+    }).join("");
   }
 }
 

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
@@ -733,17 +733,80 @@
               <div class="qa-results-wrap">
 
                 <!-- HITL: aguardando aprovação humana -->
-                <div id="qa-hitl-panel" style="display:none; flex-direction:column; gap:16px; padding:24px; height:100%; overflow-y:auto;">
-                  <div style="display:flex; align-items:center; gap:10px;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--porto)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    <strong style="font-size:14px;">Anti-padrões detectados — aprovação necessária</strong>
+                <div id="qa-hitl-panel" class="hitl-panel">
+
+                  <!-- Warning header -->
+                  <div class="hitl-header">
+                    <div class="hitl-header-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                      </svg>
+                    </div>
+                    <div class="hitl-header-content">
+                      <div class="hitl-title">Revisão necessária</div>
+                      <div class="hitl-subtitle">Anti-padrões detectados na query</div>
+                    </div>
+                    <div class="hitl-header-badge">AGUARDANDO APROVAÇÃO</div>
                   </div>
-                  <p style="font-size:12.5px; color:var(--text-muted); margin:0;">O agente identificou problemas na query. Deseja prosseguir com a otimização automática?</p>
-                  <div id="qa-hitl-antipatterns" style="display:flex; flex-direction:column; gap:8px;"></div>
-                  <div style="display:flex; gap:10px; margin-top:8px;">
-                    <button id="qa-hitl-approve" onclick="resumeQA('approve')" class="btn-analyze" style="flex:1; padding:10px 0; font-size:13px;">Otimizar query</button>
-                    <button id="qa-hitl-skip" onclick="resumeQA('skip')" style="flex:1; padding:10px 0; font-size:13px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; cursor:pointer; color:var(--text-main);">Só analisar</button>
+
+                  <!-- Body -->
+                  <div class="hitl-body">
+                    <p class="hitl-desc">O agente identificou problemas que podem impactar performance e custo. Revise os itens abaixo e escolha como prosseguir.</p>
+
+                    <!-- Anti-patterns -->
+                    <div>
+                      <div class="hitl-section-label">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        Problemas identificados
+                      </div>
+                      <div id="qa-hitl-antipatterns" class="ap-list"></div>
+                    </div>
+
+                    <div class="hitl-divider"></div>
+
+                    <!-- Action choice -->
+                    <div>
+                      <div class="hitl-section-label">Como deseja prosseguir?</div>
+                      <div class="hitl-actions">
+
+                        <button id="qa-hitl-approve" onclick="resumeQA('approve')" class="hitl-action-btn hitl-action-primary">
+                          <div class="hitl-action-icon hitl-icon-primary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                            </svg>
+                          </div>
+                          <div class="hitl-action-content">
+                            <div class="hitl-action-title">Otimizar query</div>
+                            <div class="hitl-action-desc">Aplica correções automáticas nos anti-padrões detectados</div>
+                          </div>
+                          <svg class="hitl-action-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                          </svg>
+                        </button>
+
+                        <button id="qa-hitl-skip" onclick="resumeQA('skip')" class="hitl-action-btn hitl-action-secondary">
+                          <div class="hitl-action-icon hitl-icon-secondary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                          </div>
+                          <div class="hitl-action-content">
+                            <div class="hitl-action-title">Apenas analisar</div>
+                            <div class="hitl-action-desc">Exibe o relatório de problemas sem aplicar otimizações</div>
+                          </div>
+                          <svg class="hitl-action-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                          </svg>
+                        </button>
+
+                      </div>
+                    </div>
                   </div>
+
                 </div>
 
                 <div class="qa-empty" id="qa-empty" style="height: 100%">

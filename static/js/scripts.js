@@ -89,14 +89,23 @@ function prettifyErrorMessage(message) {
   if (!message) return "Ocorreu um erro inesperado.";
 
   const msg = String(message);
+  const msgLower = msg.toLowerCase();
 
   if (msg.includes("Project ID")) {
     return "Informe um Project ID válido do GCP.";
   }
 
   if (
-    msg.toLowerCase().includes("credenciais") ||
-    msg.toLowerCase().includes("credentials")
+    msgLower.includes("default credentials were not found") ||
+    msgLower.includes("set-up-adc") ||
+    msgLower.includes("google.auth.exceptions.defaultcredentialserror")
+  ) {
+    return "Nao foi possivel autenticar no servico de IA (LLM). Configure ADC/Google credentials no ambiente.";
+  }
+
+  if (
+    (msgLower.includes("credenciais") || msgLower.includes("credentials")) &&
+    (msgLower.includes("bigquery") || msgLower.includes("dataset"))
   ) {
     return "N�o foi poss�vel autenticar no BigQuery. Verifique as credenciais do ambiente.";
   }

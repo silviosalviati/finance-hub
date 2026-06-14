@@ -385,20 +385,37 @@ Feedback da iteracao anterior (quando houver):
 {optimization_feedback or '(primeira tentativa de otimizacao)'}
 """
 
-    response = llm.invoke(
-        [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ]
-    )
+    try:
+        response = llm.invoke(
+            [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt),
+            ]
+        )
 
-    raw = _extract_message_content(response)
-    optimized = _sanitize_optimized_sql(_extract_sql_from_response(raw))
+        raw = _extract_message_content(response)
+        optimized = _sanitize_optimized_sql(_extract_sql_from_response(raw))
 
-    return {
-        "optimized_query": optimized,
-        "iteration": state.iteration + 1,
-    }
+        if not optimized:
+            return {
+                "optimized_query": state.original_query,
+                "iteration": state.iteration + 1,
+                "optimization_feedback": list(state.optimization_feedback)
+                + ["Nao foi possivel obter SQL otimizada do LLM; mantendo SQL original."],
+            }
+
+        return {
+            "optimized_query": optimized,
+            "iteration": state.iteration + 1,
+        }
+    except Exception as exc:
+        # Evita falha 500 quando o provider LLM estiver indisponivel/sem credenciais.
+        return {
+            "optimized_query": state.original_query,
+            "iteration": state.iteration + 1,
+            "optimization_feedback": list(state.optimization_feedback)
+            + [f"Falha ao otimizar SQL via LLM: {exc}"],
+        }
 
 
 def validate_optimized(state: AgentState) -> dict:

@@ -77,9 +77,11 @@ class OptimizationReport(BaseModel):
     summary: str
     antipatterns_found: list[QueryAntiPattern] = Field(default_factory=list)
     optimized_query: Optional[str] = None
+    original_query: Optional[str] = None
     bytes_saved: Optional[int] = None
     cost_saved_usd: Optional[float] = None
     savings_pct: Optional[float] = None
     recommendations: list[str] = Field(default_factory=list)
     power_bi_tips: list[str] = Field(default_factory=list)
     applied_optimizations: list[str] = Field(default_factory=list)
+    intelligence_summary: Optional[str] = None

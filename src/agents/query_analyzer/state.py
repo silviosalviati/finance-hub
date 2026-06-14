@@ -4,7 +4,12 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from src.shared.tools.schemas import DryRunResult, OptimizationReport, QueryAntiPattern
+from src.shared.tools.schemas import (
+    DryRunResult,
+    IntelligenceReport,
+    OptimizationReport,
+    QueryAntiPattern,
+)
 
 
 class AgentState(BaseModel):
@@ -14,14 +19,14 @@ class AgentState(BaseModel):
 
     query_structure: dict = Field(default_factory=dict)
 
-    # fan-out: discover_context (3 workers paralelos)
     query_schema: str = ""          # schema das tabelas referenciadas na query
     dataset_catalog: str = ""       # catálogo completo de todas as tabelas do dataset
-    schema_context: str = ""        # contexto enriquecido (schema + intelligence) — usado em optimize_query
+    dataset_memory: str = ""        # memória cross-sessão de padrões do dataset
 
     dry_run_original: Optional[DryRunResult] = None
 
-    intelligence_context: str = ""  # análise LLM: alternativas, partições, oportunidades
+    intelligence_context: str = ""              # texto livre: resumo LLM de oportunidades
+    intelligence_report: Optional[IntelligenceReport] = None  # saída estruturada do enrich
 
     antipatterns: list[QueryAntiPattern] = Field(default_factory=list)
     needs_optimization: bool = False
@@ -35,4 +40,4 @@ class AgentState(BaseModel):
     error: Optional[str] = None
     iteration: int = 0
     max_iterations: int = 2
-    human_decision: Optional[str] = None  # "approve" | "skip" | texto livre
+    human_decision: Optional[str] = None  # "approve" | "skip"

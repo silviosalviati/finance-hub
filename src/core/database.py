@@ -34,6 +34,8 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     # Observabilidade / LangSmith
     "LANGCHAIN_API_KEY": ("", "API key do LangSmith para tracing (vazio = desativado)"),
     "LANGCHAIN_PROJECT": ("finance-hub", "Nome do projeto no LangSmith"),
+    # Query Analyzer
+    "QA_MAX_ITERATIONS": ("2", "Número máximo de iterações de otimização do Query Analyzer"),
     # App
     "SESSION_TTL_HOURS": ("8", "Tempo de vida da sessão em horas"),
     "ALLOWED_ORIGINS": (
@@ -87,6 +89,13 @@ def init_db() -> None:
                 description TEXT NOT NULL DEFAULT '',
                 updated_at TEXT NOT NULL,
                 updated_by TEXT NOT NULL DEFAULT 'system'
+            );
+
+            CREATE TABLE IF NOT EXISTS query_analyzer_memory (
+                project_dataset TEXT PRIMARY KEY,
+                patterns TEXT NOT NULL DEFAULT '',
+                analysis_count INTEGER NOT NULL DEFAULT 0,
+                last_updated TEXT NOT NULL
             );
         """)
 
@@ -237,3 +246,47 @@ def set_config_value(key: str, value: str, updated_by: str = "system") -> bool:
             (value, now, updated_by, key),
         )
     return cur.rowcount > 0
+
+
+# ── Query Analyzer Memory ────────────────────────────────────────────────────
+
+def get_dataset_memory(project_dataset: str) -> str:
+    try:
+        with get_db() as conn:
+            row = conn.execute(
+                "SELECT patterns FROM query_analyzer_memory WHERE project_dataset = ?",
+                (project_dataset,),
+            ).fetchone()
+        return row["patterns"] if row else ""
+    except Exception:
+        return ""
+
+
+def update_dataset_memory(project_dataset: str, new_patterns: str) -> None:
+    if not new_patterns.strip():
+        return
+    now = _utcnow()
+    try:
+        with get_db() as conn:
+            existing = conn.execute(
+                "SELECT patterns, analysis_count FROM query_analyzer_memory WHERE project_dataset = ?",
+                (project_dataset,),
+            ).fetchone()
+
+            if existing:
+                lines = set(existing["patterns"].split("\n"))
+                lines.update(l for l in new_patterns.split("\n") if l.strip())
+                merged = "\n".join(sorted(lines)[:50])  # cap at 50 unique lines
+                conn.execute(
+                    "UPDATE query_analyzer_memory SET patterns = ?, analysis_count = ?, last_updated = ?"
+                    " WHERE project_dataset = ?",
+                    (merged, existing["analysis_count"] + 1, now, project_dataset),
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO query_analyzer_memory (project_dataset, patterns, analysis_count, last_updated)"
+                    " VALUES (?, ?, 1, ?)",
+                    (project_dataset, new_patterns.strip(), now),
+                )
+    except Exception:
+        pass

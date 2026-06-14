@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import threading
+import time
 import uuid
-from pathlib import Path
 from typing import Any
 
 from langgraph.types import Command
@@ -17,17 +18,43 @@ def _make_checkpointer():
     """Usa MemorySaver para evitar falha de desserialização de tipos Pydantic customizados.
 
     SqliteSaver serializa o estado via msgpack e não consegue desserializar
-    DryRunResult/QueryAntiPattern/OptimizationReport sem registro explícito,
-    corrompendo o estado após resume do HITL. MemorySaver mantém tudo em memória
-    sem serialização — HITL funciona normalmente enquanto o processo está ativo.
+    DryRunResult/QueryAntiPattern/OptimizationReport sem registro explícito.
+    MemorySaver mantém tudo em memória — HITL funciona normalmente enquanto o processo está ativo.
     """
     from langgraph.checkpoint.memory import MemorySaver
     return MemorySaver()
 
 
-# Instância única compartilhada por todas as requisições — sobrevive a corridas
-# de inicialização e mantém thread_ids de HITL entre chamadas analyze/resume.
+# Singleton checkpointer — sobrevive a corridas de inicialização e mantém
+# thread_ids de HITL entre chamadas analyze/resume.
 _CHECKPOINTER = _make_checkpointer()
+
+# Thread creation timestamps for TTL cleanup
+_THREAD_REGISTRY: dict[str, float] = {}
+_THREAD_REGISTRY_LOCK = threading.Lock()
+_THREAD_TTL = 3600  # 1 hour
+
+
+def _register_thread(thread_id: str) -> None:
+    with _THREAD_REGISTRY_LOCK:
+        _THREAD_REGISTRY[thread_id] = time.time()
+        _cleanup_expired_threads()
+
+
+def _cleanup_expired_threads() -> None:
+    """Remove threads expirados do MemorySaver (chamado com lock já adquirido)."""
+    now = time.time()
+    expired = [tid for tid, ts in _THREAD_REGISTRY.items() if now - ts > _THREAD_TTL]
+    for tid in expired:
+        _THREAD_REGISTRY.pop(tid, None)
+        # Clear from MemorySaver internal storage
+        try:
+            storage = _CHECKPOINTER.storage
+            keys_to_delete = [k for k in storage if isinstance(k, tuple) and k[0] == tid]
+            for k in keys_to_delete:
+                del storage[k]
+        except Exception:
+            pass
 
 
 class QueryAnalyzerAgent(BaseAgent):
@@ -59,32 +86,35 @@ class QueryAnalyzerAgent(BaseAgent):
     ) -> dict[str, Any]:
         """Executa o pipeline de análise.
 
-        Retorna `{"status": "ok", ...}` quando concluído normalmente ou
-        `{"status": "awaiting_approval", "thread_id": ..., ...}` quando o
-        pipeline pausou para aprovação humana dos antipadrões detectados.
+        Retorna `{"status": "ok", ...}` quando concluído ou
+        `{"status": "awaiting_approval", "thread_id": ..., ...}` quando pausado para aprovação.
         Use `resume(thread_id, decision)` para continuar.
         """
         graph = self._get_graph()
         tid = thread_id or str(uuid.uuid4())
         config = {"configurable": {"thread_id": tid}}
 
+        max_iters = int(get_runtime_config("QA_MAX_ITERATIONS", "2"))
+
         initial_state = AgentState(
             original_query=query,
             project_id=project_id,
             dataset_hint=dataset_hint,
+            max_iterations=max_iters,
         )
+
+        _register_thread(tid)
 
         final_event: dict[str, Any] | None = None
         for event in graph.stream(initial_state, config=config, stream_mode="values"):
             final_event = event
 
-        # Detecta pausa por interrupt() no nó await_human_approval
         snapshot = graph.get_state(config)
         if snapshot.next:
             return self._interrupted_response(tid, final_event)
 
         if not final_event or not final_event.get("report"):
-            raise RuntimeError("Analise nao produziu relatorio.")
+            raise RuntimeError("Análise não produziu relatório.")
 
         return self._format_result(final_event)
 
@@ -92,11 +122,17 @@ class QueryAnalyzerAgent(BaseAgent):
         """Retoma o pipeline após decisão humana.
 
         Args:
-            thread_id: Identificador retornado pelo `analyze()` em estado
-                       'awaiting_approval'.
-            human_decision: 'approve' para prosseguir com otimização,
-                            'skip' para ir direto ao relatório.
+            thread_id: Identificador retornado pelo `analyze()` em 'awaiting_approval'.
+            human_decision: 'approve' para otimizar, 'skip' para ir direto ao relatório.
         """
+        # Check if thread is still alive in memory
+        with _THREAD_REGISTRY_LOCK:
+            if thread_id not in _THREAD_REGISTRY:
+                raise RuntimeError(
+                    "Sessão de análise expirada ou não encontrada. "
+                    "Inicie uma nova análise para continuar."
+                )
+
         graph = self._get_graph()
         config = {"configurable": {"thread_id": thread_id}}
 
@@ -109,7 +145,7 @@ class QueryAnalyzerAgent(BaseAgent):
             final_event = event
 
         if not final_event or not final_event.get("report"):
-            raise RuntimeError("Analise nao produziu relatorio apos retomada.")
+            raise RuntimeError("Análise não produziu relatório após retomada.")
 
         return self._format_result(final_event)
 
@@ -156,10 +192,12 @@ class QueryAnalyzerAgent(BaseAgent):
                 for ap in report.antipatterns_found
             ],
             "optimized_query": report.optimized_query,
-            "bytes_original": dry_orig.bytes_processed if dry_orig else None,
-            "bytes_optimized": dry_opt.bytes_processed if dry_opt else None,
-            "cost_original_usd": dry_orig.estimated_cost_usd if dry_orig else None,
-            "cost_optimized_usd": dry_opt.estimated_cost_usd if dry_opt else None,
+            "original_query": report.original_query,
+            "intelligence_summary": report.intelligence_summary,
+            "bytes_original": dry_orig.bytes_processed if dry_orig and not dry_orig.error else None,
+            "bytes_optimized": dry_opt.bytes_processed if dry_opt and not dry_opt.error else None,
+            "cost_original_usd": dry_orig.estimated_cost_usd if dry_orig and not dry_orig.error else None,
+            "cost_optimized_usd": dry_opt.estimated_cost_usd if dry_opt and not dry_opt.error else None,
             "bytes_saved": report.bytes_saved,
             "cost_saved_usd": report.cost_saved_usd,
             "savings_pct": report.savings_pct,
@@ -182,7 +220,7 @@ class QueryAnalyzerAgent(BaseAgent):
         return {
             "provider": provider,
             "provider_label": "Provider desconhecido",
-            "model": "nao definido",
+            "model": "não definido",
         }
 
 

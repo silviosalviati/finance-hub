@@ -23,6 +23,15 @@ class AntipatternList(BaseModel):
     antipatterns: list[QueryAntiPattern] = Field(default_factory=list)
 
 
+class IntelligenceReport(BaseModel):
+    """Structured output de enrich_with_intelligence."""
+    table_alternatives: list[str] = Field(default_factory=list)
+    partition_opportunities: list[str] = Field(default_factory=list)
+    clustering_opportunities: list[str] = Field(default_factory=list)
+    dataset_insights: list[str] = Field(default_factory=list)
+    summary: str = ""
+
+
 class DryRunResult(BaseModel):
     bytes_processed: int
     bytes_billed: int
@@ -85,3 +94,4 @@ class OptimizationReport(BaseModel):
     power_bi_tips: list[str] = Field(default_factory=list)
     applied_optimizations: list[str] = Field(default_factory=list)
     intelligence_summary: Optional[str] = None
+

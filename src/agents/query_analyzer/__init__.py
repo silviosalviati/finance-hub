@@ -13,16 +13,21 @@ from src.shared.config import get_runtime_config
 from src.shared.tools.llm import create_llm as _create_llm
 
 
+# Mantém referência ao context manager para evitar GC fechar a conexão SQLite.
+_CHECKPOINTER_CTX = None
+
+
 def _make_checkpointer():
     """Cria SqliteSaver persistente; cai em MemorySaver se o pacote não estiver instalado."""
+    global _CHECKPOINTER_CTX
     try:
         from langgraph.checkpoint.sqlite import SqliteSaver  # type: ignore
         db_path = Path(".sixth") / "langgraph_checkpoints.db"
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        # from_conn_string retorna um context manager na v3.x — abrimos aqui
-        # e mantemos a conexão pelo tempo de vida do processo.
-        ctx = SqliteSaver.from_conn_string(str(db_path))
-        return ctx.__enter__()
+        # Mantemos _CHECKPOINTER_CTX em escopo de módulo para evitar que o GC
+        # feche a conexão SQLite antes do processo encerrar.
+        _CHECKPOINTER_CTX = SqliteSaver.from_conn_string(str(db_path))
+        return _CHECKPOINTER_CTX.__enter__()
     except Exception:
         from langgraph.checkpoint.memory import MemorySaver
         return MemorySaver()

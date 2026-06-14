@@ -737,7 +737,7 @@
               <div class="qa-results-wrap">
 
                 <!-- HITL: aguardando aprovação humana -->
-                <div id="qa-hitl-panel" class="hitl-panel">
+                <div id="qa-hitl-panel" class="hitl-panel" style="position:relative">
 
                   <!-- Warning header -->
                   <div class="hitl-header">
@@ -809,6 +809,13 @@
 
                       </div>
                     </div>
+                  </div>
+
+                  <!-- Overlay de processamento -->
+                  <div id="qa-hitl-processing" class="hitl-processing" style="display:none">
+                    <div class="hitl-proc-spinner"></div>
+                    <div class="hitl-proc-title" id="qa-hitl-proc-title">Processando...</div>
+                    <div class="hitl-proc-desc" id="qa-hitl-proc-desc">Aguarde enquanto o agente trabalha</div>
                   </div>
 
                 </div>

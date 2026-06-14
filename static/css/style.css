@@ -6436,6 +6436,53 @@ button:focus:not(:focus-visible) {
   overflow: visible;
 }
 
+/* ── HITL Processing Overlay ─────────────────────────────────── */
+.hitl-processing {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(242, 245, 248, 0.94);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 20;
+  border-radius: inherit;
+  animation: hitlProcIn 0.22s ease-out;
+}
+
+@keyframes hitlProcIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.hitl-proc-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid var(--border);
+  border-top-color: var(--porto);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+.hitl-proc-title {
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.2px;
+}
+
+.hitl-proc-desc {
+  font-size: 11.5px;
+  color: var(--ink3);
+  text-align: center;
+  max-width: 220px;
+  line-height: 1.55;
+}
+
 /* ── Home view: sem scroll ────────────────────────────────────── */
 #view-home {
   padding: 20px 28px;

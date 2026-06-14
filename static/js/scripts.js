@@ -608,17 +608,9 @@ function scheduleQBDatasetValidation() {
 }
 
 function resetQATabsDataState() {
-  ["tab-antipatterns", "tab-optimized", "tab-applied", "tab-recs"].forEach(
-    (id) => {
-      document.getElementById(id)?.classList.remove("has-data");
-    },
-  );
-
-  const tabApCount = document.getElementById("tab-ap-count");
-  if (tabApCount) {
-    tabApCount.textContent = "0";
-    tabApCount.className = "qa-tab-count";
-  }
+  ["tab-optimized", "tab-applied", "tab-recs"].forEach((id) => {
+    document.getElementById(id)?.classList.remove("has-data");
+  });
 }
 
 function resetQAResultPanels() {
@@ -3300,54 +3292,6 @@ function renderQA(d) {
     }
   }
 
-  // Anti-patterns
-  const apList = document.getElementById("q-ap-list");
-  const apCount = Array.isArray(d.antipatterns) ? d.antipatterns.length : 0;
-  const tabAp = document.getElementById("tab-antipatterns");
-  const tabApCount = document.getElementById("tab-ap-count");
-  const qApCount = document.getElementById("q-ap-count");
-
-  if (tabAp) tabAp.classList.add("has-data");
-  if (tabApCount) {
-    tabApCount.textContent = String(apCount);
-    tabApCount.className = apCount === 0 ? "qa-tab-count ok" : "qa-tab-count";
-  }
-  if (qApCount) {
-    qApCount.textContent = apCount
-      ? `${apCount} encontrado${apCount > 1 ? "s" : ""}`
-      : "0 encontrados";
-  }
-
-  if (apList) {
-    apList.innerHTML = "";
-
-    if (!apCount) {
-      apList.innerHTML = `
-        <div class="rec-item" style="color:var(--emerald);border-color:var(--color-success);background:var(--emerald-bg)">
-          <span>✓</span> Nenhum anti-padrão. Query eficiente!
-        </div>
-      `;
-    } else {
-      d.antipatterns.forEach((ap) => {
-        const severity = String(ap.severity || "medium").toLowerCase();
-
-        apList.innerHTML += `
-          <div class="ap-card sev-${severity}">
-            <div class="ap-top">
-              <span class="ap-chip chip-${severity}">${severity}</span>
-              <span class="ap-name">${ap.pattern}</span>
-            </div>
-            <div class="ap-desc">${ap.description}</div>
-            <div class="ap-fix">
-              <span>✦</span>
-              <span>${ap.suggestion}</span>
-            </div>
-          </div>
-        `;
-      });
-    }
-  }
-
   // Optimized query
   const tabOptimized = document.getElementById("tab-optimized");
   const qOptSec = document.getElementById("q-opt-sec");
@@ -3445,7 +3389,7 @@ function switchTab(name) {
 
 function copySQL() {
   const sql = document.getElementById("q-opt-query")?.textContent || "";
-  const btn = document.querySelector(".copy-btn");
+  const btn = document.getElementById("qa-copy-sql-btn");
 
   if (!sql) return;
 

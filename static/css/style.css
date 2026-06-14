@@ -6429,6 +6429,13 @@ button:focus:not(:focus-visible) {
   color: var(--ink3);
 }
 
+/* Query otimizada: expande verticalmente e o painel rola */
+#q-opt-query {
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow: visible;
+}
+
 /* ── Home view: sem scroll ────────────────────────────────────── */
 #view-home {
   padding: 20px 28px;

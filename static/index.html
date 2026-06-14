@@ -871,14 +871,6 @@
                     </div>
                     <div
                       class="qa-tab"
-                      onclick="switchTab('antipatterns')"
-                      id="tab-antipatterns"
-                    >
-                      Anti-padrões
-                      <span class="qa-tab-count" id="tab-ap-count">0</span>
-                    </div>
-                    <div
-                      class="qa-tab"
                       onclick="switchTab('optimized')"
                       id="tab-optimized"
                     >
@@ -990,21 +982,6 @@
                       </div>
                     </div>
 
-                    <!-- ANTI-PADRÕES TAB -->
-                    <div class="qa-tab-panel" id="panel-antipatterns">
-                      <div class="sec-card">
-                        <div class="sec-head">
-                          <div class="sec-ttl">
-                            <span class="dot"></span>Anti-padrões detectados
-                          </div>
-                          <span class="sec-badge" id="q-ap-count"></span>
-                        </div>
-                        <div class="sec-body">
-                          <div class="ap-list" id="q-ap-list"></div>
-                        </div>
-                      </div>
-                    </div>
-
                     <!-- QUERY OTIMIZADA TAB -->
                     <div class="qa-tab-panel" id="panel-optimized">
                       <div id="q-opt-empty" class="qa-opt-empty">
@@ -1050,7 +1027,7 @@
                                 <span></span><span></span><span></span>
                               </div>
                               <span class="sql-fname">optimized.sql</span>
-                              <button class="copy-btn" onclick="copySQL()">
+                              <button class="copy-btn" id="qa-copy-sql-btn" onclick="copySQL()">
                                 Copiar SQL
                               </button>
                             </div>

@@ -6429,3 +6429,17 @@ button:focus:not(:focus-visible) {
   color: var(--ink3);
 }
 
+/* AP cards dentro do HITL: bordas mais suaves, fontes menores */
+.hitl-panel .ap-card {
+  border-left-width: 2px;
+}
+
+.hitl-panel .ap-card.sev-critical { border-left-color: #fca5a5; }
+.hitl-panel .ap-card.sev-high     { border-left-color: #fdba74; }
+.hitl-panel .ap-card.sev-medium   { border-left-color: #fcd34d; }
+.hitl-panel .ap-card.sev-low      { border-left-color: #93c5fd; }
+
+.hitl-panel .ap-name { font-size: 11px; }
+.hitl-panel .ap-desc { font-size: 10.5px; }
+.hitl-panel .ap-fix  { font-size: 10.5px; }
+

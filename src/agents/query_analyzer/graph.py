@@ -7,33 +7,30 @@ from langchain_core.language_models import BaseChatModel
 from langgraph.graph import END, START, StateGraph
 
 from src.agents.query_analyzer.nodes import (
-    analyze_patterns,
     await_human_approval,
-    dry_run_estimate,
-    generate_report,
+    detect_antipatterns,
+    dry_run_baseline,
+    enrich_with_intelligence,
+    fetch_dataset_catalog,
+    fetch_query_schema,
     optimize_query,
     parse_query,
+    score_and_report,
     validate_optimized,
 )
 from src.agents.query_analyzer.state import AgentState
 
 
-def _route_after_human(state: AgentState) -> Literal["optimize_query", "generate_report"]:
-    """Roteia com base na decisão humana.
-
-    'skip' (ou ausência de otimização necessária) → relatório direto.
-    Qualquer outra decisão ('approve', texto de feedback, etc.) → otimização.
-    """
+def _route_after_human(state: AgentState) -> Literal["optimize_query", "score_and_report"]:
     if state.human_decision == "skip":
-        return "generate_report"
-    return "optimize_query" if state.needs_optimization else "generate_report"
+        return "score_and_report"
+    return "optimize_query" if state.needs_optimization else "score_and_report"
 
 
-def _should_optimize(state: AgentState) -> Literal["optimize_query", "generate_report"]:
-    """Controla o loop de re-otimização após validate_optimized."""
+def _should_optimize(state: AgentState) -> Literal["optimize_query", "score_and_report"]:
     if state.needs_optimization and state.iteration < state.max_iterations:
         return "optimize_query"
-    return "generate_report"
+    return "score_and_report"
 
 
 def build_graph(
@@ -41,52 +38,77 @@ def build_graph(
     checkpointer: Any = None,
     llm_creative: BaseChatModel | None = None,
 ):
-    """Constrói o grafo QueryAnalyzer.
+    """Constrói o grafo QueryAnalyzer com fan-out paralelo no discover_context.
 
-    Args:
-        llm: LLM analítico (baixa temperatura) — análise e otimização.
-        checkpointer: Checkpointer para persistência HITL.
-        llm_creative: LLM criativo (temperatura maior) — geração do relatório.
-                      Cai para `llm` quando não informado.
+    Topologia:
+        parse_query
+          ├── fetch_query_schema    ┐
+          ├── fetch_dataset_catalog ├── fan-out paralelo (3 workers)
+          └── dry_run_baseline      ┘
+                    ↓ (fan-in)
+          enrich_with_intelligence
+                    ↓
+          detect_antipatterns       (híbrido: regras + LLM structured output)
+                    ↓
+          await_human_approval      (HITL)
+                    ↓ (condicional)
+          optimize_query → validate_optimized ──(loop max 2x)──┐
+                    ↓                                           │
+          score_and_report ←─────────────────────────────────────┘
     """
     _llm_report = llm_creative or llm
     workflow = StateGraph(AgentState)
 
     workflow.add_node("parse_query", parse_query)
-    workflow.add_node("dry_run_estimate", dry_run_estimate)
-    workflow.add_node("analyze_patterns", partial(analyze_patterns, llm=llm))
+
+    # Fan-out: 3 workers paralelos
+    workflow.add_node("fetch_query_schema", fetch_query_schema)
+    workflow.add_node("fetch_dataset_catalog", fetch_dataset_catalog)
+    workflow.add_node("dry_run_baseline", dry_run_baseline)
+
+    # Fan-in + enriquecimento com LLM
+    workflow.add_node("enrich_with_intelligence", partial(enrich_with_intelligence, llm=llm))
+
+    workflow.add_node("detect_antipatterns", partial(detect_antipatterns, llm=llm))
     workflow.add_node("await_human_approval", await_human_approval)
     workflow.add_node("optimize_query", partial(optimize_query, llm=llm))
     workflow.add_node("validate_optimized", validate_optimized)
-    workflow.add_node("generate_report", partial(generate_report, llm=_llm_report))
+    workflow.add_node("score_and_report", partial(score_and_report, llm=_llm_report))
 
+    # START → parse_query → fan-out paralelo
     workflow.add_edge(START, "parse_query")
-    workflow.add_edge("parse_query", "dry_run_estimate")
-    workflow.add_edge("dry_run_estimate", "analyze_patterns")
-    workflow.add_edge("analyze_patterns", "await_human_approval")
+    workflow.add_edge("parse_query", "fetch_query_schema")
+    workflow.add_edge("parse_query", "fetch_dataset_catalog")
+    workflow.add_edge("parse_query", "dry_run_baseline")
 
-    # Após aprovação humana: otimizar ou ir direto ao relatório
+    # Fan-in: os 3 workers convergem para enrich_with_intelligence
+    workflow.add_edge("fetch_query_schema", "enrich_with_intelligence")
+    workflow.add_edge("fetch_dataset_catalog", "enrich_with_intelligence")
+    workflow.add_edge("dry_run_baseline", "enrich_with_intelligence")
+
+    workflow.add_edge("enrich_with_intelligence", "detect_antipatterns")
+    workflow.add_edge("detect_antipatterns", "await_human_approval")
+
     workflow.add_conditional_edges(
         "await_human_approval",
         _route_after_human,
         {
             "optimize_query": "optimize_query",
-            "generate_report": "generate_report",
+            "score_and_report": "score_and_report",
         },
     )
 
     workflow.add_edge("optimize_query", "validate_optimized")
 
-    # Loop de re-otimização: repete até atingir qualidade ou max_iterations
     workflow.add_conditional_edges(
         "validate_optimized",
         _should_optimize,
         {
             "optimize_query": "optimize_query",
-            "generate_report": "generate_report",
+            "score_and_report": "score_and_report",
         },
     )
 
-    workflow.add_edge("generate_report", END)
+    workflow.add_edge("score_and_report", END)
 
     return workflow.compile(checkpointer=checkpointer)

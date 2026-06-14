@@ -11,7 +11,12 @@ from langgraph.types import interrupt
 from src.agents.query_analyzer.prompts import ANALYZE_SYSTEM_PROMPT
 from src.agents.query_analyzer.state import AgentState
 from src.shared.config import BQ_ANTIPATTERNS, get_runtime_config
-from src.shared.tools.bigquery import dry_run_query, format_bytes, get_schemas_for_query
+from src.shared.tools.bigquery import (
+    dry_run_query,
+    format_bytes,
+    get_dataset_tables_schema,
+    get_schemas_for_query,
+)
 from src.shared.tools.llm import invoke_with_retry
 from src.shared.tools.schemas import AntipatternList, OptimizationReport, QueryAntiPattern
 
@@ -70,9 +75,174 @@ def parse_query(state: AgentState) -> dict:
     return {"query_structure": structure}
 
 
+# ---------------------------------------------------------------------------
+# Fan-out: discover_context — 3 workers paralelos
+# ---------------------------------------------------------------------------
+
+def fetch_query_schema(state: AgentState) -> dict:
+    """Busca schema das tabelas referenciadas na query."""
+    return {"query_schema": _safe_get_schema_context(state)}
+
+
+def fetch_dataset_catalog(state: AgentState) -> dict:
+    """Busca catálogo completo de todas as tabelas do dataset para descobrir alternativas."""
+    dataset_hint = state.dataset_hint
+    if not dataset_hint:
+        tables = state.query_structure.get("tables", [])
+        if not tables:
+            return {"dataset_catalog": "(catálogo indisponível — dataset não identificado)"}
+        parts = tables[0].split(".")
+        if len(parts) < 2:
+            return {"dataset_catalog": "(catálogo indisponível — formato de tabela inválido)"}
+        dataset_hint = f"{parts[0]}.{parts[1]}"
+
+    try:
+        result = get_dataset_tables_schema(
+            project_id=state.project_id,
+            dataset_hint=dataset_hint,
+            max_tables=30,
+            max_columns=20,
+        )
+        tables = result.get("tables", [])
+        if not tables:
+            return {"dataset_catalog": "(catálogo vazio — nenhuma tabela encontrada no dataset)"}
+
+        lines = [f"Dataset: {result['dataset_ref']} ({len(tables)} tabelas)"]
+        for t in tables:
+            partition = f" [particionada: {t['partition_field']}]" if t.get("partition_field") else ""
+            clustering = f" [clustering: {', '.join(t['clustering_fields'])}]" if t.get("clustering_fields") else ""
+            cols = ", ".join(c["name"] for c in t.get("columns", [])[:10])
+            lines.append(f"- {t['table_id']}{partition}{clustering}: {cols}")
+
+        return {"dataset_catalog": "\n".join(lines)}
+    except Exception as exc:
+        return {"dataset_catalog": f"(catálogo indisponível: {exc})"}
+
+
+def dry_run_baseline(state: AgentState) -> dict:
+    """Dry-run da query original para custo baseline."""
+    result = dry_run_query(state.original_query, state.project_id)
+    return {"dry_run_original": result}
+
+
+# ---------------------------------------------------------------------------
+# Fan-in: enrich_with_intelligence
+# ---------------------------------------------------------------------------
+
+def enrich_with_intelligence(state: AgentState, llm: BaseChatModel) -> dict:
+    """LLM analisa schema completo + catálogo do dataset + custo para identificar oportunidades."""
+    cost_context = _build_cost_context(state.dry_run_original)
+
+    system_prompt = """\
+Você é um arquiteto de dados BigQuery especialista em otimização de custos GCP.
+
+Analise a query, o schema das suas tabelas, o catálogo completo do dataset e o custo baseline.
+Identifique oportunidades de otimização que o agente não conseguiria ver olhando apenas a query:
+
+1. ALTERNATIVAS DE TABELA: há tabelas particionadas, clusterizadas ou views materializadas no \
+catálogo que poderiam substituir as usadas com menor custo?
+2. OTIMIZAÇÕES DE SCHEMA: colunas desnecessárias projetadas, filtros de partição disponíveis \
+não aplicados, campos de clustering ignorados.
+3. CONTEXTO DO DATASET: insights sobre o dataset que orientem a otimização.
+
+Seja direto e específico. Se não houver oportunidades, responda "Nenhuma oportunidade identificada."
+"""
+
+    user_prompt = f"""## Query:
+```sql
+{state.original_query}
+```
+
+## Schema das tabelas na query:
+{state.query_schema or "(indisponível)"}
+
+## Catálogo completo do dataset:
+{state.dataset_catalog or "(indisponível)"}
+
+## Custo baseline (dry-run):
+{cost_context}
+"""
+
+    try:
+        response = llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
+        ])
+        intelligence = _extract_message_content(response)
+    except Exception as exc:
+        intelligence = f"(enriquecimento indisponível: {exc})"
+
+    enriched_schema = f"""SCHEMA DAS TABELAS:
+{state.query_schema or "(indisponível)"}
+
+INTELIGÊNCIA DE CONTEXTO (alternativas, partições disponíveis, oportunidades):
+{intelligence}"""
+
+    return {
+        "intelligence_context": intelligence,
+        "schema_context": enriched_schema,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Nó legado mantido para compatibilidade com grafos externos
+# ---------------------------------------------------------------------------
+
 def dry_run_estimate(state: AgentState) -> dict:
     result = dry_run_query(state.original_query, state.project_id)
     return {"dry_run_original": result}
+
+
+def detect_antipatterns(state: AgentState, llm: BaseChatModel) -> dict:
+    """Híbrido: regras determinísticas + LLM com structured output.
+
+    Usa schema enriquecido e inteligência de contexto gerados por enrich_with_intelligence.
+    """
+    structure = state.query_structure
+    dry = state.dry_run_original
+    cost_context = _build_cost_context(dry)
+
+    schema_context = state.schema_context or state.query_schema or _safe_get_schema_context(state)
+    antipatterns_list = "\n".join(f"- {pattern}" for pattern in BQ_ANTIPATTERNS)
+
+    user_prompt = f"""
+QUERY:
+{state.original_query}
+
+ANÁLISE ESTRUTURAL:
+{json.dumps(structure, indent=2, ensure_ascii=False)}
+
+CUSTO BASELINE:
+{cost_context}
+
+SCHEMA E CONTEXTO ENRIQUECIDO:
+{schema_context}
+
+INTELIGÊNCIA DE DATASET (alternativas, partições disponíveis, oportunidades):
+{state.intelligence_context or "(não disponível)"}
+
+ANTIPADRÕES POSSÍVEIS:
+{antipatterns_list}
+"""
+
+    antipatterns = _detect_antipatterns_with_llm(
+        llm=llm,
+        system_prompt=ANALYZE_SYSTEM_PROMPT,
+        user_prompt=user_prompt,
+    )
+
+    forced_antipatterns = _build_forced_antipatterns(structure)
+    antipatterns = _merge_antipatterns(antipatterns, forced_antipatterns)
+
+    needs_optimization = bool(antipatterns)
+    bytes_warn = int(get_runtime_config("BYTES_WARNING_THRESHOLD", str(10 * 1024**3)))
+    if dry and not dry.error and dry.bytes_processed > bytes_warn:
+        needs_optimization = True
+
+    return {
+        "antipatterns": antipatterns,
+        "needs_optimization": needs_optimization,
+    }
 
 
 def analyze_patterns(state: AgentState, llm: BaseChatModel) -> dict:
@@ -348,6 +518,11 @@ def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
     )
 
     return {"report": report}
+
+
+def score_and_report(state: AgentState, llm: BaseChatModel) -> dict:
+    """Alias de generate_report com nomenclatura alinhada à nova topologia."""
+    return generate_report(state, llm)
 
 
 def _safe_get_schema_context(state: AgentState) -> str:

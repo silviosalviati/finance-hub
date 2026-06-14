@@ -36,8 +36,8 @@ def _portal_html_path() -> Path:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()              # DB inicializado primeiro — config lida do SQLite daí em diante
-    configure_tracing()    # Ativa LangSmith se LANGCHAIN_API_KEY estiver no DB
+    init_db()              
+    configure_tracing()    
     _validate_startup_config()
     print(f"LLM_PROVIDER: {LLM_PROVIDER}")
     print(f"ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")

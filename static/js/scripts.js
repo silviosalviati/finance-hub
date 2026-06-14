@@ -3676,6 +3676,9 @@ async function resumeQA(decision) {
   if (procDesc) procDesc.textContent = decision === "approve"
     ? "Aplicando correções automáticas nos anti-padrões"
     : "Compilando análise sem aplicar otimizações";
+
+  const hitlPanel = document.getElementById("qa-hitl-panel");
+  if (hitlPanel) { hitlPanel.scrollTop = 0; hitlPanel.style.overflowY = "hidden"; }
   if (processing) processing.style.display = "flex";
 
   setQAProgress(decision === "approve" ? "Otimizando query..." : "Gerando relatório...", 50);
@@ -3692,7 +3695,7 @@ async function resumeQA(decision) {
     if (!res.ok) throw new Error(data.detail || "Erro ao retomar análise");
 
     const panel = document.getElementById("qa-hitl-panel");
-    if (panel) panel.style.display = "none";
+    if (panel) { panel.style.display = "none"; panel.style.overflowY = ""; }
     if (processing) processing.style.display = "none";
     _qaHitlThreadId = null;
 
@@ -3701,6 +3704,7 @@ async function resumeQA(decision) {
     saveToHistory(data, document.getElementById("qa-query")?.value || "");
   } catch (e) {
     if (processing) processing.style.display = "none";
+    if (hitlPanel) hitlPanel.style.overflowY = "";
     if (approveBtn) approveBtn.disabled = false;
     if (skipBtn) skipBtn.disabled = false;
     showQAError(e.message);

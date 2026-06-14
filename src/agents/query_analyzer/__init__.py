@@ -19,7 +19,10 @@ def _make_checkpointer():
         from langgraph.checkpoint.sqlite import SqliteSaver  # type: ignore
         db_path = Path(".sixth") / "langgraph_checkpoints.db"
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        return SqliteSaver.from_conn_string(str(db_path))
+        # from_conn_string retorna um context manager na v3.x — abrimos aqui
+        # e mantemos a conexão pelo tempo de vida do processo.
+        ctx = SqliteSaver.from_conn_string(str(db_path))
+        return ctx.__enter__()
     except Exception:
         from langgraph.checkpoint.memory import MemorySaver
         return MemorySaver()

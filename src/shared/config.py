@@ -80,6 +80,18 @@ FINANCE_AUDITOR_DEFAULT_PROJECT = _from_db(
     "silviosalviati",
 )
 
+def get_gcp_project_ids() -> list[str]:
+    """Retorna lista de project IDs GCP configurados (campo separado por vírgula no DB)."""
+    raw = get_runtime_config("GCP_PROJECT_ID", "silviosalviati")
+    return [p.strip() for p in raw.split(",") if p.strip()]
+
+
+def get_default_gcp_project() -> str:
+    """Retorna o primeiro project ID configurado como padrão."""
+    projects = get_gcp_project_ids()
+    return projects[0] if projects else ""
+
+
 BQ_COST_PER_TB_USD = float(_from_db("BQ_COST_PER_TB_USD", "5.0"))
 BYTES_WARNING_THRESHOLD = int(_from_db("BYTES_WARNING_THRESHOLD", str(10 * 1024**3)))
 BYTES_CRITICAL_THRESHOLD = int(_from_db("BYTES_CRITICAL_THRESHOLD", str(100 * 1024**3)))
@@ -144,7 +156,7 @@ def validate_runtime_config() -> list[str]:
         errors.append("ALLOWED_ORIGINS nao pode ficar vazio.")
 
     gcp_project = get_runtime_config("GCP_PROJECT_ID")
-    if not gcp_project:
+    if not gcp_project or not get_gcp_project_ids():
         errors.append("GCP_PROJECT_ID nao configurado.")
 
     credentials_path = get_runtime_config(

@@ -14,7 +14,7 @@ from google.oauth2 import service_account
 
 from src.api.dependencies import get_current_user
 from src.core.checkpointer import CheckpointConfig, FileCheckpointer
-from src.shared.config import get_runtime_config
+from src.shared.config import get_default_gcp_project, get_gcp_project_ids, get_runtime_config
 
 router = APIRouter(tags=["schema-explorer"])
 
@@ -25,8 +25,8 @@ _CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform.read-onl
 async def list_projects(
     session: dict[str, Any] = Depends(get_current_user),
 ) -> list[str]:
-    """Return GCP project IDs accessible to the service account."""
-    default = get_runtime_config("GCP_PROJECT_ID", "silviosalviati").strip()
+    """Return GCP project IDs — tries Cloud Resource Manager first, falls back to configured list."""
+    configured = get_gcp_project_ids()
     creds_path = get_runtime_config("GOOGLE_APPLICATION_CREDENTIALS", "secrets/credentials.json")
     try:
         from google.auth.transport.requests import Request as GRequest
@@ -40,16 +40,23 @@ async def list_projects(
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
-        projects = sorted(
+        api_projects = sorted(
             p["projectId"]
             for p in data.get("projects", [])
             if p.get("lifecycleState") == "ACTIVE"
         )
-        if projects:
-            return projects
+        if api_projects:
+            # Merge: configured projects first (preserves preferred order), then any extras from API
+            seen: set[str] = set()
+            merged: list[str] = []
+            for p in configured + [x for x in api_projects if x not in set(configured)]:
+                if p not in seen:
+                    seen.add(p)
+                    merged.append(p)
+            return merged
     except Exception:
         pass
-    return [default] if default else []
+    return configured
 
 
 @router.get("/api/schema-explorer/datasets")
@@ -58,7 +65,7 @@ async def list_datasets(
     session: dict[str, Any] = Depends(get_current_user),
 ) -> list[str]:
     """Return dataset IDs accessible in the given GCP project."""
-    resolved = (project_id or get_runtime_config("GCP_PROJECT_ID", "silviosalviati")).strip()
+    resolved = (project_id or get_default_gcp_project()).strip()
     if not resolved:
         raise HTTPException(status_code=400, detail="project_id \u00e9 obrigat\u00f3rio.")
     try:
@@ -258,7 +265,7 @@ async def get_schema_explorer_graph(
     session: dict[str, Any] = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Return ER diagram data (nodes + edges) for a BigQuery dataset."""
-    resolved_project = (project_id or GCP_PROJECT_ID).strip()
+    resolved_project = (project_id or get_default_gcp_project()).strip()
     if not resolved_project:
         raise HTTPException(status_code=400, detail="project_id ├® obrigat├│rio.")
 

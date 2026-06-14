@@ -23,8 +23,8 @@ _DEFAULT_CREDENTIALS_PATH = str(Path("secrets") / "credentials.json")
 
 
 def _resolve_project_id(project_id: str | None) -> str:
-    default = get_runtime_config("GCP_PROJECT_ID", "silviosalviati")
-    resolved = (project_id or default).strip()
+    from src.shared.config import get_default_gcp_project
+    resolved = (project_id or get_default_gcp_project()).strip()
     if not resolved:
         raise ValueError("Project ID do BigQuery nao informado.")
     return resolved

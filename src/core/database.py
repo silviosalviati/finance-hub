@@ -23,7 +23,7 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     "VERTEXAI_TEMPERATURE": ("0.05", "Temperatura analítica do LLM — análise e otimização (0.0 – 1.0)"),
     "VERTEXAI_TEMPERATURE_CREATIVE": ("0.3", "Temperatura criativa do LLM — relatórios e temas (0.0 – 1.0)"),
     # GCP / BigQuery
-    "GCP_PROJECT_ID": ("silviosalviati", "ID do projeto GCP padrão"),
+    "GCP_PROJECT_ID": ("silviosalviati", "IDs de projetos GCP permitidos (separados por vírgula)"),
     "GOOGLE_APPLICATION_CREDENTIALS": (
         "secrets/credentials.json",
         "Caminho do arquivo de credenciais GCP (relativo à raiz do projeto)",

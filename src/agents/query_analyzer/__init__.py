@@ -148,26 +148,19 @@ class QueryAnalyzerAgent(BaseAgent):
         graph = self._get_graph()
         config = {"configurable": {"thread_id": thread_id}}
 
-        # Verifica se o checkpoint ainda existe no MemorySaver antes de tentar retomar
+        final_event: dict[str, Any] | None = None
         try:
-            snapshot = graph.get_state(config)
-            has_pending = snapshot and bool(snapshot.next)
-        except Exception:
-            has_pending = False
-
-        if not has_pending:
+            for event in graph.stream(
+                Command(resume=human_decision),
+                config=config,
+                stream_mode="values",
+            ):
+                final_event = event
+        except Exception as exc:
             raise RuntimeError(
                 "Sessão de análise não encontrada ou já concluída. "
                 "Por favor, inicie uma nova análise."
-            )
-
-        final_event: dict[str, Any] | None = None
-        for event in graph.stream(
-            Command(resume=human_decision),
-            config=config,
-            stream_mode="values",
-        ):
-            final_event = event
+            ) from exc
 
         if not final_event or not final_event.get("report"):
             raise RuntimeError("Análise não produziu relatório após retomada.")

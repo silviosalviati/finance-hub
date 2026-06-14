@@ -3723,7 +3723,10 @@ function _buildSqlDiff(original, optimized) {
 }
 
 async function resumeQA(decision) {
-  if (!_qaHitlThreadId) return;
+  if (!_qaHitlThreadId) {
+    showQAError("Sessão de análise expirou. Por favor, inicie uma nova análise.");
+    return;
+  }
 
   const approveBtn = document.getElementById("qa-hitl-approve");
   const skipBtn = document.getElementById("qa-hitl-skip");

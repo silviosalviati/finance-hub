@@ -6436,6 +6436,13 @@ button:focus:not(:focus-visible) {
   overflow: visible;
 }
 
+/* Painéis com scroll: filhos não encolhem (flex-shrink:1 padrão impede o scroll) */
+#panel-optimized > *,
+#panel-applied > *,
+#panel-recs > * {
+  flex-shrink: 0;
+}
+
 /* ── HITL Processing Overlay ─────────────────────────────────── */
 .hitl-processing {
   position: absolute;

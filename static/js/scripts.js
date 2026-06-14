@@ -6224,32 +6224,44 @@ async function adminDeleteUser(username) {
 // Admin — Config
 // ─────────────────────────────────────
 async function adminLoadConfig() {
-  const tbody = document.getElementById("admin-config-tbody");
-  if (!tbody) return;
-  tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;color:var(--ink3)'>Carregando...</td></tr>";
+  const grid = document.getElementById("admin-config-grid");
+  if (!grid) return;
+  grid.innerHTML = '<div class="acp-loading">Carregando parâmetros...</div>';
 
   try {
     const res = await fetch("/admin/config", { headers: authHeaders() });
     if (!res.ok) throw new Error((await res.json()).detail || "Erro");
     const configs = await res.json();
 
-    tbody.innerHTML = configs.map(c => `
-      <tr>
-        <td><code>${c.key}</code></td>
-        <td style="font-size:12px;color:var(--ink3)">${c.description}</td>
-        <td><input class="admin-config-input" id="cfg-${c.key}" type="text" value="${c.value}" /></td>
-        <td>
-          <button class="btn-table-edit" onclick="adminSaveConfig('${c.key}')">Salvar</button>
-        </td>
-      </tr>
-    `).join("") || "<tr><td colspan='4'>Nenhum parâmetro encontrado.</td></tr>";
+    if (!configs.length) {
+      grid.innerHTML = '<div class="acp-loading">Nenhum parâmetro encontrado.</div>';
+      return;
+    }
+
+    grid.innerHTML = configs.map(c => `
+      <div class="acp-card">
+        <span class="acp-card-key">${escapeHtml(c.key)}</span>
+        <div class="acp-card-desc">${escapeHtml(c.description || "—")}</div>
+        <div class="acp-card-row">
+          <input
+            class="acp-card-input"
+            id="cfg-${escapeHtml(c.key)}"
+            type="text"
+            value="${escapeHtml(c.value || "")}"
+            onkeydown="if(event.key==='Enter') adminSaveConfig('${escapeHtml(c.key)}')"
+          />
+          <button class="acp-card-save" id="save-btn-${escapeHtml(c.key)}" onclick="adminSaveConfig('${escapeHtml(c.key)}')">Salvar</button>
+        </div>
+      </div>
+    `).join("");
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan='4' style='color:#c0392b'>${e.message}</td></tr>`;
+    grid.innerHTML = `<div class="acp-loading" style="color:#c0392b">${e.message}</div>`;
   }
 }
 
 async function adminSaveConfig(key) {
   const input = document.getElementById(`cfg-${key}`);
+  const btn = document.getElementById(`save-btn-${key}`);
   if (!input) return;
   const value = input.value.trim();
 
@@ -6260,8 +6272,11 @@ async function adminSaveConfig(key) {
       body: JSON.stringify({ value }),
     });
     if (!res.ok) throw new Error((await res.json()).detail || "Erro ao salvar");
-    input.style.outline = "2px solid #22c55e";
-    setTimeout(() => { input.style.outline = ""; }, 1500);
+    if (btn) {
+      btn.textContent = "Salvo ✓";
+      btn.classList.add("saved");
+      setTimeout(() => { btn.textContent = "Salvar"; btn.classList.remove("saved"); }, 1800);
+    }
   } catch (e) {
     alert(e.message);
   }

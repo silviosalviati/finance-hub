@@ -2814,6 +2814,32 @@ textarea {
   transition: width 0.35s ease;
 }
 
+.qa-ctx-indicator {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 10px;
+  letter-spacing: 0.01em;
+  vertical-align: middle;
+  margin-left: 6px;
+  display: none;
+}
+.qa-ctx-indicator.checking {
+  display: inline-block;
+  background: rgba(234,179,8,0.12);
+  color: #ca8a04;
+}
+.qa-ctx-indicator.ok {
+  display: inline-block;
+  background: rgba(34,197,94,0.12);
+  color: #16a34a;
+}
+.qa-ctx-indicator.error {
+  display: inline-block;
+  background: rgba(239,68,68,0.12);
+  color: #dc2626;
+}
+
 .qa-last-run {
   display: flex;
   align-items: center;

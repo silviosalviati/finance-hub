@@ -73,27 +73,7 @@ function authHeaders() {
   };
 }
 
-function enforceQAConfigReadOnly() {
-  const projectEl = document.getElementById("qa-project");
-  const datasetEl = document.getElementById("qa-dataset");
 
-  [projectEl, datasetEl].forEach((el) => {
-    if (!el) return;
-
-    el.readOnly = true;
-    el.setAttribute("readonly", "readonly");
-    el.tabIndex = -1;
-
-    const blockEdit = (event) => {
-      event.preventDefault();
-    };
-
-    el.onkeydown = blockEdit;
-    el.onbeforeinput = blockEdit;
-    el.onpaste = blockEdit;
-    el.ondrop = blockEdit;
-  });
-}
 
 function showScreen(id) {
   document.querySelectorAll(".screen").forEach((screen) => {
@@ -267,103 +247,26 @@ function syncQAAnalyzeButtonState() {
 }
 
 function setQADatasetValidationStatus(kind, payload = {}) {
-  const statusEl = document.getElementById("qa-dataset-status");
-  const indicatorEl = document.getElementById("qa-dataset-indicator");
-  const statusIconEl = document.getElementById("qa-dataset-status-icon");
-  const statusTitleEl = document.getElementById("qa-dataset-status-title");
-  const statusTextEl = document.getElementById("qa-dataset-status-text");
-  const statusMetaEl = document.getElementById("qa-dataset-status-meta");
-  const datasetHint = document.getElementById("qa-dataset")?.value.trim() || "";
-  const title = payload.title || "";
-  const message = payload.message || "";
-  const tableCount = Number(payload.tableCount ?? NaN);
-  const queryTableCount = Number(payload.queryTableCount ?? NaN);
-
-  if (statusEl) {
-    statusEl.className = "qb-dataset-status";
-  }
-
-  if (statusTitleEl) statusTitleEl.textContent = "";
-  if (statusTextEl) statusTextEl.textContent = "";
-  if (statusMetaEl) statusMetaEl.innerHTML = "";
-
-  if (statusIconEl) {
-    statusIconEl.textContent = "•";
-  }
-
-  if (indicatorEl) {
-    indicatorEl.className = "qb-dataset-indicator";
-    indicatorEl.textContent = "●";
-  }
-
-  if (kind === "idle") {
-    syncQAAnalyzeButtonState();
-    return;
-  }
-
-  if (statusEl) {
-    statusEl.classList.add(kind);
-  }
-
-  if (statusTitleEl) {
-    statusTitleEl.textContent =
-      title ||
-      (kind === "ok"
-        ? "Dataset pronto para análise"
-        : kind === "checking"
-          ? "Validando contexto da query"
-          : "Valida��o pendente");
-  }
-
-  if (statusTextEl) {
-    statusTextEl.textContent = message;
-  }
-
-  if (statusIconEl) {
-    statusIconEl.textContent =
-      kind === "ok" ? "✓" : kind === "checking" ? "…" : "!";
-  }
-
-  if (statusMetaEl && kind === "ok") {
-    const chips = [];
-    if (datasetHint) {
-      chips.push(`<span class="qb-dataset-chip">🗂️ ${datasetHint}</span>`);
+  const indicator = document.getElementById("qa-ctx-indicator");
+  if (indicator) {
+    indicator.className = "qa-ctx-indicator";
+    if (kind === "checking") {
+      indicator.classList.add("checking");
+      indicator.textContent = "… Validando";
+    } else if (kind === "ok") {
+      indicator.classList.add("ok");
+      indicator.textContent = "✓ Contexto válido";
+    } else if (kind === "error") {
+      indicator.classList.add("error");
+      indicator.textContent = "✕ Inválido";
     }
-    if (!Number.isNaN(tableCount)) {
-      chips.push(
-        `<span class="qb-dataset-chip">📊 ${tableCount} tabelas</span>`,
-      );
-    }
-    if (!Number.isNaN(queryTableCount)) {
-      chips.push(
-        `<span class="qb-dataset-chip">🔎 ${queryTableCount} usadas na query</span>`,
-      );
-    }
-    chips.push(
-      '<span class="qb-dataset-chip">✅ BigQuery + Data Catalog/Dataplex</span>',
-    );
-    statusMetaEl.innerHTML = chips.join(" ");
   }
-
-  if (statusMetaEl && kind === "error") {
-    statusMetaEl.innerHTML =
-      '<span class="qb-dataset-chip">⚠️ Revise o formato projeto.dataset.tabela</span>';
-  }
-
-  if (indicatorEl) {
-    indicatorEl.classList.add(kind);
-    indicatorEl.textContent =
-      kind === "ok" ? "✓" : kind === "checking" ? "…" : "✕";
-  }
-
   syncQAAnalyzeButtonState();
 }
 
 async function validateQAQueryContext() {
   const query = document.getElementById("qa-query")?.value.trim() || "";
-  const projectEl = document.getElementById("qa-project");
-  const datasetEl = document.getElementById("qa-dataset");
-  const currentProject = projectEl?.value.trim() || "";
+  const currentProject = qaDatasetValidationState.projectId || "";
 
   qaDatasetValidationState.queryText = query;
 
@@ -371,8 +274,6 @@ async function validateQAQueryContext() {
     qaDatasetValidationState.status = "idle";
     qaDatasetValidationState.projectId = "";
     qaDatasetValidationState.datasetHint = "";
-    if (projectEl) projectEl.value = "";
-    if (datasetEl) datasetEl.value = "";
     setQADatasetValidationStatus("idle");
     return {
       valid: false,
@@ -436,8 +337,6 @@ async function validateQAQueryContext() {
       payload.dataset_id ||
       ""
     ).trim();
-    if (projectEl) projectEl.value = detectedProject;
-    if (datasetEl) datasetEl.value = detectedDataset;
 
     if (payload.valid) {
       qaDatasetValidationState.status = "valid";
@@ -980,14 +879,8 @@ async function runAnalyze() {
   }
 
   const query = document.getElementById("qa-query")?.value.trim() || "";
-  const project_id =
-    qaDatasetValidationState.projectId ||
-    document.getElementById("qa-project")?.value.trim() ||
-    "";
-  const dataset_hint =
-    qaDatasetValidationState.datasetHint ||
-    document.getElementById("qa-dataset")?.value.trim() ||
-    "";
+  const project_id = qaDatasetValidationState.projectId || "";
+  const dataset_hint = qaDatasetValidationState.datasetHint || "";
   const errEl = document.getElementById("qa-error");
   const qaEmpty = document.getElementById("qa-empty");
   const qaTabsArea = document.getElementById("qa-tabs-area");
@@ -2077,7 +1970,7 @@ function translateSectionTitle(title) {
 
 function resolveDocumentBuildContext(requestText) {
   const explicit = extractExplicitTableRef(requestText);
-  const qaProject = document.getElementById("qa-project")?.value.trim() || "";
+  const qaProject = qaDatasetValidationState.projectId || "";
   const qbProject = document.getElementById("qb-project")?.value.trim() || "";
 
   const projectId = explicit.project || qaProject || qbProject;
@@ -3897,8 +3790,6 @@ window.addEventListener("load", function init() {
   try {
     showScreen("screen-login");
     document.getElementById("inp-user")?.focus();
-    enforceQAConfigReadOnly();
-
     // Remover event listeners dos botões que foram removidos
     renderShowcase();
     startShowcaseAutoplay();

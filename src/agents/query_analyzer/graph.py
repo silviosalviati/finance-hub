@@ -38,54 +38,38 @@ def build_graph(
     checkpointer: Any = None,
     llm_creative: BaseChatModel | None = None,
 ):
-    """Constrói o grafo QueryAnalyzer com fan-out paralelo no discover_context.
+    """Constrói o grafo QueryAnalyzer.
 
-    Topologia:
+    Topologia (sequencial para evitar problemas de concorrência com credenciais GCP):
         parse_query
-          ├── fetch_query_schema    ┐
-          ├── fetch_dataset_catalog ├── fan-out paralelo (3 workers)
-          └── dry_run_baseline      ┘
-                    ↓ (fan-in)
-          enrich_with_intelligence
-                    ↓
-          detect_antipatterns       (híbrido: regras + LLM structured output)
-                    ↓
-          await_human_approval      (HITL)
-                    ↓ (condicional)
-          optimize_query → validate_optimized ──(loop max 2x)──┐
-                    ↓                                           │
-          score_and_report ←─────────────────────────────────────┘
+          → dry_run_baseline       (custo baseline)
+          → fetch_query_schema     (schema das tabelas na query)
+          → fetch_dataset_catalog  (catálogo completo do dataset — alternativas)
+          → enrich_with_intelligence (LLM: schema + catálogo + custo)
+          → detect_antipatterns    (híbrido: regras + LLM structured output)
+          → await_human_approval   (HITL)
+          → optimize_query → validate_optimized ──(loop max 2x)──┐
+          → score_and_report ←────────────────────────────────────┘
     """
     _llm_report = llm_creative or llm
     workflow = StateGraph(AgentState)
 
     workflow.add_node("parse_query", parse_query)
-
-    # Fan-out: 3 workers paralelos
+    workflow.add_node("dry_run_baseline", dry_run_baseline)
     workflow.add_node("fetch_query_schema", fetch_query_schema)
     workflow.add_node("fetch_dataset_catalog", fetch_dataset_catalog)
-    workflow.add_node("dry_run_baseline", dry_run_baseline)
-
-    # Fan-in + enriquecimento com LLM
     workflow.add_node("enrich_with_intelligence", partial(enrich_with_intelligence, llm=llm))
-
     workflow.add_node("detect_antipatterns", partial(detect_antipatterns, llm=llm))
     workflow.add_node("await_human_approval", await_human_approval)
     workflow.add_node("optimize_query", partial(optimize_query, llm=llm))
     workflow.add_node("validate_optimized", validate_optimized)
     workflow.add_node("score_and_report", partial(score_and_report, llm=_llm_report))
 
-    # START → parse_query → fan-out paralelo
     workflow.add_edge(START, "parse_query")
-    workflow.add_edge("parse_query", "fetch_query_schema")
-    workflow.add_edge("parse_query", "fetch_dataset_catalog")
     workflow.add_edge("parse_query", "dry_run_baseline")
-
-    # Fan-in: os 3 workers convergem para enrich_with_intelligence
-    workflow.add_edge("fetch_query_schema", "enrich_with_intelligence")
+    workflow.add_edge("dry_run_baseline", "fetch_query_schema")
+    workflow.add_edge("fetch_query_schema", "fetch_dataset_catalog")
     workflow.add_edge("fetch_dataset_catalog", "enrich_with_intelligence")
-    workflow.add_edge("dry_run_baseline", "enrich_with_intelligence")
-
     workflow.add_edge("enrich_with_intelligence", "detect_antipatterns")
     workflow.add_edge("detect_antipatterns", "await_human_approval")
 

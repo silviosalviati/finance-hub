@@ -3302,6 +3302,17 @@ function renderQA(d) {
 
   if (tabOptimized) tabOptimized.classList.add("has-data");
 
+  // Data existence warning
+  const qWarnSec = document.getElementById("q-data-warn");
+  if (qWarnSec) {
+    if (d.data_existence_warning) {
+      qWarnSec.textContent = d.data_existence_warning;
+      qWarnSec.style.display = "block";
+    } else {
+      qWarnSec.style.display = "none";
+    }
+  }
+
   if (d.optimized_query) {
     if (qOptSec) qOptSec.style.display = "block";
     if (qOptEmpty) qOptEmpty.style.display = "none";

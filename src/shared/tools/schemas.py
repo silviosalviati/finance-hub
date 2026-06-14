@@ -94,4 +94,5 @@ class OptimizationReport(BaseModel):
     power_bi_tips: list[str] = Field(default_factory=list)
     applied_optimizations: list[str] = Field(default_factory=list)
     intelligence_summary: Optional[str] = None
+    data_existence_warning: Optional[str] = None
 

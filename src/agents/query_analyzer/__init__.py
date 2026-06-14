@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import os
 import threading
 import time
 import uuid
 from typing import Any
 
 from langgraph.types import Command
+
+# Registrar tipos customizados para evitar warnings de desserialização do msgpack do LangGraph.
+# Sem isso, DryRunResult/QueryAntiPattern/IntelligenceReport geram warnings ao retomar checkpoints.
+_MSGPACK_MODULES = "src.shared.tools.schemas,src.agents.query_analyzer.state"
+_existing = os.environ.get("LANGGRAPH_ALLOWED_MSGPACK_MODULES", "")
+if _MSGPACK_MODULES not in _existing:
+    os.environ["LANGGRAPH_ALLOWED_MSGPACK_MODULES"] = ",".join(filter(None, [_existing, _MSGPACK_MODULES]))
 
 from src.agents.query_analyzer.graph import build_graph
 from src.agents.query_analyzer.state import AgentState
@@ -205,6 +213,7 @@ class QueryAnalyzerAgent(BaseAgent):
             "power_bi_tips": report.power_bi_tips,
             "applied_optimizations": report.applied_optimizations,
             "dry_run_error": dry_orig.error if dry_orig else None,
+            "data_existence_warning": report.data_existence_warning,
         }
 
     def runtime_info(self) -> dict[str, str]:

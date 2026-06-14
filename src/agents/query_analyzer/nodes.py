@@ -16,6 +16,7 @@ from src.core.database import get_dataset_memory, update_dataset_memory
 from src.shared.config import BQ_ANTIPATTERNS, get_runtime_config
 from src.shared.tools.bigquery import (
     dry_run_query,
+    execute_query_rows,
     format_bytes,
     get_dataset_tables_schema,
     get_schemas_for_query,
@@ -385,18 +386,19 @@ ATENÇÃO — Query analítica complexa (possível camada Gold/Silver):
     system_prompt = f"""Você é um especialista em BigQuery e SQL analítico para Power BI.
 Otimize a query para reduzir bytes processados e slots consumidos no BigQuery.
 
-REGRAS ABSOLUTAS:
+REGRAS ABSOLUTAS — nunca viole nenhuma delas:
 1. Preserve EXATAMENTE todas as colunas calculadas, aliases e métricas de KPI
 2. Preserve TODAS as regras de negócio: CASE WHEN, IF, COALESCE, IIF, NULLIF
 3. Preserve TODOS os JOINs necessários
 4. Preserve TODA a lógica de datas, períodos e granularidade temporal
-5. Preserve TODOS os filtros WHERE e HAVING
+5. Preserve TODOS os filtros WHERE e HAVING existentes na query original
 6. {schema_instruction}
-7. Aplique filtro por partição/data quando disponível para evitar full scan
-8. O resultado DEVE ser idêntico ao original
+7. NUNCA adicione cláusulas WHERE, filtros ou condições que NÃO estavam na query original — você pode otimizar estruturas (UNION ALL, partições, clustering) mas JAMAIS restringir os dados retornados
+8. O conjunto de linhas retornado DEVE ser idêntico ao original
 9. NUNCA adicione comentários no SQL final
 10. Responda APENAS com o SQL otimizado
-11. Evite ORDER BY RAND(); prefira LIMIT simples para amostragem
+11. Evite ORDER BY RAND(); substitua por TABLESAMPLE ou remova se não for essencial
+12. Implicit cross joins (FROM a, b) devem ser convertidos em INNER JOIN explícito APENAS quando a relação de chave for 100% clara no schema; caso contrário, mantenha o FROM original
 {gold_layer_note}"""
 
     user_prompt = f"""## Query original:
@@ -521,6 +523,63 @@ def validate_optimized(state: AgentState) -> dict:
     }
 
 
+def validate_data_existence(state: AgentState) -> dict:
+    """Valida se a query otimizada retorna dados reais e detecta mudanças semânticas.
+
+    Dois níveis de verificação:
+    1. Semântica: a query otimizada adicionou WHERE/filtros que não existiam no original?
+    2. Existência: a query otimizada retorna ao menos 1 linha no BigQuery?
+    """
+    if not state.optimized_query:
+        return {}
+
+    warnings: list[str] = []
+
+    # — Verificação 1: mudança semântica (WHERE adicionado pelo optimizer) ——————
+    original_has_where = bool(re.search(r"\bWHERE\b", state.original_query, re.IGNORECASE))
+    optimized_has_where = bool(re.search(r"\bWHERE\b", state.optimized_query, re.IGNORECASE))
+
+    if optimized_has_where and not original_has_where:
+        warnings.append(
+            "⚠ A query otimizada adicionou cláusula WHERE que NÃO existia na query original. "
+            "Isso restringe os dados retornados e muda o resultado. "
+            "Verifique se os filtros adicionados correspondem a dados reais no seu dataset."
+        )
+
+    # Detect new filter conditions even when both have WHERE
+    if original_has_where and optimized_has_where:
+        orig_where = _extract_where_conditions(state.original_query)
+        opt_where = _extract_where_conditions(state.optimized_query)
+        new_conditions = opt_where - orig_where
+        if new_conditions:
+            warnings.append(
+                f"⚠ A query otimizada adicionou {len(new_conditions)} condição(ões) de filtro "
+                f"além das originais: {', '.join(sorted(new_conditions)[:3])}. "
+                "Confirme que essas condições correspondem a dados existentes no seu BigQuery."
+            )
+
+    # — Verificação 2: existência de dados (execução leve com LIMIT 1) ———————
+    try:
+        existence_sql = (
+            f"SELECT 1 AS _exists FROM ({state.optimized_query}) AS _chk LIMIT 1"
+        )
+        rows = execute_query_rows(existence_sql, state.project_id, max_rows=1)
+        if not rows:
+            warnings.append(
+                "⚠ A query otimizada não retornou nenhum dado no BigQuery. "
+                "Os filtros aplicados (datas, chaves, condições) podem não corresponder "
+                "a registros existentes nas tabelas. Revise as condições antes de usar esta query."
+            )
+    except Exception as exc:
+        # Don't block the pipeline — just report the check failed
+        warnings.append(
+            f"ℹ Não foi possível verificar a existência de dados na query otimizada: {exc}"
+        )
+
+    warning_text = "\n\n".join(warnings) if warnings else None
+    return {"data_existence_warning": warning_text}
+
+
 def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
     dry_orig = state.dry_run_original
     dry_opt = state.dry_run_optimized
@@ -562,6 +621,7 @@ def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
         power_bi_tips=power_bi_tips,
         applied_optimizations=applied_optimizations,
         intelligence_summary=state.intelligence_context or None,
+        data_existence_warning=state.data_existence_warning,
     )
 
     # Persist cross-session memory: antipatterns + intelligence context for this dataset
@@ -608,6 +668,23 @@ def _save_analysis_to_memory(state: AgentState) -> None:
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+def _extract_where_conditions(sql: str) -> set[str]:
+    """Extrai termos de condição do WHERE para comparar entre original e otimizada."""
+    match = re.search(
+        r"\bWHERE\b(.+?)(?:\bGROUP\s+BY\b|\bHAVING\b|\bORDER\s+BY\b|\bLIMIT\b|\bUNION\b|$)",
+        sql,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if not match:
+        return set()
+    where_text = match.group(1).strip()
+    # Split on AND/OR and extract individual condition tokens (column names, values)
+    tokens = re.findall(r"\b[a-zA-Z_][a-zA-Z0-9_.]*\b", where_text)
+    # Filter out SQL keywords
+    sql_keywords = {"AND", "OR", "NOT", "IN", "IS", "NULL", "BETWEEN", "LIKE", "EXISTS", "AS"}
+    return {t.upper() for t in tokens if t.upper() not in sql_keywords and len(t) > 2}
+
 
 def _safe_get_schema_context(state: AgentState) -> str:
     try:

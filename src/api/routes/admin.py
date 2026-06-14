@@ -15,6 +15,7 @@ from src.core.database import (
     set_config_value,
     update_user,
 )
+from src.shared.config import invalidate_config_cache
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -108,4 +109,5 @@ async def admin_update_config(
     updated = set_config_value(key, req.value, updated_by=admin["username"])
     if not updated:
         raise HTTPException(status_code=404, detail="Parâmetro não encontrado.")
+    invalidate_config_cache(key)
     return {"ok": True}

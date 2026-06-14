@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import Literal
+from typing import Any, Literal
 
 from langchain_core.language_models import BaseChatModel
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from src.agents.query_analyzer.nodes import (
@@ -37,7 +36,7 @@ def _should_optimize(state: AgentState) -> Literal["optimize_query", "generate_r
     return "generate_report"
 
 
-def build_graph(llm: BaseChatModel):
+def build_graph(llm: BaseChatModel, checkpointer: Any = None):
     workflow = StateGraph(AgentState)
 
     workflow.add_node("parse_query", parse_query)
@@ -77,5 +76,4 @@ def build_graph(llm: BaseChatModel):
 
     workflow.add_edge("generate_report", END)
 
-    # MemorySaver persiste o estado entre analyze() e resume() na mesma sessão
-    return workflow.compile(checkpointer=MemorySaver())
+    return workflow.compile(checkpointer=checkpointer)

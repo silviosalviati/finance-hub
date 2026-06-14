@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from typing import Any
 
 from langgraph.types import Command
@@ -10,6 +11,23 @@ from src.agents.query_analyzer.state import AgentState
 from src.core.base_agent import BaseAgent
 from src.shared.config import get_runtime_config
 from src.shared.tools.llm import create_llm
+
+
+def _make_checkpointer():
+    """Cria SqliteSaver persistente; cai em MemorySaver se o pacote não estiver instalado."""
+    try:
+        from langgraph.checkpoint.sqlite import SqliteSaver  # type: ignore
+        db_path = Path(".sixth") / "langgraph_checkpoints.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        return SqliteSaver.from_conn_string(str(db_path))
+    except Exception:
+        from langgraph.checkpoint.memory import MemorySaver
+        return MemorySaver()
+
+
+# Instância única compartilhada por todas as requisições — sobrevive a corridas
+# de inicialização e mantém thread_ids de HITL entre chamadas analyze/resume.
+_CHECKPOINTER = _make_checkpointer()
 
 
 class QueryAnalyzerAgent(BaseAgent):
@@ -26,7 +44,7 @@ class QueryAnalyzerAgent(BaseAgent):
 
     def _get_graph(self):
         if self._graph is None:
-            self._graph = build_graph(create_llm())
+            self._graph = build_graph(create_llm(), _CHECKPOINTER)
         return self._graph
 
     def analyze(

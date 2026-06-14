@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import time
+from functools import lru_cache
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -38,6 +40,7 @@ def invoke_with_retry(
     max_attempts: int = 3,
     base_delay: float = 2.0,
 ) -> Any:
+    """Retry síncrono — usar apenas em contextos síncronos (nós LangGraph em thread executor)."""
     last_exc: BaseException = RuntimeError("Nenhuma tentativa realizada")
     for attempt in range(max_attempts):
         try:
@@ -46,4 +49,22 @@ def invoke_with_retry(
             last_exc = exc
             if attempt < max_attempts - 1:
                 time.sleep(base_delay * (2 ** attempt))
+    raise last_exc
+
+
+async def invoke_with_retry_async(
+    llm: BaseChatModel,
+    messages: list,
+    max_attempts: int = 3,
+    base_delay: float = 2.0,
+) -> Any:
+    """Retry assíncrono — não bloqueia o event loop do FastAPI."""
+    last_exc: BaseException = RuntimeError("Nenhuma tentativa realizada")
+    for attempt in range(max_attempts):
+        try:
+            return await llm.ainvoke(messages)
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_attempts - 1:
+                await asyncio.sleep(base_delay * (2 ** attempt))
     raise last_exc

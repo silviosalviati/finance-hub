@@ -17,7 +17,7 @@ from src.shared.tools.bigquery import (
     validate_dataset_for_query_build,
     validate_query_context_for_query_analyzer,
 )
-from src.shared.tools.llm import create_llm, invoke_with_retry
+from src.shared.tools.llm import create_llm, invoke_with_retry, invoke_with_retry_async
 
 router = APIRouter(tags=["agents"])
 
@@ -120,7 +120,8 @@ def _fallback_schema_safe_suggestions(table_id: str, focal_cols: list[str]) -> l
     ]
 
 
-_SHARED_LLM: BaseChatModel | None = None
+from functools import lru_cache as _lru_cache
+
 _NAME_PATTERNS = (
     re.compile(r"\bmeu nome\s*(?:é|e)\s*([a-zA-ZÀ-ÿ][\wÀ-ÿ\- ]{0,40})", re.IGNORECASE),
     re.compile(r"\bme chamo\s+([a-zA-ZÀ-ÿ][\wÀ-ÿ\- ]{0,40})", re.IGNORECASE),
@@ -240,11 +241,9 @@ def _retrieve_relevant_turns(turns: list[dict[str, Any]], query: str, top_k: int
     return [turn for _, turn in scored[:top_k]]
 
 
+@_lru_cache(maxsize=1)
 def _get_shared_llm() -> BaseChatModel:
-    global _SHARED_LLM
-    if _SHARED_LLM is None:
-        _SHARED_LLM = create_llm()
-    return _SHARED_LLM
+    return create_llm()
 
 
 def _llm_text(response: Any) -> str:
@@ -253,7 +252,7 @@ def _llm_text(response: Any) -> str:
     return str(response)
 
 
-def _build_rag_chat_answer(query: str, profile: dict[str, Any], relevant_turns: list[dict[str, Any]]) -> str:
+async def _build_rag_chat_answer(query: str, profile: dict[str, Any], relevant_turns: list[dict[str, Any]]) -> str:
     context_lines: list[str] = []
     remembered_name = str(profile.get("name") or "").strip()
     if remembered_name:
@@ -270,14 +269,13 @@ def _build_rag_chat_answer(query: str, profile: dict[str, Any], relevant_turns: 
 
     try:
         llm = _get_shared_llm()
-        response = invoke_with_retry(
+        response = await invoke_with_retry_async(
             llm,
             [
                 SystemMessage(
                     content=(
                         "Você é o Finance Voice IA em modo conversacional. "
                         "Responda em português, de forma objetiva e útil. "
-                        "NÃO gere relatório VoC nesta resposta. "
                         "Quando houver memória de sessão, use-a para responder."
                     )
                 ),
@@ -302,8 +300,8 @@ def _build_rag_chat_answer(query: str, profile: dict[str, Any], relevant_turns: 
         return f"Seu nome é {remembered_name}."
 
     return (
-        "Posso te ajudar com perguntas da sessão e também com análises VoC. "
-        "Se quiser relatório, peça algo como: 'analise os atendimentos do mês passado'."
+        "Posso te ajudar com perguntas financeiras ou da sessão atual. "
+        "Para uma análise completa, descreva o período ou tema de interesse."
     )
 
 
@@ -384,7 +382,7 @@ async def analyze_by_agent(
                     )
             elif not _is_analytics_query(query):
                 relevant_turns = _retrieve_relevant_turns(turns, query)
-                answer = _build_rag_chat_answer(query, profile, relevant_turns)
+                answer = await _build_rag_chat_answer(query, profile, relevant_turns)
                 response = _build_finance_chat_response(answer)
             else:
                 response = agent.analyze(
@@ -490,7 +488,7 @@ async def query_build_suggestions(
 
     try:
         llm = _get_shared_llm()
-        response = invoke_with_retry(llm, [
+        response = await invoke_with_retry_async(llm, [
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),
         ])

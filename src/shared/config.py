@@ -1,19 +1,43 @@
 from __future__ import annotations
 
 import os
+import time as _time
 from pathlib import Path
+
+# Evita múltiplas queries SQLite por request — TTL de 30 segundos.
+_config_cache: dict[str, tuple[str, float]] = {}
+_CACHE_TTL = 30.0
 
 
 def _from_db(key: str, default: str = "") -> str:
-    """Lê do SQLite; cai em os.getenv(); usa default hardcoded."""
+    """Lê do SQLite com cache TTL; cai em os.getenv(); usa default hardcoded."""
+    now = _time.monotonic()
+    cached = _config_cache.get(key)
+    if cached is not None:
+        value, ts = cached
+        if now - ts < _CACHE_TTL:
+            return value
+
     try:
         from src.core.database import get_config_value
         val = get_config_value(key, "")
         if val:
+            _config_cache[key] = (val, now)
             return val
     except Exception:
         pass
-    return os.getenv(key, default)
+
+    result = os.getenv(key, default)
+    _config_cache[key] = (result, now)
+    return result
+
+
+def invalidate_config_cache(key: str | None = None) -> None:
+    """Invalida cache de configuração. Sem argumento limpa tudo."""
+    if key is None:
+        _config_cache.clear()
+    else:
+        _config_cache.pop(key, None)
 
 
 # ── Constantes de módulo (lidas na inicialização, usadas pelo CORS/FastAPI) ──

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import secrets
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -36,7 +38,8 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     ),
 }
 
-_DEFAULT_ADMIN_USER = ("admin", "porto2024", "Administrador", True)
+_DEFAULT_ADMIN_PASS = os.getenv("ADMIN_DEFAULT_PASSWORD") or secrets.token_urlsafe(16)
+_DEFAULT_ADMIN_USER = ("admin", _DEFAULT_ADMIN_PASS, "Administrador", True)
 
 
 def _utcnow() -> str:
@@ -118,6 +121,11 @@ def _seed_users_default(conn: sqlite3.Connection) -> None:
         " VALUES (?, ?, ?, ?, ?, ?)",
         (username, password_hash, name, 1 if is_admin else 0, now, now),
     )
+    if not os.getenv("ADMIN_DEFAULT_PASSWORD"):
+        print(
+            f"[AVISO] Senha admin gerada automaticamente: {password!r} — "
+            "altere via painel ou defina ADMIN_DEFAULT_PASSWORD no ambiente."
+        )
 
 
 def _seed_config_defaults(conn: sqlite3.Connection) -> None:

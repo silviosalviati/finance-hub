@@ -16,21 +16,22 @@ from src.agents.query_analyzer.nodes import (
     optimize_query,
     parse_query,
     score_and_report,
+    validate_data_existence,
     validate_optimized,
 )
 from src.agents.query_analyzer.state import AgentState
 
 
-def _route_after_human(state: AgentState) -> Literal["optimize_query", "score_and_report"]:
+def _route_after_human(state: AgentState) -> Literal["optimize_query", "validate_data_existence"]:
     if state.human_decision == "skip":
-        return "score_and_report"
-    return "optimize_query" if state.needs_optimization else "score_and_report"
+        return "validate_data_existence"
+    return "optimize_query" if state.needs_optimization else "validate_data_existence"
 
 
-def _should_optimize(state: AgentState) -> Literal["optimize_query", "score_and_report"]:
+def _should_optimize(state: AgentState) -> Literal["optimize_query", "validate_data_existence"]:
     if state.needs_optimization and state.iteration < state.max_iterations:
         return "optimize_query"
-    return "score_and_report"
+    return "validate_data_existence"
 
 
 def build_graph(
@@ -40,16 +41,17 @@ def build_graph(
 ):
     """Constrói o grafo QueryAnalyzer.
 
-    Topologia (sequencial para evitar problemas de concorrência com credenciais GCP):
+    Topologia:
         parse_query
           → dry_run_baseline       (custo baseline)
           → fetch_query_schema     (schema das tabelas na query)
-          → fetch_dataset_catalog  (catálogo completo do dataset — alternativas)
-          → enrich_with_intelligence (LLM: schema + catálogo + custo)
+          → fetch_dataset_catalog  (catálogo completo do dataset + memória cross-sessão)
+          → enrich_with_intelligence (LLM structured output: schema + catálogo + custo)
           → detect_antipatterns    (híbrido: regras + LLM structured output)
           → await_human_approval   (HITL)
-          → optimize_query → validate_optimized ──(loop max 2x)──┐
-          → score_and_report ←────────────────────────────────────┘
+          → optimize_query → validate_optimized ──(loop max Nx)──┐
+          → validate_data_existence ←─────────────────────────────┘
+          → score_and_report
     """
     _llm_report = llm_creative or llm
     workflow = StateGraph(AgentState)
@@ -63,6 +65,7 @@ def build_graph(
     workflow.add_node("await_human_approval", await_human_approval)
     workflow.add_node("optimize_query", partial(optimize_query, llm=llm))
     workflow.add_node("validate_optimized", validate_optimized)
+    workflow.add_node("validate_data_existence", validate_data_existence)
     workflow.add_node("score_and_report", partial(score_and_report, llm=_llm_report))
 
     workflow.add_edge(START, "parse_query")
@@ -78,7 +81,7 @@ def build_graph(
         _route_after_human,
         {
             "optimize_query": "optimize_query",
-            "score_and_report": "score_and_report",
+            "validate_data_existence": "validate_data_existence",
         },
     )
 
@@ -89,10 +92,11 @@ def build_graph(
         _should_optimize,
         {
             "optimize_query": "optimize_query",
-            "score_and_report": "score_and_report",
+            "validate_data_existence": "validate_data_existence",
         },
     )
 
+    workflow.add_edge("validate_data_existence", "score_and_report")
     workflow.add_edge("score_and_report", END)
 
     return workflow.compile(checkpointer=checkpointer)

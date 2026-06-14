@@ -28,6 +28,8 @@ class AgentState(BaseModel):
     intelligence_context: str = ""              # texto livre: resumo LLM de oportunidades
     intelligence_report: Optional[IntelligenceReport] = None  # saída estruturada do enrich
 
+    data_existence_warning: Optional[str] = None  # aviso quando query otimizada não retorna dados
+
     antipatterns: list[QueryAntiPattern] = Field(default_factory=list)
     needs_optimization: bool = False
     optimization_feedback: list[str] = Field(default_factory=list)

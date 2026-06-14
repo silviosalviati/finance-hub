@@ -3297,6 +3297,8 @@ function renderQA(d) {
   const qOptSec = document.getElementById("q-opt-sec");
   const qOptEmpty = document.getElementById("q-opt-empty");
   const qOptQuery = document.getElementById("q-opt-query");
+  const qDiffSec = document.getElementById("q-diff-sec");
+  const qDiffContent = document.getElementById("q-diff-content");
 
   if (tabOptimized) tabOptimized.classList.add("has-data");
 
@@ -3304,9 +3306,25 @@ function renderQA(d) {
     if (qOptSec) qOptSec.style.display = "block";
     if (qOptEmpty) qOptEmpty.style.display = "none";
     if (qOptQuery) qOptQuery.textContent = d.optimized_query;
+
+    if (qDiffSec && qDiffContent && d.original_query) {
+      qDiffContent.innerHTML = _buildSqlDiff(d.original_query, d.optimized_query);
+      qDiffSec.style.display = "block";
+    }
   } else {
     if (qOptSec) qOptSec.style.display = "none";
     if (qOptEmpty) qOptEmpty.style.display = "flex";
+    if (qDiffSec) qDiffSec.style.display = "none";
+  }
+
+  // Intelligence summary
+  const qIntelSec = document.getElementById("q-intel-sec");
+  const qIntelContent = document.getElementById("q-intel-content");
+  if (qIntelSec && qIntelContent && d.intelligence_summary) {
+    qIntelContent.textContent = d.intelligence_summary;
+    qIntelSec.style.display = "block";
+  } else if (qIntelSec) {
+    qIntelSec.style.display = "none";
   }
 
   // Applied optimizations
@@ -3641,6 +3659,16 @@ function showQAHitlPanel(data) {
   if (tabsArea) tabsArea.style.display = "none";
   if (panel) panel.style.display = "flex";
 
+  const costBadge = document.getElementById("qa-hitl-cost");
+  if (costBadge) {
+    if (data.bytes_processed != null) {
+      costBadge.textContent = `${fmtBytes(data.bytes_processed)} · ${fmtUSD(data.estimated_cost_usd)}`;
+      costBadge.style.display = "inline-block";
+    } else {
+      costBadge.style.display = "none";
+    }
+  }
+
   if (container) {
     const sevClass = { CRITICAL: "sev-critical", HIGH: "sev-high", MEDIUM: "sev-medium", LOW: "sev-low" };
     const chipClass = { CRITICAL: "chip-critical", HIGH: "chip-high", MEDIUM: "chip-medium", LOW: "chip-low" };
@@ -3658,6 +3686,29 @@ function showQAHitlPanel(data) {
       `;
     }).join("");
   }
+}
+
+function _buildSqlDiff(original, optimized) {
+  const origLines = (original || "").split("\n");
+  const optLines = (optimized || "").split("\n");
+  const origSet = new Set(origLines.map(l => l.trim()));
+  const optSet = new Set(optLines.map(l => l.trim()));
+
+  const removed = origLines.filter(l => !optSet.has(l.trim()) && l.trim()).map(l =>
+    `<div class="diff-line diff-removed"><span class="diff-sign">−</span><span>${l.replace(/</g,"&lt;")}</span></div>`
+  );
+  const added = optLines.filter(l => !origSet.has(l.trim()) && l.trim()).map(l =>
+    `<div class="diff-line diff-added"><span class="diff-sign">+</span><span>${l.replace(/</g,"&lt;")}</span></div>`
+  );
+
+  if (!removed.length && !added.length) {
+    return '<div class="diff-empty">Nenhuma diferença encontrada.</div>';
+  }
+
+  return [
+    removed.length ? `<div class="diff-section-label">Removido</div>${removed.join("")}` : "",
+    added.length ? `<div class="diff-section-label">Adicionado</div>${added.join("")}` : "",
+  ].join("");
 }
 
 async function resumeQA(decision) {

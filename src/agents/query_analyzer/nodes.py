@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -22,6 +23,9 @@ from src.shared.tools.schemas import AntipatternList, OptimizationReport, QueryA
 
 TABLE_PATTERN = r"`?([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)`?"
 SQL_FENCE_PATTERN = r"```sql\s*([\s\S]+?)\s*```"
+
+_CATALOG_CACHE: dict[str, tuple[float, str]] = {}
+_CATALOG_TTL = 300  # 5 minutes
 
 SEVERITY_PENALTY = {
     "low": 5,
@@ -96,6 +100,13 @@ def fetch_dataset_catalog(state: AgentState) -> dict:
             return {"dataset_catalog": "(catálogo indisponível — formato de tabela inválido)"}
         dataset_hint = f"{parts[0]}.{parts[1]}"
 
+    cache_key = f"{state.project_id}:{dataset_hint}"
+    now = time.time()
+    if cache_key in _CATALOG_CACHE:
+        ts, cached = _CATALOG_CACHE[cache_key]
+        if now - ts < _CATALOG_TTL:
+            return {"dataset_catalog": cached}
+
     try:
         result = get_dataset_tables_schema(
             project_id=state.project_id,
@@ -114,7 +125,9 @@ def fetch_dataset_catalog(state: AgentState) -> dict:
             cols = ", ".join(c["name"] for c in t.get("columns", [])[:10])
             lines.append(f"- {t['table_id']}{partition}{clustering}: {cols}")
 
-        return {"dataset_catalog": "\n".join(lines)}
+        catalog_text = "\n".join(lines)
+        _CATALOG_CACHE[cache_key] = (now, catalog_text)
+        return {"dataset_catalog": catalog_text}
     except Exception as exc:
         return {"dataset_catalog": f"(catálogo indisponível: {exc})"}
 
@@ -129,8 +142,22 @@ def dry_run_baseline(state: AgentState) -> dict:
 # Fan-in: enrich_with_intelligence
 # ---------------------------------------------------------------------------
 
+def _is_simple_query(state: AgentState) -> bool:
+    structure = state.query_structure
+    return (
+        len(structure.get("tables", [])) <= 1
+        and structure.get("join_count", 0) == 0
+        and structure.get("subquery_count", 0) == 0
+        and structure.get("cte_count", 0) == 0
+    )
+
+
 def enrich_with_intelligence(state: AgentState, llm: BaseChatModel) -> dict:
     """LLM analisa schema completo + catálogo do dataset + custo para identificar oportunidades."""
+    if _is_simple_query(state):
+        schema_context = f"SCHEMA DAS TABELAS:\n{state.query_schema or '(indisponível)'}"
+        return {"intelligence_context": "", "schema_context": schema_context}
+
     cost_context = _build_cost_context(state.dry_run_original)
 
     system_prompt = """\
@@ -526,12 +553,14 @@ def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
         summary=summary,
         antipatterns_found=state.antipatterns,
         optimized_query=state.optimized_query,
+        original_query=state.original_query,
         bytes_saved=bytes_saved,
         cost_saved_usd=cost_saved,
         savings_pct=savings_pct,
         recommendations=recommendations,
         power_bi_tips=power_bi_tips,
         applied_optimizations=applied_optimizations,
+        intelligence_summary=state.intelligence_context or None,
     )
 
     return {"report": report}
@@ -925,8 +954,11 @@ def _calculate_score(state: AgentState) -> int:
         else state.query_structure
     )
     final_structural_keys = _structural_flags_to_keys(final_structure)
+    original_structural_keys = _structural_flags_to_keys(state.query_structure)
 
-    for key in final_structural_keys:
+    # Only penalize structural issues introduced by optimization (not already penalized via antipatterns)
+    new_structural_keys = final_structural_keys - original_structural_keys
+    for key in new_structural_keys:
         score -= STRUCTURAL_PENALTY.get(key, 0)
 
     dry = dry_opt if (dry_opt and not dry_opt.error) else dry_orig
@@ -938,7 +970,6 @@ def _calculate_score(state: AgentState) -> int:
         elif dry.bytes_processed > bytes_warn2:
             score -= 8
 
-    original_structural_keys = _structural_flags_to_keys(state.query_structure)
     removed_structural = original_structural_keys - final_structural_keys
     if removed_structural:
         score += min(20, len(removed_structural) * 5)
@@ -1005,6 +1036,24 @@ def _generate_power_bi_tips(state: AgentState) -> list[str]:
         tips.append(
             "Evite ORDER BY sem necessidade no dataset do dashboard; priorize ordenacao no visual e preserve a consulta base enxuta."
         )
+
+    if structure.get("join_count", 0) >= 3:
+        tips.append(
+            "Com muitos JOINs na query base, considere criar uma view materializada ou tabela desnormalizada no BigQuery para acelerar o refresh do dataset Power BI."
+        )
+
+    if structure.get("cte_count", 0) >= 2:
+        tips.append(
+            "Queries com multiplas CTEs podem se beneficiar de tabelas intermediarias persistidas no BigQuery para reduzir latencia nos refreshes agendados do Power BI."
+        )
+
+    intelligence = (state.intelligence_context or "").strip()
+    if intelligence and "Nenhuma oportunidade" not in intelligence and len(intelligence) > 50:
+        first_line = intelligence.split("\n")[0].strip()
+        if first_line:
+            tips.append(
+                f"Contexto do dataset: {first_line} — considere essa perspectiva ao modelar hierarquias e relacionamentos no Power BI."
+            )
 
     tips.extend(
         [

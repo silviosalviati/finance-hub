@@ -758,6 +758,7 @@
                   <!-- Body -->
                   <div class="hitl-body">
                     <p class="hitl-desc">O agente identificou problemas que podem impactar performance e custo. Revise os itens abaixo e escolha como prosseguir.</p>
+                    <div id="qa-hitl-cost" class="hitl-cost-badge" style="display:none"></div>
 
                     <!-- Anti-patterns -->
                     <div>
@@ -1016,6 +1017,16 @@
                         </div>
                       </div>
 
+                      <!-- Intelligence summary -->
+                      <div class="sec-card" id="q-intel-sec" style="display:none; margin-bottom:12px">
+                        <div class="sec-head">
+                          <div class="sec-ttl">Análise de Contexto do Dataset</div>
+                        </div>
+                        <div class="sec-body">
+                          <p id="q-intel-content" style="font-size:13px; color:var(--ink2); line-height:1.6; white-space:pre-wrap; margin:0"></p>
+                        </div>
+                      </div>
+
                       <div
                         class="sec-card"
                         id="q-opt-sec"
@@ -1040,6 +1051,16 @@
                             </div>
                             <pre id="q-opt-query"></pre>
                           </div>
+                        </div>
+                      </div>
+
+                      <!-- Diff view -->
+                      <div class="sec-card" id="q-diff-sec" style="display:none; margin-top:12px">
+                        <div class="sec-head">
+                          <div class="sec-ttl">Diff — alterações realizadas</div>
+                        </div>
+                        <div class="sec-body">
+                          <div id="q-diff-content" class="diff-view"></div>
                         </div>
                       </div>
                     </div>

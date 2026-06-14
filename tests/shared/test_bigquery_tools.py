@@ -1,7 +1,12 @@
 from datetime import date, datetime
 from decimal import Decimal
+from pathlib import Path
 
-from src.shared.tools.bigquery import _json_safe_row, _json_safe_value
+from src.shared.tools.bigquery import (
+    _json_safe_row,
+    _json_safe_value,
+    _resolve_credentials_path,
+)
 from src.shared.utils.formatting import format_bytes
 
 
@@ -31,3 +36,18 @@ def test_json_safe_row_converts_nested_values():
     assert safe["periodo"] == "2026-04-01"
     assert safe["meta"]["updated_at"] == "2026-04-26T08:00:00"
     assert safe["meta"]["ratios"] == ["1.10", "2.20"]
+
+
+def test_resolve_credentials_path_keeps_absolute_path(tmp_path):
+    creds_path = tmp_path / "credentials.json"
+    resolved = _resolve_credentials_path(str(creds_path))
+
+    assert Path(resolved) == creds_path
+
+
+def test_resolve_credentials_path_resolves_relative_to_project_root():
+    resolved = Path(_resolve_credentials_path("secrets/credentials.json"))
+
+    assert resolved.name == "credentials.json"
+    assert resolved.parts[-2] == "secrets"
+    assert resolved.is_absolute()

@@ -20,6 +20,7 @@ from src.shared.utils.formatting import format_bytes
 TABLE_PATTERN = r"`?([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)`?"
 
 _DEFAULT_CREDENTIALS_PATH = str(Path("secrets") / "credentials.json")
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _resolve_project_id(project_id: str | None) -> str:
@@ -35,11 +36,27 @@ def _get_base_credentials(credentials_path: str):
     return service_account.Credentials.from_service_account_file(credentials_path)
 
 
-def _get_client(project_id: str | None) -> bigquery.Client:
-    resolved_project_id = _resolve_project_id(project_id)
-    credentials_path = get_runtime_config(
+def _resolve_credentials_path(credentials_path: str | None) -> str:
+    configured = (credentials_path or "").strip() or _DEFAULT_CREDENTIALS_PATH
+    candidate = Path(configured).expanduser()
+
+    if candidate.is_absolute():
+        return str(candidate)
+
+    # Resolve relativo a raiz do projeto para evitar depender do CWD.
+    return str((_PROJECT_ROOT / candidate).resolve())
+
+
+def _get_credentials_path() -> str:
+    configured = get_runtime_config(
         "GOOGLE_APPLICATION_CREDENTIALS", _DEFAULT_CREDENTIALS_PATH
     )
+    return _resolve_credentials_path(configured)
+
+
+def _get_client(project_id: str | None) -> bigquery.Client:
+    resolved_project_id = _resolve_project_id(project_id)
+    credentials_path = _get_credentials_path()
     credentials = _get_base_credentials(credentials_path)
 
     return bigquery.Client(
@@ -109,7 +126,7 @@ def validate_dataset_for_query_build(
     if require_datacatalog:
         try:
             dataplex_client = dataplex_v1.CatalogServiceClient(
-                credentials=_get_base_credentials()
+                credentials=_get_base_credentials(_get_credentials_path())
             )
             request = dataplex_v1.SearchEntriesRequest(
                 name=f"projects/{dataset_project}/locations/global",

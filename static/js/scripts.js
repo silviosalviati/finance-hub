@@ -6,6 +6,7 @@ let currentUser = null;
 let qaDatasetValidationTimer = null;
 let qaIsLoading = false;
 let qaAnalyzeInFlight = false;
+let _qaHitlThreadId = null;
 const qaDatasetValidationState = {
   status: "idle",
   datasetHint: "",
@@ -612,6 +613,10 @@ function resetQATabsDataState() {
 }
 
 function resetQAResultPanels() {
+  const hitlPanel = document.getElementById("qa-hitl-panel");
+  if (hitlPanel) hitlPanel.style.display = "none";
+  _qaHitlThreadId = null;
+
   const qTiles = document.getElementById("q-tiles");
   const qSavSec = document.getElementById("q-sav-sec");
   const qRecSec = document.getElementById("q-rec-sec");
@@ -942,9 +947,14 @@ async function runAnalyze() {
 
     const data = await res.json();
 
-    setQAProgress("Finalizando apresenta��o...", 100);
-    renderQA(data);
-    saveToHistory(data, query);
+    setQAProgress("Finalizando apresentação...", 100);
+
+    if (data.status === "awaiting_approval") {
+      showQAHitlPanel(data);
+    } else {
+      renderQA(data);
+      saveToHistory(data, query);
+    }
   } catch (e) {
     showQAError(prettifyErrorMessage(e.message));
 
@@ -3664,6 +3674,70 @@ function showQAError(message) {
 
   box.textContent = "⚠ " + prettifyErrorMessage(message);
   box.style.display = "block";
+}
+
+function showQAHitlPanel(data) {
+  _qaHitlThreadId = data.thread_id;
+
+  const panel = document.getElementById("qa-hitl-panel");
+  const empty = document.getElementById("qa-empty");
+  const tabsArea = document.getElementById("qa-tabs-area");
+  const container = document.getElementById("qa-hitl-antipatterns");
+
+  if (empty) empty.style.display = "none";
+  if (tabsArea) tabsArea.style.display = "none";
+  if (panel) panel.style.display = "flex";
+
+  if (container) {
+    const severityColor = { CRITICAL: "#d63031", HIGH: "#e17055", MEDIUM: "#fdcb6e", LOW: "#74b9ff" };
+    container.innerHTML = (data.antipatterns || []).map(ap => `
+      <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:12px 14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <strong style="font-size:13px;">${ap.pattern}</strong>
+          <span style="font-size:11px; font-weight:600; color:${severityColor[ap.severity] || '#888'};">${ap.severity}</span>
+        </div>
+        <p style="font-size:12px; color:var(--text-muted); margin:0 0 4px;">${ap.description}</p>
+        <p style="font-size:12px; margin:0;">💡 ${ap.suggestion}</p>
+      </div>
+    `).join("");
+  }
+}
+
+async function resumeQA(decision) {
+  if (!_qaHitlThreadId) return;
+
+  const approveBtn = document.getElementById("qa-hitl-approve");
+  const skipBtn = document.getElementById("qa-hitl-skip");
+  if (approveBtn) approveBtn.disabled = true;
+  if (skipBtn) skipBtn.disabled = true;
+
+  setQAProgress(decision === "approve" ? "Otimizando query..." : "Gerando relatório...", 50);
+
+  try {
+    const res = await fetch("/api/agents/query_analyzer/resume", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ thread_id: _qaHitlThreadId, decision }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.detail || "Erro ao retomar análise");
+
+    const panel = document.getElementById("qa-hitl-panel");
+    if (panel) panel.style.display = "none";
+    _qaHitlThreadId = null;
+
+    setQAProgress("Finalizando apresentação...", 100);
+    renderQA(data);
+    saveToHistory(data, document.getElementById("qa-query")?.value || "");
+  } catch (e) {
+    showQAError(e.message);
+  } finally {
+    setTimeout(() => { hideQAProgress(); setQALoading(false); qaAnalyzeInFlight = false; }, 350);
+    if (approveBtn) approveBtn.disabled = false;
+    if (skipBtn) skipBtn.disabled = false;
+  }
 }
 
 function setQALoading(on) {

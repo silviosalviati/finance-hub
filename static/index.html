@@ -731,6 +731,21 @@
 
               <!-- Results -->
               <div class="qa-results-wrap">
+
+                <!-- HITL: aguardando aprovação humana -->
+                <div id="qa-hitl-panel" style="display:none; flex-direction:column; gap:16px; padding:24px; height:100%; overflow-y:auto;">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--porto)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <strong style="font-size:14px;">Anti-padrões detectados — aprovação necessária</strong>
+                  </div>
+                  <p style="font-size:12.5px; color:var(--text-muted); margin:0;">O agente identificou problemas na query. Deseja prosseguir com a otimização automática?</p>
+                  <div id="qa-hitl-antipatterns" style="display:flex; flex-direction:column; gap:8px;"></div>
+                  <div style="display:flex; gap:10px; margin-top:8px;">
+                    <button id="qa-hitl-approve" onclick="resumeQA('approve')" class="btn-analyze" style="flex:1; padding:10px 0; font-size:13px;">Otimizar query</button>
+                    <button id="qa-hitl-skip" onclick="resumeQA('skip')" style="flex:1; padding:10px 0; font-size:13px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; cursor:pointer; color:var(--text-main);">Só analisar</button>
+                  </div>
+                </div>
+
                 <div class="qa-empty" id="qa-empty" style="height: 100%">
                   <div class="qa-empty-ico">
                     <svg

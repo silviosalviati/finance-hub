@@ -13,24 +13,16 @@ from src.shared.config import get_runtime_config
 from src.shared.tools.llm import create_llm as _create_llm
 
 
-# Mantém referência ao context manager para evitar GC fechar a conexão SQLite.
-_CHECKPOINTER_CTX = None
-
-
 def _make_checkpointer():
-    """Cria SqliteSaver persistente; cai em MemorySaver se o pacote não estiver instalado."""
-    global _CHECKPOINTER_CTX
-    try:
-        from langgraph.checkpoint.sqlite import SqliteSaver  # type: ignore
-        db_path = Path(".sixth") / "langgraph_checkpoints.db"
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        # Mantemos _CHECKPOINTER_CTX em escopo de módulo para evitar que o GC
-        # feche a conexão SQLite antes do processo encerrar.
-        _CHECKPOINTER_CTX = SqliteSaver.from_conn_string(str(db_path))
-        return _CHECKPOINTER_CTX.__enter__()
-    except Exception:
-        from langgraph.checkpoint.memory import MemorySaver
-        return MemorySaver()
+    """Usa MemorySaver para evitar falha de desserialização de tipos Pydantic customizados.
+
+    SqliteSaver serializa o estado via msgpack e não consegue desserializar
+    DryRunResult/QueryAntiPattern/OptimizationReport sem registro explícito,
+    corrompendo o estado após resume do HITL. MemorySaver mantém tudo em memória
+    sem serialização — HITL funciona normalmente enquanto o processo está ativo.
+    """
+    from langgraph.checkpoint.memory import MemorySaver
+    return MemorySaver()
 
 
 # Instância única compartilhada por todas as requisições — sobrevive a corridas

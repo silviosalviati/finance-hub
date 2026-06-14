@@ -36,7 +36,20 @@ def _should_optimize(state: AgentState) -> Literal["optimize_query", "generate_r
     return "generate_report"
 
 
-def build_graph(llm: BaseChatModel, checkpointer: Any = None):
+def build_graph(
+    llm: BaseChatModel,
+    checkpointer: Any = None,
+    llm_creative: BaseChatModel | None = None,
+):
+    """Constrói o grafo QueryAnalyzer.
+
+    Args:
+        llm: LLM analítico (baixa temperatura) — análise e otimização.
+        checkpointer: Checkpointer para persistência HITL.
+        llm_creative: LLM criativo (temperatura maior) — geração do relatório.
+                      Cai para `llm` quando não informado.
+    """
+    _llm_report = llm_creative or llm
     workflow = StateGraph(AgentState)
 
     workflow.add_node("parse_query", parse_query)
@@ -45,7 +58,7 @@ def build_graph(llm: BaseChatModel, checkpointer: Any = None):
     workflow.add_node("await_human_approval", await_human_approval)
     workflow.add_node("optimize_query", partial(optimize_query, llm=llm))
     workflow.add_node("validate_optimized", validate_optimized)
-    workflow.add_node("generate_report", partial(generate_report, llm=llm))
+    workflow.add_node("generate_report", partial(generate_report, llm=_llm_report))
 
     workflow.add_edge(START, "parse_query")
     workflow.add_edge("parse_query", "dry_run_estimate")

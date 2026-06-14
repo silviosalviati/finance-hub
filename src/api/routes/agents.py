@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -18,6 +17,7 @@ from src.shared.tools.bigquery import (
     validate_query_context_for_query_analyzer,
 )
 from src.shared.tools.llm import create_llm, invoke_with_retry, invoke_with_retry_async
+from src.shared.tools.schemas import SuggestionsResponse
 
 router = APIRouter(tags=["agents"])
 
@@ -488,17 +488,12 @@ async def query_build_suggestions(
 
     try:
         llm = _get_shared_llm()
-        response = await invoke_with_retry_async(llm, [
+        structured_llm = llm.with_structured_output(SuggestionsResponse)
+        result: SuggestionsResponse = await invoke_with_retry_async(structured_llm, [
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),
         ])
-        raw = response.content if hasattr(response, "content") else str(response)
-        raw = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.MULTILINE)
-        raw = re.sub(r"\s*```$", "", raw.strip(), flags=re.MULTILINE)
-        parsed = json.loads(raw)
-        suggestions = parsed.get("suggestions", [])
-        if not isinstance(suggestions, list):
-            suggestions = []
+        suggestions = result.suggestions if result else []
 
         known_tables, known_columns = _extract_known_schema_tokens(tables)
 

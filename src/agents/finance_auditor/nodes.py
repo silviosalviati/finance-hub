@@ -30,6 +30,7 @@ from src.agents.finance_auditor.state import (
 )
 from src.shared.tools.bigquery import execute_query_rows
 from src.shared.tools.llm import invoke_with_retry
+from src.shared.tools.schemas import DateRange, ReportResponse, ThemesResponse
 
 # Número máximo de linhas buscadas para análise
 _MAX_ROWS = 500
@@ -111,17 +112,6 @@ def _text(response: Any) -> str:
     if hasattr(response, "content"):
         return str(response.content)
     return str(response)
-
-
-def _parse_json_safe(raw: str) -> dict[str, Any]:
-    """Tenta extrair e parsear o primeiro bloco JSON do texto."""
-    match = re.search(r"\{.*\}", raw, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group())
-        except json.JSONDecodeError:
-            pass
-    return {}
 
 
 def _default_period() -> tuple[str, str]:
@@ -253,19 +243,21 @@ def fetch_data(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str, Any]
         if deterministic is not None:
             date_start, date_end = deterministic
         else:
-            # 2. LLM extrai range de datas
-            raw_response = invoke_with_retry(
-                llm,
-                [
-                    SystemMessage(content=EXTRACT_DATE_RANGE_PROMPT),
-                    HumanMessage(content=request_text),
-                ],
-            )
-            date_json = _parse_json_safe(_text(raw_response))
-
+            # 2. LLM extrai range de datas via structured output
             default_start, default_end = _default_period()
-            date_start = _validate_date(date_json.get("date_start", ""), default_start)
-            date_end = _validate_date(date_json.get("date_end", ""), default_end)
+            try:
+                structured_llm = llm.with_structured_output(DateRange)
+                date_result: DateRange = invoke_with_retry(
+                    structured_llm,
+                    [
+                        SystemMessage(content=EXTRACT_DATE_RANGE_PROMPT),
+                        HumanMessage(content=request_text),
+                    ],
+                )
+                date_start = _validate_date(date_result.date_start if date_result else "", default_start)
+                date_end = _validate_date(date_result.date_end if date_result else "", default_end)
+            except Exception:
+                date_start, date_end = default_start, default_end
 
         project = state.get("project_id") or DEFAULT_PROJECT
 
@@ -462,19 +454,23 @@ def node_themes(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str, Any
     sample_text = f"{dist_header}\n\n" + "\n".join(sample_lines)
 
     try:
+        structured_llm = llm.with_structured_output(ThemesResponse)
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(
-                invoke_with_retry,
-                llm,
+                structured_llm.invoke,
                 [
                     SystemMessage(content=CATEGORIZE_THEMES_PROMPT),
                     HumanMessage(content=sample_text),
                 ],
             )
-            response = future.result(timeout=60)
-        data = _parse_json_safe(_text(response))
-        if data.get("themes"):
-            return {"themes_result": data}
+            result: ThemesResponse = future.result(timeout=60)
+        if result and result.themes:
+            return {
+                "themes_result": {
+                    "themes": [t.model_dump() for t in result.themes],
+                    "insights": result.insights,
+                }
+            }
     except concurrent.futures.TimeoutError:
         pass  # LLM demorou demais; cai no fallback de frequência de palavras
     except Exception:  # noqa: BLE001
@@ -568,21 +564,17 @@ def report_generator(state: FinanceAuditorState, llm: BaseChatModel) -> dict[str
 
     try:
         metrics_json = json.dumps(metrics, ensure_ascii=False, indent=2)
-        response = invoke_with_retry(
-            llm,
+        structured_llm = llm.with_structured_output(ReportResponse)
+        result: ReportResponse = invoke_with_retry(
+            structured_llm,
             [
                 SystemMessage(content=REPORT_GENERATOR_PROMPT),
                 HumanMessage(content=metrics_json),
             ],
         )
-        data = _parse_json_safe(_text(response))
-        report = data.get("markdown_report", "")
-        try:
-            quality = max(0, min(100, int(str(data.get("quality_score") or 70).split("/")[0].strip())))
-        except (ValueError, TypeError):
-            quality = 70
-        if report:
-            return {"markdown_report": report, "quality_score": quality}
+        if result and result.markdown_report:
+            quality = max(0, min(100, result.quality_score))
+            return {"markdown_report": result.markdown_report, "quality_score": quality}
     except Exception:  # noqa: BLE001
         pass
 

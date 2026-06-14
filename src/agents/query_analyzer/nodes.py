@@ -13,7 +13,7 @@ from src.agents.query_analyzer.state import AgentState
 from src.shared.config import BQ_ANTIPATTERNS, get_runtime_config
 from src.shared.tools.bigquery import dry_run_query, format_bytes, get_schemas_for_query
 from src.shared.tools.llm import invoke_with_retry
-from src.shared.tools.schemas import OptimizationReport, QueryAntiPattern
+from src.shared.tools.schemas import AntipatternList, OptimizationReport, QueryAntiPattern
 
 TABLE_PATTERN = r"`?([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)`?"
 SQL_FENCE_PATTERN = r"```sql\s*([\s\S]+?)\s*```"
@@ -424,43 +424,18 @@ def _normalize_severity(value: str | None) -> str:
     return severity
 
 
-def _parse_antipatterns_json(raw: str) -> list[QueryAntiPattern]:
-    cleaned = _strip_code_fences(raw)
-    data = json.loads(cleaned)
-
-    antipatterns: list[QueryAntiPattern] = []
-    for ap in data.get("antipatterns", []):
-        pattern = ap.get("pattern") or ap.get("name")
-        if not pattern:
-            continue
-
-        antipatterns.append(
-            QueryAntiPattern(
-                pattern=pattern,
-                description=ap.get("description", ""),
-                severity=_normalize_severity(ap.get("severity")),
-                suggestion=ap.get("suggestion", ""),
-            )
-        )
-
-    return antipatterns
-
-
 def _detect_antipatterns_with_llm(
     llm: BaseChatModel,
     system_prompt: str,
     user_prompt: str,
 ) -> list[QueryAntiPattern]:
     try:
-        response = invoke_with_retry(
-            llm,
-            [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt),
-            ],
+        structured_llm = llm.with_structured_output(AntipatternList)
+        result: AntipatternList = invoke_with_retry(
+            structured_llm,
+            [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)],
         )
-        raw = _extract_message_content(response)
-        return _parse_antipatterns_json(raw)
+        return result.antipatterns if result else []
     except Exception:
         return []
 

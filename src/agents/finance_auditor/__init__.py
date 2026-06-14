@@ -15,7 +15,8 @@ from typing import Any
 
 from src.agents.finance_auditor.graph import build_graph
 from src.core.base_agent import BaseAgent
-from src.shared.tools.llm import create_llm
+from src.shared.config import get_runtime_config
+from src.shared.tools.llm import create_llm as _create_llm
 
 
 class FinanceAuditorAgent(BaseAgent):
@@ -38,7 +39,10 @@ class FinanceAuditorAgent(BaseAgent):
 
     def _get_graph(self):
         if self._graph is None:
-            self._graph = build_graph(create_llm())
+            llm = _create_llm()
+            t_creative = float(get_runtime_config("VERTEXAI_TEMPERATURE_CREATIVE", "0.3"))
+            llm_creative = _create_llm(temperature=t_creative)
+            self._graph = build_graph(llm, llm_creative=llm_creative)
         return self._graph
 
     def analyze(

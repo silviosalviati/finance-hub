@@ -21,6 +21,7 @@ from src.api.routes.auth import router as auth_router
 from src.api.routes.schema_explorer import router as schema_explorer_router
 from src.core.database import init_db
 from src.shared.config import ALLOWED_ORIGINS, LLM_PROVIDER, validate_runtime_config
+from src.shared.tracing import configure_tracing
 
 
 def _validate_startup_config() -> None:
@@ -36,6 +37,7 @@ def _portal_html_path() -> Path:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()              # DB inicializado primeiro — config lida do SQLite daí em diante
+    configure_tracing()    # Ativa LangSmith se LANGCHAIN_API_KEY estiver no DB
     _validate_startup_config()
     print(f"LLM_PROVIDER: {LLM_PROVIDER}")
     print(f"ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")

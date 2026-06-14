@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import time
-from functools import lru_cache
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -11,22 +10,28 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from src.shared.config import get_runtime_config
 
 
-def create_vertexai_llm() -> BaseChatModel:
-    return ChatGoogleGenerativeAI(
-        model=get_runtime_config("VERTEXAI_MODEL", "gemini-2.5-flash"),
-        vertexai=True,
-        project=get_runtime_config("VERTEXAI_PROJECT", "silviosalviati"),
-        location=get_runtime_config("VERTEXAI_LOCATION", "us-central1"),
-        temperature=float(get_runtime_config("VERTEXAI_TEMPERATURE", "0.05")),
-        max_tokens=int(get_runtime_config("VERTEXAI_MAX_OUTPUT_TOKENS", "8192")),
-        max_retries=int(get_runtime_config("VERTEXAI_MAX_RETRIES", "1")),
-    )
+def create_llm(temperature: float | None = None) -> BaseChatModel:
+    """Cria um LLM com temperatura opcional.
 
-
-def create_llm() -> BaseChatModel:
+    Args:
+        temperature: Sobrescreve VERTEXAI_TEMPERATURE do DB quando informado.
+                     Use None para temperatura analítica padrão (baixa, precisa).
+                     Passe VERTEXAI_TEMPERATURE_CREATIVE para tarefas criativas.
+    """
     provider = get_runtime_config("LLM_PROVIDER", "vertexai")
     if provider == "vertexai":
-        return create_vertexai_llm()
+        t = temperature if temperature is not None else float(
+            get_runtime_config("VERTEXAI_TEMPERATURE", "0.05")
+        )
+        return ChatGoogleGenerativeAI(
+            model=get_runtime_config("VERTEXAI_MODEL", "gemini-2.5-flash"),
+            vertexai=True,
+            project=get_runtime_config("VERTEXAI_PROJECT", "silviosalviati"),
+            location=get_runtime_config("VERTEXAI_LOCATION", "us-central1"),
+            temperature=t,
+            max_tokens=int(get_runtime_config("VERTEXAI_MAX_OUTPUT_TOKENS", "8192")),
+            max_retries=int(get_runtime_config("VERTEXAI_MAX_RETRIES", "1")),
+        )
 
     raise ValueError(
         f"Provedor configurado nao suportado neste ambiente: {provider}. "

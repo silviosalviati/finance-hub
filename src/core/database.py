@@ -20,7 +20,8 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     "VERTEXAI_MODEL": ("gemini-2.5-flash", "Modelo Vertex AI / Gemini"),
     "VERTEXAI_MAX_OUTPUT_TOKENS": ("8192", "Máximo de tokens de saída do LLM"),
     "VERTEXAI_MAX_RETRIES": ("1", "Tentativas de retry do Vertex AI SDK"),
-    "VERTEXAI_TEMPERATURE": ("0.05", "Temperatura do LLM (0.0 – 1.0)"),
+    "VERTEXAI_TEMPERATURE": ("0.05", "Temperatura analítica do LLM — análise e otimização (0.0 – 1.0)"),
+    "VERTEXAI_TEMPERATURE_CREATIVE": ("0.3", "Temperatura criativa do LLM — relatórios e temas (0.0 – 1.0)"),
     # GCP / BigQuery
     "GCP_PROJECT_ID": ("silviosalviati", "ID do projeto GCP padrão"),
     "GOOGLE_APPLICATION_CREDENTIALS": (
@@ -30,6 +31,9 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     "BQ_COST_PER_TB_USD": ("5.0", "Custo por TB processado no BigQuery (USD)"),
     "BYTES_WARNING_THRESHOLD": ("10737418240", "Limite de alerta de bytes (10 GB)"),
     "BYTES_CRITICAL_THRESHOLD": ("107374182400", "Limite crítico de bytes (100 GB)"),
+    # Observabilidade / LangSmith
+    "LANGCHAIN_API_KEY": ("", "API key do LangSmith para tracing (vazio = desativado)"),
+    "LANGCHAIN_PROJECT": ("finance-hub", "Nome do projeto no LangSmith"),
     # App
     "SESSION_TTL_HOURS": ("8", "Tempo de vida da sessão em horas"),
     "ALLOWED_ORIGINS": (

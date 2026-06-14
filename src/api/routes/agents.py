@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import re
+import traceback
 from datetime import datetime, timezone
 from typing import Any
 
@@ -428,6 +430,7 @@ async def analyze_by_agent(
             checkpointer.save(f"schema_graph:{project_id}", result)
         return result
     except Exception as exc:
+        logging.error("Erro no analyze de %s: %s\n%s", agent_id, exc, traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(exc))
 
 

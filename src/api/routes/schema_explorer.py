@@ -1,5 +1,8 @@
 ﻿from __future__ import annotations
 
+import json
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -14,6 +17,39 @@ from src.core.checkpointer import CheckpointConfig, FileCheckpointer
 from src.shared.config import get_runtime_config
 
 router = APIRouter(tags=["schema-explorer"])
+
+_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform.read-only"
+
+
+@router.get("/api/schema-explorer/projects")
+async def list_projects(
+    session: dict[str, Any] = Depends(get_current_user),
+) -> list[str]:
+    """Return GCP project IDs accessible to the service account."""
+    default = get_runtime_config("GCP_PROJECT_ID", "silviosalviati").strip()
+    creds_path = get_runtime_config("GOOGLE_APPLICATION_CREDENTIALS", "secrets/credentials.json")
+    try:
+        from google.auth.transport.requests import Request as GRequest
+        creds = service_account.Credentials.from_service_account_file(
+            creds_path, scopes=[_CLOUD_PLATFORM_SCOPE]
+        )
+        creds.refresh(GRequest())
+        req = urllib.request.Request(
+            "https://cloudresourcemanager.googleapis.com/v1/projects",
+            headers={"Authorization": f"Bearer {creds.token}"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+        projects = sorted(
+            p["projectId"]
+            for p in data.get("projects", [])
+            if p.get("lifecycleState") == "ACTIVE"
+        )
+        if projects:
+            return projects
+    except Exception:
+        pass
+    return [default] if default else []
 
 
 @router.get("/api/schema-explorer/datasets")

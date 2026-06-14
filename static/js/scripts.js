@@ -891,15 +891,23 @@ function navTo(view) {
     document.getElementById("nav-qa")?.classList.add("active");
   } else if (view === "db") {
     document.getElementById("nav-db")?.classList.add("active");
-  } else if (view === "qb") {
-    document.getElementById("nav-qb")?.classList.add("active");
   } else if (view === "audit") {
     document.getElementById("nav-audit")?.classList.add("active");
     initFAInputListener();
     initFASuggestions();
+  } else if (view === "qb") {
+    document.getElementById("nav-qb")?.classList.add("active");
+    if (!document.getElementById("qb-project")?.options.length ||
+        document.getElementById("qb-project")?.options[0]?.value === "") {
+      _loadProjectsIntoSelect("qb-project");
+    }
   } else if (view === "er") {
     document.getElementById("nav-er")?.classList.add("active");
     initErView();
+    _loadProjectsIntoSelect("neo-project", () => {
+      const project = document.getElementById("neo-project")?.value.trim();
+      if (project) _loadDatasetsIntoSelect(project, "neo-dataset");
+    });
   } else if (view === "admin-users") {
     document.getElementById("nav-admin-users")?.classList.add("active");
     adminLoadUsers();
@@ -3852,41 +3860,34 @@ document.getElementById("db-request")?.addEventListener("keydown", (e) => {
   }
 });
 
-document.getElementById("qb-dataset")?.addEventListener("input", () => {
-  const datasetHint = document.getElementById("qb-dataset")?.value.trim() || "";
+// QB project/dataset selects — handlers defined after DOM is ready
+function qbOnProjectChange() {
+  const project = document.getElementById("qb-project")?.value.trim() || "";
+  qbDatasetValidationState.status = "idle";
+  setQBDatasetValidationStatus("idle");
+  syncQBGenerateButtonState();
+  _loadDatasetsIntoSelect(project, "qb-dataset").then(() => {
+    syncQBGenerateButtonState();
+  });
+}
 
+function qbOnDatasetChange() {
+  const datasetHint = document.getElementById("qb-dataset")?.value.trim() || "";
+  const projectId = document.getElementById("qb-project")?.value.trim() || "";
   if (!datasetHint) {
     qbDatasetValidationState.status = "idle";
     setQBDatasetValidationStatus("idle");
-    return;
-  }
-
-  qbDatasetValidationState.status = "checking";
-  setQBDatasetValidationStatus("checking", {
-    title: "Aguardando sua digitacao",
-    message: "Vamos validar automaticamente apos 1 segundo de pausa.",
-  });
-  scheduleQBDatasetValidation();
-});
-
-document.getElementById("qb-dataset")?.addEventListener("blur", () => {
-  validateQBDatasetHint();
-});
-
-document.getElementById("qb-project")?.addEventListener("input", () => {
-  const datasetHint = document.getElementById("qb-dataset")?.value.trim() || "";
-  if (!datasetHint) {
     syncQBGenerateButtonState();
     return;
   }
-
   qbDatasetValidationState.status = "checking";
   setQBDatasetValidationStatus("checking", {
-    title: "Revalidando dataset",
-    message: "Project ID alterado. Estamos validando novamente.",
+    title: "Validando dataset",
+    message: "Verificando metadados no BigQuery...",
   });
-  scheduleQBDatasetValidation();
-});
+  clearTimeout(qbDatasetValidationTimer);
+  qbDatasetValidationTimer = setTimeout(() => validateQBDatasetHint(), 400);
+}
 
 // ─────────────────────────────────────
 // Init
@@ -4869,56 +4870,74 @@ function initErView() {
   _neoWireValidation();
 }
 
-// ── Dataset validation (debounce 1s, mirrors QB pattern) ──────────────────
-let _neoValTimer = null;
-let _neoProjTimer = null;
+// ── Shared project/dataset select helpers ─────────────────────────────────
 
-function _neoWireValidation() {
-  const pIn = document.getElementById("neo-project");
-  const dIn = document.getElementById("neo-dataset");
-  if (!pIn || !dIn) return;
-
-  // Project change → fetch datasets after 800ms idle
-  pIn.addEventListener("input", () => {
-    clearTimeout(_neoProjTimer);
-    _neoProjTimer = setTimeout(() => _neoLoadDatasets(pIn.value.trim()), 800);
-    // Also re-validate dataset combo if already filled
-    clearTimeout(_neoValTimer);
-    _neoSetBtn(false);
-    _neoDsIndicator("typing");
-    _neoValTimer = setTimeout(_neoValidate, 1000);
-  });
-
-  // Dataset change → validate after 1s idle
-  dIn.addEventListener("input", () => {
-    clearTimeout(_neoValTimer);
-    _neoSetBtn(false);
-    _neoDsIndicator("typing");
-    _neoValTimer = setTimeout(_neoValidate, 1000);
-  });
+async function _loadProjectsIntoSelect(selectId, onLoaded) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Carregando projetos...</option>';
+  sel.disabled = true;
+  try {
+    const resp = await fetch("/api/schema-explorer/projects", {
+      headers: { Authorization: "Bearer " + (typeof token !== "undefined" ? token : "") },
+    });
+    if (!resp.ok) throw new Error("fail");
+    const projects = await resp.json();
+    if (!projects.length) throw new Error("empty");
+    sel.innerHTML =
+      '<option value="">Selecione um projeto</option>' +
+      projects.map((p) => `<option value="${p}">${p}</option>`).join("");
+    sel.disabled = false;
+    if (typeof onLoaded === "function") onLoaded(projects);
+  } catch (_) {
+    sel.innerHTML = '<option value="">Erro ao carregar projetos</option>';
+    sel.disabled = false;
+  }
 }
 
-async function _neoLoadDatasets(project) {
-  const dl = document.getElementById("neo-dataset-list");
-  if (!dl || !project) return;
+async function _loadDatasetsIntoSelect(project, selectId, preselect) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  if (!project) {
+    sel.innerHTML = '<option value="">Selecione um projeto primeiro</option>';
+    sel.disabled = true;
+    return;
+  }
+  sel.innerHTML = '<option value="">Carregando datasets...</option>';
+  sel.disabled = true;
   try {
     const resp = await fetch(
       `/api/schema-explorer/datasets?project_id=${encodeURIComponent(project)}`,
       {
-        headers: {
-          Authorization:
-            "Bearer " + (typeof token !== "undefined" ? token : ""),
-        },
+        headers: { Authorization: "Bearer " + (typeof token !== "undefined" ? token : "") },
       },
     );
-    if (!resp.ok) return;
+    if (!resp.ok) throw new Error("fail");
     const datasets = await resp.json();
-    dl.innerHTML = datasets
-      .map((d) => `<option value="${d}"></option>`)
-      .join("");
+    sel.innerHTML =
+      '<option value="">Selecione um dataset</option>' +
+      datasets.map((d) => `<option value="${d}">${d}</option>`).join("");
+    sel.disabled = false;
+    if (preselect) {
+      sel.value = preselect;
+    }
   } catch (_) {
-    // silently ignore — datalist is best-effort
+    sel.innerHTML = '<option value="">Erro ao carregar datasets</option>';
+    sel.disabled = false;
   }
+}
+
+// ── Schema Explorer select handlers ───────────────────────────────────────
+
+function neoOnProjectChange() {
+  const project = document.getElementById("neo-project")?.value.trim();
+  _neoSetBtn(false);
+  _neoDsIndicator("idle");
+  _loadDatasetsIntoSelect(project, "neo-dataset");
+}
+
+function _neoWireValidation() {
+  // Selects fire "change" — validation is wired via onchange attributes in HTML
 }
 
 function _neoDsIndicator(s) {
@@ -5803,19 +5822,25 @@ function neoCopyPath(path) {
 
 function neoGoQB(dsRef, tableId) {
   const parts = dsRef.split(".");
-  if (parts.length >= 2) {
-    const pi = document.getElementById("qb-project");
-    const di = document.getElementById("qb-dataset");
-    if (pi) pi.value = parts[0];
-    if (di) di.value = parts[1];
-  }
+  const project = parts[0] || "";
+  const dataset = parts[1] || "";
 
   navTo("qb");
 
-  // Trigger dataset validation then fetch suggestions
-  validateQBDatasetHint().then(() => {
-    _loadQBSuggestions(parts[0] || "", parts[1] || "", tableId);
-  });
+  if (project) {
+    const pi = document.getElementById("qb-project");
+    if (pi) {
+      if (![...pi.options].some((o) => o.value === project)) {
+        pi.add(new Option(project, project));
+      }
+      pi.value = project;
+    }
+    _loadDatasetsIntoSelect(project, "qb-dataset", dataset).then(() => {
+      validateQBDatasetHint().then(() => {
+        _loadQBSuggestions(project, dataset, tableId);
+      });
+    });
+  }
 }
 
 function neoGoAudit(dsRef, tableId) {

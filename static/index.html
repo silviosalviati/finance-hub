@@ -1158,38 +1158,52 @@
 
             <div class="qa-body">
               <div class="qa-form">
-                <input type="hidden" id="qb-project" autocomplete="off" />
-                <input type="hidden" id="qb-dataset" autocomplete="off" />
-                <span
-                  id="qb-dataset-indicator"
-                  class="qb-dataset-indicator"
-                  style="display: none"
-                  >●</span
-                >
-                <div
-                  id="qb-dataset-status"
-                  class="qb-dataset-status"
-                  style="display: none"
-                >
-                  <div class="qb-dataset-status-head">
+                <div class="qlabel">Configuração</div>
+
+                <div class="qfield">
+                  <label for="qb-project">Project ID — GCP</label>
+                  <select id="qb-project" onchange="qbOnProjectChange()">
+                    <option value="">Carregando projetos...</option>
+                  </select>
+                </div>
+
+                <div class="qfield">
+                  <label for="qb-dataset">
+                    Dataset
                     <span
-                      id="qb-dataset-status-icon"
-                      class="qb-dataset-status-icon"
-                      >•</span
-                    >
-                    <span
-                      id="qb-dataset-status-title"
-                      class="qb-dataset-status-title"
-                    ></span>
-                  </div>
-                  <p
-                    id="qb-dataset-status-text"
-                    class="qb-dataset-status-text"
-                  ></p>
+                      id="qb-dataset-indicator"
+                      class="qb-dataset-indicator"
+                      style="margin-left:4px"
+                    >●</span>
+                  </label>
+                  <select id="qb-dataset" onchange="qbOnDatasetChange()" disabled>
+                    <option value="">Selecione um projeto primeiro</option>
+                  </select>
                   <div
-                    id="qb-dataset-status-meta"
-                    class="qb-dataset-status-meta"
-                  ></div>
+                    id="qb-dataset-status"
+                    class="qb-dataset-status"
+                    style="display: none"
+                  >
+                    <div class="qb-dataset-status-head">
+                      <span
+                        id="qb-dataset-status-icon"
+                        class="qb-dataset-status-icon"
+                        >•</span
+                      >
+                      <span
+                        id="qb-dataset-status-title"
+                        class="qb-dataset-status-title"
+                      ></span>
+                    </div>
+                    <p
+                      id="qb-dataset-status-text"
+                      class="qb-dataset-status-text"
+                    ></p>
+                    <div
+                      id="qb-dataset-status-meta"
+                      class="qb-dataset-status-meta"
+                    ></div>
+                  </div>
                 </div>
 
                 <div class="qfield">
@@ -2264,28 +2278,20 @@ runbook_operacional</pre
               <div class="neo-tb-inputs">
                 <div class="neo-field">
                   <label for="neo-project">Project ID</label>
-                  <input
-                    id="neo-project"
-                    type="text"
-                    placeholder="my-project"
-                    autocomplete="off"
-                    spellcheck="false"
-                    onkeydown="if (event.key === 'Enter') loadNeoGraph();"
-                  />
+                  <select id="neo-project" onchange="neoOnProjectChange()">
+                    <option value="">Carregando...</option>
+                  </select>
                 </div>
                 <div class="neo-field neo-field-ds">
                   <label for="neo-dataset">Dataset</label>
                   <div class="neo-ds-wrap">
-                    <input
+                    <select
                       id="neo-dataset"
-                      type="text"
-                      list="neo-dataset-list"
-                      placeholder="my_dataset"
-                      autocomplete="off"
-                      spellcheck="false"
-                      onkeydown="if (event.key === 'Enter') loadNeoGraph();"
-                    />
-                    <datalist id="neo-dataset-list"></datalist>
+                      onchange="_neoValidate()"
+                      disabled
+                    >
+                      <option value="">Selecione um projeto</option>
+                    </select>
                     <span class="neo-ds-indicator" id="neo-ds-indicator"></span>
                   </div>
                 </div>

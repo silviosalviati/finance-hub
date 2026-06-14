@@ -13,9 +13,15 @@ class AgentState(BaseModel):
     dataset_hint: Optional[str] = None
 
     query_structure: dict = Field(default_factory=dict)
-    schema_context: str = ""  # fetched once in analyze_patterns, reused in optimize_query
+
+    # fan-out: discover_context (3 workers paralelos)
+    query_schema: str = ""          # schema das tabelas referenciadas na query
+    dataset_catalog: str = ""       # catálogo completo de todas as tabelas do dataset
+    schema_context: str = ""        # contexto enriquecido (schema + intelligence) — usado em optimize_query
 
     dry_run_original: Optional[DryRunResult] = None
+
+    intelligence_context: str = ""  # análise LLM: alternativas, partições, oportunidades
 
     antipatterns: list[QueryAntiPattern] = Field(default_factory=list)
     needs_optimization: bool = False

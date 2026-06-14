@@ -107,18 +107,18 @@ function prettifyErrorMessage(message) {
     (msgLower.includes("credenciais") || msgLower.includes("credentials")) &&
     (msgLower.includes("bigquery") || msgLower.includes("dataset"))
   ) {
-    return "N�o foi poss�vel autenticar no BigQuery. Verifique as credenciais do ambiente.";
+    return "Não foi possível autenticar no BigQuery. Verifique as credenciais do ambiente.";
   }
 
   if (
     msg.includes("401") ||
-    msg.includes("N�o autenticado") ||
-    msg.includes("Sess�o expirada")
+    msg.includes("Não autenticado") ||
+    msg.includes("Sessão expirada")
   ) {
-    return "Sua sess�o expirou. Fa�a login novamente.";
+    return "Sua sessão expirou. Faça login novamente.";
   }
 
-  if (msg.toLowerCase().includes("query n�o pode ser vazia")) {
+  if (msg.toLowerCase().includes("query não pode ser vazia")) {
     return "Cole uma query SQL antes de analisar.";
   }
 
@@ -340,13 +340,13 @@ async function validateQAQueryContext() {
         valid: false,
         projectId: "",
         datasetHint: "",
-        message: "Sess�o expirada. Fa�a login novamente.",
+        message: "Sessão expirada. Faça login novamente.",
       };
     }
 
     const payload = await res.json();
     if (!res.ok) {
-      throw new Error(payload?.detail || "Falha na valida��o da query.");
+      throw new Error(payload?.detail || "Falha na validação da query.");
     }
 
     const currentQuery =
@@ -356,7 +356,7 @@ async function validateQAQueryContext() {
         valid: false,
         projectId: "",
         datasetHint: "",
-        message: "A query foi alterada durante a valida��o. Tente novamente.",
+        message: "A query foi alterada durante a validação. Tente novamente.",
       };
     }
 
@@ -389,10 +389,10 @@ async function validateQAQueryContext() {
     } else {
       qaDatasetValidationState.status = "invalid";
       setQADatasetValidationStatus("error", {
-        title: "Contexto n�o validado",
+        title: "Contexto não validado",
         message:
           payload.message ||
-          "N�o foi poss�vel validar dataset e tabelas da query.",
+          "Não foi possível validar dataset e tabelas da query.",
       });
       return {
         valid: false,
@@ -400,13 +400,13 @@ async function validateQAQueryContext() {
         datasetHint: detectedDataset,
         message:
           payload.message ||
-          "N�o foi poss�vel validar dataset e tabelas da query.",
+          "Não foi possível validar dataset e tabelas da query.",
       };
     }
   } catch (err) {
     qaDatasetValidationState.status = "invalid";
     setQADatasetValidationStatus("error", {
-      title: "Falha na valida��o",
+      title: "Falha na validação",
       message: prettifyErrorMessage(err.message || "Erro ao validar query."),
     });
     return {
@@ -494,7 +494,7 @@ function setQBDatasetValidationStatus(kind, payload = {}) {
         ? "Dataset pronto para uso"
         : kind === "checking"
           ? "Validando dataset"
-          : "Valida��o pendente");
+          : "Validação pendente");
   }
 
   if (statusTextEl) {
@@ -579,7 +579,7 @@ async function validateQBDatasetHint() {
 
     const payload = await res.json();
     if (!res.ok) {
-      throw new Error(payload?.detail || "Falha na valida��o do dataset.");
+      throw new Error(payload?.detail || "Falha na validação do dataset.");
     }
 
     const currentDataset =
@@ -597,21 +597,21 @@ async function validateQBDatasetHint() {
       const count = Number(payload.table_count || 0);
       setQBDatasetValidationStatus("ok", {
         title: "Dataset pronto",
-        message: "Valida��o conclu�da. J� pode gerar a SQL.",
+        message: "Validação concluída. Já pode gerar a SQL.",
         tableCount: count,
       });
     } else {
       qbDatasetValidationState.status = "invalid";
       setQBDatasetValidationStatus("error", {
-        title: "Dataset n�o validado",
+        title: "Dataset não validado",
         message:
-          payload.message || "Dataset n�o validado para uso no Query Builder.",
+          payload.message || "Dataset não validado para uso no Query Builder.",
       });
     }
   } catch (err) {
     qbDatasetValidationState.status = "invalid";
     setQBDatasetValidationStatus("error", {
-      title: "Falha na valida��o",
+      title: "Falha na validação",
       message: prettifyErrorMessage(err.message || "Erro ao validar dataset."),
     });
   }
@@ -998,7 +998,7 @@ async function runQueryBuild() {
   const qbTabsArea = document.getElementById("qb-tabs-area");
 
   if (!requestText) {
-    showQBError("Descreva a solicita��o antes de gerar SQL.");
+    showQBError("Descreva a solicitação antes de gerar SQL.");
     return;
   }
 
@@ -1063,7 +1063,7 @@ async function runQueryBuild() {
     }
 
     const data = await res.json();
-    setQBProgress("Finalizando apresenta��o...", 100);
+    setQBProgress("Finalizando apresentação...", 100);
     renderQB(data);
   } catch (e) {
     showQBError(prettifyErrorMessage(e.message));
@@ -1086,7 +1086,7 @@ async function runDocumentBuild() {
   const dbTabsArea = document.getElementById("db-tabs-area");
 
   if (!requestText) {
-    showDBError("Descreva o contexto antes de gerar a documenta��o.");
+    showDBError("Descreva o contexto antes de gerar a documentação.");
     return;
   }
 
@@ -1105,7 +1105,7 @@ async function runDocumentBuild() {
   if (dbTabsArea) dbTabsArea.style.display = "none";
 
   try {
-    setTimeout(() => setDBProgress("Estruturando documenta��o...", 38), 180);
+    setTimeout(() => setDBProgress("Estruturando documentação...", 38), 180);
     setTimeout(() => setDBProgress("Gerando conteúdo técnico...", 64), 520);
     setTimeout(() => setDBProgress("Consolidando markdown...", 86), 980);
 
@@ -1126,15 +1126,15 @@ async function runDocumentBuild() {
 
     if (!res.ok) {
       const e = await res.json();
-      throw new Error(e.detail || "Erro ao gerar documenta��o");
+      throw new Error(e.detail || "Erro ao gerar documentação");
     }
 
     const data = await res.json();
     if (data.status === "error") {
-      throw new Error(data.error || "N�o foi poss�vel gerar a documenta��o.");
+      throw new Error(data.error || "Não foi possível gerar a documentação.");
     }
 
-    setDBProgress("Finalizando apresenta��o...", 100);
+    setDBProgress("Finalizando apresentação...", 100);
     renderDocumentBuild(data);
   } catch (e) {
     showDBError(prettifyErrorMessage(e.message));
@@ -1184,7 +1184,7 @@ async function runAudit() {
     `${requestText}\n` +
     `[PROJECT_ID] ${projectId}\n` +
     `[DATASET_HINT] ${datasetHint}\n` +
-    "[FOCO] auditoria de experi�ncia do cliente, fric��o, VoC, NPS";
+    "[FOCO] auditoria de experiência do cliente, fricção, VoC, NPS";
 
   setAuditLoading(true);
   setAuditProgress("Extraindo filtros", 10);
@@ -1195,7 +1195,7 @@ async function runAudit() {
       300,
     ),
     setTimeout(
-      () => setAuditProgress("Analisando sentimentos e fric��o", 52),
+      () => setAuditProgress("Analisando sentimentos e fricção", 52),
       800,
     ),
     setTimeout(() => setAuditProgress("Classificando temas VoC", 74), 1400),
@@ -1227,7 +1227,7 @@ async function runAudit() {
       throw new Error(payload.error || "Falha ao gerar auditoria.");
     }
 
-    setAuditProgress("Finalizando apresenta��o", 100);
+    setAuditProgress("Finalizando apresentação", 100);
     renderAudit(payload);
     if (empty) empty.style.display = "none";
     if (tabsArea) tabsArea.style.display = "flex";

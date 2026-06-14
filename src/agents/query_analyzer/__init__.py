@@ -133,24 +133,34 @@ class QueryAnalyzerAgent(BaseAgent):
             thread_id: Identificador retornado pelo `analyze()` em 'awaiting_approval'.
             human_decision: 'approve' para otimizar, 'skip' para ir direto ao relatório.
         """
-        # Check if thread is still alive in memory
+        import logging
+
+        # Aviso se o thread não estiver mais no registry (ex: reinício do servidor)
+        # Não bloqueamos — deixamos o LangGraph tentar e falhar com mensagem clara.
         with _THREAD_REGISTRY_LOCK:
             if thread_id not in _THREAD_REGISTRY:
-                raise RuntimeError(
-                    "Sessão de análise expirada ou não encontrada. "
-                    "Inicie uma nova análise para continuar."
+                logging.warning(
+                    "thread_id %s não encontrado no registry (possível reinício do servidor). "
+                    "Tentando retomar via MemorySaver mesmo assim.",
+                    thread_id,
                 )
 
         graph = self._get_graph()
         config = {"configurable": {"thread_id": thread_id}}
 
         final_event: dict[str, Any] | None = None
-        for event in graph.stream(
-            Command(resume=human_decision),
-            config=config,
-            stream_mode="values",
-        ):
-            final_event = event
+        try:
+            for event in graph.stream(
+                Command(resume=human_decision),
+                config=config,
+                stream_mode="values",
+            ):
+                final_event = event
+        except Exception as exc:
+            raise RuntimeError(
+                "Sessão de análise não encontrada ou já concluída. "
+                "Por favor, inicie uma nova análise."
+            ) from exc
 
         if not final_event or not final_event.get("report"):
             raise RuntimeError("Análise não produziu relatório após retomada.")

@@ -60,4 +60,22 @@ Input:
 
 Output:
 {"antipatterns": []}
+
+Exemplo 3 — query com CTE e window function sem antipadrões:
+Input:
+  WITH ranked AS (
+    SELECT
+      customer_id,
+      order_id,
+      amount,
+      ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY created_at DESC) AS rn
+    FROM `proj.ds.orders`
+    WHERE DATE(created_at) >= '2024-01-01'
+  )
+  SELECT customer_id, order_id, amount
+  FROM ranked
+  WHERE rn = 1
+
+Output:
+{"antipatterns": []}
 """

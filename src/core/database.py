@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import secrets
 import sqlite3
@@ -251,42 +252,120 @@ def set_config_value(key: str, value: str, updated_by: str = "system") -> bool:
 # ── Query Analyzer Memory ────────────────────────────────────────────────────
 
 def get_dataset_memory(project_dataset: str) -> str:
+    """Retorna memória cross-sessão como texto formatado para o LLM.
+
+    Formato interno: JSON {"v": 2, "entries": [{...}]}
+    Saída: linhas priorizadas por frequência e severidade.
+    """
     try:
         with get_db() as conn:
             row = conn.execute(
                 "SELECT patterns FROM query_analyzer_memory WHERE project_dataset = ?",
                 (project_dataset,),
             ).fetchone()
-        return row["patterns"] if row else ""
+        if not row or not row["patterns"]:
+            return ""
+        raw = row["patterns"]
+        # Tenta interpretar como JSON estruturado (v2)
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict) and data.get("v") == 2:
+                entries = data.get("entries", [])
+                _SEV_WEIGHT = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
+                entries_sorted = sorted(
+                    entries,
+                    key=lambda e: (_SEV_WEIGHT.get(e.get("severity", "LOW"), 1) * 10 + e.get("count", 1)),
+                    reverse=True,
+                )
+                lines = []
+                for e in entries_sorted[:20]:
+                    freq = f"x{e['count']}" if e.get("count", 1) > 1 else ""
+                    lines.append(f"[{e.get('severity','?')}{freq}] {e.get('pattern','?')}: {e.get('suggestion','')}")
+                return "\n".join(lines)
+        except (json.JSONDecodeError, TypeError):
+            pass
+        # Fallback: formato texto legado
+        return raw
     except Exception:
         return ""
 
 
-def update_dataset_memory(project_dataset: str, new_patterns: str) -> None:
-    if not new_patterns.strip():
+def update_dataset_memory(project_dataset: str, new_entries: list[dict]) -> None:
+    """Persiste antipadrões detectados com contagem de frequência.
+
+    Args:
+        project_dataset: chave "projeto:dataset"
+        new_entries: lista de dicts com keys pattern, severity, suggestion
+    """
+    if not new_entries:
         return
     now = _utcnow()
     try:
         with get_db() as conn:
-            existing = conn.execute(
+            existing_row = conn.execute(
                 "SELECT patterns, analysis_count FROM query_analyzer_memory WHERE project_dataset = ?",
                 (project_dataset,),
             ).fetchone()
 
-            if existing:
-                lines = set(existing["patterns"].split("\n"))
-                lines.update(l for l in new_patterns.split("\n") if l.strip())
-                merged = "\n".join(sorted(lines)[:50])  # cap at 50 unique lines
+            existing_entries: dict[str, dict] = {}
+            analysis_count = 0
+
+            if existing_row and existing_row["patterns"]:
+                analysis_count = existing_row["analysis_count"] or 0
+                try:
+                    data = json.loads(existing_row["patterns"])
+                    if isinstance(data, dict) and data.get("v") == 2:
+                        for e in data.get("entries", []):
+                            key = e.get("pattern", "").strip().lower()
+                            if key:
+                                existing_entries[key] = e
+                except (json.JSONDecodeError, TypeError):
+                    # Migra formato legado: cada linha "[SEV] pattern: suggestion"
+                    for line in existing_row["patterns"].split("\n"):
+                        line = line.strip()
+                        if not line:
+                            continue
+                        # tenta parsear "[HIGH] SELECT *: sugestão"
+                        import re as _re
+                        m = _re.match(r"\[([A-Z]+)\]\s*(.+?):\s*(.+)", line)
+                        if m:
+                            sev, pat, sug = m.group(1), m.group(2).strip(), m.group(3).strip()
+                            key = pat.lower()
+                            existing_entries[key] = {"pattern": pat, "severity": sev, "suggestion": sug, "count": 1}
+
+            # Merge: incrementa count se já existe, adiciona se novo
+            for entry in new_entries:
+                key = (entry.get("pattern") or "").strip().lower()
+                if not key:
+                    continue
+                if key in existing_entries:
+                    existing_entries[key]["count"] = existing_entries[key].get("count", 1) + 1
+                    existing_entries[key]["last_seen"] = now
+                else:
+                    existing_entries[key] = {
+                        "pattern": entry.get("pattern", "").strip(),
+                        "severity": entry.get("severity", "MEDIUM"),
+                        "suggestion": entry.get("suggestion", "").strip(),
+                        "count": 1,
+                        "last_seen": now,
+                    }
+
+            # Limita a 50 entradas (remove as menos frequentes)
+            all_entries = sorted(existing_entries.values(), key=lambda e: e.get("count", 1), reverse=True)[:50]
+
+            payload = json.dumps({"v": 2, "entries": all_entries}, ensure_ascii=False)
+
+            if existing_row:
                 conn.execute(
                     "UPDATE query_analyzer_memory SET patterns = ?, analysis_count = ?, last_updated = ?"
                     " WHERE project_dataset = ?",
-                    (merged, existing["analysis_count"] + 1, now, project_dataset),
+                    (payload, analysis_count + 1, now, project_dataset),
                 )
             else:
                 conn.execute(
                     "INSERT INTO query_analyzer_memory (project_dataset, patterns, analysis_count, last_updated)"
                     " VALUES (?, ?, 1, ?)",
-                    (project_dataset, new_patterns.strip(), now),
+                    (project_dataset, payload, now),
                 )
     except Exception:
         pass

@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Review — Topologia do Agente</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0f1117;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    color: #e2e8f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #f8fafc;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 48px;
+    letter-spacing: 0.3px;
+  }
+
+  .canvas {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    max-width: 1100px;
+    width: 100%;
+  }
+
+  /* ── main flow ── */
+  .flow {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  /* ── sidebar ── */
+  .sidebar {
+    width: 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-top: 60px;
+  }
+
+  /* ── node card ── */
+  .node {
+    position: relative;
+    width: 100%;
+    max-width: 340px;
+    border-radius: 10px;
+    border: 1px solid;
+    padding: 12px 16px;
+    text-align: center;
+    cursor: default;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+
+  .node-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    margin-bottom: 3px;
+  }
+  .node-sub {
+    font-size: 11px;
+    opacity: 0.65;
+    line-height: 1.4;
+  }
+  .node-badge {
+    position: absolute;
+    top: -9px;
+    right: 12px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 99px;
+  }
+
+  /* colors */
+  .node-start {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+    max-width: 120px;
+    border-radius: 99px;
+    padding: 8px 20px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .node-end {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+    max-width: 120px;
+    border-radius: 99px;
+    padding: 8px 20px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .node-det {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-color: #334155;
+    color: #cbd5e1;
+  }
+  .node-bq {
+    background: linear-gradient(135deg, #1c3a52 0%, #0f2233 100%);
+    border-color: #2563eb55;
+    color: #93c5fd;
+  }
+  .node-bq .node-badge { background: #1d4ed8; color: #bfdbfe; }
+  .node-llm {
+    background: linear-gradient(135deg, #2d1f4e 0%, #1a0f33 100%);
+    border-color: #7c3aed55;
+    color: #c4b5fd;
+  }
+  .node-llm .node-badge { background: #6d28d9; color: #ede9fe; }
+  .node-hybrid {
+    background: linear-gradient(135deg, #1f3a2d 0%, #0f2218 100%);
+    border-color: #16a34a55;
+    color: #86efac;
+  }
+  .node-hybrid .node-badge { background: #15803d; color: #bbf7d0; }
+  .node-hitl {
+    background: linear-gradient(135deg, #3b2415 0%, #1c0f08 100%);
+    border-color: #ea580c88;
+    color: #fdba74;
+    max-width: 340px;
+    border-width: 2px;
+    box-shadow: 0 0 20px #ea580c22;
+  }
+  .node-hitl .node-badge { background: #c2410c; color: #fed7aa; }
+
+  /* arrows */
+  .arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    max-width: 340px;
+  }
+  .arrow-line {
+    width: 2px;
+    background: #334155;
+    flex: 1;
+    min-height: 20px;
+  }
+  .arrow-tip {
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid #475569;
+  }
+
+  /* branch block */
+  .branch-block {
+    width: 100%;
+    max-width: 340px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .branch-row {
+    display: flex;
+    width: 100%;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .branch-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+  }
+
+  .branch-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    white-space: nowrap;
+  }
+  .branch-approve { background: #14532d33; color: #4ade80; border: 1px solid #16a34a55; }
+  .branch-skip    { background: #1e293b; color: #64748b; border: 1px solid #334155; }
+  .branch-loop    { background: #3b0764; color: #c084fc; border: 1px solid #7c3aed55; }
+
+  .h-line {
+    height: 2px;
+    background: #334155;
+    width: 50%;
+  }
+  .h-line-right { align-self: flex-end; }
+  .h-line-left  { align-self: flex-start; }
+
+  .branch-merge-line {
+    width: 2px;
+    min-height: 16px;
+    background: #334155;
+  }
+
+  /* connector bar */
+  .connector-bar {
+    display: flex;
+    width: 100%;
+    max-width: 340px;
+    position: relative;
+    justify-content: center;
+  }
+  .connector-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 25%;
+    right: 25%;
+    height: 2px;
+    background: #334155;
+  }
+
+  /* loop indicator */
+  .loop-badge {
+    font-size: 10px;
+    color: #a78bfa;
+    background: #3b0764;
+    border: 1px solid #7c3aed55;
+    border-radius: 4px;
+    padding: 2px 8px;
+    margin: 4px 0;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── sidebar cards ── */
+  .side-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .side-card-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #64748b;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .side-card-title .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+  }
+  .side-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+  .side-item:last-child { margin-bottom: 0; }
+  .side-icon {
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .si-blue  { background: #1d4ed833; color: #60a5fa; }
+  .si-pur   { background: #6d28d933; color: #a78bfa; }
+  .si-green { background: #15803d33; color: #4ade80; }
+  .si-org   { background: #c2410c33; color: #fb923c; }
+  .si-slate { background: #33415533; color: #94a3b8; }
+
+  .stat-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .stat-chip {
+    background: #0f1117;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 6px 10px;
+    text-align: center;
+  }
+  .stat-num {
+    font-size: 22px;
+    font-weight: 800;
+    color: #f1f5f9;
+    line-height: 1;
+  }
+  .stat-lbl {
+    font-size: 10px;
+    color: #64748b;
+    margin-top: 2px;
+    letter-spacing: 0.3px;
+  }
+
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    color: #94a3b8;
+    margin-bottom: 6px;
+  }
+  .legend-row:last-child { margin-bottom: 0; }
+  .legend-box {
+    width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0;
+  }
+
+  .divider {
+    width: 100%;
+    max-width: 340px;
+    height: 1px;
+    background: #1e293b;
+    margin: 4px 0;
+  }
+
+  /* ── route diamond ── */
+  .diamond-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 340px;
+  }
+  .diamond {
+    width: 52px; height: 52px;
+    background: #1e293b;
+    border: 2px solid #475569;
+    transform: rotate(45deg);
+    display: flex; align-items: center; justify-content: center;
+    margin: 4px 0;
+  }
+  .diamond span {
+    transform: rotate(-45deg);
+    font-size: 17px;
+    line-height: 1;
+  }
+  .diamond-lbl {
+    font-size: 10px;
+    color: #64748b;
+    letter-spacing: 0.3px;
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+
+<h1>SQL Review — Topologia do Agente</h1>
+<p class="subtitle">LangGraph StateGraph · 11 nós · 1 ponto HITL · Loop de otimização</p>
+
+<div class="canvas">
+
+  <!-- MAIN FLOW -->
+  <div class="flow">
+
+    <!-- START -->
+    <div class="node node-start">START</div>
+    <div class="arrow"><div class="arrow-line" style="min-height:16px"></div><div class="arrow-tip"></div></div>
+
+    <!-- parse_query -->
+    <div class="node node-det">
+      <div class="node-title">parse_query</div>
+      <div class="node-sub">Extrai tabelas, colunas, CTEs, JOINs e padrões SQL</div>
+    </div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-tip"></div></div>
+
+    <!-- dry_run_baseline -->
+    <div class="node node-bq">
+      <span class="node-badge">BigQuery</span>
+      <div class="node-title">dry_run_baseline</div>
+      <div class="node-sub">Dry-run na query original — bytes processados e custo USD</div>
+    </div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-tip"></div></div>
+
+    <!-- fetch_query_schema -->
+    <div class="node node-bq">
+      <span class="node-badge">BQ · Cache 5 min</span>
+      <div class="node-title">fetch_query_schema</div>
+      <div class="node-sub">Schema das tabelas referenciadas na query</div>
+    </div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-tip"></div></div>
+
+    <!-- fetch_dataset_catalog -->
+    <div class="node node-bq">
+      <span class="node-badge">BQ · SQLite</span>
+      <div class="node-title">fetch_dataset_catalog</div>
+      <div class="node-sub">Catálogo completo do dataset + memória cross-sessão</div>
+    </div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-tip"></div></div>
+
+    <!-- enrich_with_intelligence -->
+    <div class="node node-llm">
+      <span class="node-badge">LLM</span>
+      <div class="node-title">enrich_with_intelligence</div>
+      <div class="node-sub">IntelligenceReport estruturado via schema + catálogo + custo</div>
+    </div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-tip"></div></div>
+
+    <!-- detect_antipatterns -->
+    <div class="node node-hybrid">
+      <span class="node-badge">Híbrido</span>
+      <div class="node-title">detect_antipatterns</div>
+      <div class="node-sub">Regras determinísticas + LLM structured output · dedup semântico</div>
+    </div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-tip"></div></div>
+
+    <!-- HITL -->
+    <div class="node node-hitl">
+      <span class="node-badge">⏸ HITL</span>
+      <div class="node-title">await_human_approval</div>
+      <div class="node-sub">interrupt() — aguarda decisão humana<br><strong style="font-size:11px; color:#fb923c">approve</strong> ou <strong style="font-size:11px; color:#94a3b8">skip</strong></div>
+    </div>
+
+    <!-- branch after HITL -->
+    <div class="branch-block">
+      <!-- horizontal split -->
+      <div style="display:flex; width:100%; position:relative; height:20px;">
+        <div style="position:absolute; top:0; left:50%; width:1px; background:#334155; height:100%;"></div>
+        <div style="position:absolute; top:0; left:20%; right:20%; height:2px; background:#334155;"></div>
+      </div>
+
+      <div class="branch-row">
+        <!-- skip branch -->
+        <div class="branch-col">
+          <div style="width:2px; background:#334155; height:16px;"></div>
+          <div class="branch-label branch-skip">skip / sem antipadrões</div>
+          <!-- goes down to merge -->
+          <div style="width:2px; background:#334155; flex:1; min-height:30px;"></div>
+        </div>
+
+        <!-- approve branch -->
+        <div class="branch-col">
+          <div style="width:2px; background:#334155; height:16px;"></div>
+          <div class="branch-label branch-approve">approve</div>
+
+          <!-- optimize_query -->
+          <div class="node node-llm" style="max-width:220px; width:100%;">
+            <span class="node-badge">LLM · Retry</span>
+            <div class="node-title">optimize_query</div>
+            <div class="node-sub">Gera query otimizada</div>
+          </div>
+          <div style="width:2px; background:#334155; height:16px;"></div>
+
+          <!-- validate_optimized -->
+          <div class="node node-bq" style="max-width:220px; width:100%;">
+            <span class="node-badge">BQ dry-run</span>
+            <div class="node-title">validate_optimized</div>
+            <div class="node-sub">Compara bytes, checa idempotência</div>
+          </div>
+
+          <!-- loop label -->
+          <div style="width:2px; background:#334155; height:8px;"></div>
+          <div class="loop-badge">↺ loop até max_iterations</div>
+          <div style="width:2px; background:#334155; height:8px;"></div>
+        </div>
+      </div>
+
+      <!-- merge line -->
+      <div style="display:flex; width:100%; position:relative; height:20px;">
+        <div style="position:absolute; top:20px; left:50%; width:1px; background:#334155; height:100%;"></div>
+        <div style="position:absolute; top:20px; left:20%; right:20%; height:2px; background:#334155;"></div>
+      </div>
+      <div style="width:2px; background:#334155; height:16px;"></div>
+    </div>
+
+    <div class="arrow"><div class="arrow-tip"></div></div>
+
+    <!-- validate_data_existence -->
+    <div class="node node-det">
+      <div class="node-title">validate_data_existence</div>
+      <div class="node-sub">Detecta WHERE improvável — semantic only, sem execução BQ</div>
+    </div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-tip"></div></div>
+
+    <!-- score_and_report -->
+    <div class="node node-llm">
+      <span class="node-badge">LLM Creative</span>
+      <div class="node-title">score_and_report</div>
+      <div class="node-sub">Score 0–100 · grade · summary · opt_status · salva memória SQLite</div>
+    </div>
+    <div class="arrow"><div class="arrow-line" style="min-height:16px"></div><div class="arrow-tip"></div></div>
+
+    <!-- END -->
+    <div class="node node-end">END</div>
+
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Stats -->
+    <div class="side-card">
+      <div class="side-card-title"><div class="dot" style="background:#60a5fa"></div>Estatísticas</div>
+      <div class="stat-row">
+        <div class="stat-chip">
+          <div class="stat-num">11</div>
+          <div class="stat-lbl">Nós</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-num">3</div>
+          <div class="stat-lbl">Cond. edges</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-num">4</div>
+          <div class="stat-lbl">LLM calls</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-num">2</div>
+          <div class="stat-lbl">BQ dry-runs</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="side-card">
+      <div class="side-card-title"><div class="dot" style="background:#94a3b8"></div>Legenda</div>
+      <div class="legend-row"><div class="legend-box" style="background:#1e293b; border:1px solid #475569;"></div>Determinístico</div>
+      <div class="legend-row"><div class="legend-box" style="background:#1c3a52; border:1px solid #2563eb55;"></div>BigQuery API</div>
+      <div class="legend-row"><div class="legend-box" style="background:#2d1f4e; border:1px solid #7c3aed55;"></div>LLM call</div>
+      <div class="legend-row"><div class="legend-box" style="background:#1f3a2d; border:1px solid #16a34a55;"></div>Híbrido (regras + LLM)</div>
+      <div class="legend-row"><div class="legend-box" style="background:#3b2415; border:2px solid #ea580c88;"></div>HITL — interrupção</div>
+    </div>
+
+    <!-- Persistence -->
+    <div class="side-card">
+      <div class="side-card-title"><div class="dot" style="background:#4ade80"></div>Persistência</div>
+      <div class="side-item">
+        <div class="side-icon si-slate">💾</div>
+        <div><strong style="color:#e2e8f0">SQLite</strong><br>Memória cross-sessão por dataset (JSON v2, top 50 padrões)</div>
+      </div>
+      <div class="side-item">
+        <div class="side-icon si-blue">⚡</div>
+        <div><strong style="color:#e2e8f0">MemorySaver</strong><br>Estado HITL in-memory (TTL 1h por thread)</div>
+      </div>
+    </div>
+
+    <!-- Caches -->
+    <div class="side-card">
+      <div class="side-card-title"><div class="dot" style="background:#a78bfa"></div>Caches in-memory</div>
+      <div class="side-item">
+        <div class="side-icon si-blue">📋</div>
+        <div><strong style="color:#e2e8f0">_CATALOG_CACHE</strong><br>Catálogo BQ por projeto/dataset</div>
+      </div>
+      <div class="side-item">
+        <div class="side-icon si-pur">🔍</div>
+        <div><strong style="color:#e2e8f0">_SCHEMA_CACHE</strong><br>Schema por set de tabelas · TTL 5 min</div>
+      </div>
+      <div class="side-item">
+        <div class="side-icon si-green">🖥</div>
+        <div><strong style="color:#e2e8f0">_qaLastResult</strong><br>Frontend cache da última análise</div>
+      </div>
+    </div>
+
+    <!-- HITL decisions -->
+    <div class="side-card">
+      <div class="side-card-title"><div class="dot" style="background:#fb923c"></div>Decisões HITL</div>
+      <div class="side-item">
+        <div class="side-icon si-green">✓</div>
+        <div><strong style="color:#4ade80">approve</strong> → optimize_query<br>Entra no loop de otimização</div>
+      </div>
+      <div class="side-item">
+        <div class="side-icon si-slate">→</div>
+        <div><strong style="color:#94a3b8">skip</strong> → validate_data_existence<br>Pula otimização direto ao relatório</div>
+      </div>
+      <div class="side-item">
+        <div class="side-icon si-slate">∅</div>
+        <div><strong style="color:#94a3b8">sem antipadrões</strong><br>Auto-skip sem interrupção</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

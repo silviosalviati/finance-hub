@@ -22,7 +22,6 @@ class AgentState(BaseModel):
     query_schema: str = ""          # schema das tabelas referenciadas na query
     dataset_catalog: str = ""       # catálogo completo de todas as tabelas do dataset
     dataset_memory: str = ""        # memória cross-sessão de padrões do dataset
-    optimization_status: str = "pending"   # rastreado durante execução do pipeline
 
     dry_run_original: Optional[DryRunResult] = None
 

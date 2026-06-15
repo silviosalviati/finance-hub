@@ -36,6 +36,9 @@ _CATALOG_LOCK = threading.Lock()
 _CATALOG_CACHE: dict[str, tuple[float, str]] = {}
 _CATALOG_TTL = 300  # 5 minutes
 
+_SCHEMA_CACHE: dict[str, tuple[float, str]] = {}
+_SCHEMA_TTL = 300  # 5 minutes
+
 SEVERITY_PENALTY = {
     "low": 5,
     "medium": 15,
@@ -107,8 +110,25 @@ def parse_query(state: AgentState) -> dict:
 
 
 def fetch_query_schema(state: AgentState) -> dict:
-    """Busca schema das tabelas referenciadas na query."""
-    return {"query_schema": _safe_get_schema_context(state)}
+    """Busca schema das tabelas referenciadas na query (com cache TTL 5min)."""
+    tables = sorted(state.query_structure.get("tables", []))
+    cache_key = f"{state.project_id}:{':'.join(tables)}" if tables else ""
+
+    if cache_key:
+        with _CATALOG_LOCK:
+            cached = _SCHEMA_CACHE.get(cache_key)
+        if cached:
+            ts, schema_text = cached
+            if time.time() - ts < _SCHEMA_TTL:
+                return {"query_schema": schema_text}
+
+    schema_text = _safe_get_schema_context(state)
+
+    if cache_key:
+        with _CATALOG_LOCK:
+            _SCHEMA_CACHE[cache_key] = (time.time(), schema_text)
+
+    return {"query_schema": schema_text}
 
 
 def fetch_dataset_catalog(state: AgentState) -> dict:
@@ -429,7 +449,7 @@ Schema e contexto disponíveis:
 """
 
     try:
-        response = llm.invoke([
+        response = invoke_with_retry(llm, [
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),
         ])
@@ -597,23 +617,30 @@ def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
     grade = _score_to_grade(score)
     power_bi_tips = _generate_power_bi_tips(state)
 
-    summary = _generate_summary(state=state, score=score, grade=grade, savings_pct=savings_pct, dry_orig=dry_orig)
+    # optimization_status — calculado ANTES do summary para alimentar o texto
+    if not state.antipatterns:
+        opt_status = "skipped_no_antipatterns"
+    elif state.human_decision == "skip":
+        opt_status = "skipped_by_user"
+    elif state.optimized_query and state.optimized_query != state.original_query:
+        opt_status = "approved"
+    else:
+        opt_status = "failed"
+
+    summary = _generate_summary(
+        state=state,
+        score=score,
+        grade=grade,
+        savings_pct=savings_pct,
+        dry_orig=dry_orig,
+        opt_status=opt_status,
+    )
 
     recommendations = [ap.suggestion for ap in state.antipatterns]
     if not recommendations:
         recommendations = ["Query está seguindo boas práticas do BigQuery."]
 
     applied_optimizations = _build_applied_optimizations(state)
-
-    # optimization_status: por que a otimização foi/não foi aplicada
-    if state.human_decision == "skip":
-        opt_status = "skipped_by_user"
-    elif not state.needs_optimization and not state.antipatterns:
-        opt_status = "skipped_no_antipatterns"
-    elif state.optimized_query and state.optimized_query != state.original_query:
-        opt_status = "approved"
-    else:
-        opt_status = "failed"
 
     # data_quality: indica se os dados de custo estão completos
     if dry_orig and not dry_orig.error and dry_opt and not dry_opt.error:
@@ -1024,13 +1051,35 @@ def _generate_summary(
     grade: str,
     savings_pct: float | None,
     dry_orig: Any,
+    opt_status: str = "approved",
 ) -> str:
     bytes_text = format_bytes(dry_orig.bytes_processed) if dry_orig and not dry_orig.error else "N/A"
-    savings_text = f"{savings_pct}%" if savings_pct is not None else "não calculada"
+    n = len(state.antipatterns)
+
+    if opt_status == "skipped_no_antipatterns":
+        return (
+            f"Query analisada com score {score}/100 ({grade}). "
+            f"Nenhum antipadrão detectado — boas práticas seguidas. "
+            f"Bytes processados: {bytes_text}."
+        )
+    if opt_status == "skipped_by_user":
+        return (
+            f"Query analisada com score {score}/100 ({grade}). "
+            f"Foram identificados {n} antipadrão(s). "
+            f"Otimização não aplicada conforme escolha do usuário."
+        )
+    if opt_status == "approved":
+        savings_text = f"{savings_pct}%" if savings_pct is not None else "não calculada"
+        return (
+            f"Query analisada com score {score}/100 ({grade}). "
+            f"Foram identificados {n} antipadrão(s), "
+            f"com economia estimada de {savings_text} sobre {bytes_text} processados na query original."
+        )
+    # failed
     return (
         f"Query analisada com score {score}/100 ({grade}). "
-        f"Foram identificados {len(state.antipatterns)} anti-padrão(s), "
-        f"com economia estimada de {savings_text} sobre {bytes_text} processados na query original."
+        f"Foram identificados {n} antipadrão(s), mas a otimização não produziu resultado diferente. "
+        f"Bytes processados: {bytes_text}."
     )
 
 

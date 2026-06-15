@@ -21,9 +21,12 @@ def test_detect_ask_name_intent():
 
 
 def test_analytics_query_classifier():
-    assert _is_analytics_query("Quero um relatório de fricção") is True
-    assert _is_analytics_query("Analise os atendimentos do mês passado") is True
+    # Termos genéricos de análise de dados (sem domínio fixo).
+    assert _is_analytics_query("Quero um relatório dos últimos 30 dias") is True
+    assert _is_analytics_query("Mostre uma tabela com o total agrupado") is True
+    assert _is_analytics_query("Gere um gráfico de tendência") is True
     assert _is_analytics_query("qual meu nome") is False
+    assert _is_analytics_query("oi tudo bem?") is False
 
 
 def test_repeated_response_reuses_previous_payload():

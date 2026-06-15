@@ -1,4 +1,4 @@
-"""Estado compartilhado do grafo Supervisor do Finance Voice IA (fase 1)."""
+"""Estado compartilhado do grafo Supervisor do Finance Voice IA."""
 
 from __future__ import annotations
 
@@ -6,11 +6,7 @@ from typing import Any, TypedDict
 
 
 class SupervisorState(TypedDict, total=False):
-    """Estado do Supervisor + Specialists.
-
-    Mantém-se separado de FinanceAuditorState (grafo legado VoC) para evitar
-    acoplamento — o grafo legado é invocado como uma capability isolada.
-    """
+    """Estado do Supervisor + Specialists."""
 
     # --- Entrada ---
     request_text: str

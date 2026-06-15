@@ -65,7 +65,7 @@ _PERSONA_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
             r"\bdetalhe\s+por\b",
             r"\blista\s+(?:os|as)\b",
             r"\btop\s+\d+\b",
-            r"\bacionable\b",
+            r"\bacionavel\b",
             r"\bsupervis(?:or|ao)\b",
         ),
     ),

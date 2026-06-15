@@ -9,7 +9,6 @@ class QueryAntiPattern(BaseModel):
     pattern: str
     description: str
     severity: str
-    line_hint: Optional[str] = None
     suggestion: str
 
     @field_validator("severity")

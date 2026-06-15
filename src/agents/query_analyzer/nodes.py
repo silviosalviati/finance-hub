@@ -16,7 +16,6 @@ from src.core.database import get_dataset_memory, update_dataset_memory
 from src.shared.config import BQ_ANTIPATTERNS, get_runtime_config
 from src.shared.tools.bigquery import (
     dry_run_query,
-    execute_query_rows,
     format_bytes,
     get_dataset_tables_schema,
     get_schemas_for_query,
@@ -210,22 +209,6 @@ def dry_run_baseline(state: AgentState) -> dict:
         }
 
 
-def _is_simple_query(state: AgentState) -> bool:
-    """Query simples: única tabela, sem JOINs, subqueries ou CTEs, E sem antipadrões estruturais.
-
-    Não usa threshold de palavras — uma query curta com SELECT * ainda precisa de análise.
-    """
-    structure = state.query_structure
-    return (
-        len(structure.get("tables", [])) <= 1
-        and structure.get("join_count", 0) == 0
-        and structure.get("subquery_count", 0) == 0
-        and structure.get("cte_count", 0) == 0
-        and not structure.get("has_star")
-        and not structure.get("has_cross_join")
-    )
-
-
 def enrich_with_intelligence(state: AgentState, llm: BaseChatModel) -> dict:
     """LLM com structured output analisa schema + catálogo + custo + memória do dataset."""
     if not state.dataset_catalog or "(indisponível" in state.dataset_catalog:
@@ -281,14 +264,6 @@ Se não houver oportunidades em uma seção, retorne lista vazia. Seja específi
     return {"intelligence_report": report}
 
 
-# ---------------------------------------------------------------------------
-# Nó legado mantido para compatibilidade com grafos externos
-# ---------------------------------------------------------------------------
-
-def dry_run_estimate(state: AgentState) -> dict:
-    return dry_run_baseline(state)
-
-
 def detect_antipatterns(state: AgentState, llm: BaseChatModel) -> dict:
     """Híbrido: regras determinísticas + LLM com structured output."""
     structure = state.query_structure
@@ -339,11 +314,6 @@ ANTIPADRÕES POSSÍVEIS:
         "antipatterns": antipatterns,
         "needs_optimization": needs_optimization,
     }
-
-
-def analyze_patterns(state: AgentState, llm: BaseChatModel) -> dict:
-    """Legado — mantido para compatibilidade com grafos externos."""
-    return detect_antipatterns(state, llm)
 
 
 def await_human_approval(state: AgentState) -> dict:

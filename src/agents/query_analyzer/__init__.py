@@ -204,7 +204,6 @@ class QueryAnalyzerAgent(BaseAgent):
                     "pattern": ap.pattern,
                     "description": ap.description,
                     "severity": ap.severity,
-                    "line_hint": ap.line_hint,
                     "suggestion": ap.suggestion,
                 }
                 for ap in report.antipatterns_found

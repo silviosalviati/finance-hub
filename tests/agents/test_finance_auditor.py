@@ -67,7 +67,7 @@ class TestFinanceAuditorMetadata:
     def test_agent_id(self):
         from src.agents.finance_auditor import FinanceAuditorAgent
 
-        with patch("src.agents.finance_auditor.create_llm"), \
+        with patch("src.agents.finance_auditor._create_llm"), \
              patch("src.agents.finance_auditor.build_graph"):
             agent = FinanceAuditorAgent()
             assert agent.agent_id == "finance_auditor"
@@ -75,7 +75,7 @@ class TestFinanceAuditorMetadata:
     def test_display_name(self):
         from src.agents.finance_auditor import FinanceAuditorAgent
 
-        with patch("src.agents.finance_auditor.create_llm"), \
+        with patch("src.agents.finance_auditor._create_llm"), \
              patch("src.agents.finance_auditor.build_graph"):
             agent = FinanceAuditorAgent()
             assert agent.display_name == "Finance Voice IA"
@@ -83,8 +83,9 @@ class TestFinanceAuditorMetadata:
     def test_runtime_info_keys(self):
         from src.agents.finance_auditor import FinanceAuditorAgent
 
-        with patch("src.agents.finance_auditor.create_llm"), \
-             patch("src.agents.finance_auditor.build_graph"):
+        with patch("src.agents.finance_auditor._create_llm"), \
+             patch("src.agents.finance_auditor.build_graph"), \
+             patch("src.agents.finance_auditor.get_runtime_config", return_value="legacy"):
             agent = FinanceAuditorAgent()
             info = agent.runtime_info()
             assert "agent_id" in info

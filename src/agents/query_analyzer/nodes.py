@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import threading
 import time
 from typing import Any
+
+_LOG = logging.getLogger(__name__)
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -37,6 +40,21 @@ _CATALOG_TTL = 300  # 5 minutes
 
 _SCHEMA_CACHE: dict[str, tuple[float, str]] = {}
 _SCHEMA_TTL = 300  # 5 minutes
+
+_CACHE_MAX_ENTRIES = 128
+
+
+def _evict_cache(cache: dict[str, tuple[float, str]], ttl: int) -> None:
+    """Remove expired and excess entries (LRU-by-timestamp). Caller holds _CATALOG_LOCK."""
+    now = time.time()
+    expired = [k for k, (ts, _) in cache.items() if now - ts > ttl]
+    for k in expired:
+        cache.pop(k, None)
+    if len(cache) > _CACHE_MAX_ENTRIES:
+        # sort by timestamp asc and drop the oldest until size fits
+        ordered = sorted(cache.items(), key=lambda kv: kv[1][0])
+        for k, _ in ordered[: len(cache) - _CACHE_MAX_ENTRIES]:
+            cache.pop(k, None)
 
 SEVERITY_PENALTY = {
     "low": 5,
@@ -126,6 +144,7 @@ def fetch_query_schema(state: AgentState) -> dict:
     if cache_key:
         with _CATALOG_LOCK:
             _SCHEMA_CACHE[cache_key] = (time.time(), schema_text)
+            _evict_cache(_SCHEMA_CACHE, _SCHEMA_TTL)
 
     return {"query_schema": schema_text}
 
@@ -184,6 +203,7 @@ def fetch_dataset_catalog(state: AgentState) -> dict:
         catalog_text = "\n".join(lines)
         with _CATALOG_LOCK:
             _CATALOG_CACHE[memory_key] = (time.time(), catalog_text)
+            _evict_cache(_CATALOG_CACHE, _CATALOG_TTL)
         return {"dataset_catalog": catalog_text, "dataset_memory": dataset_memory}
     except Exception as exc:
         return {
@@ -195,7 +215,8 @@ def fetch_dataset_catalog(state: AgentState) -> dict:
 def dry_run_baseline(state: AgentState) -> dict:
     """Dry-run da query original para custo baseline."""
     try:
-        result = dry_run_query(state.original_query, state.project_id)
+        timeout = float(get_runtime_config("QA_DRYRUN_TIMEOUT_SECONDS", "30"))
+        result = dry_run_query(state.original_query, state.project_id, timeout_seconds=timeout)
         return {"dry_run_original": result}
     except Exception as exc:
         from src.shared.tools.schemas import DryRunResult
@@ -396,6 +417,7 @@ REGRAS ABSOLUTAS — nunca viole nenhuma delas:
 10. Responda APENAS com o SQL otimizado
 11. Evite ORDER BY RAND(); substitua por TABLESAMPLE ou remova se não for essencial
 12. Implicit cross joins (FROM a, b) devem ser convertidos em INNER JOIN explícito APENAS quando a relação de chave for 100% clara no schema; caso contrário, mantenha o FROM original
+13. NÃO OTIMIZAR se a transformação proposta produzir ganho estimado < 5% de bytes processados ou aumentar a complexidade estrutural sem ganho claro de custo; nesse caso, retorne a query ORIGINAL inalterada
 {gold_layer_note}"""
 
     user_prompt = f"""## Query original:
@@ -463,7 +485,8 @@ def validate_optimized(state: AgentState) -> dict:
         }
 
     try:
-        result = dry_run_query(state.optimized_query, state.project_id)
+        timeout = float(get_runtime_config("QA_DRYRUN_TIMEOUT_SECONDS", "30"))
+        result = dry_run_query(state.optimized_query, state.project_id, timeout_seconds=timeout)
     except Exception as exc:
         from src.shared.tools.schemas import DryRunResult
         return {
@@ -681,8 +704,8 @@ def _save_analysis_to_memory(state: AgentState) -> None:
 
         if entries:
             update_dataset_memory(memory_key, entries)
-    except Exception:
-        pass
+    except Exception as exc:
+        _LOG.debug("save_analysis_to_memory skipped: %s", exc)
 
 
 # ---------------------------------------------------------------------------

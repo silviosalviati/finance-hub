@@ -415,7 +415,11 @@ def _extract_referenced_tables(job) -> list[str]:
     ]
 
 
-def dry_run_query(query: str, project_id: str | None) -> DryRunResult:
+def dry_run_query(
+    query: str,
+    project_id: str | None,
+    timeout_seconds: float | None = None,
+) -> DryRunResult:
     try:
         client = _get_client(project_id)
         job_config = bigquery.QueryJobConfig(
@@ -425,7 +429,10 @@ def dry_run_query(query: str, project_id: str | None) -> DryRunResult:
 
         job = client.query(query, job_config=job_config)
         # Garantimos que os metadados do dry-run estejam populados antes do calculo.
-        job.result()
+        if timeout_seconds is not None:
+            job.result(timeout=timeout_seconds)
+        else:
+            job.result()
 
         bytes_processed = job.total_bytes_processed or 0
         bytes_billed = job.total_bytes_billed or bytes_processed

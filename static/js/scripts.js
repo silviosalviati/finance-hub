@@ -157,6 +157,27 @@ function setQAProgress(stepText, pct) {
   progress.style.display = "flex";
   step.textContent = stepText;
   fill.style.width = `${pct}%`;
+  fill.classList.remove("qa-progress-indeterminate");
+}
+
+let _qaIndeterminateTimer = null;
+function startQAIndeterminateFallback(stepText) {
+  if (_qaIndeterminateTimer) clearTimeout(_qaIndeterminateTimer);
+  _qaIndeterminateTimer = setTimeout(() => {
+    const fill = document.getElementById("qa-progress-fill");
+    const step = document.getElementById("qa-progress-step");
+    if (fill) fill.classList.add("qa-progress-indeterminate");
+    if (step && stepText) step.textContent = stepText;
+  }, 3500);
+}
+
+function clearQAIndeterminateFallback() {
+  if (_qaIndeterminateTimer) {
+    clearTimeout(_qaIndeterminateTimer);
+    _qaIndeterminateTimer = null;
+  }
+  const fill = document.getElementById("qa-progress-fill");
+  if (fill) fill.classList.remove("qa-progress-indeterminate");
 }
 
 function hideQAProgress() {
@@ -893,7 +914,14 @@ function openDev(name, desc, features, eta) {
 // SQL Review
 // ─────────────────────────────────────
 function forceReanalyze() {
+  if (_qaHitlThreadId) {
+    const ok = window.confirm(
+      "Existe uma análise aguardando sua decisão. Reanalisar agora vai descartá-la. Confirma?",
+    );
+    if (!ok) return;
+  }
   _qaLastResult = null;
+  _qaHitlThreadId = null;
   runAnalyze();
 }
 
@@ -939,10 +967,12 @@ async function runAnalyze() {
     return;
   }
 
-  // Reaproveitamento de resultado: mesma query já analisada
+  // Reaproveitamento de resultado: mesma query, mesmo projeto e dataset já analisados
   if (
     _qaLastResult &&
     _qaLastResult.query === query &&
+    _qaLastResult.projectId === project_id &&
+    _qaLastResult.datasetHint === dataset_hint &&
     _qaLastResult.data?.status === "ok"
   ) {
     setQALoading(false);
@@ -968,6 +998,7 @@ async function runAnalyze() {
     setTimeout(() => setQAProgress("Estimando custo no BigQuery...", 36), 180);
     setTimeout(() => setQAProgress("Detectando anti-padrões...", 62), 520);
     setTimeout(() => setQAProgress("Consolidando resultado...", 84), 980);
+    startQAIndeterminateFallback("Aguardando resposta do servidor…");
 
     const res = await fetch("/api/agents/query_analyzer/analyze", {
       method: "POST",
@@ -990,17 +1021,19 @@ async function runAnalyze() {
     }
 
     const data = await res.json();
+    clearQAIndeterminateFallback();
 
     setQAProgress("Finalizando apresentação...", 100);
 
     if (data.status === "awaiting_approval") {
       showQAHitlPanel(data);
     } else {
-      _qaLastResult = { query, data };
+      _qaLastResult = { query, projectId: project_id, datasetHint: dataset_hint, data };
       renderQA(data);
       saveToHistory(data, query);
     }
   } catch (e) {
+    clearQAIndeterminateFallback();
     showQAError(prettifyErrorMessage(e.message));
 
     if (qaTabsArea && qaTabsArea.style.display === "none" && qaEmpty) {
@@ -3315,10 +3348,10 @@ function renderQA(d) {
     document.getElementById("q-corig").textContent = fmtUSD(
       d.cost_original_usd,
     );
-    document.getElementById("q-bopt").textContent = fmtBytes(d.bytes_optimized);
-    document.getElementById("q-copt").textContent = fmtUSD(
-      d.cost_optimized_usd,
-    );
+    document.getElementById("q-bopt").textContent =
+      d.bytes_optimized != null ? fmtBytes(d.bytes_optimized) : "—";
+    document.getElementById("q-copt").textContent =
+      d.cost_optimized_usd != null ? fmtUSD(d.cost_optimized_usd) : "—";
 
     const pct = d.savings_pct || 0;
 
@@ -3820,7 +3853,12 @@ async function resumeQA(decision) {
 
     setQAProgress("Finalizando apresentação...", 100);
     const _resumeQuery = document.getElementById("qa-query")?.value || "";
-    _qaLastResult = { query: _resumeQuery, data };
+    _qaLastResult = {
+      query: _resumeQuery,
+      projectId: qaDatasetValidationState.projectId || "",
+      datasetHint: qaDatasetValidationState.datasetHint || "",
+      data,
+    };
     renderQA(data);
     saveToHistory(data, _resumeQuery);
   } catch (e) {

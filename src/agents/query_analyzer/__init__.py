@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import threading
 import time
@@ -7,6 +8,8 @@ import uuid
 from typing import Any
 
 from langgraph.types import Command
+
+_LOG = logging.getLogger(__name__)
 
 # Registrar tipos customizados para evitar warnings de desserialização do msgpack do LangGraph.
 # Sem isso, DryRunResult/QueryAntiPattern/IntelligenceReport geram warnings ao retomar checkpoints.
@@ -61,8 +64,28 @@ def _cleanup_expired_threads() -> None:
             keys_to_delete = [k for k in storage if isinstance(k, tuple) and k[0] == tid]
             for k in keys_to_delete:
                 del storage[k]
-        except Exception:
-            pass
+        except Exception as exc:
+            _LOG.debug("Failed to evict checkpoint storage for thread %s: %s", tid, exc)
+    if expired:
+        _LOG.info("Cleaned %d expired HITL thread(s) from registry", len(expired))
+
+
+def _start_background_cleanup() -> None:
+    """Daemon que roda cleanup a cada 5 min — protege contra registries que crescem sem novas chamadas analyze()."""
+    def _loop() -> None:
+        while True:
+            time.sleep(300)
+            try:
+                with _THREAD_REGISTRY_LOCK:
+                    _cleanup_expired_threads()
+            except Exception as exc:
+                _LOG.warning("Background cleanup falhou: %s", exc)
+
+    t = threading.Thread(target=_loop, name="qa-thread-registry-cleanup", daemon=True)
+    t.start()
+
+
+_start_background_cleanup()
 
 
 class QueryAnalyzerAgent(BaseAgent):
@@ -133,17 +156,18 @@ class QueryAnalyzerAgent(BaseAgent):
             thread_id: Identificador retornado pelo `analyze()` em 'awaiting_approval'.
             human_decision: 'approve' para otimizar, 'skip' para ir direto ao relatório.
         """
-        import logging
-
-        # Aviso se o thread não estiver mais no registry (ex: reinício do servidor)
-        # Não bloqueamos — deixamos o LangGraph tentar e falhar com mensagem clara.
         with _THREAD_REGISTRY_LOCK:
-            if thread_id not in _THREAD_REGISTRY:
-                logging.warning(
-                    "thread_id %s não encontrado no registry (possível reinício do servidor). "
-                    "Tentando retomar via MemorySaver mesmo assim.",
-                    thread_id,
-                )
+            thread_known = thread_id in _THREAD_REGISTRY
+
+        if not thread_known:
+            _LOG.warning(
+                "resume() chamado para thread %s ausente do registry (TTL expirado ou servidor reiniciou).",
+                thread_id,
+            )
+            raise RuntimeError(
+                "Sessão de análise expirou ou foi perdida (servidor reiniciado). "
+                "Clique em 'Reанalisar' para iniciar uma nova análise."
+            )
 
         graph = self._get_graph()
         config = {"configurable": {"thread_id": thread_id}}
@@ -157,9 +181,10 @@ class QueryAnalyzerAgent(BaseAgent):
             ):
                 final_event = event
         except Exception as exc:
+            _LOG.warning("Falha ao retomar thread %s: %s", thread_id, exc)
             raise RuntimeError(
-                "Sessão de análise não encontrada ou já concluída. "
-                "Por favor, inicie uma nova análise."
+                "Não foi possível retomar a análise. "
+                "Por favor, inicie uma nova análise clicando em 'Reанalisar'."
             ) from exc
 
         if not final_event or not final_event.get("report"):

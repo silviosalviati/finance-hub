@@ -2813,6 +2813,16 @@ textarea {
   border-radius: 999px;
   transition: width 0.35s ease;
 }
+.qa-progress-fill.qa-progress-indeterminate {
+  width: 35% !important;
+  animation: qa-progress-slide 1.4s ease-in-out infinite;
+  transition: none;
+}
+@keyframes qa-progress-slide {
+  0%   { transform: translateX(-110%); }
+  50%  { transform: translateX(150%); }
+  100% { transform: translateX(290%); }
+}
 
 .qa-ctx-box {
   display: none;

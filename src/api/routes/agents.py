@@ -122,7 +122,37 @@ def _fallback_schema_safe_suggestions(table_id: str, focal_cols: list[str]) -> l
     ]
 
 
+from collections import deque
 from functools import lru_cache as _lru_cache
+from threading import Lock as _RLock
+
+_QA_RATE_LIMIT_WINDOW = 60.0
+_QA_RATE_LIMIT_MAX = int(get_runtime_config("QA_RATE_LIMIT_PER_MIN", "10"))
+_QA_RATE_BUCKETS: dict[str, deque] = {}
+_QA_RATE_LOCK = _RLock()
+
+
+def _qa_rate_limit_check(token: str) -> None:
+    """Sliding-window rate limiter per user token. Raises HTTPException on excess."""
+    import time as _time
+    now = _time.time()
+    with _QA_RATE_LOCK:
+        bucket = _QA_RATE_BUCKETS.setdefault(token, deque())
+        while bucket and now - bucket[0] > _QA_RATE_LIMIT_WINDOW:
+            bucket.popleft()
+        if len(bucket) >= _QA_RATE_LIMIT_MAX:
+            retry = int(_QA_RATE_LIMIT_WINDOW - (now - bucket[0]))
+            raise HTTPException(
+                status_code=429,
+                detail=f"Muitas análises seguidas. Tente novamente em {max(retry, 1)}s.",
+            )
+        bucket.append(now)
+        # opportunistic cleanup: drop empty buckets so dict doesn't grow forever
+        if len(_QA_RATE_BUCKETS) > 1024:
+            stale = [k for k, dq in _QA_RATE_BUCKETS.items() if not dq]
+            for k in stale:
+                _QA_RATE_BUCKETS.pop(k, None)
+
 
 _NAME_PATTERNS = (
     re.compile(r"\bmeu nome\s*(?:é|e)\s*([a-zA-ZÀ-ÿ][\wÀ-ÿ\- ]{0,40})", re.IGNORECASE),
@@ -342,6 +372,9 @@ async def analyze_by_agent(
         raise HTTPException(status_code=400, detail="Query nao pode ser vazia.")
     if agent_id not in {"query_analyzer", "finance_auditor"} and not project_id:
         raise HTTPException(status_code=400, detail="Project ID nao pode ser vazio.")
+
+    if agent_id == "query_analyzer":
+        _qa_rate_limit_check(session["token"])
     if agent_id == "finance_auditor" and not project_id:
         project_id = get_runtime_config("FINANCE_AUDITOR_DEFAULT_PROJECT", "silviosalviati")
 
@@ -429,9 +462,14 @@ async def analyze_by_agent(
         if agent_id == "schema_graph" and result.get("status") == "ok":
             checkpointer.save(f"schema_graph:{project_id}", result)
         return result
+    except HTTPException:
+        raise
     except Exception as exc:
         logging.error("Erro no analyze de %s: %s\n%s", agent_id, exc, traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(
+            status_code=500,
+            detail="Erro interno ao processar a análise. Tente novamente em instantes.",
+        )
 
 
 @router.post("/api/agents/query_build/suggestions")
@@ -598,8 +636,15 @@ async def resume_query_analyzer(
         checkpointer = get_checkpointer()
         checkpointer.save(f"{session['token']}-query_analyzer", result)
         return result
+    except RuntimeError as exc:
+        # erros de fluxo previsíveis (sessão expirou, sem relatório) — mensagem direta
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        logging.error("Erro no resume do query_analyzer: %s\n%s", exc, traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail="Erro interno ao retomar a análise. Tente novamente em instantes.",
+        )
 
 
 _SAFE_ID = re.compile(r"^[a-zA-Z0-9_\-]+$")

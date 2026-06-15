@@ -4,17 +4,24 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-CAPABILITY_VOC_REPORT = "voc_report"
+# Capabilities genéricas — sem nenhuma referência a domínio fixo.
+CAPABILITY_BQ_LIST_DATASETS = "bq_list_datasets"
 CAPABILITY_BQ_LIST_TABLES = "bq_list_tables"
 CAPABILITY_BQ_GET_SCHEMA = "bq_get_schema"
 CAPABILITY_BQ_QUERY = "bq_query"
+CAPABILITY_TEXT_TO_SQL = "text_to_sql"
+CAPABILITY_STATS_DESCRIBE = "stats_describe"
+CAPABILITY_VIZ_SPEC = "viz_spec"
 CAPABILITY_CHAT_ANSWER = "chat_answer"
 
 VALID_CAPABILITIES = {
-    CAPABILITY_VOC_REPORT,
+    CAPABILITY_BQ_LIST_DATASETS,
     CAPABILITY_BQ_LIST_TABLES,
     CAPABILITY_BQ_GET_SCHEMA,
     CAPABILITY_BQ_QUERY,
+    CAPABILITY_TEXT_TO_SQL,
+    CAPABILITY_STATS_DESCRIBE,
+    CAPABILITY_VIZ_SPEC,
     CAPABILITY_CHAT_ANSWER,
 }
 
@@ -30,10 +37,9 @@ class PlanStep(BaseModel):
     @classmethod
     def _validate_capability(cls, v: str) -> str:
         cap = (v or "").strip().lower()
-        if cap not in VALID_CAPABILITIES:
-            # mantém o valor para que o router decida fallback explícito,
-            # em vez de levantar exceção dentro do structured output do LLM
-            return cap or CAPABILITY_CHAT_ANSWER
+        if not cap:
+            return CAPABILITY_CHAT_ANSWER
+        # Preserva o nome mesmo se inválido — o router responde com erro explícito.
         return cap
 
 
@@ -45,10 +51,13 @@ class PlanResponse(BaseModel):
 
 
 __all__ = [
-    "CAPABILITY_VOC_REPORT",
+    "CAPABILITY_BQ_LIST_DATASETS",
     "CAPABILITY_BQ_LIST_TABLES",
     "CAPABILITY_BQ_GET_SCHEMA",
     "CAPABILITY_BQ_QUERY",
+    "CAPABILITY_TEXT_TO_SQL",
+    "CAPABILITY_STATS_DESCRIBE",
+    "CAPABILITY_VIZ_SPEC",
     "CAPABILITY_CHAT_ANSWER",
     "VALID_CAPABILITIES",
     "PlanStep",

@@ -1,20 +1,17 @@
-"""Grafo LangGraph do Supervisor do Finance Voice IA (fase 1).
+"""Grafo LangGraph do Supervisor do Finance Voice IA.
 
 Topologia:
-
     START
       → guardrails_in
       → persona_resolver
-      → planner          (LLM com structured output → PlanResponse)
-      → router           (executa cada step do plano em sequência)
-      → composer         (LLM redige resposta final na altitude da persona)
+      → planner            (LLM com structured output → PlanResponse)
+      → router             (executa cada step do plano em sequência)
+      → composer           (LLM redige resposta final na altitude da persona)
       → guardrails_out
       → END
 
-Diferenças vs. grafo legado (FinanceAuditor):
-- Não assume domínio único (VoC); o pipeline VoC vira UMA capability.
-- Decide dinamicamente quais capabilities chamar.
-- Adapta a resposta à persona detectada (Coordenador / Gerente / Diretor).
+Não há domínio fixo. O Planner escolhe entre capabilities genéricas (descoberta
+de datasets, schema, text-to-sql, query livre, estatística, gráfico, chat).
 """
 
 from __future__ import annotations
@@ -45,10 +42,8 @@ from src.agents.finance_auditor.supervisor_schemas import (
 from src.agents.finance_auditor.supervisor_state import SupervisorState
 from src.shared.tools.llm import invoke_with_retry
 
-# Limite duro para evitar planos absurdos vindos do LLM.
-_MAX_PLAN_STEPS = 5
+_MAX_PLAN_STEPS = 6
 
-# Padrões de injeção / instrução suspeita (guardrail simples — fase 1).
 _INJECTION_MARKERS = (
     "ignore previous",
     "ignore as instru",
@@ -102,7 +97,6 @@ def _fallback_plan(reason: str) -> list[dict[str, Any]]:
 
 def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     if not state.get("guardrail_in_ok", True):
-        # short-circuit: composer dará a mensagem de bloqueio
         return {"plan": [], "plan_rationale": "bloqueado por guardrail"}
 
     request_text = state.get("request_text", "")
@@ -137,16 +131,21 @@ def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Nó 4 — router (executa cada step em sequência)
+# Nó 4 — router (executa cada step em sequência; injeta LLM e tool_results)
 # ---------------------------------------------------------------------------
 
-def node_router(state: SupervisorState, legacy_agent: Any) -> dict[str, Any]:
+def node_router(
+    state: SupervisorState,
+    llm: BaseChatModel,
+    llm_creative: BaseChatModel,
+) -> dict[str, Any]:
     plan = state.get("plan") or []
-    context = {
+    base_context: dict[str, Any] = {
         "request_text": state.get("request_text", ""),
         "project_id": state.get("project_id", ""),
         "dataset_hint": state.get("dataset_hint"),
-        "legacy_agent": legacy_agent,
+        "llm": llm,
+        "llm_creative": llm_creative,
     }
 
     results: list[dict[str, Any]] = []
@@ -156,7 +155,11 @@ def node_router(state: SupervisorState, legacy_agent: Any) -> dict[str, Any]:
     for idx, step in enumerate(plan):
         capability = str(step.get("capability") or "").strip().lower()
         args = step.get("args") or {}
-        outcome = execute_capability(capability, args, context)
+
+        # Encadeamento: cada step recebe os resultados anteriores no context.
+        step_context = {**base_context, "tool_results": list(results)}
+
+        outcome = execute_capability(capability, args, step_context)
 
         results.append(
             {
@@ -184,10 +187,7 @@ def node_router(state: SupervisorState, legacy_agent: Any) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def _summarize_tool_results_for_llm(results: list[dict[str, Any]]) -> str:
-    """Serializa os resultados para o LLM sem estourar tokens.
-
-    Trunca payloads grandes (ex.: muitas linhas) preservando o essencial.
-    """
+    """Serializa os resultados truncando payloads grandes."""
     summary = []
     for r in results:
         payload = r.get("payload")
@@ -221,31 +221,9 @@ def _summarize_tool_results_for_llm(results: list[dict[str, Any]]) -> str:
         return str(summary)
 
 
-def _shortcut_voc_markdown(state: SupervisorState) -> str | None:
-    """Atalho: se o plano foi só voc_report bem-sucedido, devolve o markdown gerado.
-
-    Evita uma chamada LLM redundante para reescrever um relatório já completo.
-    """
-    plan = state.get("plan") or []
-    results = state.get("tool_results") or []
-    if len(plan) != 1 or len(results) != 1:
-        return None
-    only = results[0]
-    if only.get("capability") != "voc_report" or not only.get("ok"):
-        return None
-    payload = only.get("payload") or {}
-    md = str(payload.get("markdown_report") or "").strip()
-    return md or None
-
-
 def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     if state.get("error"):
-        # bloqueado por guardrail anterior
         return {"final_answer": f"_{state['error']}_"}
-
-    shortcut = _shortcut_voc_markdown(state)
-    if shortcut:
-        return {"final_answer": shortcut}
 
     persona = state.get("persona") or PERSONA_GERAL
     persona_block = get_persona_prompt(persona)
@@ -268,8 +246,7 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
             [SystemMessage(content=system_prompt), HumanMessage(content=user_content)],
             max_attempts=2,
         )
-        text = getattr(response, "content", None) or str(response)
-        text = str(text).strip()
+        text = str(getattr(response, "content", response) or "").strip()
         if text:
             return {"final_answer": text}
     except Exception as exc:  # noqa: BLE001
@@ -285,11 +262,10 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Nó 6 — guardrails_out (placeholder fase 1)
+# Nó 6 — guardrails_out (placeholder — política de PII entra em fase posterior)
 # ---------------------------------------------------------------------------
 
 def node_guardrails_out(state: SupervisorState) -> dict[str, Any]:
-    # Fase 1: passthrough. Hooks de PII / política de saída entram na fase 3.
     return {}
 
 
@@ -299,15 +275,13 @@ def node_guardrails_out(state: SupervisorState) -> dict[str, Any]:
 
 def build_supervisor_graph(
     llm: BaseChatModel,
-    llm_creative: BaseChatModel | None,
-    legacy_agent: Any,
+    llm_creative: BaseChatModel | None = None,
 ) -> Any:
     """Compila o grafo Supervisor.
 
     Args:
-        llm: LLM analítico (baixa temperatura) — Planner.
-        llm_creative: LLM criativo (maior temperatura) — Composer. Cai para `llm` quando omitido.
-        legacy_agent: instância de FinanceAuditorAgent (para a capability voc_report).
+        llm: LLM analítico (baixa temperatura) — Planner e text_to_sql.
+        llm_creative: LLM criativo — Composer. Cai para `llm` quando omitido.
     """
     _composer_llm = llm_creative or llm
     workflow = StateGraph(SupervisorState)
@@ -315,7 +289,10 @@ def build_supervisor_graph(
     workflow.add_node("guardrails_in", node_guardrails_in)
     workflow.add_node("persona_resolver", node_persona_resolver)
     workflow.add_node("planner", lambda s: node_planner(s, llm=llm))
-    workflow.add_node("router", lambda s: node_router(s, legacy_agent=legacy_agent))
+    workflow.add_node(
+        "router",
+        lambda s: node_router(s, llm=llm, llm_creative=_composer_llm),
+    )
     workflow.add_node("composer", lambda s: node_composer(s, llm=_composer_llm))
     workflow.add_node("guardrails_out", node_guardrails_out)
 

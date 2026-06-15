@@ -181,26 +181,23 @@ def _tokenize(text: str) -> set[str]:
 
 
 def _is_analytics_query(query: str) -> bool:
+    """Heurística leve: decide se a pergunta provavelmente envolve dados.
+
+    Sem termos de domínio (VoC/fricção/sentimento foram removidos). A decisão
+    final é do Planner do Supervisor; este filtro serve apenas para roteamento
+    rápido entre o caminho conversacional (RAG curto) e o caminho do grafo
+    completo, mantendo o comportamento do chat para perguntas sociais.
+    """
     q = _normalize_text(query)
     analytics_terms = (
-        "analise",
-        "análise",
-        "relatorio",
-        "relatório",
-        "friccao",
-        "fricção",
-        "sentimento",
-        "tema",
-        "temas",
-        "voc",
-        "periodo",
-        "período",
-        "ultimos",
-        "últimos",
-        "mes",
-        "mês",
-        "atendimento",
-        "atendimentos",
+        "analise", "análise", "relatorio", "relatório",
+        "dado", "dados", "tabela", "tabelas", "dataset", "datasets",
+        "query", "sql", "consulta", "consultas",
+        "grafico", "gráfico", "graficos", "gráficos",
+        "estatistica", "estatística", "media", "média", "mediana",
+        "soma", "total", "contagem", "agrupado", "agrupar",
+        "periodo", "período", "ultimos", "últimos", "mes", "mês",
+        "compare", "comparar", "tendencia", "tendência",
     )
     return any(term in q for term in analytics_terms)
 
@@ -424,6 +421,7 @@ async def analyze_by_agent(
                     query=query,
                     project_id=project_id,
                     dataset_hint=req.dataset_hint,
+                    user_profile=profile,
                 )
                 response.setdefault("response_mode", "analysis")
 

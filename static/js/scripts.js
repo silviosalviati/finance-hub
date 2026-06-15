@@ -7,6 +7,7 @@ let qaDatasetValidationTimer = null;
 let qaIsLoading = false;
 let qaAnalyzeInFlight = false;
 let _qaHitlThreadId = null;
+let _qaLastResult = null; // { query, data } — cache do último resultado
 const qaDatasetValidationState = {
   status: "idle",
   datasetHint: "",
@@ -891,6 +892,11 @@ function openDev(name, desc, features, eta) {
 // ─────────────────────────────────────
 // SQL Review
 // ─────────────────────────────────────
+function forceReanalyze() {
+  _qaLastResult = null;
+  runAnalyze();
+}
+
 async function runAnalyze() {
   if (qaAnalyzeInFlight) {
     return;
@@ -933,9 +939,27 @@ async function runAnalyze() {
     return;
   }
 
+  // Reaproveitamento de resultado: mesma query já analisada
+  if (
+    _qaLastResult &&
+    _qaLastResult.query === query &&
+    _qaLastResult.data?.status === "ok"
+  ) {
+    setQALoading(false);
+    qaAnalyzeInFlight = false;
+    resetQATabsDataState();
+    resetQAResultPanels();
+    if (qaEmpty) qaEmpty.style.display = "none";
+    if (qaTabsArea) qaTabsArea.style.display = "none";
+    const cachedData = { ..._qaLastResult.data, _cached: true };
+    renderQA(cachedData);
+    return;
+  }
+
   setQAProgress("Validando entrada...", 18);
   resetQATabsDataState();
   resetQAResultPanels();
+  _qaLastResult = null;
 
   if (qaEmpty) qaEmpty.style.display = "none";
   if (qaTabsArea) qaTabsArea.style.display = "none";
@@ -972,6 +996,7 @@ async function runAnalyze() {
     if (data.status === "awaiting_approval") {
       showQAHitlPanel(data);
     } else {
+      _qaLastResult = { query, data };
       renderQA(data);
       saveToHistory(data, query);
     }
@@ -3276,6 +3301,9 @@ function renderQA(d) {
   }
   if (summary) summary.textContent = d.summary || "Sem resumo disponível.";
 
+  const cachedNotice = document.getElementById("q-cached-notice");
+  if (cachedNotice) cachedNotice.style.display = d._cached ? "flex" : "none";
+
   // Tiles
   const qTiles = document.getElementById("q-tiles");
   const qSavSec = document.getElementById("q-sav-sec");
@@ -3784,8 +3812,10 @@ async function resumeQA(decision) {
     _qaHitlThreadId = null;
 
     setQAProgress("Finalizando apresentação...", 100);
+    const _resumeQuery = document.getElementById("qa-query")?.value || "";
+    _qaLastResult = { query: _resumeQuery, data };
     renderQA(data);
-    saveToHistory(data, document.getElementById("qa-query")?.value || "");
+    saveToHistory(data, _resumeQuery);
   } catch (e) {
     if (processing) processing.style.display = "none";
     if (hitlPanel) hitlPanel.style.overflowY = "";

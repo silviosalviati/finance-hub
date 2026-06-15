@@ -3752,6 +3752,14 @@ function showQAHitlPanel(data) {
   const empty = document.getElementById("qa-empty");
   const tabsArea = document.getElementById("qa-tabs-area");
   const container = document.getElementById("qa-hitl-antipatterns");
+  const approveBtn = document.getElementById("qa-hitl-approve");
+  const skipBtn = document.getElementById("qa-hitl-skip");
+  const processing = document.getElementById("qa-hitl-processing");
+
+  // Reset state — pode vir de uma análise anterior onde os botões ficaram disabled
+  if (approveBtn) approveBtn.disabled = false;
+  if (skipBtn) skipBtn.disabled = false;
+  if (processing) processing.style.display = "none";
 
   if (empty) empty.style.display = "none";
   if (tabsArea) tabsArea.style.display = "none";

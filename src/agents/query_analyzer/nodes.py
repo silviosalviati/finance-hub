@@ -647,6 +647,8 @@ def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
     if intelligence_summary == "(não disponível)" or intelligence_summary == "Nenhuma oportunidade identificada.":
         intelligence_summary = None
 
+    opt_impact = _classify_optimization_impact(opt_status, state.antipatterns, bytes_saved)
+
     report = OptimizationReport(
         efficiency_score=score,
         grade=grade,
@@ -664,6 +666,7 @@ def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
         data_existence_warning=state.data_existence_warning,
         optimization_status=opt_status,
         data_quality=dq,
+        optimization_impact=opt_impact,
     )
 
     # Persist cross-session memory: antipatterns + intelligence context for this dataset
@@ -680,6 +683,48 @@ def score_and_report(state: AgentState, llm: BaseChatModel) -> dict:
 # ---------------------------------------------------------------------------
 # Memory helpers
 # ---------------------------------------------------------------------------
+
+# Antipadrões cuja correção reduz bytes lidos pelo BigQuery (column/partition pruning).
+_BYTES_REDUCING_TOKENS = (
+    "select *",
+    "select*",
+    "partição",
+    "particionada",
+    "partition",
+    "clustering",
+    "cluster",
+    "full scan",
+    "scan completo",
+    "leitura completa",
+)
+
+
+def _classify_optimization_impact(
+    opt_status: str,
+    antipatterns: list,
+    bytes_saved: int | None,
+) -> str:
+    """Classifica o tipo de ganho da otimização.
+
+    - bytes_and_slots: economia real em bytes lidos (column/partition pruning)
+    - slots_only:      otimização aplicada mas só reduz compute/slots (ORDER BY, DISTINCT, UNION, etc.)
+    - none:            sem otimização aplicada ou sem antipadrões
+    """
+    if opt_status != "approved" or not antipatterns:
+        return "none"
+
+    if bytes_saved and bytes_saved > 0:
+        return "bytes_and_slots"
+
+    # Sem ganho de bytes — verifica se algum antipadrão era do tipo que afeta bytes
+    for ap in antipatterns:
+        text = f"{ap.pattern} {ap.description}".lower()
+        if any(token in text for token in _BYTES_REDUCING_TOKENS):
+            # Antipadrão era de bytes mas otimização não reduziu — provável falha estrutural
+            return "bytes_and_slots"
+
+    return "slots_only"
+
 
 def _save_analysis_to_memory(state: AgentState) -> None:
     """Persiste antipadrões desta análise na memória cross-sessão do dataset."""
@@ -1062,11 +1107,20 @@ def _generate_summary(
             f"Otimização não aplicada conforme escolha do usuário."
         )
     if opt_status == "approved":
-        savings_text = f"{savings_pct}%" if savings_pct is not None else "não calculada"
+        has_byte_savings = savings_pct is not None and savings_pct > 0
+        if has_byte_savings:
+            return (
+                f"Query analisada com score {score}/100 ({grade}). "
+                f"Foram identificados {n} antipadrão(s), "
+                f"com economia estimada de {savings_pct}% sobre {bytes_text} processados na query original."
+            )
+        # Otimização aplicada mas sem ganho em bytes — é redução de slots/compute
         return (
             f"Query analisada com score {score}/100 ({grade}). "
-            f"Foram identificados {n} antipadrão(s), "
-            f"com economia estimada de {savings_text} sobre {bytes_text} processados na query original."
+            f"Foram identificados {n} antipadrão(s) e a otimização foi aplicada. "
+            f"O ganho está em slots/compute (CPU): operações como ORDER BY, DISTINCT, "
+            f"UNION ou CROSS JOIN não reduzem bytes lidos ({bytes_text}), mas reduzem o tempo "
+            f"e o custo de processamento."
         )
     # failed
     return (

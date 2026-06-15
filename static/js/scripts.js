@@ -3341,6 +3341,9 @@ function renderQA(d) {
   const qTiles = document.getElementById("q-tiles");
   const qSavSec = document.getElementById("q-sav-sec");
 
+  const qSavTile = document.getElementById("q-sav-tile");
+  const qSlotsTile = document.getElementById("q-slots-tile");
+
   if (d.bytes_original != null && qTiles) {
     qTiles.style.display = "grid";
 
@@ -3354,6 +3357,8 @@ function renderQA(d) {
       d.cost_optimized_usd != null ? fmtUSD(d.cost_optimized_usd) : "—";
 
     const pct = d.savings_pct || 0;
+    const impact = d.optimization_impact || "none";
+    const showSlotsTile = pct === 0 && impact === "slots_only";
 
     document.getElementById("q-sav").textContent =
       pct > 0 ? `↓ ${pct}%` : "N/A";
@@ -3362,6 +3367,10 @@ function renderQA(d) {
         ? `USD ${Number(d.cost_saved_usd).toFixed(4)}`
         : "—";
 
+    // Alterna entre tile "Economia" e tile "Slots/Compute"
+    if (qSavTile) qSavTile.style.display = showSlotsTile ? "none" : "";
+    if (qSlotsTile) qSlotsTile.style.display = showSlotsTile ? "" : "none";
+
     if (pct > 0 && qSavSec) {
       qSavSec.style.display = "block";
       document.getElementById("q-sav-big").textContent = `↓ ${pct}%`;
@@ -3369,6 +3378,8 @@ function renderQA(d) {
       setTimeout(() => {
         document.getElementById("q-sav-fill").style.width = `${pct}%`;
       }, 150);
+    } else if (qSavSec) {
+      qSavSec.style.display = "none";
     }
   }
 

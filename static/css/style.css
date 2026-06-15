@@ -3347,6 +3347,16 @@ textarea {
   font-family: var(--mono);
 }
 
+.tile-slots {
+  background: linear-gradient(135deg, #eef2ff 0%, #fefce8 100%);
+  border-color: #6366f1aa;
+}
+.tile-slots .tv-slots {
+  font-size: 14px;
+  color: #4338ca;
+  font-weight: 700;
+}
+
 /* COMMON SEC CARD */
 .sec-card {
   background: var(--white);

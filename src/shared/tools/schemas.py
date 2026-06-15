@@ -96,4 +96,5 @@ class OptimizationReport(BaseModel):
     data_existence_warning: Optional[str] = None
     optimization_status: str = "skipped_no_antipatterns"  # "approved" | "skipped_by_user" | "skipped_no_antipatterns" | "failed"
     data_quality: str = "full"  # "full" | "partial" | "no_cost_data"
+    optimization_impact: str = "none"  # "bytes_and_slots" | "slots_only" | "none"
 

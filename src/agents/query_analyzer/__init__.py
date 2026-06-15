@@ -250,6 +250,7 @@ class QueryAnalyzerAgent(BaseAgent):
             "data_existence_warning": report.data_existence_warning,
             "optimization_status": report.optimization_status,
             "data_quality": report.data_quality,
+            "optimization_impact": report.optimization_impact,
         }
 
     def runtime_info(self) -> dict[str, str]:

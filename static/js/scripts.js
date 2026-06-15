@@ -3349,11 +3349,18 @@ function renderQA(d) {
 
   if (tabOptimized) tabOptimized.classList.add("has-data");
 
-  // Data existence warning
+  // Data existence warning + data quality notice
   const qWarnSec = document.getElementById("q-data-warn");
   if (qWarnSec) {
-    if (d.data_existence_warning) {
-      qWarnSec.textContent = d.data_existence_warning;
+    const msgs = [];
+    if (d.data_existence_warning) msgs.push(d.data_existence_warning);
+    if (d.data_quality === "no_cost_data") {
+      msgs.push("ℹ Score calculado sem dados de custo (dry-run indisponível) — valores de bytes e USD não exibidos.");
+    } else if (d.data_quality === "partial") {
+      msgs.push("ℹ Dados de custo parciais — economia estimada pode ser imprecisa.");
+    }
+    if (msgs.length) {
+      qWarnSec.textContent = msgs.join("\n\n");
       qWarnSec.style.display = "block";
     } else {
       qWarnSec.style.display = "none";

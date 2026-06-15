@@ -53,6 +53,24 @@ STRUCTURAL_PENALTY = {
 }
 
 
+def _intelligence_report_to_text(report) -> str:
+    """Converte IntelligenceReport estruturado em texto para prompts LLM."""
+    if report is None:
+        return "(não disponível)"
+    parts: list[str] = []
+    if report.table_alternatives:
+        parts.append("Alternativas de tabela:\n" + "\n".join(f"- {x}" for x in report.table_alternatives))
+    if report.partition_opportunities:
+        parts.append("Oportunidades de partição:\n" + "\n".join(f"- {x}" for x in report.partition_opportunities))
+    if report.clustering_opportunities:
+        parts.append("Oportunidades de clustering:\n" + "\n".join(f"- {x}" for x in report.clustering_opportunities))
+    if report.dataset_insights:
+        parts.append("Insights do dataset:\n" + "\n".join(f"- {x}" for x in report.dataset_insights))
+    if report.summary:
+        parts.append(f"Resumo: {report.summary}")
+    return "\n\n".join(parts) if parts else "Nenhuma oportunidade identificada."
+
+
 def parse_query(state: AgentState) -> dict:
     query_upper = state.original_query.upper()
 
@@ -173,19 +191,25 @@ def dry_run_baseline(state: AgentState) -> dict:
 
 
 def _is_simple_query(state: AgentState) -> bool:
+    """Query simples: única tabela, sem JOINs, subqueries ou CTEs, E sem antipadrões estruturais.
+
+    Não usa threshold de palavras — uma query curta com SELECT * ainda precisa de análise.
+    """
     structure = state.query_structure
     return (
         len(structure.get("tables", [])) <= 1
         and structure.get("join_count", 0) == 0
         and structure.get("subquery_count", 0) == 0
         and structure.get("cte_count", 0) == 0
+        and not structure.get("has_star")
+        and not structure.get("has_cross_join")
     )
 
 
 def enrich_with_intelligence(state: AgentState, llm: BaseChatModel) -> dict:
     """LLM com structured output analisa schema + catálogo + custo + memória do dataset."""
-    if _is_simple_query(state):
-        return {"intelligence_context": "", "intelligence_report": None}
+    if not state.dataset_catalog or "(indisponível" in state.dataset_catalog:
+        return {"intelligence_report": None}
 
     cost_context = _build_cost_context(state.dry_run_original)
     memory_section = ""
@@ -234,25 +258,7 @@ Se não houver oportunidades em uma seção, retorne lista vazia. Seja específi
     except Exception as exc:
         report = IntelligenceReport(summary=f"(enriquecimento indisponível: {exc})")
 
-    # Build plain-text summary for prompts downstream
-    parts: list[str] = []
-    if report.table_alternatives:
-        parts.append("Alternativas de tabela:\n" + "\n".join(f"- {x}" for x in report.table_alternatives))
-    if report.partition_opportunities:
-        parts.append("Oportunidades de partição:\n" + "\n".join(f"- {x}" for x in report.partition_opportunities))
-    if report.clustering_opportunities:
-        parts.append("Oportunidades de clustering:\n" + "\n".join(f"- {x}" for x in report.clustering_opportunities))
-    if report.dataset_insights:
-        parts.append("Insights do dataset:\n" + "\n".join(f"- {x}" for x in report.dataset_insights))
-    if report.summary:
-        parts.append(f"Resumo: {report.summary}")
-
-    intelligence_text = "\n\n".join(parts) if parts else "Nenhuma oportunidade identificada."
-
-    return {
-        "intelligence_context": intelligence_text,
-        "intelligence_report": report,
-    }
+    return {"intelligence_report": report}
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +277,7 @@ def detect_antipatterns(state: AgentState, llm: BaseChatModel) -> dict:
 
     # Use typed fields — not the deprecated schema_context frankenstein
     schema_section = state.query_schema or _safe_get_schema_context(state)
-    intelligence_section = state.intelligence_context or "(não disponível)"
+    intelligence_section = _intelligence_report_to_text(state.intelligence_report)
 
     antipatterns_list = "\n".join(f"- {pattern}" for pattern in BQ_ANTIPATTERNS)
 
@@ -354,8 +360,9 @@ def optimize_query(state: AgentState, llm: BaseChatModel) -> dict:
     # Use typed fields instead of the deprecated schema_context
     schema_available = bool(state.query_schema and "(indisponível)" not in state.query_schema)
     schema_section = state.query_schema if schema_available else "(schema não disponível)"
-    if state.intelligence_context:
-        schema_section += f"\n\nINTELIGÊNCIA DE CONTEXTO:\n{state.intelligence_context}"
+    intel_text = _intelligence_report_to_text(state.intelligence_report)
+    if intel_text and intel_text != "(não disponível)":
+        schema_section += f"\n\nINTELIGÊNCIA DE CONTEXTO:\n{intel_text}"
 
     is_complex_analytical = _is_complex_analytical_query(state)
 
@@ -454,6 +461,17 @@ def validate_optimized(state: AgentState) -> dict:
     if not state.optimized_query:
         return {}
 
+    # Idempotency check: se o LLM retornou a query idêntica, não há ganho — vai direto ao relatório
+    original_stripped = re.sub(r"\s+", " ", state.original_query.strip().lower())
+    optimized_stripped = re.sub(r"\s+", " ", state.optimized_query.strip().lower())
+    if original_stripped == optimized_stripped:
+        return {
+            "needs_optimization": False,
+            "optimization_feedback": list(state.optimization_feedback) + [
+                "Query otimizada é idêntica à original — nenhuma melhoria encontrada."
+            ],
+        }
+
     try:
         result = dry_run_query(state.optimized_query, state.project_id)
     except Exception as exc:
@@ -524,60 +542,40 @@ def validate_optimized(state: AgentState) -> dict:
 
 
 def validate_data_existence(state: AgentState) -> dict:
-    """Valida se a query otimizada retorna dados reais e detecta mudanças semânticas.
+    """Detecta mudanças semânticas na query otimizada (WHERE adicionado pelo optimizer).
 
-    Dois níveis de verificação:
-    1. Semântica: a query otimizada adicionou WHERE/filtros que não existiam no original?
-    2. Existência: a query otimizada retorna ao menos 1 linha no BigQuery?
+    Verifica APENAS via análise léxica — sem execução real no BigQuery.
+    O custo de execução para checar existência de dados é maior do que o benefício,
+    dado que o prompt já proíbe explicitamente adicionar cláusulas WHERE.
     """
     if not state.optimized_query:
         return {}
 
     warnings: list[str] = []
 
-    # — Verificação 1: mudança semântica (WHERE adicionado pelo optimizer) ——————
+    # — Verificação semântica: WHERE adicionado pelo optimizer ——————————————
     original_has_where = bool(re.search(r"\bWHERE\b", state.original_query, re.IGNORECASE))
     optimized_has_where = bool(re.search(r"\bWHERE\b", state.optimized_query, re.IGNORECASE))
 
     if optimized_has_where and not original_has_where:
         warnings.append(
             "⚠ A query otimizada adicionou cláusula WHERE que NÃO existia na query original. "
-            "Isso restringe os dados retornados e muda o resultado. "
-            "Verifique se os filtros adicionados correspondem a dados reais no seu dataset."
+            "Isso pode restringir os dados retornados. "
+            "Revise a query otimizada antes de usar."
         )
 
-    # Detect new filter conditions even when both have WHERE
     if original_has_where and optimized_has_where:
-        orig_where = _extract_where_conditions(state.original_query)
-        opt_where = _extract_where_conditions(state.optimized_query)
-        new_conditions = opt_where - orig_where
-        if new_conditions:
+        orig_conds = _extract_where_conditions(state.original_query)
+        opt_conds = _extract_where_conditions(state.optimized_query)
+        new_conds = opt_conds - orig_conds
+        if new_conds:
             warnings.append(
-                f"⚠ A query otimizada adicionou {len(new_conditions)} condição(ões) de filtro "
-                f"além das originais: {', '.join(sorted(new_conditions)[:3])}. "
-                "Confirme que essas condições correspondem a dados existentes no seu BigQuery."
+                f"⚠ A query otimizada adicionou {len(new_conds)} condição(ões) de filtro "
+                f"além das originais: {', '.join(sorted(new_conds)[:3])}. "
+                "Confirme que essas condições não alteram o conjunto de resultados esperado."
             )
 
-    # — Verificação 2: existência de dados (execução leve com LIMIT 1) ———————
-    try:
-        existence_sql = (
-            f"SELECT 1 AS _exists FROM ({state.optimized_query}) AS _chk LIMIT 1"
-        )
-        rows = execute_query_rows(existence_sql, state.project_id, max_rows=1)
-        if not rows:
-            warnings.append(
-                "⚠ A query otimizada não retornou nenhum dado no BigQuery. "
-                "Os filtros aplicados (datas, chaves, condições) podem não corresponder "
-                "a registros existentes nas tabelas. Revise as condições antes de usar esta query."
-            )
-    except Exception as exc:
-        # Don't block the pipeline — just report the check failed
-        warnings.append(
-            f"ℹ Não foi possível verificar a existência de dados na query otimizada: {exc}"
-        )
-
-    warning_text = "\n\n".join(warnings) if warnings else None
-    return {"data_existence_warning": warning_text}
+    return {"data_existence_warning": "\n\n".join(warnings) if warnings else None}
 
 
 def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
@@ -607,6 +605,28 @@ def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
 
     applied_optimizations = _build_applied_optimizations(state)
 
+    # optimization_status: por que a otimização foi/não foi aplicada
+    if state.human_decision == "skip":
+        opt_status = "skipped_by_user"
+    elif not state.needs_optimization and not state.antipatterns:
+        opt_status = "skipped_no_antipatterns"
+    elif state.optimized_query and state.optimized_query != state.original_query:
+        opt_status = "approved"
+    else:
+        opt_status = "failed"
+
+    # data_quality: indica se os dados de custo estão completos
+    if dry_orig and not dry_orig.error and dry_opt and not dry_opt.error:
+        dq = "full"
+    elif dry_orig and not dry_orig.error:
+        dq = "partial"
+    else:
+        dq = "no_cost_data"
+
+    intelligence_summary = _intelligence_report_to_text(state.intelligence_report)
+    if intelligence_summary == "(não disponível)" or intelligence_summary == "Nenhuma oportunidade identificada.":
+        intelligence_summary = None
+
     report = OptimizationReport(
         efficiency_score=score,
         grade=grade,
@@ -620,8 +640,10 @@ def generate_report(state: AgentState, llm: BaseChatModel) -> dict:
         recommendations=recommendations,
         power_bi_tips=power_bi_tips,
         applied_optimizations=applied_optimizations,
-        intelligence_summary=state.intelligence_context or None,
+        intelligence_summary=intelligence_summary,
         data_existence_warning=state.data_existence_warning,
+        optimization_status=opt_status,
+        data_quality=dq,
     )
 
     # Persist cross-session memory: antipatterns + intelligence context for this dataset
@@ -640,7 +662,7 @@ def score_and_report(state: AgentState, llm: BaseChatModel) -> dict:
 # ---------------------------------------------------------------------------
 
 def _save_analysis_to_memory(state: AgentState) -> None:
-    """Persiste padrões desta análise na memória cross-sessão do dataset."""
+    """Persiste antipadrões desta análise na memória cross-sessão do dataset."""
     try:
         tables = state.query_structure.get("tables", [])
         if not tables:
@@ -651,16 +673,17 @@ def _save_analysis_to_memory(state: AgentState) -> None:
         dataset_hint = state.dataset_hint or f"{parts[0]}.{parts[1]}"
         memory_key = f"{state.project_id}:{dataset_hint}"
 
-        lines: list[str] = []
-        for ap in state.antipatterns:
-            lines.append(f"[{ap.severity}] {ap.pattern}: {ap.suggestion}")
-        if state.intelligence_context and "indisponível" not in state.intelligence_context:
-            for line in state.intelligence_context.split("\n")[:5]:
-                if line.strip():
-                    lines.append(f"[CTX] {line.strip()}")
+        entries = [
+            {
+                "pattern": ap.pattern,
+                "severity": ap.severity,
+                "suggestion": ap.suggestion or "",
+            }
+            for ap in state.antipatterns
+        ]
 
-        if lines:
-            update_dataset_memory(memory_key, "\n".join(lines))
+        if entries:
+            update_dataset_memory(memory_key, entries)
     except Exception:
         pass
 
@@ -814,15 +837,44 @@ def _build_forced_antipatterns(structure: dict[str, Any]) -> list[QueryAntiPatte
     return forced
 
 
+# Mapeamento de padrões canônicos: detecta o mesmo problema com diferentes nomes
+_ANTIPATTERN_CANONICAL: dict[str, str] = {
+    "select *": "select_star",
+    "select*": "select_star",
+    "uso de select *": "select_star",
+    "cross join": "cross_join",
+    "cross join sem filtro": "cross_join",
+    "produto cartesiano": "cross_join",
+    "order by sem limit": "order_without_limit",
+    "order by global sem limit": "order_without_limit",
+    "order by rand": "order_by_rand",
+    "order by rand()": "order_by_rand",
+    "ordenação aleatória": "order_by_rand",
+    "distinct": "distinct",
+    "distinct desnecessário": "distinct",
+    "distinct sem necessidade real": "distinct",
+    "union sem all": "union_without_all",
+}
+
+
+def _antipattern_group(pattern: str) -> str:
+    """Retorna grupo canônico do padrão para deduplicação semântica."""
+    key = pattern.strip().lower()
+    return _ANTIPATTERN_CANONICAL.get(key, key)
+
+
 def _merge_antipatterns(
     detected: list[QueryAntiPattern],
     forced: list[QueryAntiPattern],
 ) -> list[QueryAntiPattern]:
+    """Mescla antipadrões LLM + regras com deduplicação semântica por grupo canônico."""
     merged = list(detected)
-    existing = {ap.pattern.strip().lower() for ap in merged}
+    existing_groups = {_antipattern_group(ap.pattern) for ap in merged}
     for forced_item in forced:
-        if forced_item.pattern.strip().lower() not in existing:
+        group = _antipattern_group(forced_item.pattern)
+        if group not in existing_groups:
             merged.append(forced_item)
+            existing_groups.add(group)
     return merged
 
 

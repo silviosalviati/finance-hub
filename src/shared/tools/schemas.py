@@ -95,4 +95,6 @@ class OptimizationReport(BaseModel):
     applied_optimizations: list[str] = Field(default_factory=list)
     intelligence_summary: Optional[str] = None
     data_existence_warning: Optional[str] = None
+    optimization_status: str = "skipped_no_antipatterns"  # "approved" | "skipped_by_user" | "skipped_no_antipatterns" | "failed"
+    data_quality: str = "full"  # "full" | "partial" | "no_cost_data"
 

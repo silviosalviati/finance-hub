@@ -224,6 +224,8 @@ class QueryAnalyzerAgent(BaseAgent):
             "applied_optimizations": report.applied_optimizations,
             "dry_run_error": dry_orig.error if dry_orig else None,
             "data_existence_warning": report.data_existence_warning,
+            "optimization_status": report.optimization_status,
+            "data_quality": report.data_quality,
         }
 
     def runtime_info(self) -> dict[str, str]:

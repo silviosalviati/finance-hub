@@ -22,10 +22,10 @@ class AgentState(BaseModel):
     query_schema: str = ""          # schema das tabelas referenciadas na query
     dataset_catalog: str = ""       # catálogo completo de todas as tabelas do dataset
     dataset_memory: str = ""        # memória cross-sessão de padrões do dataset
+    optimization_status: str = "pending"   # rastreado durante execução do pipeline
 
     dry_run_original: Optional[DryRunResult] = None
 
-    intelligence_context: str = ""              # texto livre: resumo LLM de oportunidades
     intelligence_report: Optional[IntelligenceReport] = None  # saída estruturada do enrich
 
     data_existence_warning: Optional[str] = None  # aviso quando query otimizada não retorna dados

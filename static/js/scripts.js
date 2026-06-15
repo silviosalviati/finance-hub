@@ -4477,13 +4477,16 @@ async function appendFABotMessage(data) {
   const metricsHtml = _faMetricsHtml(data);
   const detailsHtml = _faDetailsHtml(data);
 
+  const persona = String(data.persona || "").trim();
+  const timeSuffix = persona ? ` · Persona: ${_escFA(persona)}` : "";
+
   el.innerHTML = `
     <div class="fa-msg-avatar">FV</div>
     <div class="fa-msg-main fa-msg-main--report">
       <div class="fa-bubble fa-bubble--bot fa-bubble--report">
         <div class="fa-bubble-head">
           <span class="fa-bubble-icon" aria-hidden="true">📊</span>
-          <span class="fa-bubble-title">Relatório Finance Voice IA</span>
+          <span class="fa-bubble-title">Finance Voice IA</span>
         </div>
         <div class="fa-bubble-body">
           ${metricsHtml}
@@ -4491,124 +4494,117 @@ async function appendFABotMessage(data) {
           ${detailsHtml}
         </div>
       </div>
-      <div class="fa-msg-time">${_faNow()} · Score ${data.quality_score ?? "—"}/100</div>
+      <div class="fa-msg-time">${_faNow()}${timeSuffix}</div>
     </div>`;
 
   area.appendChild(el);
   _faScrollBottom();
 
   const slot = el.querySelector(".fa-report-slot");
-  await _faTypeMarkdownInto(slot, data.markdown_report || "");
+  await _faTypeMarkdownInto(slot, data.markdown_report || data.chat_answer || "");
 }
 
 function _faMetricsHtml(data) {
-  const label = (data.friction_label || "BAIXO").toUpperCase();
-  const labelKey = label
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-  const pct =
-    data.friction_score != null
-      ? (data.friction_score * 100).toFixed(1) + "%"
-      : "—";
-
-  const dateRange = data.date_range
-    ? `${data.date_range.start} → ${data.date_range.end}`
-    : "—";
-
-  const dominant = (data.sentiment_analysis?.dominant || "—").toUpperCase();
-  const total = (data.total_records ?? 0).toLocaleString("pt-BR");
-  const ops = Array.isArray(data.operations_analyzed)
-    ? data.operations_analyzed.filter(Boolean)
-    : [];
-  const opsPreview =
-    ops.length <= 2
-      ? ops.join(", ")
-      : `${ops.slice(0, 2).join(", ")} +${ops.length - 2}`;
-
-  const sentColor =
-    {
-      POSITIVO: "var(--porto-primary)",
-      NEGATIVO: "var(--color-danger)",
-      NEUTRO: "var(--ink-secondary)",
-    }[dominant] || "var(--ink-secondary)";
-  const sentimentIcon =
-    {
-      POSITIVO: "👍",
-      NEGATIVO: "👎",
-      NEUTRO: "🤝",
-    }[dominant] || "💬";
-  const sentimentClass =
-    {
-      POSITIVO: "fa-metric-card--sent-positivo",
-      NEGATIVO: "fa-metric-card--sent-negativo",
-      NEUTRO: "fa-metric-card--sent-neutro",
-    }[dominant] || "";
-
+  const persona = String(data.persona || "").trim() || "\u2014";
+  const plan = Array.isArray(data.plan) ? data.plan : [];
+  const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
+  const artifacts = Array.isArray(data.artifacts) ? data.artifacts : [];
   const warningItems = Array.isArray(data.warnings)
     ? data.warnings.filter(Boolean)
     : [];
+
+  const stepCount = plan.length;
+  const okCount = toolResults.filter((r) => r && r.ok).length;
+  const failCount = toolResults.length - okCount;
+
+  const artifactsByType = artifacts.reduce((acc, a) => {
+    const t = String(a.type || "other");
+    acc[t] = (acc[t] || 0) + 1;
+    return acc;
+  }, {});
+  const artifactSummary =
+    Object.keys(artifactsByType).length === 0
+      ? "\u2014"
+      : Object.entries(artifactsByType)
+          .map(([t, n]) => `${n} ${t}`)
+          .join(", ");
+
   const warningsResume =
-    warningItems.length > 0 ? `${warningItems.length} aviso(s)` : "Sem avisos";
+    warningItems.length > 0
+      ? `${warningItems.length} aviso(s)`
+      : "Sem avisos";
+  const warningsClass =
+    warningItems.length > 0 ? "fa-metric-card--warn" : "fa-metric-card--ok";
+  const warningsIcon = warningItems.length > 0 ? "\u26a0" : "\u2705";
   const warningsDetail =
     warningItems.length > 0
       ? `<div class="fa-warning-note"><strong>Aviso:</strong> ${_escFA(warningItems[0])}</div>`
       : "";
 
+  const stepCardClass =
+    failCount > 0
+      ? "fa-metric-card--warn"
+      : stepCount > 0
+        ? "fa-metric-card--ok"
+        : "";
+  const stepCardValue =
+    stepCount > 0
+      ? `${okCount}/${stepCount} steps ok${failCount > 0 ? ` \u00b7 ${failCount} falha(s)` : ""}`
+      : "\u2014";
+
   return `
     <div class="fa-metric-grid">
-      <div class="fa-metric-card fa-metric-card--${labelKey}">
-        <div class="fa-metric-head"><span class="fa-metric-icon">⚡</span></div>
-        <div class="fa-metric-label">Fricção</div>
-        <div class="fa-metric-value">${label} <span>${pct}</span></div>
-      </div>
-
-      <div class="fa-metric-card ${sentimentClass}">
-        <div class="fa-metric-head"><span class="fa-metric-icon">${sentimentIcon}</span></div>
-        <div class="fa-metric-label">Sentimento dominante</div>
-        <div class="fa-metric-value" style="color:${sentColor}">${dominant}</div>
-      </div>
-
       <div class="fa-metric-card">
-        <div class="fa-metric-head"><span class="fa-metric-icon">📅</span></div>
-        <div class="fa-metric-label">Período analisado</div>
-        <div class="fa-metric-value">📅 ${dateRange}</div>
+        <div class="fa-metric-head"><span class="fa-metric-icon">\ud83e\udded</span></div>
+        <div class="fa-metric-label">Persona</div>
+        <div class="fa-metric-value">${_escFA(persona)}</div>
       </div>
 
-      <div class="fa-metric-card">
-        <div class="fa-metric-head"><span class="fa-metric-icon">📊</span></div>
-        <div class="fa-metric-label">Volume</div>
-        <div class="fa-metric-value">📊 ${total} registros</div>
+      <div class="fa-metric-card ${stepCardClass}">
+        <div class="fa-metric-head"><span class="fa-metric-icon">\ud83e\udde9</span></div>
+        <div class="fa-metric-label">Plano de execu\u00e7\u00e3o</div>
+        <div class="fa-metric-value">${_escFA(stepCardValue)}</div>
       </div>
 
-      <div class="fa-metric-card" title="${_escFA(ops.join(" | "))}">
-        <div class="fa-metric-head"><span class="fa-metric-icon">🧩</span></div>
-        <div class="fa-metric-label">Operações analisadas</div>
-        <div class="fa-metric-value">🧩 ${_escFA(opsPreview || "—")}</div>
+      <div class="fa-metric-card" title="${_escFA(Object.entries(artifactsByType).map(([t, n]) => `${t}: ${n}`).join(" | "))}">
+        <div class="fa-metric-head"><span class="fa-metric-icon">\ud83d\udce6</span></div>
+        <div class="fa-metric-label">Artefatos</div>
+        <div class="fa-metric-value">${_escFA(artifactSummary)}</div>
       </div>
 
-      <div class="fa-metric-card ${warningItems.length > 0 ? "fa-metric-card--warn" : "fa-metric-card--ok"}" title="${_escFA(warningItems.join(" | "))}">
-        <div class="fa-metric-head"><span class="fa-metric-icon">${warningItems.length > 0 ? "⚠" : "✅"}</span></div>
+      <div class="fa-metric-card ${warningsClass}" title="${_escFA(warningItems.join(" | "))}">
+        <div class="fa-metric-head"><span class="fa-metric-icon">${warningsIcon}</span></div>
         <div class="fa-metric-label">Avisos</div>
-        <div class="fa-metric-value">${warningItems.length > 0 ? "⚠" : "✅"} ${warningsResume}</div>
+        <div class="fa-metric-value">${warningsIcon} ${_escFA(warningsResume)}</div>
       </div>
     </div>
     ${warningsDetail}`;
 }
 
-function _faDetailsHtml(data) {
-  const themes = data.themes_analysis?.themes || [];
-  if (!themes.length) return "";
 
-  const chips = themes
-    .map(
-      (t) =>
-        `<span class="fa-theme-chip" title="${_escFA(t.sentimento_predominante || "")}">${_escFA(t.nome || "")}</span>`,
-    )
-    .join("");
+// ── Details: steps executados + artefatos (tabela/sql/schema/stats/vega).
+function _faDetailsHtml(data) {
+  const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
+  const artifacts = Array.isArray(data.artifacts) ? data.artifacts : [];
+  if (toolResults.length === 0 && artifacts.length === 0) return "";
 
   const detailId = `fa-det-${faMsgCounter}`;
   const bodyId = `fa-detbody-${faMsgCounter}`;
+
+  const stepsHtml = toolResults
+    .map((r, idx) => {
+      const cap = _escFA(r.capability || "?");
+      const status = r.ok ? "✓" : "✗";
+      const statusColor = r.ok ? "var(--porto-primary)" : "var(--color-danger)";
+      const err = r.ok ? "" : ` — ${_escFA(r.error || "erro")}`;
+      return `<li><span style="color:${statusColor};font-weight:600">${status}</span> <code>${cap}</code> <small style="color:var(--ink2)">[step ${idx}]</small>${err}</li>`;
+    })
+    .join("");
+
+  const artifactsHtml = artifacts
+    .map((a) => _faRenderArtifact(a))
+    .filter(Boolean)
+    .join("");
 
   return `
     <div class="fa-details">
@@ -4617,17 +4613,86 @@ function _faDetailsHtml(data) {
           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 18l6-6-6-6"/>
         </svg>
-        Principais temas (${themes.length})
+        Detalhes da execução (${toolResults.length} step(s), ${artifacts.length} artefato(s))
       </button>
       <div class="fa-details-body" id="${bodyId}">
-        ${chips}
         ${
-          data.themes_analysis?.insights
-            ? `<p style="margin-top:8px;color:var(--ink2);font-size:12px">${_escFA(data.themes_analysis.insights)}</p>`
+          stepsHtml
+            ? `<div style="margin-bottom:10px"><strong style="font-size:12px;color:var(--ink2)">Steps:</strong><ul style="margin:4px 0 0 18px;padding:0;font-size:12px;line-height:1.6">${stepsHtml}</ul></div>`
             : ""
         }
+        ${artifactsHtml || ""}
       </div>
     </div>`;
+}
+
+// Renderiza um artefato individual conforme o tipo.
+function _faRenderArtifact(a) {
+  if (!a || typeof a !== "object") return "";
+  const type = String(a.type || "");
+  switch (type) {
+    case "table": {
+      const cols = Array.isArray(a.columns) ? a.columns : [];
+      const rows = Array.isArray(a.rows) ? a.rows : [];
+      if (!cols.length || !rows.length) return "";
+      const head = cols.map((c) => `<th>${_escFA(c)}</th>`).join("");
+      const body = rows
+        .slice(0, 25)
+        .map(
+          (r) =>
+            "<tr>" +
+            cols
+              .map(
+                (c) =>
+                  `<td>${_escFA(r[c] == null ? "" : String(r[c]))}</td>`,
+              )
+              .join("") +
+            "</tr>",
+        )
+        .join("");
+      const moreNote =
+        rows.length > 25
+          ? `<div style="font-size:11px;color:var(--ink2);margin-top:4px">+${rows.length - 25} linha(s) ocultas</div>`
+          : "";
+      return `<div style="margin:10px 0"><strong style="font-size:12px;color:var(--ink2)">${_escFA(a.title || "Tabela")}</strong><div style="overflow:auto;max-height:280px;margin-top:4px"><table class="fa-artifact-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${moreNote}</div>`;
+    }
+    case "sql": {
+      const sql = String(a.sql || "");
+      if (!sql) return "";
+      return `<div style="margin:10px 0"><strong style="font-size:12px;color:var(--ink2)">SQL executado</strong><pre style="background:var(--bg-soft,#f6f6f6);padding:8px;border-radius:4px;overflow:auto;font-size:12px;margin-top:4px"><code>${_escFA(sql)}</code></pre></div>`;
+    }
+    case "schema": {
+      const text = String(a.text || "");
+      if (!text) return "";
+      return `<div style="margin:10px 0"><strong style="font-size:12px;color:var(--ink2)">Schema: ${_escFA(a.table_ref || "")}</strong><pre style="background:var(--bg-soft,#f6f6f6);padding:8px;border-radius:4px;overflow:auto;font-size:12px;margin-top:4px"><code>${_escFA(text)}</code></pre></div>`;
+    }
+    case "stats": {
+      const cols = a.columns && typeof a.columns === "object" ? a.columns : {};
+      const keys = Object.keys(cols);
+      if (!keys.length) return "";
+      const rows = keys
+        .map((k) => {
+          const c = cols[k] || {};
+          if (c.type === "numeric") {
+            return `<tr><td>${_escFA(k)}</td><td>numeric</td><td>${c.count ?? ""}</td><td>${c.mean ?? ""}</td><td>${c.median ?? ""}</td><td>${c.stdev ?? ""}</td><td>${c.min ?? ""}</td><td>${c.max ?? ""}</td></tr>`;
+          }
+          const top = Array.isArray(c.top)
+            ? c.top.map((t) => `${t.value}(${t.count})`).join(", ")
+            : "";
+          return `<tr><td>${_escFA(k)}</td><td>categorical</td><td>${c.count ?? ""}</td><td colspan="5">distinct=${c.distinct ?? ""} · top: ${_escFA(top)}</td></tr>`;
+        })
+        .join("");
+      return `<div style="margin:10px 0"><strong style="font-size:12px;color:var(--ink2)">Estatística descritiva</strong><div style="overflow:auto;margin-top:4px"><table class="fa-artifact-table"><thead><tr><th>coluna</th><th>tipo</th><th>count</th><th>mean</th><th>median</th><th>stdev</th><th>min</th><th>max</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    }
+    case "vega_lite": {
+      const spec = a.spec || {};
+      const id = `fa-vega-${faMsgCounter}-${Math.random().toString(36).slice(2, 8)}`;
+      const specJson = JSON.stringify(spec).replace(/</g, "\\u003c");
+      return `<div style="margin:10px 0"><strong style="font-size:12px;color:var(--ink2)">Gráfico${a.title ? ": " + _escFA(a.title) : ""}</strong><div id="${id}" style="margin-top:6px;min-height:240px"></div><script>(function(){try{var s=${specJson};if(window.vegaEmbed){window.vegaEmbed('#${id}',s,{actions:false});}else{document.getElementById('${id}').innerHTML='<pre style=\\"font-size:11px;overflow:auto;max-height:200px\\">'+JSON.stringify(s,null,2)+'</pre>';}}catch(e){document.getElementById('${id}').textContent='Erro renderizando gráfico: '+e.message;}})();<\/script></div>`;
+    }
+    default:
+      return "";
+  }
 }
 
 function toggleFADetails(toggleId, bodyId) {

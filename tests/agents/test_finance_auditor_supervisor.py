@@ -439,6 +439,67 @@ class TestRouterChaining:
 # Dispatch
 # ---------------------------------------------------------------------------
 
+class TestBqListTablesFuzzyFallback:
+    def test_slug_normaliza(self):
+        from src.agents.finance_auditor.capabilities import _slug
+
+        assert _slug("Ecommerce de Saúde") == "ecommerce_de_saude"
+        assert _slug("logística") == "logistica"
+
+    def test_fuzzy_pick_substring(self):
+        from src.agents.finance_auditor.capabilities import _fuzzy_pick_dataset
+
+        assert _fuzzy_pick_dataset(
+            "ecommerce", ["ds_inteligencia_analitica", "ecommerce_saude", "logistica_vendas"]
+        ) == "ecommerce_saude"
+
+    def test_fuzzy_pick_acentos(self):
+        from src.agents.finance_auditor.capabilities import _fuzzy_pick_dataset
+
+        assert _fuzzy_pick_dataset(
+            "logística", ["ds_inteligencia_analitica", "ecommerce_saude", "logistica_vendas"]
+        ) == "logistica_vendas"
+
+    def test_fuzzy_pick_sem_match_retorna_none(self):
+        from src.agents.finance_auditor.capabilities import _fuzzy_pick_dataset
+
+        assert _fuzzy_pick_dataset("xyz_totalmente_diferente", ["abc", "def", "ghi"]) is None
+
+    def test_bq_list_tables_autocorrige_quando_dataset_nao_existe(self):
+        from src.agents.finance_auditor import capabilities
+
+        def fake_get_meta(project, hint, **kw):
+            if hint == "ecommerce":
+                raise RuntimeError("404 Not found: Dataset projx:ecommerce")
+            return {
+                "dataset_ref": f"{project}.{hint}",
+                "tables": [{"table_id": "pedidos", "columns": ["id", "cliente_id"]}],
+            }
+
+        with patch.object(capabilities, "get_dataset_tables_metadata", side_effect=fake_get_meta), \
+             patch.object(capabilities, "_list_project_datasets",
+                          return_value=["ds_inteligencia_analitica", "ecommerce_saude", "logistica_vendas"]):
+            out = capabilities.cap_bq_list_tables(
+                {"dataset_hint": "ecommerce"}, {"project_id": "projx"}
+            )
+        assert out["ok"] is True
+        assert out["payload"]["resolved_dataset"] == "ecommerce_saude"
+        assert out["payload"]["requested_dataset"] == "ecommerce"
+        assert "não existe" in out["payload"]["note"]
+
+    def test_bq_list_tables_falha_sem_match_razoavel(self):
+        from src.agents.finance_auditor import capabilities
+
+        with patch.object(capabilities, "get_dataset_tables_metadata",
+                          side_effect=RuntimeError("404 Not found: Dataset projx:foo")), \
+             patch.object(capabilities, "_list_project_datasets", return_value=["alpha", "beta"]):
+            out = capabilities.cap_bq_list_tables(
+                {"dataset_hint": "foo"}, {"project_id": "projx"}
+            )
+        assert out["ok"] is False
+        assert "não encontrado" in (out["error"] or "")
+
+
 class TestCapabilityDispatch:
     def test_capability_desconhecida(self):
         from src.agents.finance_auditor.capabilities import execute_capability

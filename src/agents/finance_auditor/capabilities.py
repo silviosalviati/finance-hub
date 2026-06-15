@@ -17,9 +17,11 @@ do usuário e do schema descoberto dinamicamente.
 
 from __future__ import annotations
 
+import difflib
 import json
 import re
 import statistics
+import unicodedata
 from typing import Any, Callable
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -120,6 +122,48 @@ def cap_bq_list_datasets(args: dict[str, Any], context: dict[str, Any]) -> dict[
 # bq_list_tables
 # ---------------------------------------------------------------------------
 
+def _slug(text: str) -> str:
+    """Normaliza string para fuzzy match (sem acentos, lowercase, só [a-z0-9_])."""
+    s = unicodedata.normalize("NFD", text or "")
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    s = s.lower()
+    return re.sub(r"[^a-z0-9_]+", "_", s).strip("_")
+
+
+def _fuzzy_pick_dataset(hint: str, datasets: list[str]) -> str | None:
+    """Escolhe o dataset com maior similaridade ao hint (>= 0.4) ou substring match."""
+    if not hint or not datasets:
+        return None
+    hint_slug = _slug(hint)
+    if not hint_slug:
+        return None
+
+    # 1) match exato após normalização
+    for ds in datasets:
+        if _slug(ds) == hint_slug:
+            return ds
+    # 2) substring (em qualquer direção)
+    for ds in datasets:
+        ds_slug = _slug(ds)
+        if hint_slug in ds_slug or ds_slug in hint_slug:
+            return ds
+    # 3) similaridade via difflib
+    scored = sorted(
+        ((difflib.SequenceMatcher(None, hint_slug, _slug(ds)).ratio(), ds) for ds in datasets),
+        reverse=True,
+    )
+    if scored and scored[0][0] >= 0.4:
+        return scored[0][1]
+    return None
+
+
+def _list_project_datasets(project_id: str) -> list[str]:
+    from src.shared.tools.bigquery import _get_client  # noqa: WPS437
+
+    client = _get_client(project_id)
+    return [ds.dataset_id for ds in client.list_datasets(project_id)]
+
+
 def cap_bq_list_tables(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     project_id = (context.get("project_id") or "").strip()
     dataset_hint = (
@@ -131,15 +175,52 @@ def cap_bq_list_tables(args: dict[str, Any], context: dict[str, Any]) -> dict[st
         return _err("project_id ausente para listar tabelas.")
     if not dataset_hint:
         return _err("dataset_hint ausente e sem default configurado.")
+
+    info = None
+    resolved_hint = dataset_hint
+    fallback_note = ""
     try:
         info = get_dataset_tables_metadata(project_id, dataset_hint, max_tables=50, max_columns=20)
     except Exception as exc:  # noqa: BLE001
-        return _err(f"Falha ao listar tabelas: {exc}")
+        # Autocorreção: se o dataset não existe, lista o projeto e tenta fuzzy match.
+        if "not found" in str(exc).lower() or "notfound" in str(exc).lower() or "404" in str(exc):
+            try:
+                available = _list_project_datasets(project_id)
+            except Exception as list_exc:  # noqa: BLE001
+                return _err(
+                    f"Dataset '{dataset_hint}' não existe e falhou ao listar projeto: {list_exc}"
+                )
+            pick = _fuzzy_pick_dataset(dataset_hint, available)
+            if not pick:
+                return _err(
+                    f"Dataset '{dataset_hint}' não encontrado. "
+                    f"Datasets disponíveis: {', '.join(available) or '(nenhum)'}"
+                )
+            try:
+                info = get_dataset_tables_metadata(project_id, pick, max_tables=50, max_columns=20)
+                resolved_hint = pick
+                fallback_note = (
+                    f"Dataset '{dataset_hint}' não existe; usado '{pick}' por correspondência."
+                )
+            except Exception as retry_exc:  # noqa: BLE001
+                return _err(f"Falha ao listar tabelas de '{pick}': {retry_exc}")
+        else:
+            return _err(f"Falha ao listar tabelas: {exc}")
 
     tables = info.get("tables", [])
-    return _ok(
-        payload={"dataset_ref": info.get("dataset_ref", ""), "tables": tables},
-        artifacts=[
+    payload = {
+        "dataset_ref": info.get("dataset_ref", ""),
+        "resolved_dataset": resolved_hint,
+        "requested_dataset": dataset_hint,
+        "tables": tables,
+    }
+    if fallback_note:
+        payload["note"] = fallback_note
+    return {
+        "ok": True,
+        "payload": payload,
+        "error": None,
+        "artifacts": [
             {
                 "type": "table",
                 "title": f"Tabelas em {info.get('dataset_ref', '')}",
@@ -150,7 +231,7 @@ def cap_bq_list_tables(args: dict[str, Any], context: dict[str, Any]) -> dict[st
                 ],
             }
         ],
-    )
+    }
 
 
 # ---------------------------------------------------------------------------

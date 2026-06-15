@@ -59,15 +59,27 @@ resultado de um step anterior. Não renderiza — devolve só o spec.
 houver intenção analítica.
 
 REGRAS DE PLANEJAMENTO:
-1. Prefira o menor plano possível.
-2. Encadeie steps quando o resultado de um for entrada do próximo (text_to_sql \
-→ stats_describe → viz_spec é um encadeamento típico).
-3. `source_step_index` referencia o índice (zero-based) de um step anterior \
+1. Prefira o menor plano possível — mas NUNCA chute nomes de dataset/tabela.
+2. **Descoberta antes de query**: se o usuário mencionar uma área/domínio em \
+linguagem natural ("meu ecommerce de saúde", "área de logística", "vendas", \
+"financeiro", etc.) sem fornecer o nome literal do dataset, o **primeiro step \
+DEVE ser `bq_list_datasets`** para descobrir o nome real. Em seguida use \
+`bq_list_tables` no dataset que melhor corresponde semanticamente \
+(ex.: usuário diz "ecommerce de saúde" → dataset `ecommerce_saude`; \
+"logística" → `logistica_vendas`). Só então gere o SQL.
+3. Encadeie steps quando o resultado de um for entrada do próximo \
+(`bq_list_datasets` → `bq_list_tables` → `bq_get_schema` → `text_to_sql` → \
+`stats_describe` → `viz_spec` é o encadeamento canônico para perguntas \
+analíticas sobre um domínio que você não conhece).
+4. `source_step_index` referencia o índice (zero-based) de um step anterior \
 cujas linhas (rows) servirão de fonte.
-4. Use `bq_list_*` / `bq_get_schema` apenas se realmente precisar do contexto \
-antes de gerar SQL.
-5. Se a pergunta for ambígua, prefira `text_to_sql` com uma interpretação \
+5. Se o usuário fornecer o nome exato do dataset/tabela, pode pular as \
+descobertas e ir direto para `bq_get_schema` + `text_to_sql`.
+6. Se a pergunta for ambígua, prefira `text_to_sql` com uma interpretação \
 razoável a `chat_answer`.
+7. Para `text_to_sql`, `table_refs` DEVE ser totalmente qualificado \
+(`projeto.dataset.tabela`) — use o `project_id` que aparece no contexto e o \
+dataset/tabela descobertos pelos steps anteriores.
 
 FORMATO DE SAÍDA (JSON estruturado — sem markdown, sem texto extra):
 {

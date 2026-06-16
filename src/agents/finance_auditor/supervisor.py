@@ -23,6 +23,8 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
+from src.agents.finance_auditor import audit as audit_log
+from src.agents.finance_auditor import pii_guard
 from src.agents.finance_auditor.capabilities import execute_capability
 from src.agents.finance_auditor.personas import (
     PERSONA_GERAL,
@@ -146,6 +148,7 @@ def node_router(
         "dataset_hint": state.get("dataset_hint"),
         "llm": llm,
         "llm_creative": llm_creative,
+        "user": state.get("user") or {},
     }
 
     results: list[dict[str, Any]] = []
@@ -262,11 +265,51 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Nó 6 — guardrails_out (placeholder — política de PII entra em fase posterior)
+# Nó 5b — audit (persiste auditoria antes do guard de saída)
+# ---------------------------------------------------------------------------
+
+def node_audit(state: SupervisorState) -> dict[str, Any]:
+    audit_id = audit_log.record({
+        "user_id": state.get("user_id") or "",
+        "persona": state.get("persona") or "",
+        "request_text": state.get("request_text") or "",
+        "plan": state.get("plan") or [],
+        "tool_results": state.get("tool_results") or [],
+        "error": state.get("error") or "",
+    })
+    if audit_id is None:
+        return {}
+    return {"audit_id": audit_id}
+
+
+# ---------------------------------------------------------------------------
+# Nó 6 — guardrails_out (PII guard configurável)
 # ---------------------------------------------------------------------------
 
 def node_guardrails_out(state: SupervisorState) -> dict[str, Any]:
-    return {}
+    result = pii_guard.apply_guard(
+        final_answer=state.get("final_answer") or "",
+        artifacts=state.get("artifacts") or [],
+    )
+    updates: dict[str, Any] = {
+        "pii": {
+            "mode": result.get("mode"),
+            "pii_counts": result.get("pii_counts") or {},
+            "blocked": bool(result.get("blocked")),
+        }
+    }
+    if result.get("mode") != pii_guard.MODE_OFF:
+        updates["final_answer"] = result.get("final_answer") or ""
+        updates["artifacts"] = result.get("artifacts") or []
+    pii_counts = result.get("pii_counts") or {}
+    if pii_counts:
+        warnings = list(state.get("warnings") or [])
+        warnings.append(
+            "PII detectada e tratada (modo "
+            f"{result.get('mode')}): {', '.join(sorted(pii_counts))}"
+        )
+        updates["warnings"] = warnings
+    return updates
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +337,7 @@ def build_supervisor_graph(
         lambda s: node_router(s, llm=llm, llm_creative=_composer_llm),
     )
     workflow.add_node("composer", lambda s: node_composer(s, llm=_composer_llm))
+    workflow.add_node("audit", node_audit)
     workflow.add_node("guardrails_out", node_guardrails_out)
 
     workflow.add_edge(START, "guardrails_in")
@@ -301,7 +345,8 @@ def build_supervisor_graph(
     workflow.add_edge("persona_resolver", "planner")
     workflow.add_edge("planner", "router")
     workflow.add_edge("router", "composer")
-    workflow.add_edge("composer", "guardrails_out")
+    workflow.add_edge("composer", "audit")
+    workflow.add_edge("audit", "guardrails_out")
     workflow.add_edge("guardrails_out", END)
 
     return workflow.compile()

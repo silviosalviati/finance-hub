@@ -422,6 +422,7 @@ async def analyze_by_agent(
                     project_id=project_id,
                     dataset_hint=req.dataset_hint,
                     user_profile=profile,
+                    user=session,
                 )
                 response.setdefault("response_mode", "analysis")
 

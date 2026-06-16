@@ -37,6 +37,19 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     "LANGCHAIN_PROJECT": ("finance-hub", "Nome do projeto no LangSmith"),
     # Query Analyzer
     "QA_MAX_ITERATIONS": ("2", "Número máximo de iterações de otimização do Query Analyzer"),
+    # Finance Voice IA — governança (Fase 3)
+    "FINANCE_AUDITOR_PII_MODE": (
+        "mask", "Modo do PII Guard: mask | block | off"
+    ),
+    "FINANCE_AUDITOR_RBAC_STRICT": (
+        "0", "RBAC strict: '1' bloqueia usuários sem ACL configurada"
+    ),
+    "FINANCE_AUDITOR_QUERY_BUDGET_BYTES": (
+        "5368709120", "Budget máximo (bytes) por query — 5 GiB"
+    ),
+    "FINANCE_AUDITOR_DEFAULT_DATASET": (
+        "", "Dataset padrão para bq_list_tables quando não informado"
+    ),
     # App
     "SESSION_TTL_HOURS": ("8", "Tempo de vida da sessão em horas"),
     "ALLOWED_ORIGINS": (
@@ -98,6 +111,45 @@ def init_db() -> None:
                 analysis_count INTEGER NOT NULL DEFAULT 0,
                 last_updated TEXT NOT NULL
             );
+
+            -- Fase 3 do Finance Voice IA: Semantic Layer (sem métricas pré-cadastradas).
+            CREATE TABLE IF NOT EXISTS finance_semantic_metrics (
+                key TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                source_table TEXT NOT NULL DEFAULT '',
+                sql_template TEXT NOT NULL,
+                owner TEXT NOT NULL DEFAULT '',
+                tags TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            -- Fase 3: RBAC por usuário (datasets e métricas permitidos).
+            CREATE TABLE IF NOT EXISTS finance_user_acl (
+                user_id TEXT PRIMARY KEY,
+                allowed_datasets TEXT NOT NULL DEFAULT '',
+                allowed_metrics TEXT NOT NULL DEFAULT '',
+                denied_datasets TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL
+            );
+
+            -- Fase 3: Audit trail das execuções do Finance Voice IA.
+            CREATE TABLE IF NOT EXISTS finance_audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts TEXT NOT NULL,
+                user_id TEXT NOT NULL DEFAULT '',
+                persona TEXT NOT NULL DEFAULT '',
+                request_text TEXT NOT NULL DEFAULT '',
+                plan_json TEXT NOT NULL DEFAULT '[]',
+                steps_total INTEGER NOT NULL DEFAULT 0,
+                steps_ok INTEGER NOT NULL DEFAULT 0,
+                bytes_processed INTEGER NOT NULL DEFAULT 0,
+                estimated_cost_usd REAL NOT NULL DEFAULT 0,
+                error TEXT NOT NULL DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS idx_finance_audit_log_user_ts
+                ON finance_audit_log (user_id, ts DESC);
         """)
 
         _seed_if_empty(conn)
@@ -369,3 +421,180 @@ def update_dataset_memory(project_dataset: str, new_entries: list[dict]) -> None
                 )
     except Exception:
         pass
+
+
+# ── Finance Voice IA — Fase 3: Semantic Layer ───────────────────────────────
+
+def list_finance_metrics() -> list[dict[str, Any]]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT key, name, description, source_table, sql_template, owner, tags,"
+            " created_at, updated_at FROM finance_semantic_metrics ORDER BY key"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_finance_metric(key: str) -> dict[str, Any] | None:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT key, name, description, source_table, sql_template, owner, tags,"
+            " created_at, updated_at FROM finance_semantic_metrics WHERE key = ?",
+            (key,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def upsert_finance_metric(
+    key: str,
+    *,
+    name: str,
+    description: str,
+    source_table: str,
+    sql_template: str,
+    owner: str = "",
+    tags: str = "",
+) -> dict[str, Any]:
+    now = _utcnow()
+    with get_db() as conn:
+        existing = conn.execute(
+            "SELECT created_at FROM finance_semantic_metrics WHERE key = ?", (key,)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE finance_semantic_metrics SET name=?, description=?, source_table=?,"
+                " sql_template=?, owner=?, tags=?, updated_at=? WHERE key=?",
+                (name, description, source_table, sql_template, owner, tags, now, key),
+            )
+            return {"key": key, "created": False, "updated_at": now}
+        conn.execute(
+            "INSERT INTO finance_semantic_metrics"
+            " (key, name, description, source_table, sql_template, owner, tags, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (key, name, description, source_table, sql_template, owner, tags, now, now),
+        )
+    return {"key": key, "created": True, "updated_at": now}
+
+
+def delete_finance_metric(key: str) -> bool:
+    with get_db() as conn:
+        cur = conn.execute("DELETE FROM finance_semantic_metrics WHERE key = ?", (key,))
+        return cur.rowcount > 0
+
+
+# ── Finance Voice IA — Fase 3: RBAC ─────────────────────────────────────────
+
+def _split_csv(value: str) -> list[str]:
+    return [v.strip() for v in (value or "").split(",") if v.strip()]
+
+
+def _join_csv(items: list[str]) -> str:
+    return ",".join(sorted({v.strip() for v in items if v and v.strip()}))
+
+
+def get_finance_acl(user_id: str) -> dict[str, Any] | None:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT user_id, allowed_datasets, allowed_metrics, denied_datasets, updated_at"
+            " FROM finance_user_acl WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+    if not row:
+        return None
+    data = dict(row)
+    data["allowed_datasets"] = _split_csv(data["allowed_datasets"])
+    data["allowed_metrics"] = _split_csv(data["allowed_metrics"])
+    data["denied_datasets"] = _split_csv(data["denied_datasets"])
+    return data
+
+
+def upsert_finance_acl(
+    user_id: str,
+    *,
+    allowed_datasets: list[str] | None = None,
+    allowed_metrics: list[str] | None = None,
+    denied_datasets: list[str] | None = None,
+) -> dict[str, Any]:
+    now = _utcnow()
+    payload = (
+        _join_csv(allowed_datasets or []),
+        _join_csv(allowed_metrics or []),
+        _join_csv(denied_datasets or []),
+        now,
+        user_id,
+    )
+    with get_db() as conn:
+        existing = conn.execute(
+            "SELECT 1 FROM finance_user_acl WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE finance_user_acl SET allowed_datasets=?, allowed_metrics=?,"
+                " denied_datasets=?, updated_at=? WHERE user_id=?",
+                payload,
+            )
+        else:
+            conn.execute(
+                "INSERT INTO finance_user_acl"
+                " (allowed_datasets, allowed_metrics, denied_datasets, updated_at, user_id)"
+                " VALUES (?, ?, ?, ?, ?)",
+                payload,
+            )
+    return {"user_id": user_id, "updated_at": now}
+
+
+def list_finance_acl() -> list[dict[str, Any]]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT user_id, allowed_datasets, allowed_metrics, denied_datasets, updated_at"
+            " FROM finance_user_acl ORDER BY user_id"
+        ).fetchall()
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        d = dict(r)
+        d["allowed_datasets"] = _split_csv(d["allowed_datasets"])
+        d["allowed_metrics"] = _split_csv(d["allowed_metrics"])
+        d["denied_datasets"] = _split_csv(d["denied_datasets"])
+        out.append(d)
+    return out
+
+
+# ── Finance Voice IA — Fase 3: Audit log ────────────────────────────────────
+
+def append_finance_audit(entry: dict[str, Any]) -> int:
+    now = entry.get("ts") or _utcnow()
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO finance_audit_log"
+            " (ts, user_id, persona, request_text, plan_json, steps_total, steps_ok,"
+            "  bytes_processed, estimated_cost_usd, error)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                now,
+                str(entry.get("user_id") or ""),
+                str(entry.get("persona") or ""),
+                str(entry.get("request_text") or "")[:4000],
+                json.dumps(entry.get("plan") or [], ensure_ascii=False)[:8000],
+                int(entry.get("steps_total") or 0),
+                int(entry.get("steps_ok") or 0),
+                int(entry.get("bytes_processed") or 0),
+                float(entry.get("estimated_cost_usd") or 0.0),
+                str(entry.get("error") or "")[:1000],
+            ),
+        )
+        return int(cur.lastrowid or 0)
+
+
+def list_finance_audit(limit: int = 50, user_id: str | None = None) -> list[dict[str, Any]]:
+    limit = max(1, min(int(limit or 50), 500))
+    with get_db() as conn:
+        if user_id:
+            rows = conn.execute(
+                "SELECT * FROM finance_audit_log WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+                (user_id, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM finance_audit_log ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+    return [dict(r) for r in rows]

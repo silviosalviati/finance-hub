@@ -46,15 +46,19 @@ class FinanceAuditorAgent(BaseAgent):
         project_id: str,
         dataset_hint: str | None = None,
         user_profile: dict[str, Any] | None = None,
+        user: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Executa o grafo Supervisor e devolve um dict compatível com o frontend."""
         graph = self._get_graph()
 
+        u = user or {}
         initial_state = {
             "request_text": query,
             "project_id": project_id,
             "dataset_hint": dataset_hint,
             "user_profile": user_profile or {},
+            "user_id": str(u.get("username") or u.get("user_id") or ""),
+            "user": u,
         }
 
         final_state: dict[str, Any] | None = None
@@ -89,6 +93,8 @@ class FinanceAuditorAgent(BaseAgent):
             "markdown_report": final_state.get("final_answer", ""),
             "chat_answer": final_state.get("final_answer", ""),
             "warnings": final_state.get("warnings", []),
+            "pii": final_state.get("pii", {}),
+            "audit_id": final_state.get("audit_id"),
         }
 
     def runtime_info(self) -> dict[str, str]:
@@ -96,10 +102,11 @@ class FinanceAuditorAgent(BaseAgent):
             "agent_id": self.agent_id,
             "display_name": self.display_name,
             "supervisor_nodes": (
-                "guardrails_in,persona_resolver,planner,router,composer,guardrails_out"
+                "guardrails_in,persona_resolver,planner,router,composer,audit,guardrails_out"
             ),
             "capabilities": (
                 "bq_list_datasets,bq_list_tables,bq_get_schema,bq_query,"
-                "text_to_sql,stats_describe,viz_spec,chat_answer"
+                "text_to_sql,stats_describe,viz_spec,"
+                "metric_lookup,metric_execute,chat_answer"
             ),
         }

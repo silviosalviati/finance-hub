@@ -6740,3 +6740,57 @@ button:focus:not(:focus-visible) {
   margin-bottom: 12px;
   white-space: pre-wrap;
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   Finance Voice IA — status bar (chips) + artefatos
+   ───────────────────────────────────────────────────────────────────── */
+.fa-statusbar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:6px;
+  margin:0 0 10px 0;font-size:11px;
+}
+.fa-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 8px;border-radius:999px;
+  background:#f1f3f6;color:#3a4655;border:1px solid #e2e6ec;
+  white-space:nowrap;font-weight:500;letter-spacing:.01em;
+}
+.fa-chip--soft{background:transparent;border-color:#e8ecf2;color:#5a6877}
+.fa-chip--ok{background:#e9f7ef;color:#1f7a3a;border-color:#c8e8d4}
+.fa-chip--err{background:#fdecec;color:#a01f1f;border-color:#f3c8c8}
+.fa-chip--warn{background:#fff4e0;color:#8a5b00;border-color:#f1d9a4}
+
+.fa-artifact-table{
+  border-collapse:collapse;width:100%;font-size:12px;
+  background:#fff;border:1px solid #e5e8ed;border-radius:6px;overflow:hidden;
+}
+.fa-artifact-table thead th{
+  position:sticky;top:0;background:#f7f9fc;color:#3a4655;
+  font-weight:600;text-align:left;padding:6px 10px;border-bottom:1px solid #e5e8ed;
+}
+.fa-artifact-table tbody td{
+  padding:5px 10px;border-bottom:1px solid #f0f2f5;color:#1f2a36;
+}
+.fa-artifact-table tbody tr:nth-child(odd){background:#fbfcfd}
+.fa-artifact-table tbody tr:hover{background:#eef4fb}
+
+/* SQL com leve realce de palavras-chave via classes que aplicamos no JS */
+pre.fa-sql{
+  background:#0f1620;color:#dfe7f0;padding:10px 12px;border-radius:6px;
+  overflow:auto;font-size:12px;line-height:1.5;margin:6px 0 0 0;
+  border:1px solid #1a2532;
+}
+pre.fa-sql .kw{color:#7cc4ff;font-weight:600}
+pre.fa-sql .str{color:#f4c281}
+pre.fa-sql .num{color:#c3e88d}
+pre.fa-sql .com{color:#7a8a9a;font-style:italic}
+
+.fa-art-title{
+  font-size:11px;color:var(--ink2,#5a6877);
+  text-transform:uppercase;letter-spacing:.04em;font-weight:600;
+  margin:12px 0 4px 0;
+}
+.fa-art-copy{
+  float:right;font-size:10px;background:transparent;border:1px solid #d0d5dc;
+  color:#3a4655;padding:2px 8px;border-radius:4px;cursor:pointer;
+}
+.fa-art-copy:hover{background:#f1f3f6}

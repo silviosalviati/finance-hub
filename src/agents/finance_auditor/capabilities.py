@@ -287,6 +287,20 @@ def cap_bq_get_schema(args: dict[str, Any], context: dict[str, Any]) -> dict[str
 # bq_query — guardrails + dry-run + budget
 # ---------------------------------------------------------------------------
 
+def _looks_trivial_sql(sql: str) -> bool:
+    """Detecta SQL "placeholder" (sem FROM real, ou mensagem de erro embutida)."""
+    if not sql:
+        return True
+    norm = re.sub(r"\s+", " ", sql.strip().rstrip(";").lower())
+    # Sem FROM referenciando tabela real → trivial.
+    if not re.search(r"\bfrom\s+[`\w]", norm):
+        return True
+    # Mensagem de erro/placeholder no SELECT (heurística).
+    if re.search(r"select\s+'[^']*(?:erro|nao\s+(?:foi)?\s*possivel|placeholder)[^']*'\s+as\s+\w", norm):
+        return True
+    return False
+
+
 def _validate_and_run_sql(
     sql: str,
     project_id: str,
@@ -302,6 +316,11 @@ def _validate_and_run_sql(
         return _err("Apenas queries iniciando com SELECT ou WITH são permitidas.")
     if not project_id:
         return _err("project_id ausente para executar query.")
+    if _looks_trivial_sql(sql):
+        return _err(
+            "SQL gerado é trivial (sem FROM real ou apenas placeholder). "
+            "Provavelmente os schemas das tabelas relevantes não foram coletados."
+        )
 
     # RBAC: cada dataset citado precisa estar permitido para o usuário.
     referenced = set(re.findall(r"`?([\w\-]+)\.([\w\-]+)\.[\w\-]+`?", sql))
@@ -398,13 +417,145 @@ def _extract_sql_from_llm_text(text: str) -> str:
     return text
 
 
+_PICK_TABLES_PROMPT = """\
+Você recebe uma lista de tabelas com suas colunas (em JSON) e uma pergunta \
+de negócio em português. Sua tarefa é selecionar as 1-{max_pick} tabelas mais \
+relevantes para responder a pergunta. Use os NOMES das tabelas e o conjunto \
+de COLUNAS como evidência semântica.
+
+Retorne SOMENTE este JSON, sem texto extra:
+{{"table_ids": ["nome_da_tabela_1", "nome_da_tabela_2"], "rationale": "..."}}
+"""
+
+
+def _pick_relevant_tables(
+    natural_language: str,
+    tables: list[dict[str, Any]],
+    llm: Any,
+    max_pick: int = 5,
+) -> list[dict[str, Any]]:
+    """Filtra `tables` pelas mais relevantes à pergunta. Fallback: heurística textual."""
+    if not tables:
+        return []
+    if len(tables) <= max_pick:
+        return list(tables)
+
+    summary = [
+        {
+            "table_id": t.get("table_id", ""),
+            "columns": (t.get("columns") or [])[:20],
+        }
+        for t in tables[:80]  # cap defensivo no prompt
+    ]
+    try:
+        from pydantic import BaseModel, Field
+
+        class _Picked(BaseModel):
+            table_ids: list[str] = Field(default_factory=list)
+            rationale: str = ""
+
+        structured = llm.with_structured_output(_Picked)
+        result: _Picked = invoke_with_retry(
+            structured,
+            [
+                SystemMessage(content=_PICK_TABLES_PROMPT.format(max_pick=max_pick)),
+                HumanMessage(content=(
+                    f"PERGUNTA:\n{natural_language}\n\nTABELAS DISPONÍVEIS:\n"
+                    f"{json.dumps(summary, ensure_ascii=False, indent=2)}"
+                )),
+            ],
+            max_attempts=2,
+        )
+        ids = {tid.strip() for tid in (result.table_ids or []) if tid}
+        if ids:
+            picked = [t for t in tables if t.get("table_id") in ids]
+            if picked:
+                return picked[:max_pick]
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Fallback heurístico: token overlap entre pergunta e (table_id + columns).
+    import unicodedata as _u
+
+    def _toks(text: str) -> set[str]:
+        s = "".join(c for c in _u.normalize("NFD", text or "") if _u.category(c) != "Mn")
+        return {tok for tok in re.findall(r"[a-z0-9_]+", s.lower()) if len(tok) > 2}
+
+    q = _toks(natural_language)
+    scored = []
+    for t in tables:
+        haystack = (t.get("table_id") or "") + " " + " ".join(t.get("columns") or [])
+        score = len(q.intersection(_toks(haystack)))
+        if score > 0:
+            scored.append((score, t))
+    scored.sort(key=lambda kv: kv[0], reverse=True)
+    return [t for _, t in scored[:max_pick]] or tables[:max_pick]
+
+
 def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     natural_language = str(args.get("natural_language") or context.get("request_text") or "").strip()
-    table_refs = [str(t).strip() for t in (args.get("table_refs") or []) if str(t).strip()]
     if not natural_language:
         return _err("natural_language ausente.")
+
+    table_refs = [str(t).strip() for t in (args.get("table_refs") or []) if str(t).strip()]
+    dataset_ref = str(args.get("dataset_ref") or "").strip()
+
+    llm = context.get("llm")
+    if llm is None:
+        return _err("LLM indisponível neste contexto.")
+
+    project_id = (context.get("project_id") or "").strip()
+    if not project_id and table_refs:
+        project_id = _resolve_project_for_table(table_refs[0], None)
+    if not project_id and dataset_ref:
+        parts = dataset_ref.split(".")
+        if len(parts) == 2:
+            project_id = parts[0]
+    if not project_id:
+        return _err("project_id ausente para text_to_sql.")
+
+    auto_picked_note = ""
+
+    # Caminho autônomo: dataset_ref informado e sem table_refs → descobre + escolhe.
+    if not table_refs and dataset_ref:
+        parts = dataset_ref.split(".")
+        if len(parts) == 2:
+            dataset_project, dataset_id = parts
+        elif len(parts) == 1:
+            dataset_project, dataset_id = project_id, parts[0]
+        else:
+            return _err("dataset_ref inválido. Use 'projeto.dataset' ou 'dataset'.")
+
+        allowed, reason = rbac.check_dataset(context.get("user"), dataset_id)
+        if not allowed:
+            return _err(f"RBAC: {reason}")
+
+        try:
+            info = get_dataset_tables_metadata(dataset_project, dataset_id, max_tables=80, max_columns=20)
+        except Exception as exc:  # noqa: BLE001
+            return _err(f"Falha ao listar tabelas de {dataset_project}.{dataset_id}: {exc}")
+        all_tables = info.get("tables") or []
+        if not all_tables:
+            return _err(f"Dataset {dataset_project}.{dataset_id} não tem tabelas.")
+
+        picked = _pick_relevant_tables(natural_language, all_tables, llm, max_pick=5)
+        if not picked:
+            return _err("Não foi possível identificar tabelas relevantes para a pergunta.")
+        table_refs = [
+            t.get("full_name") or f"{dataset_project}.{dataset_id}.{t.get('table_id')}"
+            for t in picked
+        ]
+        auto_picked_note = (
+            f"Tabelas selecionadas automaticamente em {dataset_project}.{dataset_id}: "
+            f"{', '.join(t.get('table_id', '') for t in picked)}."
+        )
+
     if not table_refs:
-        return _err("table_refs ausente — informe ao menos uma tabela totalmente qualificada.")
+        return _err(
+            "Informe `table_refs` (lista qualificada) OU `dataset_ref` para descoberta automática."
+        )
+
+    # Validação + RBAC por tabela.
     for ref in table_refs:
         if not _TABLE_REF_PATTERN.match(ref):
             return _err(f"table_ref inválido: {ref}")
@@ -413,24 +564,16 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
         if not allowed:
             return _err(f"RBAC: {reason}")
 
-    llm = context.get("llm")
-    if llm is None:
-        return _err("LLM indisponível neste contexto.")
-
-    project_id = (context.get("project_id") or _resolve_project_for_table(table_refs[0], None)).strip()
-    if not project_id:
-        return _err("project_id ausente para text_to_sql.")
-
-    # 1) Coleta schemas das tabelas
+    # 1) Coleta schemas das tabelas escolhidas.
     schemas: list[str] = []
-    for ref in table_refs[:5]:
+    for ref in table_refs[:8]:
         try:
             schemas.append(get_table_schema(ref, _resolve_project_for_table(ref, project_id), max_columns=50))
         except Exception as exc:  # noqa: BLE001
             schemas.append(f"[Falha ao obter schema de {ref}: {exc}]")
     schemas_text = "\n\n".join(schemas) or "(sem schemas)"
 
-    # 2) Gera SQL via LLM
+    # 2) Gera SQL via LLM.
     user_msg = (
         f"PERGUNTA:\n{natural_language}\n\n"
         f"SCHEMAS DISPONÍVEIS:\n{schemas_text}\n\n"
@@ -449,18 +592,22 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
     if not sql:
         return _err("LLM não devolveu SQL utilizável.")
 
-    # 3) Valida e executa (reutiliza o mesmo pipeline de bq_query)
+    # 3) Valida e executa.
     row_limit = int(args.get("row_limit") or _DEFAULT_BQ_QUERY_MAX_ROWS)
     exec_result = _validate_and_run_sql(
         sql=sql, project_id=project_id, max_rows=row_limit, user=context.get("user")
     )
     if exec_result["ok"]:
-        # Inclui também a pergunta original no payload para rastreabilidade.
         exec_result["payload"]["natural_language"] = natural_language
         exec_result["payload"]["table_refs"] = table_refs
+        if auto_picked_note:
+            exec_result["payload"]["auto_picked_note"] = auto_picked_note
     else:
-        # Mesmo em falha, devolve o SQL para o usuário poder inspecionar.
-        exec_result["payload"] = {"attempted_sql": sql, "natural_language": natural_language}
+        exec_result["payload"] = {
+            "attempted_sql": sql,
+            "natural_language": natural_language,
+            "table_refs": table_refs,
+        }
         exec_result["artifacts"] = [{"type": "sql", "sql": sql}]
     return exec_result
 

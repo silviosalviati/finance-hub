@@ -329,7 +329,7 @@ class TestVizSpec:
 # ---------------------------------------------------------------------------
 
 class TestTextToSql:
-    def test_exige_table_refs(self):
+    def test_exige_table_refs_ou_dataset_ref(self):
         from src.agents.finance_auditor.capabilities import cap_text_to_sql
 
         out = cap_text_to_sql(
@@ -337,7 +337,8 @@ class TestTextToSql:
             {"project_id": "p", "llm": MagicMock()},
         )
         assert out["ok"] is False
-        assert "table_refs" in (out["error"] or "").lower()
+        err = (out["error"] or "").lower()
+        assert "table_refs" in err or "dataset_ref" in err
 
     def test_table_refs_invalida(self):
         from src.agents.finance_auditor.capabilities import cap_text_to_sql
@@ -379,6 +380,85 @@ class TestTextToSql:
         assert out["payload"]["rows"] == [{"n": 42}]
         assert "SELECT COUNT(*)" in out["payload"]["sql"]
         assert out["payload"]["natural_language"] == "quantas linhas?"
+
+    def test_sql_trivial_e_bloqueado(self):
+        from src.agents.finance_auditor import capabilities
+
+        llm = MagicMock()
+        llm.invoke.return_value = MagicMock(
+            content='{"sql": "SELECT \'erro_nao_foi_possivel\' AS erro"}'
+        )
+        with patch.object(capabilities, "get_table_schema", return_value="schema"):
+            out = capabilities.cap_text_to_sql(
+                {"natural_language": "vendas", "table_refs": ["p.d.t"]},
+                {"project_id": "p", "llm": llm},
+            )
+        assert out["ok"] is False
+        assert "trivial" in (out["error"] or "").lower()
+
+    def test_dataset_ref_dispara_autopick_e_executa(self):
+        from src.agents.finance_auditor import capabilities
+
+        # 1) bq lista tabelas
+        tables = [
+            {"table_id": "armazens", "full_name": "p.ecommerce_saude.armazens",
+             "columns": ["id_armazem", "nome_unidade"]},
+            {"table_id": "clientes", "full_name": "p.ecommerce_saude.clientes",
+             "columns": ["id_cliente", "nome_completo", "email"]},
+            {"table_id": "pedidos", "full_name": "p.ecommerce_saude.pedidos",
+             "columns": ["id_pedido", "id_cliente", "valor_total"]},
+            {"table_id": "pagamentos", "full_name": "p.ecommerce_saude.pagamentos",
+             "columns": ["id_pedido", "metodo_pagamento", "valor_pago"]},
+        ] + [
+            {"table_id": f"extra_{i}", "full_name": f"p.ecommerce_saude.extra_{i}",
+             "columns": ["x"]}
+            for i in range(20)
+        ]
+
+        # 2) LLM "escolhe" via structured output as 3 relevantes
+        from pydantic import BaseModel, Field
+
+        class _Picked(BaseModel):
+            table_ids: list[str] = Field(default_factory=list)
+            rationale: str = ""
+
+        pick_response = _Picked(
+            table_ids=["clientes", "pedidos", "pagamentos"], rationale="match"
+        )
+        pick_struct = MagicMock()
+        pick_struct.invoke.return_value = pick_response
+
+        # 3) LLM gera SQL real
+        sql_response = MagicMock(content='{"sql": "SELECT c.id_cliente FROM `p.ecommerce_saude.clientes` c JOIN `p.ecommerce_saude.pagamentos` p ON p.metodo_pagamento=\'PIX\' LIMIT 10"}')
+
+        llm = MagicMock()
+        # primeira chamada: structured output do picker; segunda: SQL bruto
+        llm.with_structured_output.return_value = pick_struct
+        llm.invoke.return_value = sql_response
+
+        fake_dry = MagicMock(error=None, bytes_processed=1024, estimated_cost_usd=0.0001)
+        with patch.object(capabilities, "get_dataset_tables_metadata",
+                          return_value={"dataset_ref": "p.ecommerce_saude", "tables": tables}), \
+             patch.object(capabilities, "get_table_schema", return_value="schema"), \
+             patch.object(capabilities.rbac, "check_dataset", return_value=(True, "")), \
+             patch.object(capabilities, "dry_run_query", return_value=fake_dry), \
+             patch.object(capabilities, "execute_query_rows", return_value=[{"id_cliente": 1}]), \
+             patch.object(capabilities, "get_runtime_config", return_value=str(5 * 1024 ** 3)):
+            out = capabilities.cap_text_to_sql(
+                {
+                    "natural_language": "maiores clientes que pagaram em pix",
+                    "dataset_ref": "p.ecommerce_saude",
+                },
+                {"project_id": "p", "llm": llm},
+            )
+        assert out["ok"] is True
+        # Tabelas escolhidas foram as 3 relevantes, não a primeira alfabética.
+        chosen = out["payload"]["table_refs"]
+        assert any("clientes" in t for t in chosen)
+        assert any("pedidos" in t for t in chosen)
+        assert any("pagamentos" in t for t in chosen)
+        assert "auto_picked_note" in out["payload"]
+        assert out["payload"]["rows"] == [{"id_cliente": 1}]
 
     def test_llm_gera_ddl_e_e_bloqueado(self):
         from src.agents.finance_auditor import capabilities

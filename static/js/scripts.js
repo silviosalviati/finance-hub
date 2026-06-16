@@ -4504,81 +4504,51 @@ async function appendFABotMessage(data) {
   await _faTypeMarkdownInto(slot, data.markdown_report || data.chat_answer || "");
 }
 
+// Cabe\u00e7alho enxuto: 1 chip de status + persona + bytes/custo + (avisos se houver).
+// Tudo agregado em uma \u00fanica linha \u2014 sem grid de cards t\u00e9cnicos.
 function _faMetricsHtml(data) {
-  const persona = String(data.persona || "").trim() || "\u2014";
-  const plan = Array.isArray(data.plan) ? data.plan : [];
+  const persona = String(data.persona || "").trim() || "geral";
   const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
-  const artifacts = Array.isArray(data.artifacts) ? data.artifacts : [];
   const warningItems = Array.isArray(data.warnings)
     ? data.warnings.filter(Boolean)
     : [];
 
-  const stepCount = plan.length;
   const okCount = toolResults.filter((r) => r && r.ok).length;
   const failCount = toolResults.length - okCount;
+  const hasError = !!data.error || failCount > 0;
 
-  const artifactsByType = artifacts.reduce((acc, a) => {
-    const t = String(a.type || "other");
-    acc[t] = (acc[t] || 0) + 1;
-    return acc;
-  }, {});
-  const artifactSummary =
-    Object.keys(artifactsByType).length === 0
-      ? "\u2014"
-      : Object.entries(artifactsByType)
-          .map(([t, n]) => `${n} ${t}`)
-          .join(", ");
+  let bytesTotal = 0;
+  let costTotal = 0;
+  for (const r of toolResults) {
+    const p = (r && r.payload) || {};
+    if (typeof p.bytes_processed === "number") bytesTotal += p.bytes_processed;
+    if (typeof p.estimated_cost_usd === "number") costTotal += p.estimated_cost_usd;
+  }
 
-  const warningsResume =
-    warningItems.length > 0
-      ? `${warningItems.length} aviso(s)`
-      : "Sem avisos";
-  const warningsClass =
-    warningItems.length > 0 ? "fa-metric-card--warn" : "fa-metric-card--ok";
-  const warningsIcon = warningItems.length > 0 ? "\u26a0" : "\u2705";
-  const warningsDetail =
-    warningItems.length > 0
-      ? `<div class="fa-warning-note"><strong>Aviso:</strong> ${_escFA(warningItems[0])}</div>`
-      : "";
+  const fmtBytes = (n) => {
+    if (!n) return "0 B";
+    const u = ["B", "KB", "MB", "GB", "TB"];
+    let i = 0;
+    while (n >= 1024 && i < u.length - 1) {
+      n /= 1024;
+      i++;
+    }
+    return `${n.toFixed(i ? 1 : 0)} ${u[i]}`;
+  };
 
-  const stepCardClass =
-    failCount > 0
-      ? "fa-metric-card--warn"
-      : stepCount > 0
-        ? "fa-metric-card--ok"
-        : "";
-  const stepCardValue =
-    stepCount > 0
-      ? `${okCount}/${stepCount} steps ok${failCount > 0 ? ` \u00b7 ${failCount} falha(s)` : ""}`
-      : "\u2014";
+  const statusChip = hasError
+    ? `<span class="fa-chip fa-chip--err">\u2717 falhou</span>`
+    : `<span class="fa-chip fa-chip--ok">\u2713 pronto</span>`;
+  const stepsChip = `<span class="fa-chip">${okCount}/${toolResults.length || 0} steps</span>`;
+  const costChip = bytesTotal
+    ? `<span class="fa-chip" title="Bytes processados no BigQuery">\ud83d\udcca ${fmtBytes(bytesTotal)} \u00b7 $${costTotal.toFixed(4)}</span>`
+    : "";
+  const personaChip = `<span class="fa-chip fa-chip--soft">\ud83e\udded ${_escFA(persona)}</span>`;
+  const warnChip = warningItems.length
+    ? `<span class="fa-chip fa-chip--warn" title="${_escFA(warningItems.join(" | "))}">\u26a0 ${warningItems.length} aviso(s)</span>`
+    : "";
 
-  return `
-    <div class="fa-metric-grid">
-      <div class="fa-metric-card">
-        <div class="fa-metric-head"><span class="fa-metric-icon">\ud83e\udded</span></div>
-        <div class="fa-metric-label">Persona</div>
-        <div class="fa-metric-value">${_escFA(persona)}</div>
-      </div>
-
-      <div class="fa-metric-card ${stepCardClass}">
-        <div class="fa-metric-head"><span class="fa-metric-icon">\ud83e\udde9</span></div>
-        <div class="fa-metric-label">Plano de execu\u00e7\u00e3o</div>
-        <div class="fa-metric-value">${_escFA(stepCardValue)}</div>
-      </div>
-
-      <div class="fa-metric-card" title="${_escFA(Object.entries(artifactsByType).map(([t, n]) => `${t}: ${n}`).join(" | "))}">
-        <div class="fa-metric-head"><span class="fa-metric-icon">\ud83d\udce6</span></div>
-        <div class="fa-metric-label">Artefatos</div>
-        <div class="fa-metric-value">${_escFA(artifactSummary)}</div>
-      </div>
-
-      <div class="fa-metric-card ${warningsClass}" title="${_escFA(warningItems.join(" | "))}">
-        <div class="fa-metric-head"><span class="fa-metric-icon">${warningsIcon}</span></div>
-        <div class="fa-metric-label">Avisos</div>
-        <div class="fa-metric-value">${warningsIcon} ${_escFA(warningsResume)}</div>
-      </div>
-    </div>
-    ${warningsDetail}`;
+  return `<div class="fa-statusbar">${statusChip}${stepsChip}${costChip}${personaChip}${warnChip}</div>`;
 }
 
 
@@ -4626,6 +4596,21 @@ function _faDetailsHtml(data) {
     </div>`;
 }
 
+// Realce leve de SQL: keywords/strings/números/comentários em <span>.
+function _faHighlightSql(sql) {
+  const escaped = _escFA(sql);
+  const KW =
+    "(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|JOIN|LEFT|RIGHT|INNER|OUTER|" +
+    "ON|AS|AND|OR|NOT|IN|IS|NULL|WITH|UNION|ALL|DISTINCT|CASE|WHEN|THEN|ELSE|END|" +
+    "COUNT|SUM|AVG|MIN|MAX|CAST|DATE|TIMESTAMP|BETWEEN|EXISTS|LIKE|ASC|DESC|OVER|" +
+    "PARTITION BY)";
+  return escaped
+    .replace(/(--[^\n]*)/g, '<span class="com">$1</span>')
+    .replace(/('[^']*')/g, '<span class="str">$1</span>')
+    .replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="num">$1</span>')
+    .replace(new RegExp("\\b" + KW + "\\b", "gi"), '<span class="kw">$1</span>');
+}
+
 // Renderiza um artefato individual conforme o tipo.
 function _faRenderArtifact(a) {
   if (!a || typeof a !== "object") return "";
@@ -4652,19 +4637,34 @@ function _faRenderArtifact(a) {
         .join("");
       const moreNote =
         rows.length > 25
-          ? `<div style="font-size:11px;color:var(--ink2);margin-top:4px">+${rows.length - 25} linha(s) ocultas</div>`
+          ? `<div style="font-size:11px;color:var(--ink2,#5a6877);margin-top:4px">+${rows.length - 25} linha(s) ocultas</div>`
           : "";
-      return `<div style="margin:10px 0"><strong style="font-size:12px;color:var(--ink2)">${_escFA(a.title || "Tabela")}</strong><div style="overflow:auto;max-height:280px;margin-top:4px"><table class="fa-artifact-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${moreNote}</div>`;
+      return (
+        `<div class="fa-art-title">${_escFA(a.title || "Tabela")}</div>` +
+        `<div style="overflow:auto;max-height:320px"><table class="fa-artifact-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` +
+        moreNote
+      );
     }
     case "sql": {
       const sql = String(a.sql || "");
       if (!sql) return "";
-      return `<div style="margin:10px 0"><strong style="font-size:12px;color:var(--ink2)">SQL executado</strong><pre style="background:var(--bg-soft,#f6f6f6);padding:8px;border-radius:4px;overflow:auto;font-size:12px;margin-top:4px"><code>${_escFA(sql)}</code></pre></div>`;
+      const id = `fa-sql-${faMsgCounter}-${Math.random().toString(36).slice(2, 7)}`;
+      const sqlJson = JSON.stringify(sql);
+      const copyBtn =
+        `<button class="fa-art-copy" type="button" ` +
+        `onclick='navigator.clipboard&&navigator.clipboard.writeText(${sqlJson});this.textContent="copiado";setTimeout(()=>this.textContent="copiar",1200)'>copiar</button>`;
+      return (
+        `<div class="fa-art-title">SQL executado${copyBtn}</div>` +
+        `<pre id="${id}" class="fa-sql"><code>${_faHighlightSql(sql)}</code></pre>`
+      );
     }
     case "schema": {
       const text = String(a.text || "");
       if (!text) return "";
-      return `<div style="margin:10px 0"><strong style="font-size:12px;color:var(--ink2)">Schema: ${_escFA(a.table_ref || "")}</strong><pre style="background:var(--bg-soft,#f6f6f6);padding:8px;border-radius:4px;overflow:auto;font-size:12px;margin-top:4px"><code>${_escFA(text)}</code></pre></div>`;
+      return (
+        `<div class="fa-art-title">Schema: ${_escFA(a.table_ref || "")}</div>` +
+        `<pre style="background:#f7f9fc;color:#1f2a36;padding:8px 10px;border-radius:6px;overflow:auto;font-size:12px;border:1px solid #e5e8ed;margin:0"><code>${_escFA(text)}</code></pre>`
+      );
     }
     case "stats": {
       const cols = a.columns && typeof a.columns === "object" ? a.columns : {};

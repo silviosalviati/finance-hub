@@ -185,11 +185,18 @@ class TestCapOrgFacts:
 # ---------------------------------------------------------------------------
 
 class TestReflectNode:
-    def test_reflect_ignora_quando_tudo_ok(self):
+    def test_reflect_ignora_quando_tudo_ok_e_tem_resposta(self):
         from src.agents.finance_auditor import supervisor
 
+        # Plano completo: text_to_sql é "answer-producing".
         out = supervisor.node_reflect(
-            {"tool_results": [{"ok": True}, {"ok": True}], "iteration": 1},
+            {
+                "tool_results": [
+                    {"capability": "bq_get_schema", "ok": True},
+                    {"capability": "text_to_sql", "ok": True},
+                ],
+                "iteration": 1,
+            },
             llm=MagicMock(),
         )
         assert out["reflect"]["is_valid"] is True
@@ -300,6 +307,93 @@ class TestRouterRetryPreservation:
 # ---------------------------------------------------------------------------
 # Alerting
 # ---------------------------------------------------------------------------
+
+class TestLateBindingPlaceholders:
+    def test_resolve_project(self):
+        from src.agents.finance_auditor.supervisor import _resolve_placeholders
+
+        out = _resolve_placeholders({"x": "${PROJECT}.ds.t"}, [], "meu_proj")
+        assert out == {"x": "meu_proj.ds.t"}
+
+    def test_resolve_step_payload_simples(self):
+        from src.agents.finance_auditor.supervisor import _resolve_placeholders
+
+        prior = [
+            {"ok": True, "payload": {"resolved_dataset": "ecommerce_saude"}},
+        ]
+        out = _resolve_placeholders(
+            {"dataset_hint": "${step_0.payload.resolved_dataset}"},
+            prior,
+            "p",
+        )
+        assert out == {"dataset_hint": "ecommerce_saude"}
+
+    def test_resolve_step_lista_indexada(self):
+        from src.agents.finance_auditor.supervisor import _resolve_placeholders
+
+        prior = [
+            {"ok": True, "payload": {"tables": [{"table_id": "pedidos"}, {"table_id": "clientes"}]}},
+        ]
+        out = _resolve_placeholders(
+            {"table_ref": "${PROJECT}.ds.${step_0.payload.tables[0].table_id}"},
+            prior,
+            "p",
+        )
+        assert out == {"table_ref": "p.ds.pedidos"}
+
+    def test_step_falhou_nao_substitui(self):
+        from src.agents.finance_auditor.supervisor import _resolve_placeholders
+
+        prior = [{"ok": False, "payload": None}]
+        out = _resolve_placeholders({"x": "${step_0.payload.foo}"}, prior, "")
+        assert out == {"x": "${step_0.payload.foo}"}
+
+
+class TestReflectIncompletePlan:
+    def test_reflect_dispara_quando_plano_incompleto(self):
+        from src.agents.finance_auditor import supervisor
+        from src.agents.finance_auditor.supervisor_schemas import (
+            PlanStep,
+            ReflectVerdict,
+        )
+
+        verdict = ReflectVerdict(
+            is_valid=False,
+            confidence=0.7,
+            issues=["plano não chegou ao text_to_sql"],
+            suggested_steps=[PlanStep(capability="text_to_sql")],
+        )
+        fake_llm = MagicMock()
+        fake_llm.with_structured_output.return_value.invoke.return_value = verdict
+        state = {
+            "request_text": "qual o total de vendas?",
+            "plan": [{"capability": "bq_list_datasets"}],
+            "tool_results": [
+                {"capability": "bq_list_datasets", "ok": True,
+                 "payload": {"datasets": ["x"]}, "error": None}
+            ],
+            "iteration": 1,
+        }
+        out = supervisor.node_reflect(state, llm=fake_llm)
+        assert out["reflect"]["is_valid"] is False
+        assert out["reflect"]["suggested_steps"][0]["capability"] == "text_to_sql"
+
+    def test_reflect_aprova_quando_plano_completo(self):
+        from src.agents.finance_auditor import supervisor
+
+        out = supervisor.node_reflect(
+            {
+                "tool_results": [
+                    {"capability": "text_to_sql", "ok": True,
+                     "payload": {"rows": [{"n": 1}]}, "error": None}
+                ],
+                "iteration": 1,
+            },
+            llm=MagicMock(),
+        )
+        assert out["reflect"]["is_valid"] is True
+        assert out["reflect"]["suggested_steps"] == []
+
 
 class TestAlerting:
     def test_compare_operators(self):

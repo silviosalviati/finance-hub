@@ -17,6 +17,7 @@ de datasets, schema, text-to-sql, query livre, estatística, gráfico, chat).
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -48,6 +49,76 @@ from src.shared.tools.llm import invoke_with_retry
 
 _MAX_PLAN_STEPS = 6
 _MAX_ITERATIONS = 2  # router pode rodar até 2x (1 plano original + 1 retry pós-reflect)
+
+# Capabilities consideradas "produtoras de resposta" — um plano sem nenhuma
+# dessas é considerado incompleto pelo reflect.
+_ANSWER_PRODUCING = {
+    "text_to_sql",
+    "bq_query",
+    "metric_execute",
+    "stats_describe",
+    "forecast_simple",
+    "attachment_analyze",
+    "org_fact_recall",
+    "chat_answer",
+}
+
+# Late binding: substitui ${PROJECT} e ${step_N.payload.path[.path...]} nos args.
+_TPL_RE = re.compile(r"\$\{([^}]+)\}")
+
+
+def _resolve_path(root: Any, path: str) -> Any:
+    """Caminha um path tipo 'payload.datasets[0].table_id' sobre root."""
+    parts: list[tuple[str, str]] = []  # (kind, value) — kind: 'key' | 'index'
+    for m in re.finditer(r"([^.\[\]]+)|\[(\d+)\]", path):
+        if m.group(1) is not None:
+            parts.append(("key", m.group(1)))
+        elif m.group(2) is not None:
+            parts.append(("index", m.group(2)))
+
+    cursor: Any = root
+    for kind, value in parts:
+        if cursor is None:
+            return None
+        if kind == "index":
+            if not isinstance(cursor, list):
+                return None
+            try:
+                cursor = cursor[int(value)]
+            except IndexError:
+                return None
+        else:
+            if not isinstance(cursor, dict):
+                return None
+            cursor = cursor.get(value)
+    return cursor
+
+
+def _resolve_placeholders(value: Any, prior_results: list[dict[str, Any]], project_id: str) -> Any:
+    """Substitui ${PROJECT} e ${step_N.path} dentro de strings dos args."""
+    if isinstance(value, str):
+        def _sub(match: re.Match[str]) -> str:
+            token = match.group(1).strip()
+            if token == "PROJECT":
+                return project_id or match.group(0)
+            m = re.match(r"^step_(\d+)\.(.+)$", token)
+            if not m:
+                return match.group(0)
+            idx = int(m.group(1))
+            if idx >= len(prior_results):
+                return match.group(0)
+            entry = prior_results[idx] or {}
+            if not entry.get("ok"):
+                return match.group(0)
+            resolved = _resolve_path(entry, m.group(2))
+            return str(resolved) if resolved is not None else match.group(0)
+
+        return _TPL_RE.sub(_sub, value)
+    if isinstance(value, dict):
+        return {k: _resolve_placeholders(v, prior_results, project_id) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_resolve_placeholders(v, prior_results, project_id) for v in value]
+    return value
 
 _INJECTION_MARKERS = (
     "ignore previous",
@@ -165,7 +236,12 @@ def node_router(
     for offset, step in enumerate(plan[start_idx:]):
         idx = start_idx + offset
         capability = str(step.get("capability") or "").strip().lower()
-        args = step.get("args") or {}
+        raw_args = step.get("args") or {}
+
+        # Late binding: ${PROJECT} e ${step_N.path} → valores reais.
+        args = _resolve_placeholders(
+            raw_args, results, base_context.get("project_id", "")
+        )
 
         # Encadeamento: cada step recebe os resultados anteriores no context.
         step_context = {**base_context, "tool_results": list(results)}
@@ -206,14 +282,28 @@ def node_reflect(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     tool_results = state.get("tool_results") or []
     iteration = int(state.get("iteration") or 0)
 
-    # Heurística: se nada falhou OU já atingiu o teto, não há o que refletir.
     any_failed = any(not r.get("ok") for r in tool_results)
-    if not any_failed or iteration >= _MAX_ITERATIONS:
+    has_answer = any(
+        (r.get("capability") or "") in _ANSWER_PRODUCING and r.get("ok")
+        for r in tool_results
+    )
+    needs_retry = any_failed or not has_answer
+
+    # Sem motivo para refletir, ou já atingimos o teto de iterações.
+    if not needs_retry or iteration >= _MAX_ITERATIONS:
         return {
             "reflect": {
                 "is_valid": True,
-                "confidence": 0.9 if not any_failed else 0.5,
-                "issues": [] if not any_failed else ["limite de iterações atingido"],
+                "confidence": 0.9 if has_answer and not any_failed else 0.5,
+                "issues": (
+                    []
+                    if has_answer and not any_failed
+                    else (
+                        ["limite de iterações atingido"]
+                        if iteration >= _MAX_ITERATIONS
+                        else []
+                    )
+                ),
                 "suggested_steps": [],
             }
         }

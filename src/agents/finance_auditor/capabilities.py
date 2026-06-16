@@ -26,15 +26,20 @@ from typing import Any, Callable
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from src.agents.finance_auditor import rbac, semantic_layer
+from src.agents.finance_auditor import forecast as forecast_mod
+from src.agents.finance_auditor import multimodal, org_memory, rbac, semantic_layer
 from src.agents.finance_auditor.supervisor_schemas import (
+    CAPABILITY_ATTACHMENT_ANALYZE,
     CAPABILITY_BQ_GET_SCHEMA,
     CAPABILITY_BQ_LIST_DATASETS,
     CAPABILITY_BQ_LIST_TABLES,
     CAPABILITY_BQ_QUERY,
     CAPABILITY_CHAT_ANSWER,
+    CAPABILITY_FORECAST_SIMPLE,
     CAPABILITY_METRIC_EXECUTE,
     CAPABILITY_METRIC_LOOKUP,
+    CAPABILITY_ORG_FACT_RECALL,
+    CAPABILITY_ORG_FACT_SAVE,
     CAPABILITY_STATS_DESCRIBE,
     CAPABILITY_TEXT_TO_SQL,
     CAPABILITY_VIZ_SPEC,
@@ -727,6 +732,166 @@ def cap_metric_execute(args: dict[str, Any], context: dict[str, Any]) -> dict[st
 
 
 # ---------------------------------------------------------------------------
+# org_fact_save / org_fact_recall — memória organizacional
+# ---------------------------------------------------------------------------
+
+def _user_id_from_context(context: dict[str, Any]) -> str:
+    u = context.get("user") or {}
+    return str(u.get("username") or u.get("user_id") or "").strip()
+
+
+def cap_org_fact_save(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    user_id = _user_id_from_context(context)
+    if not user_id:
+        return _err("Sem usuário autenticado para salvar memória.")
+    fact = str(args.get("fact_text") or "").strip()
+    if not fact:
+        return _err("fact_text vazio.")
+    tags = str(args.get("tags") or "")
+    scope = str(args.get("scope") or "user").strip().lower()
+    if scope not in {"user", "global"}:
+        scope = "user"
+    # 'global' só admin
+    if scope == "global" and not (context.get("user") or {}).get("is_admin"):
+        scope = "user"
+    fact_id = org_memory.save_fact(user_id=user_id, fact_text=fact, tags=tags, scope=scope)
+    if not fact_id:
+        return _err("Falha ao salvar fato.")
+    return _ok(payload={"id": fact_id, "scope": scope, "fact_text": fact})
+
+
+def cap_org_fact_recall(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    user_id = _user_id_from_context(context)
+    query = str(args.get("query") or context.get("request_text") or "").strip()
+    try:
+        top_k = int(args.get("top_k") or 5)
+    except (TypeError, ValueError):
+        top_k = 5
+    facts = org_memory.recall(user_id=user_id, query=query, top_k=max(1, min(top_k, 20)))
+    return _ok(
+        payload={"query": query, "facts": facts, "fact_count": len(facts)},
+        artifacts=[
+            {
+                "type": "table",
+                "title": "Memória organizacional",
+                "columns": ["id", "scope", "fact_text", "tags", "created_at"],
+                "rows": facts,
+            }
+        ] if facts else [],
+    )
+
+
+# ---------------------------------------------------------------------------
+# forecast_simple — regressão linear sobre rows de step anterior
+# ---------------------------------------------------------------------------
+
+def cap_forecast_simple(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    rows, err = _resolve_source_rows(args, context)
+    if err:
+        return _err(err)
+    value_column = str(args.get("value_column") or "").strip()
+    if not value_column:
+        return _err("value_column é obrigatório.")
+    time_column = str(args.get("time_column") or "").strip() or None
+    try:
+        horizon = int(args.get("horizon") or 6)
+    except (TypeError, ValueError):
+        horizon = 6
+    result = forecast_mod.project(
+        rows=rows, value_column=value_column, horizon=horizon, time_column=time_column
+    )
+    if not result.get("ok"):
+        return _err(result.get("error") or "Falha no forecast.")
+    return _ok(
+        payload=result,
+        artifacts=[
+            {
+                "type": "table",
+                "title": f"Forecast ({value_column}, horizonte={horizon})",
+                "columns": ["step", "x", "y"],
+                "rows": result["forecasts"],
+            }
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
+# attachment_analyze — CSV (stdlib) ou imagem (Gemini multimodal)
+# ---------------------------------------------------------------------------
+
+def cap_attachment_analyze(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    attachments = context.get("attachments") or []
+    if not attachments:
+        return _err("Nenhum anexo foi enviado nesta requisição.")
+    try:
+        idx = int(args.get("attachment_index") or 0)
+    except (TypeError, ValueError):
+        return _err("attachment_index inválido.")
+    if not (0 <= idx < len(attachments)):
+        return _err(f"attachment_index fora do intervalo (0..{len(attachments) - 1}).")
+    att = attachments[idx] or {}
+    kind = str(att.get("kind") or "").strip().lower()
+    data = str(att.get("data") or "")
+    if kind not in multimodal.VALID_KINDS:
+        return _err(f"kind inválido: '{kind}'. Use {sorted(multimodal.VALID_KINDS)}.")
+    if not data:
+        return _err("Anexo sem campo 'data' (base64).")
+
+    if kind == multimodal.KIND_CSV:
+        try:
+            parsed = multimodal.parse_csv(data, delimiter=att.get("delimiter"))
+        except ValueError as exc:
+            return _err(f"Falha ao ler CSV: {exc}")
+        return _ok(
+            payload={
+                "kind": kind,
+                "filename": att.get("filename") or "",
+                "row_count": parsed["row_count"],
+                "columns": parsed["columns"],
+                "rows": parsed["rows"],
+                "delimiter": parsed["delimiter"],
+                "truncated": parsed["truncated"],
+            },
+            artifacts=[
+                {
+                    "type": "table",
+                    "title": f"CSV anexo: {att.get('filename') or f'#{idx}'}",
+                    "columns": parsed["columns"],
+                    "rows": parsed["rows"],
+                }
+            ],
+        )
+
+    # KIND_IMAGE
+    prompt = str(args.get("prompt") or "Descreva o conteúdo desta imagem em PT-BR.")
+    try:
+        description = multimodal.describe_image_with_llm(
+            b64=data,
+            prompt=prompt,
+            llm=context.get("llm_creative") or context.get("llm"),
+            mime_type=att.get("mime_type") or "image/png",
+        )
+    except ValueError as exc:
+        return _err(f"Falha ao analisar imagem: {exc}")
+    except Exception as exc:  # noqa: BLE001
+        return _err(f"LLM multimodal falhou: {exc}")
+    return _ok(
+        payload={
+            "kind": kind,
+            "filename": att.get("filename") or "",
+            "description": description,
+        },
+        artifacts=[
+            {
+                "type": "schema",
+                "table_ref": att.get("filename") or f"imagem#{idx}",
+                "text": description,
+            }
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
 # chat_answer
 # ---------------------------------------------------------------------------
 
@@ -748,6 +913,10 @@ CAPABILITY_REGISTRY: dict[str, Callable[[dict[str, Any], dict[str, Any]], dict[s
     CAPABILITY_VIZ_SPEC: cap_viz_spec,
     CAPABILITY_METRIC_LOOKUP: cap_metric_lookup,
     CAPABILITY_METRIC_EXECUTE: cap_metric_execute,
+    CAPABILITY_ORG_FACT_SAVE: cap_org_fact_save,
+    CAPABILITY_ORG_FACT_RECALL: cap_org_fact_recall,
+    CAPABILITY_FORECAST_SIMPLE: cap_forecast_simple,
+    CAPABILITY_ATTACHMENT_ANALYZE: cap_attachment_analyze,
     CAPABILITY_CHAT_ANSWER: cap_chat_answer,
 }
 
@@ -773,5 +942,9 @@ __all__ = [
     "cap_viz_spec",
     "cap_metric_lookup",
     "cap_metric_execute",
+    "cap_org_fact_save",
+    "cap_org_fact_recall",
+    "cap_forecast_simple",
+    "cap_attachment_analyze",
     "cap_chat_answer",
 ]

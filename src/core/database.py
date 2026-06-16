@@ -121,9 +121,22 @@ def init_db() -> None:
                 sql_template TEXT NOT NULL,
                 owner TEXT NOT NULL DEFAULT '',
                 tags TEXT NOT NULL DEFAULT '',
+                alert_threshold TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+
+            -- Fase 4: memória organizacional (fatos persistentes por usuário).
+            CREATE TABLE IF NOT EXISTS finance_org_facts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL DEFAULT '',
+                scope TEXT NOT NULL DEFAULT 'user',  -- 'user' | 'global'
+                fact_text TEXT NOT NULL,
+                tags TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_finance_org_facts_user
+                ON finance_org_facts (user_id, id DESC);
 
             -- Fase 3: RBAC por usuário (datasets e métricas permitidos).
             CREATE TABLE IF NOT EXISTS finance_user_acl (
@@ -154,6 +167,17 @@ def init_db() -> None:
 
         _seed_if_empty(conn)
         _ensure_config_keys(conn)
+        _migrate_finance_metrics_columns(conn)
+
+
+def _migrate_finance_metrics_columns(conn: sqlite3.Connection) -> None:
+    """Adiciona colunas novas em finance_semantic_metrics quando ausentes."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(finance_semantic_metrics)")}
+    if "alert_threshold" not in cols:
+        conn.execute(
+            "ALTER TABLE finance_semantic_metrics ADD COLUMN"
+            " alert_threshold TEXT NOT NULL DEFAULT ''"
+        )
 
 
 def _seed_if_empty(conn: sqlite3.Connection) -> None:
@@ -425,11 +449,16 @@ def update_dataset_memory(project_dataset: str, new_entries: list[dict]) -> None
 
 # ── Finance Voice IA — Fase 3: Semantic Layer ───────────────────────────────
 
+_METRIC_COLUMNS = (
+    "key, name, description, source_table, sql_template, owner, tags,"
+    " alert_threshold, created_at, updated_at"
+)
+
+
 def list_finance_metrics() -> list[dict[str, Any]]:
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT key, name, description, source_table, sql_template, owner, tags,"
-            " created_at, updated_at FROM finance_semantic_metrics ORDER BY key"
+            f"SELECT {_METRIC_COLUMNS} FROM finance_semantic_metrics ORDER BY key"
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -437,8 +466,7 @@ def list_finance_metrics() -> list[dict[str, Any]]:
 def get_finance_metric(key: str) -> dict[str, Any] | None:
     with get_db() as conn:
         row = conn.execute(
-            "SELECT key, name, description, source_table, sql_template, owner, tags,"
-            " created_at, updated_at FROM finance_semantic_metrics WHERE key = ?",
+            f"SELECT {_METRIC_COLUMNS} FROM finance_semantic_metrics WHERE key = ?",
             (key,),
         ).fetchone()
     return dict(row) if row else None
@@ -453,6 +481,7 @@ def upsert_finance_metric(
     sql_template: str,
     owner: str = "",
     tags: str = "",
+    alert_threshold: str = "",
 ) -> dict[str, Any]:
     now = _utcnow()
     with get_db() as conn:
@@ -462,17 +491,66 @@ def upsert_finance_metric(
         if existing:
             conn.execute(
                 "UPDATE finance_semantic_metrics SET name=?, description=?, source_table=?,"
-                " sql_template=?, owner=?, tags=?, updated_at=? WHERE key=?",
-                (name, description, source_table, sql_template, owner, tags, now, key),
+                " sql_template=?, owner=?, tags=?, alert_threshold=?, updated_at=? WHERE key=?",
+                (name, description, source_table, sql_template, owner, tags,
+                 alert_threshold, now, key),
             )
             return {"key": key, "created": False, "updated_at": now}
         conn.execute(
             "INSERT INTO finance_semantic_metrics"
-            " (key, name, description, source_table, sql_template, owner, tags, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (key, name, description, source_table, sql_template, owner, tags, now, now),
+            " (key, name, description, source_table, sql_template, owner, tags,"
+            "  alert_threshold, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (key, name, description, source_table, sql_template, owner, tags,
+             alert_threshold, now, now),
         )
     return {"key": key, "created": True, "updated_at": now}
+
+
+# ── Fase 4: memória organizacional ──────────────────────────────────────────
+
+def insert_org_fact(*, user_id: str, fact_text: str, tags: str = "", scope: str = "user") -> int:
+    now = _utcnow()
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO finance_org_facts (user_id, scope, fact_text, tags, created_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (user_id, scope, fact_text, tags, now),
+        )
+        return int(cur.lastrowid or 0)
+
+
+def list_org_facts(
+    user_id: str | None = None,
+    include_global: bool = True,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    limit = max(1, min(int(limit or 200), 1000))
+    where: list[str] = []
+    params: list[Any] = []
+    if user_id:
+        if include_global:
+            where.append("(user_id = ? OR scope = 'global')")
+            params.append(user_id)
+        else:
+            where.append("user_id = ?")
+            params.append(user_id)
+    elif not include_global:
+        where.append("user_id <> ''")
+    sql = "SELECT id, user_id, scope, fact_text, tags, created_at FROM finance_org_facts"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY id DESC LIMIT ?"
+    params.append(limit)
+    with get_db() as conn:
+        rows = conn.execute(sql, tuple(params)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_org_fact(fact_id: int) -> bool:
+    with get_db() as conn:
+        cur = conn.execute("DELETE FROM finance_org_facts WHERE id = ?", (int(fact_id),))
+        return cur.rowcount > 0
 
 
 def delete_finance_metric(key: str) -> bool:

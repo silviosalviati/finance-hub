@@ -65,6 +65,26 @@ existe como métrica governada (resposta consistente entre relatórios).
   }
   Use quando `metric_lookup` encontrou uma métrica relevante.
 
+- `org_fact_save`: Persiste um fato organizacional/preferência para uso futuro.
+  args: {"fact_text": "<frase curta>", "tags": "<csv opcional>", "scope": "user|global"}
+  Use quando o usuário disser algo do tipo "lembre-se que prefiro X" ou \
+"a meta do trimestre é Y".
+
+- `org_fact_recall`: Recupera fatos previamente salvos para o usuário.
+  args: {"query": "<termo de busca>", "top_k": 5}
+  Use antes de responder perguntas que parecem assumir contexto histórico \
+("e como ficou aquele meu KPI preferido?").
+
+- `forecast_simple`: Projeta tendência linear sobre uma série de um step anterior.
+  args: {"source_step_index": <int>, "value_column": "<col>",
+         "time_column": "<col opcional>", "horizon": 6}
+  Use quando o usuário pedir previsão/tendência simples — não substitui \
+modelos sazonais.
+
+- `attachment_analyze`: Analisa um anexo enviado pelo usuário.
+  args: {"attachment_index": <int>, "prompt": "<o que extrair (opcional)>"}
+  Use SEMPRE que o usuário mencionar um arquivo/imagem anexado.
+
 - `chat_answer`: Resposta puramente conversacional (sem dados).
   args: {}
   Use para cumprimentos, perguntas sobre o próprio assistente, ou quando não \
@@ -102,6 +122,36 @@ FORMATO DE SAÍDA (JSON estruturado — sem markdown, sem texto extra):
   "steps": [
     {"capability": "<nome>", "args": {...}, "rationale": "por que esta capability"}
   ]
+}
+"""
+
+
+REFLECT_PROMPT = """\
+Você é o crítico interno do Finance Voice IA. Avalie se os resultados \
+abaixo são suficientes para responder à pergunta original do usuário.
+
+Critérios de invalidade (qualquer um basta):
+- Steps que erraram (não-ok) em capabilities críticas (text_to_sql, bq_query, \
+metric_execute) — desde que sejam recuperáveis (ex.: faltou descobrir dataset \
+ou schema antes).
+- Resposta dependente de dados que não foram coletados.
+- Tabela/dataset não encontrado e ainda não tentamos descobrir/recuperar.
+
+NÃO invalide quando:
+- O Composer já tem material suficiente para responder mesmo com falha parcial.
+- A falha for por permissão (RBAC) ou budget — usuário precisa decidir, não \
+adianta retry.
+
+Se inválido, sugira ATÉ 3 steps adicionais que ajudariam (use o mesmo schema \
+de capabilities do Planner). Cada step deve ser claramente recuperador, não \
+repetir o que já foi tentado.
+
+FORMATO (JSON apenas):
+{
+  "is_valid": true|false,
+  "confidence": 0.0-1.0,
+  "issues": ["..."],
+  "suggested_steps": [{"capability": "...", "args": {...}, "rationale": "..."}]
 }
 """
 

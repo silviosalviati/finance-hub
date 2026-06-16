@@ -35,16 +35,19 @@ from src.agents.finance_auditor.personas import (
 from src.agents.finance_auditor.supervisor_prompts import (
     COMPOSER_PROMPT_TEMPLATE,
     PLANNER_PROMPT,
+    REFLECT_PROMPT,
 )
 from src.agents.finance_auditor.supervisor_schemas import (
     CAPABILITY_CHAT_ANSWER,
     PlanResponse,
     PlanStep,
+    ReflectVerdict,
 )
 from src.agents.finance_auditor.supervisor_state import SupervisorState
 from src.shared.tools.llm import invoke_with_retry
 
 _MAX_PLAN_STEPS = 6
+_MAX_ITERATIONS = 2  # router pode rodar até 2x (1 plano original + 1 retry pós-reflect)
 
 _INJECTION_MARKERS = (
     "ignore previous",
@@ -149,13 +152,18 @@ def node_router(
         "llm": llm,
         "llm_creative": llm_creative,
         "user": state.get("user") or {},
+        "attachments": state.get("attachments") or [],
     }
 
-    results: list[dict[str, Any]] = []
-    artifacts: list[dict[str, Any]] = []
+    # Em re-execução (pós-reflect), preserva o que já foi executado.
+    results: list[dict[str, Any]] = list(state.get("tool_results") or [])
+    artifacts: list[dict[str, Any]] = list(state.get("artifacts") or [])
     warnings: list[str] = list(state.get("warnings") or [])
+    start_idx = len(results)
+    iteration = int(state.get("iteration") or 0) + 1
 
-    for idx, step in enumerate(plan):
+    for offset, step in enumerate(plan[start_idx:]):
+        idx = start_idx + offset
         capability = str(step.get("capability") or "").strip().lower()
         args = step.get("args") or {}
 
@@ -182,7 +190,105 @@ def node_router(
                 f"Step {idx} ({capability}) falhou: {outcome.get('error') or 'erro desconhecido'}"
             )
 
-    return {"tool_results": results, "artifacts": artifacts, "warnings": warnings}
+    return {
+        "tool_results": results,
+        "artifacts": artifacts,
+        "warnings": warnings,
+        "iteration": iteration,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Nó 4b — reflect (auto-crítica + sugestão de retomada)
+# ---------------------------------------------------------------------------
+
+def node_reflect(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
+    tool_results = state.get("tool_results") or []
+    iteration = int(state.get("iteration") or 0)
+
+    # Heurística: se nada falhou OU já atingiu o teto, não há o que refletir.
+    any_failed = any(not r.get("ok") for r in tool_results)
+    if not any_failed or iteration >= _MAX_ITERATIONS:
+        return {
+            "reflect": {
+                "is_valid": True,
+                "confidence": 0.9 if not any_failed else 0.5,
+                "issues": [] if not any_failed else ["limite de iterações atingido"],
+                "suggested_steps": [],
+            }
+        }
+
+    summary = json.dumps(
+        [
+            {
+                "step_index": r.get("step_index"),
+                "capability": r.get("capability"),
+                "ok": r.get("ok"),
+                "error": r.get("error"),
+            }
+            for r in tool_results
+        ],
+        ensure_ascii=False,
+    )
+    user_content = (
+        f"Pergunta original:\n{state.get('request_text', '')}\n\n"
+        f"Execução até aqui (JSON):\n{summary}\n\n"
+        f"Plano original: {json.dumps(state.get('plan') or [], ensure_ascii=False)}"
+    )
+    try:
+        structured_llm = llm.with_structured_output(ReflectVerdict)
+        verdict: ReflectVerdict = invoke_with_retry(
+            structured_llm,
+            [
+                SystemMessage(content=REFLECT_PROMPT),
+                HumanMessage(content=user_content),
+            ],
+            max_attempts=2,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "reflect": {
+                "is_valid": True,
+                "confidence": 0.0,
+                "issues": [f"reflect falhou: {exc}"],
+                "suggested_steps": [],
+            }
+        }
+
+    if not verdict:
+        return {"reflect": {"is_valid": True, "suggested_steps": []}}
+    return {
+        "reflect": {
+            "is_valid": bool(verdict.is_valid),
+            "confidence": float(verdict.confidence),
+            "issues": list(verdict.issues),
+            "suggested_steps": [s.model_dump() for s in verdict.suggested_steps],
+        }
+    }
+
+
+def _reflect_router(state: SupervisorState) -> str:
+    """Edge condicional: se reflect propôs steps, volta ao router; senão, composer."""
+    reflect = state.get("reflect") or {}
+    iteration = int(state.get("iteration") or 0)
+    if reflect.get("is_valid", True):
+        return "composer"
+    suggested = reflect.get("suggested_steps") or []
+    if not suggested or iteration >= _MAX_ITERATIONS:
+        return "composer"
+    return "router"
+
+
+def node_apply_reflect_plan(state: SupervisorState) -> dict[str, Any]:
+    """Anexa ao plano os steps sugeridos pelo reflect (limite global)."""
+    reflect = state.get("reflect") or {}
+    suggested = reflect.get("suggested_steps") or []
+    if not suggested:
+        return {}
+    plan = list(state.get("plan") or [])
+    plan.extend(suggested)
+    plan = plan[:_MAX_PLAN_STEPS * _MAX_ITERATIONS]
+    return {"plan": plan}
 
 
 # ---------------------------------------------------------------------------
@@ -336,6 +442,8 @@ def build_supervisor_graph(
         "router",
         lambda s: node_router(s, llm=llm, llm_creative=_composer_llm),
     )
+    workflow.add_node("reflect", lambda s: node_reflect(s, llm=llm))
+    workflow.add_node("apply_reflect_plan", node_apply_reflect_plan)
     workflow.add_node("composer", lambda s: node_composer(s, llm=_composer_llm))
     workflow.add_node("audit", node_audit)
     workflow.add_node("guardrails_out", node_guardrails_out)
@@ -344,7 +452,13 @@ def build_supervisor_graph(
     workflow.add_edge("guardrails_in", "persona_resolver")
     workflow.add_edge("persona_resolver", "planner")
     workflow.add_edge("planner", "router")
-    workflow.add_edge("router", "composer")
+    workflow.add_edge("router", "reflect")
+    workflow.add_conditional_edges(
+        "reflect",
+        _reflect_router,
+        {"router": "apply_reflect_plan", "composer": "composer"},
+    )
+    workflow.add_edge("apply_reflect_plan", "router")
     workflow.add_edge("composer", "audit")
     workflow.add_edge("audit", "guardrails_out")
     workflow.add_edge("guardrails_out", END)

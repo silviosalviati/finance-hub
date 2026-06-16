@@ -13,6 +13,8 @@ class SupervisorState(TypedDict, total=False):
     project_id: str
     dataset_hint: str | None
     user_profile: dict[str, Any]  # vindo da sessão de chat (profile)
+    user_id: str                  # username/id do dono da sessão (RBAC + audit)
+    user: dict[str, Any]          # sessão completa (passada às capabilities)
 
     # --- Guardrails ---
     guardrail_in_ok: bool
@@ -31,6 +33,10 @@ class SupervisorState(TypedDict, total=False):
     # --- Composição final ---
     final_answer: str           # texto narrativo (markdown)
     artifacts: list[dict[str, Any]]  # tabelas, SQL, refs — para o frontend renderizar
+
+    # --- Fase 3 (governance) ---
+    pii: dict[str, Any]         # {mode, pii_counts, blocked}
+    audit_id: int               # id da entrada gravada em finance_audit_log
 
     # --- Controle ---
     warnings: list[str]

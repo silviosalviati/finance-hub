@@ -53,6 +53,18 @@ resultado de um step anterior. Não renderiza — devolve só o spec.
   }
   Use quando o usuário pedir um gráfico/visualização.
 
+- `metric_lookup`: Busca métricas registradas no Semantic Layer por palavra-chave.
+  args: {"query": "<termo de busca>"}
+  Use ANTES de gerar SQL ad-hoc para verificar se a métrica solicitada já \
+existe como métrica governada (resposta consistente entre relatórios).
+
+- `metric_execute`: Executa uma métrica do Semantic Layer pelo `key`.
+  args: {
+    "key": "<chave da métrica>",
+    "params": {"date_start": "YYYY-MM-DD", "date_end": "YYYY-MM-DD", "limit": 200}
+  }
+  Use quando `metric_lookup` encontrou uma métrica relevante.
+
 - `chat_answer`: Resposta puramente conversacional (sem dados).
   args: {}
   Use para cumprimentos, perguntas sobre o próprio assistente, ou quando não \
@@ -75,6 +87,9 @@ analíticas sobre um domínio que você não conhece).
 cujas linhas (rows) servirão de fonte.
 5. Se o usuário fornecer o nome exato do dataset/tabela, pode pular as \
 descobertas e ir direto para `bq_get_schema` + `text_to_sql`.
+5a. **Semantic Layer first**: para qualquer pergunta analítica, é recomendado \
+fazer `metric_lookup` antes de gerar SQL — se houver métrica governada, \
+prefira `metric_execute` (resposta consistente para a organização).
 6. Se a pergunta for ambígua, prefira `text_to_sql` com uma interpretação \
 razoável a `chat_answer`.
 7. Para `text_to_sql`, `table_refs` DEVE ser totalmente qualificado \

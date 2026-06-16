@@ -26,12 +26,15 @@ from typing import Any, Callable
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from src.agents.finance_auditor import rbac, semantic_layer
 from src.agents.finance_auditor.supervisor_schemas import (
     CAPABILITY_BQ_GET_SCHEMA,
     CAPABILITY_BQ_LIST_DATASETS,
     CAPABILITY_BQ_LIST_TABLES,
     CAPABILITY_BQ_QUERY,
     CAPABILITY_CHAT_ANSWER,
+    CAPABILITY_METRIC_EXECUTE,
+    CAPABILITY_METRIC_LOOKUP,
     CAPABILITY_STATS_DESCRIBE,
     CAPABILITY_TEXT_TO_SQL,
     CAPABILITY_VIZ_SPEC,
@@ -176,6 +179,10 @@ def cap_bq_list_tables(args: dict[str, Any], context: dict[str, Any]) -> dict[st
     if not dataset_hint:
         return _err("dataset_hint ausente e sem default configurado.")
 
+    allowed, reason = rbac.check_dataset(context.get("user"), dataset_hint)
+    if not allowed:
+        return _err(f"RBAC: {reason}")
+
     info = None
     resolved_hint = dataset_hint
     fallback_note = ""
@@ -195,6 +202,12 @@ def cap_bq_list_tables(args: dict[str, Any], context: dict[str, Any]) -> dict[st
                 return _err(
                     f"Dataset '{dataset_hint}' não encontrado. "
                     f"Datasets disponíveis: {', '.join(available) or '(nenhum)'}"
+                )
+            allowed_pick, reason_pick = rbac.check_dataset(context.get("user"), pick)
+            if not allowed_pick:
+                return _err(
+                    f"RBAC: dataset '{dataset_hint}' inexistente; "
+                    f"substituto '{pick}' negado ({reason_pick})."
                 )
             try:
                 info = get_dataset_tables_metadata(project_id, pick, max_tables=50, max_columns=20)
@@ -249,6 +262,11 @@ def cap_bq_get_schema(args: dict[str, Any], context: dict[str, Any]) -> dict[str
     if not project_id:
         return _err("Não foi possível determinar o projeto da tabela.")
 
+    _, dataset = rbac.project_from_table_ref(table_ref)
+    allowed, reason = rbac.check_dataset(context.get("user"), dataset)
+    if not allowed:
+        return _err(f"RBAC: {reason}")
+
     try:
         schema_text = get_table_schema(table_ref, project_id, max_columns=50)
     except Exception as exc:  # noqa: BLE001
@@ -268,6 +286,7 @@ def _validate_and_run_sql(
     sql: str,
     project_id: str,
     max_rows: int,
+    user: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     sql = (sql or "").strip().rstrip(";")
     if not sql:
@@ -278,6 +297,13 @@ def _validate_and_run_sql(
         return _err("Apenas queries iniciando com SELECT ou WITH são permitidas.")
     if not project_id:
         return _err("project_id ausente para executar query.")
+
+    # RBAC: cada dataset citado precisa estar permitido para o usuário.
+    referenced = set(re.findall(r"`?([\w\-]+)\.([\w\-]+)\.[\w\-]+`?", sql))
+    for _proj, dataset in referenced:
+        allowed, reason = rbac.check_dataset(user, dataset)
+        if not allowed:
+            return _err(f"RBAC: {reason}")
 
     max_rows = max(1, min(int(max_rows or _DEFAULT_BQ_QUERY_MAX_ROWS), 1000))
     budget = _get_budget_bytes()
@@ -320,6 +346,7 @@ def cap_bq_query(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
         sql=str(args.get("sql") or ""),
         project_id=(context.get("project_id") or "").strip(),
         max_rows=int(args.get("max_rows") or _DEFAULT_BQ_QUERY_MAX_ROWS),
+        user=context.get("user"),
     )
 
 
@@ -376,6 +403,10 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
     for ref in table_refs:
         if not _TABLE_REF_PATTERN.match(ref):
             return _err(f"table_ref inválido: {ref}")
+        _, dataset = rbac.project_from_table_ref(ref)
+        allowed, reason = rbac.check_dataset(context.get("user"), dataset)
+        if not allowed:
+            return _err(f"RBAC: {reason}")
 
     llm = context.get("llm")
     if llm is None:
@@ -415,7 +446,9 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
 
     # 3) Valida e executa (reutiliza o mesmo pipeline de bq_query)
     row_limit = int(args.get("row_limit") or _DEFAULT_BQ_QUERY_MAX_ROWS)
-    exec_result = _validate_and_run_sql(sql=sql, project_id=project_id, max_rows=row_limit)
+    exec_result = _validate_and_run_sql(
+        sql=sql, project_id=project_id, max_rows=row_limit, user=context.get("user")
+    )
     if exec_result["ok"]:
         # Inclui também a pergunta original no payload para rastreabilidade.
         exec_result["payload"]["natural_language"] = natural_language
@@ -614,6 +647,86 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
 
 
 # ---------------------------------------------------------------------------
+# metric_lookup — busca no Semantic Layer
+# ---------------------------------------------------------------------------
+
+def cap_metric_lookup(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    query = str(args.get("query") or context.get("request_text") or "").strip()
+    if not query:
+        return _err("query ausente para metric_lookup.")
+    try:
+        top_k = int(args.get("top_k") or 5)
+    except (TypeError, ValueError):
+        top_k = 5
+    matches = semantic_layer.search_metrics(query, top_k=max(1, min(top_k, 20)))
+    # Filtra por RBAC.
+    user = context.get("user")
+    visible: list[dict[str, Any]] = []
+    for m in matches:
+        ok, _ = rbac.check_metric(user, m.get("key", ""))
+        if ok:
+            visible.append(m)
+    rows = [
+        {
+            "key": m.get("key", ""),
+            "name": m.get("name", ""),
+            "description": (m.get("description") or "")[:200],
+            "source_table": m.get("source_table", ""),
+            "tags": m.get("tags", ""),
+        }
+        for m in visible
+    ]
+    return _ok(
+        payload={"query": query, "matches": rows, "match_count": len(rows)},
+        artifacts=[
+            {
+                "type": "table",
+                "title": f"Métricas governadas (busca: {query})",
+                "columns": ["key", "name", "description", "source_table", "tags"],
+                "rows": rows,
+            }
+        ] if rows else [],
+    )
+
+
+# ---------------------------------------------------------------------------
+# metric_execute — executa uma métrica registrada
+# ---------------------------------------------------------------------------
+
+def cap_metric_execute(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    key = str(args.get("key") or "").strip()
+    if not key:
+        return _err("key ausente para metric_execute.")
+    allowed, reason = rbac.check_metric(context.get("user"), key)
+    if not allowed:
+        return _err(f"RBAC: {reason}")
+    metric = semantic_layer.resolve_metric(key)
+    if not metric:
+        return _err(f"Métrica '{key}' não encontrada no Semantic Layer.")
+    sql, params_used = semantic_layer.render_sql(
+        metric.get("sql_template", ""), args.get("params") or {}
+    )
+    if not sql:
+        return _err(f"Métrica '{key}' está sem sql_template.")
+    project_id = (context.get("project_id") or "").strip()
+    if not project_id:
+        return _err("project_id ausente para executar métrica.")
+    row_limit = int((args.get("params") or {}).get("limit") or _DEFAULT_BQ_QUERY_MAX_ROWS)
+    exec_result = _validate_and_run_sql(
+        sql=sql, project_id=project_id, max_rows=row_limit, user=context.get("user")
+    )
+    # Enriquecimento informativo no payload, independente do sucesso.
+    payload = exec_result.get("payload") or {}
+    if not isinstance(payload, dict):
+        payload = {"value": payload}
+    payload["metric_key"] = key
+    payload["metric_name"] = metric.get("name", "")
+    payload["params_used"] = params_used
+    exec_result["payload"] = payload
+    return exec_result
+
+
+# ---------------------------------------------------------------------------
 # chat_answer
 # ---------------------------------------------------------------------------
 
@@ -633,6 +746,8 @@ CAPABILITY_REGISTRY: dict[str, Callable[[dict[str, Any], dict[str, Any]], dict[s
     CAPABILITY_TEXT_TO_SQL: cap_text_to_sql,
     CAPABILITY_STATS_DESCRIBE: cap_stats_describe,
     CAPABILITY_VIZ_SPEC: cap_viz_spec,
+    CAPABILITY_METRIC_LOOKUP: cap_metric_lookup,
+    CAPABILITY_METRIC_EXECUTE: cap_metric_execute,
     CAPABILITY_CHAT_ANSWER: cap_chat_answer,
 }
 
@@ -656,5 +771,7 @@ __all__ = [
     "cap_text_to_sql",
     "cap_stats_describe",
     "cap_viz_spec",
+    "cap_metric_lookup",
+    "cap_metric_execute",
     "cap_chat_answer",
 ]

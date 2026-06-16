@@ -47,6 +47,7 @@ class FinanceAuditorAgent(BaseAgent):
         dataset_hint: str | None = None,
         user_profile: dict[str, Any] | None = None,
         user: dict[str, Any] | None = None,
+        attachments: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Executa o grafo Supervisor e devolve um dict compatível com o frontend."""
         graph = self._get_graph()
@@ -59,6 +60,7 @@ class FinanceAuditorAgent(BaseAgent):
             "user_profile": user_profile or {},
             "user_id": str(u.get("username") or u.get("user_id") or ""),
             "user": u,
+            "attachments": list(attachments or []),
         }
 
         final_state: dict[str, Any] | None = None

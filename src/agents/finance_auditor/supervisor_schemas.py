@@ -14,6 +14,10 @@ CAPABILITY_STATS_DESCRIBE = "stats_describe"
 CAPABILITY_VIZ_SPEC = "viz_spec"
 CAPABILITY_METRIC_LOOKUP = "metric_lookup"
 CAPABILITY_METRIC_EXECUTE = "metric_execute"
+CAPABILITY_ORG_FACT_SAVE = "org_fact_save"
+CAPABILITY_ORG_FACT_RECALL = "org_fact_recall"
+CAPABILITY_FORECAST_SIMPLE = "forecast_simple"
+CAPABILITY_ATTACHMENT_ANALYZE = "attachment_analyze"
 CAPABILITY_CHAT_ANSWER = "chat_answer"
 
 VALID_CAPABILITIES = {
@@ -26,6 +30,10 @@ VALID_CAPABILITIES = {
     CAPABILITY_VIZ_SPEC,
     CAPABILITY_METRIC_LOOKUP,
     CAPABILITY_METRIC_EXECUTE,
+    CAPABILITY_ORG_FACT_SAVE,
+    CAPABILITY_ORG_FACT_RECALL,
+    CAPABILITY_FORECAST_SIMPLE,
+    CAPABILITY_ATTACHMENT_ANALYZE,
     CAPABILITY_CHAT_ANSWER,
 }
 
@@ -54,6 +62,15 @@ class PlanResponse(BaseModel):
     steps: list[PlanStep] = Field(default_factory=list)
 
 
+class ReflectVerdict(BaseModel):
+    """Output do nó reflect — auto-crítica e plano de retomada."""
+
+    is_valid: bool = Field(default=True)
+    confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+    issues: list[str] = Field(default_factory=list)
+    suggested_steps: list[PlanStep] = Field(default_factory=list)
+
+
 __all__ = [
     "CAPABILITY_BQ_LIST_DATASETS",
     "CAPABILITY_BQ_LIST_TABLES",
@@ -64,8 +81,13 @@ __all__ = [
     "CAPABILITY_VIZ_SPEC",
     "CAPABILITY_METRIC_LOOKUP",
     "CAPABILITY_METRIC_EXECUTE",
+    "CAPABILITY_ORG_FACT_SAVE",
+    "CAPABILITY_ORG_FACT_RECALL",
+    "CAPABILITY_FORECAST_SIMPLE",
+    "CAPABILITY_ATTACHMENT_ANALYZE",
     "CAPABILITY_CHAT_ANSWER",
     "VALID_CAPABILITIES",
     "PlanStep",
     "PlanResponse",
+    "ReflectVerdict",
 ]

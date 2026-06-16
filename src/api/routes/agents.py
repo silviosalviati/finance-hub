@@ -29,6 +29,9 @@ class AnalyzeRequest(BaseModel):
     project_id: str | None = None
     dataset_hint: str | None = None
     thread_id: str | None = None
+    # Fase 4: anexos opcionais (CSV/imagem em base64). Cada item:
+    # {"kind": "csv"|"image", "data": "<base64>", "filename": "<opcional>"}
+    attachments: list[dict[str, Any]] | None = Field(default=None, max_length=5)
 
 
 class ResumeAnalyzerRequest(BaseModel):
@@ -423,6 +426,7 @@ async def analyze_by_agent(
                     dataset_hint=req.dataset_hint,
                     user_profile=profile,
                     user=session,
+                    attachments=req.attachments or [],
                 )
                 response.setdefault("response_mode", "analysis")
 

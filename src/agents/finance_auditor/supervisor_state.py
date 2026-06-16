@@ -38,6 +38,11 @@ class SupervisorState(TypedDict, total=False):
     pii: dict[str, Any]         # {mode, pii_counts, blocked}
     audit_id: int               # id da entrada gravada em finance_audit_log
 
+    # --- Fase 4 ---
+    attachments: list[dict[str, Any]]   # anexos enviados (CSV/imagem)
+    iteration: int                       # nº de execuções do router (1-based)
+    reflect: dict[str, Any]              # último verdict do nó reflect
+
     # --- Controle ---
     warnings: list[str]
     error: str | None

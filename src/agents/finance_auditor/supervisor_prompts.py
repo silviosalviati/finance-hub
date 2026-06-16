@@ -91,30 +91,61 @@ modelos sazonais.
 houver intenção analítica.
 
 REGRAS DE PLANEJAMENTO:
-1. Prefira o menor plano possível — mas NUNCA chute nomes de dataset/tabela.
-2. **Descoberta antes de query**: se o usuário mencionar uma área/domínio em \
-linguagem natural ("meu ecommerce de saúde", "área de logística", "vendas", \
-"financeiro", etc.) sem fornecer o nome literal do dataset, o **primeiro step \
-DEVE ser `bq_list_datasets`** para descobrir o nome real. Em seguida use \
-`bq_list_tables` no dataset que melhor corresponde semanticamente \
-(ex.: usuário diz "ecommerce de saúde" → dataset `ecommerce_saude`; \
-"logística" → `logistica_vendas`). Só então gere o SQL.
-3. Encadeie steps quando o resultado de um for entrada do próximo \
-(`bq_list_datasets` → `bq_list_tables` → `bq_get_schema` → `text_to_sql` → \
-`stats_describe` → `viz_spec` é o encadeamento canônico para perguntas \
-analíticas sobre um domínio que você não conhece).
+
+**REGRA #1 (CRÍTICA — não negociável)**: O plano DEVE chegar até o fim, ou \
+seja, terminar em uma capability que de fato RESPONDE à pergunta do usuário: \
+`text_to_sql`, `bq_query`, `metric_execute`, `stats_describe`, \
+`forecast_simple` ou `attachment_analyze`. NUNCA produza um plano que pare \
+em `bq_list_datasets` ou `bq_list_tables` — essas capabilities são apenas \
+preparatórias, jamais a resposta final. Se você não tiver certeza do nome \
+exato do dataset/tabela, **CHUTE um nome plausível** — o sistema tem \
+auto-correção fuzzy (`ecommerce` → `ecommerce_saude`) e um loop de \
+auto-crítica que pode propor retentativas quando algo falhar.
+
+**REGRA #2 (Late binding)**: Você pode referenciar dados de steps anteriores \
+nos `args` usando o token `${step_N.<path>}`, ex.:
+  - `${step_0.payload.datasets[0]}`
+  - `${step_1.payload.dataset_ref}`
+  - `${step_2.payload.tables[0].table_id}`
+O router resolve esses tokens em tempo de execução. Use isso quando o nome \
+do dataset/tabela só será conhecido após uma descoberta.
+
+**Encadeamento canônico** para perguntas analíticas sobre um domínio que \
+você não conhece:
+  bq_list_datasets → bq_list_tables → bq_get_schema → text_to_sql \
+[→ stats_describe → viz_spec]
+
+**Demais regras:**
+3. Se o usuário mencionar uma área em linguagem natural ("meu ecommerce de \
+saúde"), use `bq_list_datasets` no primeiro step E TAMBÉM já planeje os \
+steps seguintes com `dataset_hint` igual ao seu palpite mais provável (ex.: \
+`ecommerce_saude`); o fuzzy-match cobre erros pequenos.
 4. `source_step_index` referencia o índice (zero-based) de um step anterior \
-cujas linhas (rows) servirão de fonte.
-5. Se o usuário fornecer o nome exato do dataset/tabela, pode pular as \
-descobertas e ir direto para `bq_get_schema` + `text_to_sql`.
-5a. **Semantic Layer first**: para qualquer pergunta analítica, é recomendado \
-fazer `metric_lookup` antes de gerar SQL — se houver métrica governada, \
-prefira `metric_execute` (resposta consistente para a organização).
-6. Se a pergunta for ambígua, prefira `text_to_sql` com uma interpretação \
+cujas linhas (rows) servirão de fonte para `stats_describe` / `viz_spec` / \
+`forecast_simple`.
+5. Se o usuário fornecer o nome exato do dataset/tabela, pode pular a \
+descoberta e ir direto para `bq_get_schema` + `text_to_sql`.
+6. **Semantic Layer first** (recomendação): inicie com `metric_lookup` \
+quando a pergunta parece corresponder a uma métrica governada; se houver \
+match, prefira `metric_execute`.
+7. Se a pergunta for ambígua, prefira `text_to_sql` com uma interpretação \
 razoável a `chat_answer`.
-7. Para `text_to_sql`, `table_refs` DEVE ser totalmente qualificado \
-(`projeto.dataset.tabela`) — use o `project_id` que aparece no contexto e o \
-dataset/tabela descobertos pelos steps anteriores.
+8. Para `text_to_sql`, `table_refs` DEVE ser totalmente qualificado \
+(`projeto.dataset.tabela`) — use o `project_id` do contexto e o \
+dataset/tabela descobertos (ou um palpite + late binding).
+
+EXEMPLO de plano completo para "no meu ecommerce de saúde quero saber os \
+maiores clientes que pagaram em pix e o valor total":
+[
+  {"capability": "bq_list_datasets", "args": {}, "rationale": "descobrir nome real"},
+  {"capability": "bq_list_tables", "args": {"dataset_hint": "ecommerce_saude"}},
+  {"capability": "bq_get_schema", "args": {"table_ref": "${PROJECT}.${step_1.payload.resolved_dataset}.${step_1.payload.tables[0].table_id}"}},
+  {"capability": "text_to_sql", "args": {
+      "natural_language": "maiores clientes por valor total pagando em pix",
+      "table_refs": ["${PROJECT}.${step_1.payload.resolved_dataset}.<tabela_escolhida>"],
+      "row_limit": 20}}
+]
+(O `${PROJECT}` será preenchido com o project_id do contexto.)
 
 FORMATO DE SAÍDA (JSON estruturado — sem markdown, sem texto extra):
 {
@@ -136,6 +167,13 @@ metric_execute) — desde que sejam recuperáveis (ex.: faltou descobrir dataset
 ou schema antes).
 - Resposta dependente de dados que não foram coletados.
 - Tabela/dataset não encontrado e ainda não tentamos descobrir/recuperar.
+- **Plano incompleto**: nenhum step "produtor de resposta" executou \
+(`text_to_sql`, `bq_query`, `metric_execute`, `stats_describe`, \
+`forecast_simple`, `attachment_analyze`). Se a pergunta era analítica e só \
+rodaram steps preparatórios (`bq_list_datasets`, `bq_list_tables`, \
+`bq_get_schema`), você DEVE sugerir os steps finais que faltam, usando \
+late binding `${step_N.payload.path}` para referenciar os resultados das \
+descobertas anteriores.
 
 NÃO invalide quando:
 - O Composer já tem material suficiente para responder mesmo com falha parcial.

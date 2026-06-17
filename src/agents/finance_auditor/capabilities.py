@@ -383,37 +383,46 @@ Você é um gerador de SQL para BigQuery. Receberá:
 1. Uma pergunta em linguagem natural.
 2. Os schemas das tabelas relevantes.
 
-Devolva SOMENTE um JSON com o campo "sql" contendo a query SELECT/WITH \
-(sem ponto-e-vírgula final, sem markdown, sem comentários longos). A query \
-deve:
+Devolva APENAS uma query SELECT/WITH executável. A query deve:
 - Usar APENAS as tabelas listadas, sempre com nome totalmente qualificado \
 (`projeto.dataset.tabela`).
 - Aplicar LIMIT compatível com o pedido (default 200) salvo se o usuário \
 pedir explicitamente uma agregação.
 - Evitar SELECT *: liste colunas explicitamente quando possível.
 - Não usar DDL/DML (INSERT/UPDATE/DELETE/CREATE/etc).
-
-FORMATO:
-{"sql": "SELECT ..."}
+- Não incluir comentários longos, mensagens de erro nem placeholders.
+- Se não for possível responder com os dados disponíveis, devolva uma query \
+mínima válida que ainda consulte a tabela mais provável (NUNCA devolva uma \
+mensagem de erro em forma de string).
 """
 
 
 def _extract_sql_from_llm_text(text: str) -> str:
+    """Fallback de extração quando o structured output não é usado.
+
+    Tenta, em ordem: (1) JSON puro com chave `sql`; (2) bloco ```sql``` ou
+    ```json```; (3) o próprio texto. Usado apenas como safety-net.
+    """
     text = (text or "").strip()
     if not text:
         return ""
-    # tenta JSON puro
     try:
         data = json.loads(text)
         if isinstance(data, dict) and isinstance(data.get("sql"), str):
             return data["sql"].strip()
     except Exception:  # noqa: BLE001
         pass
-    # tenta fenced block
     match = _SQL_FENCE_PATTERN.search(text)
     if match:
-        return match.group(1).strip()
-    # último recurso: o próprio texto
+        inner = match.group(1).strip()
+        # Pode ser um JSON dentro do fence — tenta desembrulhar.
+        try:
+            data = json.loads(inner)
+            if isinstance(data, dict) and isinstance(data.get("sql"), str):
+                return data["sql"].strip()
+        except Exception:  # noqa: BLE001
+            pass
+        return inner
     return text
 
 
@@ -573,22 +582,38 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
             schemas.append(f"[Falha ao obter schema de {ref}: {exc}]")
     schemas_text = "\n\n".join(schemas) or "(sem schemas)"
 
-    # 2) Gera SQL via LLM.
+    # 2) Gera SQL via LLM (structured output → garante {sql: str} válido).
+    from pydantic import BaseModel, Field
+
+    class _SqlOutput(BaseModel):
+        sql: str = Field(..., description="Apenas o SQL SELECT/WITH, sem markdown.")
+
     user_msg = (
         f"PERGUNTA:\n{natural_language}\n\n"
-        f"SCHEMAS DISPONÍVEIS:\n{schemas_text}\n\n"
-        "Devolva o JSON pedido."
+        f"SCHEMAS DISPONÍVEIS:\n{schemas_text}"
     )
+    sql = ""
     try:
-        response = invoke_with_retry(
-            llm,
+        structured_llm = llm.with_structured_output(_SqlOutput)
+        result: _SqlOutput = invoke_with_retry(
+            structured_llm,
             [SystemMessage(content=_TEXT_TO_SQL_PROMPT), HumanMessage(content=user_msg)],
             max_attempts=2,
         )
+        if result and getattr(result, "sql", None):
+            sql = str(result.sql).strip().strip("`").strip()
     except Exception as exc:  # noqa: BLE001
-        return _err(f"Falha ao gerar SQL via LLM: {exc}")
+        # Fallback: invocação plana e parsing tolerante.
+        try:
+            response = invoke_with_retry(
+                llm,
+                [SystemMessage(content=_TEXT_TO_SQL_PROMPT), HumanMessage(content=user_msg)],
+                max_attempts=1,
+            )
+            sql = _extract_sql_from_llm_text(_llm_text(response))
+        except Exception as exc2:  # noqa: BLE001
+            return _err(f"Falha ao gerar SQL via LLM: {exc2 or exc}")
 
-    sql = _extract_sql_from_llm_text(_llm_text(response))
     if not sql:
         return _err("LLM não devolveu SQL utilizável.")
 

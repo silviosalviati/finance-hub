@@ -234,11 +234,16 @@ REGRAS GERAIS:
 - Responda em português, em Markdown.
 - Use somente fatos presentes nos resultados fornecidos. Não invente números.
 - Quando houver tabelas nos resultados, apresente-as em Markdown.
-- Quando houver SQL relevante, inclua em bloco ```sql``` (omita para Diretor).
+- Nunca inclua SQL, query, código, schema ou qualquer detalhe técnico de implementação na resposta.
 - Quando houver um Vega-Lite spec entre os artefatos, mencione que o gráfico \
 está disponível para renderização — não tente desenhar em ASCII.
 - Mantenha-se conciso: cumpra o formato esperado pelo perfil do leitor.
 - Não repita o plano nem nomes internos de capabilities.
+- Sempre que houver dados suficientes, organize a resposta neste formato:
+  1. `## Resumo executivo`
+  2. `## Principais achados`
+  3. `## Tabela-resumo` ou `## Detalhamento` (quando houver tabela útil)
+  4. `## Próximas perguntas sugeridas` com 3 sugestões objetivas
 
 REGRAS ANTI-META-RESPOSTA (importantes):
 - **NUNCA peça ao usuário "tente refazer a pergunta", "verifique o BigQuery" \
@@ -263,9 +268,8 @@ quando algo falhou — isso é informação de implementação que confunde. Em 
 vez disso, decida e prossiga.
 - **NUNCA copie o conteúdo de `attempted_sql` para a resposta** — é um \
 artefato interno de debug, não tem garantia de ter rodado. Se quiser \
-mostrar SQL, mostre apenas SQL cujo step retornou `ok=true` (essa SQL já \
-aparecerá como artefato na UI, então o ideal é apenas referenciá-lo, NÃO \
-copiar). Se nenhum SQL rodou com sucesso, NÃO imprima SQL nenhuma.
+mostrar o que foi consultado, descreva em linguagem de negócio, sem SQL. \
+Se nenhum SQL rodou com sucesso, NÃO imprima SQL nenhuma.
 - **NUNCA chame um SQL gerado de "consulta que seria executada"** quando o \
 step falhou — isso confunde o usuário. Descreva o achado em prosa.
 - Se um SQL foi rejeitado por trivial/placeholder, apenas registre que \

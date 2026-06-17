@@ -4161,12 +4161,160 @@ function _faWait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function _faSuggestedFollowups(query) {
+  const q = String(query || "").toLowerCase();
+  if (/pix|clientes?|receb/.test(q)) {
+    return [
+      "Quais clientes via Pix mais cresceram em relação ao período anterior?",
+      "Qual a concentração de receita nos 10 principais clientes pagantes via Pix?",
+      "Existe diferença de inadimplência entre Pix e outros meios de pagamento?",
+    ];
+  }
+  if (/contas a pagar|fornecedor|despesa/.test(q)) {
+    return [
+      "Quais fornecedores concentram o maior volume a pagar?",
+      "Quais vencimentos críticos estão previstos para os próximos 7 dias?",
+      "Onde houve maior aumento de despesa em relação ao período anterior?",
+    ];
+  }
+  if (/cobran/.test(q)) {
+    return [
+      "Quais faixas de atraso concentram mais valor em aberto?",
+      "Quais carteiras tiveram piora de recuperação no período?",
+      "Que ações priorizar para reduzir inadimplência nesta semana?",
+    ];
+  }
+  if (/fluxo de caixa|caixa/.test(q)) {
+    return [
+      "Quais entradas e saídas mais pressionam o caixa neste período?",
+      "Qual a projeção do caixa para os próximos 30 dias?",
+      "Onde há maior risco de descasamento entre recebimentos e pagamentos?",
+    ];
+  }
+  return [
+    "Qual recorte por período você quer aprofundar agora?",
+    "Quais segmentos ou clientes merecem um detalhamento maior?",
+    "Quer que eu compare esse resultado com o período anterior?",
+  ];
+}
+
+function _faPrepareAnswerMarkdown(text, data = {}) {
+  let prepared = String(text || "");
+  prepared = prepared.replace(/```sql[\s\S]*?```/gi, "");
+  prepared = prepared.replace(/```[\s\S]*?```/g, (block) => {
+    return /select|from|where|group by|order by|join/i.test(block) ? "" : block;
+  });
+  prepared = prepared.replace(/\n{3,}/g, "\n\n").trim();
+
+  if (!prepared) return prepared;
+
+  if (!/##\s+resumo executivo/i.test(prepared)) {
+    prepared = `## Resumo executivo\n\n${prepared}`;
+  }
+
+  if (!/##\s+pr[oó]ximas perguntas sugeridas/i.test(prepared)) {
+    const suggestions = _faSuggestedFollowups(data.original_query || data.query || "");
+    prepared +=
+      `\n\n## Próximas perguntas sugeridas\n\n` +
+      suggestions.map((item) => `- ${item}`).join("\n");
+  }
+
+  return prepared;
+}
+
+function _faEnhanceReportDom(container) {
+  if (!container) return;
+  const report = container.querySelector(".fa-report");
+  if (!report) return;
+
+  const classifySection = (title) => {
+    const value = String(title || "").toLowerCase();
+    if (value.includes("resumo")) return "summary";
+    if (value.includes("achado") || value.includes("insight")) return "insights";
+    if (value.includes("tabela") || value.includes("detalhamento")) return "details";
+    if (value.includes("acao") || value.includes("ação") || value.includes("recomend")) return "actions";
+    if (value.includes("risc")) return "risks";
+    if (value.includes("próxim") || value.includes("proxim")) return "followups";
+    return "default";
+  };
+
+  const headingsForWrap = Array.from(report.querySelectorAll(":scope > h2"));
+  headingsForWrap.forEach((heading) => {
+    if (heading.parentElement?.classList.contains("fa-report-section")) return;
+    const section = document.createElement("section");
+    const kind = classifySection(heading.textContent || "");
+    section.className = `fa-report-section fa-report-section--${kind}`;
+    report.insertBefore(section, heading);
+    section.appendChild(heading);
+
+    let cursor = section.nextSibling;
+    while (cursor) {
+      const next = cursor.nextSibling;
+      if (
+        cursor.nodeType === Node.ELEMENT_NODE &&
+        cursor.tagName === "H2"
+      ) {
+        break;
+      }
+      section.appendChild(cursor);
+      cursor = next;
+    }
+  });
+
+  report.querySelectorAll("table").forEach((table) => {
+    if (table.parentElement?.classList.contains("fa-report-table-wrap")) return;
+    const wrap = document.createElement("div");
+    wrap.className = "fa-report-table-wrap";
+    table.parentNode.insertBefore(wrap, table);
+    wrap.appendChild(table);
+  });
+
+  report.querySelectorAll("h2").forEach((heading) => {
+    if (heading.querySelector(".fa-sec-ico")) return;
+    const title = (heading.textContent || "").toLowerCase();
+    let icon = "•";
+    if (title.includes("resumo")) icon = "◉";
+    else if (title.includes("achado")) icon = "◆";
+    else if (title.includes("tabela") || title.includes("detalhamento")) icon = "▦";
+    else if (title.includes("próxim") || title.includes("proxim")) icon = "→";
+    const badge = document.createElement("span");
+    badge.className = "fa-sec-ico";
+    badge.textContent = icon;
+    heading.prepend(badge);
+  });
+
+  report.querySelectorAll(".fa-report-section--summary p:first-of-type").forEach((p) => {
+    p.classList.add("fa-report-lead");
+  });
+
+  report.querySelectorAll(".fa-report-section--insights ul, .fa-report-section--actions ul").forEach((list) => {
+    list.classList.add("fa-report-bullets");
+  });
+
+  const headings = Array.from(report.querySelectorAll("h2"));
+  const nextQuestionsHeading = headings.find((h) =>
+    /próximas perguntas sugeridas|proximas perguntas sugeridas/i.test(h.textContent || ""),
+  );
+  if (nextQuestionsHeading) {
+    let node = nextQuestionsHeading.nextElementSibling;
+    while (node && node.tagName !== "UL") node = node.nextElementSibling;
+    if (node && !node.classList.contains("fa-followups")) {
+      node.classList.add("fa-followups");
+      node.querySelectorAll("li").forEach((li) => {
+        const text = li.textContent?.trim() || "";
+        li.innerHTML = `<button type="button" class="fa-followup-btn" data-followup="${_escFA(text)}">${_escFA(text)}</button>`;
+      });
+    }
+  }
+}
+
 async function _faTypeMarkdownInto(container, sourceText, options = {}) {
   if (!container) return;
 
   const { escapeInput = false } = options;
   const source = String(sourceText || "");
-  const prepared = escapeInput ? _escFA(source) : source;
+  const normalized = escapeInput ? _escFA(source) : _faPrepareAnswerMarkdown(source, options.data || {});
+  const prepared = normalized;
   const total = prepared.length;
 
   if (!total) {
@@ -4209,6 +4357,7 @@ async function _faTypeMarkdownInto(container, sourceText, options = {}) {
   }
 
   container.innerHTML = `<div class="fa-report">${_faMdToHtml(prepared)}</div>`;
+  _faEnhanceReportDom(container);
   _faScrollBottom();
 }
 
@@ -4343,6 +4492,18 @@ function initFAInputListener() {
   document.addEventListener("click", (ev) => {
     const target = ev.target;
     if (!target || target.tagName !== "BUTTON") return;
+
+    const followup = target.getAttribute("data-followup");
+    if (followup) {
+      const inputEl = document.getElementById("fa-input");
+      if (!inputEl || faIsLoading) return;
+      inputEl.value = followup;
+      autoResizeFAInput(inputEl);
+      setFASendButtonState({ disabled: false, loading: false });
+      inputEl.focus();
+      return;
+    }
+
     const refId = target.getAttribute("data-fa-copy");
     if (!refId) return;
     const pre = document.getElementById(refId);
@@ -4574,7 +4735,7 @@ async function appendFABotMessage(data) {
   _faScrollBottom();
 
   const slot = el.querySelector(".fa-report-slot");
-  await _faTypeMarkdownInto(slot, data.markdown_report || data.chat_answer || "");
+  await _faTypeMarkdownInto(slot, data.markdown_report || data.chat_answer || "", { data });
 }
 
 // Cabe\u00e7alho m\u00ednimo: um \u00fanico chip de status, sem detalhes t\u00e9cnicos.
@@ -4970,6 +5131,9 @@ async function sendFAMessage() {
     }
 
     const data = await res.json();
+    if (data && typeof data === "object") {
+      data.original_query = text;
+    }
     removeFAThinking();
 
     if (data.status === "error") {

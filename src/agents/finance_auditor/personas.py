@@ -114,7 +114,7 @@ PERSONA_PROMPTS: dict[str, str] = {
         "- Drill-down por operação, assunto, dia.\n"
         "- Ações imediatas e acionáveis (próximas 24-72h).\n"
         "- Linguagem direta, próxima ao chão da operação.\n"
-        "- Inclua SQL gerado quando relevante para reproduzir."
+        "- Não inclua SQL, nomes técnicos ou detalhes de implementação."
     ),
     PERSONA_GERENTE: (
         "PERFIL DO LEITOR: Gerente tático.\n"

@@ -25,6 +25,10 @@ def test_analytics_query_classifier():
     assert _is_analytics_query("Quero um relatório dos últimos 30 dias") is True
     assert _is_analytics_query("Mostre uma tabela com o total agrupado") is True
     assert _is_analytics_query("Gere um gráfico de tendência") is True
+    assert _is_analytics_query(
+        "quero saber quais sao os maiores clientes que realizam pagamento via pix no meu ecommerce saude"
+    ) is True
+    assert _is_analytics_query("contas a pagar em atraso") is True
     assert _is_analytics_query("qual meu nome") is False
     assert _is_analytics_query("oi tudo bem?") is False
 

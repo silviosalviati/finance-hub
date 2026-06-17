@@ -191,6 +191,9 @@ def _is_analytics_query(query: str) -> bool:
     rápido entre o caminho conversacional (RAG curto) e o caminho do grafo
     completo, mantendo o comportamento do chat para perguntas sociais.
     """
+    if _is_asking_name(query):
+        return False
+
     q = _normalize_text(query)
     analytics_terms = (
         "analise", "análise", "relatorio", "relatório",
@@ -201,6 +204,12 @@ def _is_analytics_query(query: str) -> bool:
         "soma", "total", "contagem", "agrupado", "agrupar",
         "periodo", "período", "ultimos", "últimos", "mes", "mês",
         "compare", "comparar", "tendencia", "tendência",
+        "quanto", "quantos", "qual", "quais", "maior", "maiores",
+        "menor", "menores", "ranking", "top", "cliente", "clientes",
+        "pedido", "pedidos", "pagamento", "pagamentos", "pix",
+        "venda", "vendas", "receita", "faturamento", "inadimplencia",
+        "inadimplência", "cobranca", "cobrança", "contas a pagar",
+        "contas a receber", "ecommerce", "e-commerce",
     )
     return any(term in q for term in analytics_terms)
 

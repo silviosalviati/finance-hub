@@ -4218,7 +4218,7 @@ function setFAInteractionLock(locked) {
     input.disabled = !!locked;
   }
 
-  document.querySelectorAll(".fa-suggestion-chip").forEach((el) => {
+  document.querySelectorAll(".fa-topic-card, .fa-suggestion-chip").forEach((el) => {
     if (el instanceof HTMLButtonElement) {
       el.disabled = !!locked;
     }
@@ -4229,40 +4229,74 @@ function initFASuggestions() {
   const container = document.getElementById("fa-suggestions");
   if (!container) return;
 
-  const now = new Date();
-  const monthNames = [
-    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
-  ];
-
-  const curMonth = monthNames[now.getMonth()];
-  const curYear = now.getFullYear();
-
-  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const prevMonth = monthNames[prevDate.getMonth()];
-  const prevYear = prevDate.getFullYear();
-
-  const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-  const twoMonth = monthNames[twoMonthsAgo.getMonth()];
-  const twoYear = twoMonthsAgo.getFullYear();
-
-  const suggestions = [
-    `Status de contas a receber de ${prevMonth} de ${prevYear}`,
-    `Resumo de contas a pagar dos últimos 30 dias`,
-    `Análise de cobrança de ${twoMonth} de ${twoYear}`,
-    `Compare inadimplência de ${prevMonth} e ${twoMonth}: causas e tendências`,
-    `Experiência do cliente na área financeira em ${curMonth} de ${curYear}`,
-    `Visão geral da Diretoria Financeira no último trimestre`,
+  const topics = [
+    {
+      label: "Contas a pagar",
+      prompt: "Quero falar sobre contas a pagar",
+      icon: `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+          <path d="M7 8h10"></path>
+          <path d="M7 12h10"></path>
+          <path d="M7 16h6"></path>
+        </svg>`,
+    },
+    {
+      label: "Contas a receber",
+      prompt: "Quero falar sobre contas a receber",
+      icon: `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="6" width="18" height="12" rx="2"></rect>
+          <path d="M3 10h18"></path>
+          <path d="M8 14h3"></path>
+          <path d="M15 14h1"></path>
+        </svg>`,
+    },
+    {
+      label: "Experi\u00eancia do cliente",
+      prompt: "Quero falar sobre experi\u00eancia do cliente",
+      icon: `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 21s-6.5-4.35-9-8.13C1.24 10.3 2.26 6.5 5.8 5.37c2.03-.65 4.18.03 5.2 1.64 1.02-1.61 3.17-2.29 5.2-1.64 3.54 1.13 4.56 4.93 2.8 7.5C18.5 16.65 12 21 12 21z"></path>
+        </svg>`,
+    },
+    {
+      label: "Cobran\u00e7a",
+      prompt: "Quero falar sobre cobran\u00e7a",
+      icon: `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1v22"></path>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>`,
+    },
   ];
 
   container.innerHTML = "";
-  suggestions.forEach((text) => {
+  container.classList.add("fa-topic-grid");
+  topics.forEach((topic) => {
     const btn = document.createElement("button");
-    btn.className = "fa-suggestion-chip";
-    btn.textContent = text;
+    btn.type = "button";
+    btn.className = "fa-topic-card";
+    btn.setAttribute("aria-label", topic.label);
+    btn.dataset.prompt = topic.prompt;
+    btn.innerHTML = `
+      <span class="fa-topic-icon" aria-hidden="true">${topic.icon}</span>
+      <span class="fa-topic-label">${topic.label}</span>
+    `;
     btn.onclick = () => useFASuggestion(btn);
     container.appendChild(btn);
   });
+
+  const welcome = document.getElementById("fa-welcome");
+  const welcomeText = welcome?.querySelector("p");
+  if (welcomeText) {
+    welcomeText.textContent = "Sobre o que voc\u00ea quer falar neste momento?";
+  }
+
+  const input = document.getElementById("fa-input");
+  if (input) {
+    input.placeholder = "Sobre o que voc\u00ea quer falar neste momento?";
+  }
 }
 
 function setFASendButtonState({ disabled, loading }) {
@@ -4323,7 +4357,7 @@ function handleFAInputKey(event) {
 function useFASuggestion(btn) {
   const input = document.getElementById("fa-input");
   if (!input || faIsLoading) return;
-  input.value = btn.textContent.trim();
+  input.value = (btn.dataset.prompt || btn.textContent || "").trim();
   autoResizeFAInput(input);
   setFASendButtonState({ disabled: false, loading: false });
   input.focus();
@@ -4346,12 +4380,13 @@ function clearFAChat() {
         </svg>
       </div>
       <h3>Finance Voice IA</h3>
-      <p>Pergunte sobre qualquer período em linguagem natural. Analisarei sentimento, fricção e temas de atendimento e gerarei um relatório executivo.</p>
+      <p>Sobre o que voc\u00ea quer falar neste momento?</p>
     </div>`;
 
   const input = document.getElementById("fa-input");
   if (input) {
     input.value = "";
+    input.placeholder = "Sobre o que voc\u00ea quer falar neste momento?";
     autoResizeFAInput(input);
   }
   setFASendButtonState({ disabled: true, loading: false });

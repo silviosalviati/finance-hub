@@ -39,6 +39,8 @@ from src.agents.finance_auditor.supervisor_prompts import (
     REFLECT_PROMPT,
 )
 from src.agents.finance_auditor.supervisor_schemas import (
+    CAPABILITY_METRIC_EXECUTE,
+    CAPABILITY_METRIC_LOOKUP,
     CAPABILITY_CHAT_ANSWER,
     PlanResponse,
     PlanStep,
@@ -171,6 +173,44 @@ def _fallback_plan(reason: str) -> list[dict[str, Any]]:
     ]
 
 
+def _normalize_plan_steps(
+    steps: list[dict[str, Any]],
+    *,
+    request_text: str,
+) -> list[dict[str, Any]]:
+    """Corrige pequenos desvios estruturais do planner antes da execucao."""
+    normalized: list[dict[str, Any]] = []
+    fallback_query = (request_text or "").strip()
+
+    for step in steps:
+        item = dict(step)
+        capability = str(item.get("capability") or "").strip().lower()
+        args = dict(item.get("args") or {})
+        rationale = str(item.get("rationale") or "")
+
+        if capability == CAPABILITY_METRIC_LOOKUP and not str(args.get("query") or "").strip():
+            args["query"] = fallback_query
+            item["args"] = args
+
+        elif capability == CAPABILITY_METRIC_EXECUTE:
+            key = str(args.get("key") or "").strip()
+            if not key:
+                query = (
+                    str(args.get("query") or "").strip()
+                    or str(args.get("name") or "").strip()
+                    or str(args.get("metric") or "").strip()
+                    or fallback_query
+                )
+                item = {
+                    "capability": CAPABILITY_METRIC_LOOKUP,
+                    "args": {"query": query},
+                    "rationale": rationale or "normalizacao: localizar a metrica antes de executar",
+                }
+
+        normalized.append(item)
+    return normalized
+
+
 def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     if not state.get("guardrail_in_ok", True):
         return {"plan": [], "plan_rationale": "bloqueado por guardrail"}
@@ -200,8 +240,12 @@ def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
         }
 
     steps = result.steps[:_MAX_PLAN_STEPS]
+    normalized_steps = _normalize_plan_steps(
+        [s.model_dump() if isinstance(s, PlanStep) else dict(s) for s in steps],
+        request_text=request_text,
+    )
     return {
-        "plan": [s.model_dump() if isinstance(s, PlanStep) else dict(s) for s in steps],
+        "plan": normalized_steps,
         "plan_rationale": result.rationale or "",
     }
 
@@ -376,7 +420,12 @@ def node_apply_reflect_plan(state: SupervisorState) -> dict[str, Any]:
     if not suggested:
         return {}
     plan = list(state.get("plan") or [])
-    plan.extend(suggested)
+    plan.extend(
+        _normalize_plan_steps(
+            [dict(step) for step in suggested],
+            request_text=state.get("request_text", ""),
+        )
+    )
     plan = plan[:_MAX_PLAN_STEPS * _MAX_ITERATIONS]
     return {"plan": plan}
 

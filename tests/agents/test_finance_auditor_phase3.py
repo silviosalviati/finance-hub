@@ -155,6 +155,20 @@ class TestSemanticLayer:
         keys = [m["key"] for m in out]
         assert keys and keys[0] == "m2"  # melhor overlap
 
+    def test_search_metrics_normaliza_plural_e_limita_top_k(self):
+        from src.agents.finance_auditor import semantic_layer
+
+        fake = [
+            {"key": "pedidos_por_dia", "name": "Pedidos por dia",
+             "description": "contagem de pedido diario",
+             "source_table": "x", "tags": "vendas"},
+            {"key": "clientes_ativos", "name": "Clientes ativos",
+             "description": "base ativa", "source_table": "x", "tags": ""},
+        ]
+        with patch.object(semantic_layer, "list_finance_metrics", return_value=fake):
+            out = semantic_layer.search_metrics("pedido diario", top_k=99)
+        assert [m["key"] for m in out] == ["pedidos_por_dia"]
+
     def test_render_sql_substitui_placeholders(self):
         from src.agents.finance_auditor.semantic_layer import render_sql
 
@@ -170,6 +184,29 @@ class TestSemanticLayer:
 
         sql, used = render_sql("SELECT '{date_start}'", {})
         assert "date_start" in used and used["date_start"]  # default aplicado
+
+    def test_render_sql_normaliza_datas_limite_e_preserva_placeholder_desconhecido(self):
+        from src.agents.finance_auditor.semantic_layer import render_sql
+
+        sql, used = render_sql(
+            "SELECT '{date_start}' AS ds, '{date_end}' AS de, {limit} AS lim, {custom} AS extra",
+            {"date_start": "2026-03-10", "date_end": "2026-01-01", "limit": "5000"},
+        )
+        assert "2026-01-01" in sql and "2026-03-10" in sql
+        assert "1000 AS lim" in sql
+        assert "{custom}" in sql
+        assert used == {"date_start": "2026-01-01", "date_end": "2026-03-10", "limit": 1000}
+
+    def test_resolve_metric_normaliza_key_e_nome(self):
+        from src.agents.finance_auditor import semantic_layer
+
+        fake = [
+            {"key": "ticket_medio", "name": "Ticket medio", "sql_template": "SELECT 1"},
+        ]
+        with patch.object(semantic_layer, "get_finance_metric", return_value=None), \
+             patch.object(semantic_layer, "list_finance_metrics", return_value=fake):
+            out = semantic_layer.resolve_metric("Tícket Médio")
+        assert out == fake[0]
 
 
 # ---------------------------------------------------------------------------

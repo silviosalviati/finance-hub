@@ -474,6 +474,51 @@ class TestTextToSql:
         assert "auto_picked_note" in out["payload"]
         assert out["payload"]["rows"] == [{"id_cliente": 1}]
 
+    def test_dataset_ref_fuzzy_recupera_quando_nome_errado(self):
+        from src.agents.finance_auditor import capabilities
+
+        tables = [
+            {"table_id": "clientes", "full_name": "p.ecommerce_saude.clientes",
+             "columns": ["id_cliente", "nome_completo"]},
+        ]
+        # 1ª chamada (dataset literal): 404. 2ª chamada (após fuzzy): sucesso.
+        call = {"n": 0}
+
+        def fake_get_meta(project, dataset_id, **kw):
+            call["n"] += 1
+            if call["n"] == 1:
+                raise RuntimeError("404 Not found: Dataset p:ecommerce")
+            return {"dataset_ref": f"{project}.{dataset_id}", "tables": tables}
+
+        sql_resp = MagicMock()
+        sql_resp.sql = "SELECT id_cliente FROM `p.ecommerce_saude.clientes` LIMIT 5"
+        struct_llm = MagicMock()
+        struct_llm.invoke.return_value = sql_resp
+        llm = MagicMock()
+        llm.with_structured_output.return_value = struct_llm
+
+        fake_dry = MagicMock(error=None, bytes_processed=512, estimated_cost_usd=0.0)
+
+        with patch.object(capabilities, "get_dataset_tables_metadata", side_effect=fake_get_meta), \
+             patch.object(capabilities, "_list_project_datasets",
+                          return_value=["ds_inteligencia_analitica", "ecommerce_saude",
+                                        "logistica_vendas"]), \
+             patch.object(capabilities, "get_table_schema", return_value="schema"), \
+             patch.object(capabilities.rbac, "check_dataset", return_value=(True, "")), \
+             patch.object(capabilities, "dry_run_query", return_value=fake_dry), \
+             patch.object(capabilities, "execute_query_rows", return_value=[{"id_cliente": "X"}]), \
+             patch.object(capabilities, "get_runtime_config", return_value=str(5 * 1024 ** 3)):
+            out = capabilities.cap_text_to_sql(
+                {"natural_language": "quem é o maior cliente?",
+                 "dataset_ref": "p.ecommerce"},  # nome errado de propósito
+                {"project_id": "p", "llm": llm},
+            )
+
+        assert out["ok"] is True
+        # O fuzzy resolveu para o dataset correto e a query foi executada.
+        assert out["payload"]["rows"] == [{"id_cliente": "X"}]
+        assert any("ecommerce_saude" in t for t in out["payload"]["table_refs"])
+
     def test_llm_gera_ddl_e_e_bloqueado(self):
         from src.agents.finance_auditor import capabilities
 

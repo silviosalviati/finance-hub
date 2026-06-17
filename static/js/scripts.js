@@ -4524,18 +4524,15 @@ async function appendFABotMessage(data) {
   await _faTypeMarkdownInto(slot, data.markdown_report || data.chat_answer || "");
 }
 
-// Cabe\u00e7alho enxuto: 1 chip de status + persona + bytes/custo + (avisos se houver).
-// Tudo agregado em uma \u00fanica linha \u2014 sem grid de cards t\u00e9cnicos.
+// Cabe\u00e7alho m\u00ednimo: um \u00fanico chip de status, sem detalhes t\u00e9cnicos.
+// Hover (title) mostra contexto resumido sem poluir a UI.
 function _faMetricsHtml(data) {
-  const persona = String(data.persona || "").trim() || "geral";
   const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
-  const warningItems = Array.isArray(data.warnings)
-    ? data.warnings.filter(Boolean)
-    : [];
+  // Sem steps (modo conversacional): sem chip nenhum.
+  if (!toolResults.length) return "";
 
   const okCount = toolResults.filter((r) => r && r.ok).length;
-  const failCount = toolResults.length - okCount;
-  const hasError = !!data.error || failCount > 0;
+  const hasError = !!data.error || okCount === 0;
 
   let bytesTotal = 0;
   let costTotal = 0;
@@ -4544,7 +4541,6 @@ function _faMetricsHtml(data) {
     if (typeof p.bytes_processed === "number") bytesTotal += p.bytes_processed;
     if (typeof p.estimated_cost_usd === "number") costTotal += p.estimated_cost_usd;
   }
-
   const fmtBytes = (n) => {
     if (!n) return "0 B";
     const u = ["B", "KB", "MB", "GB", "TB"];
@@ -4555,65 +4551,54 @@ function _faMetricsHtml(data) {
     }
     return `${n.toFixed(i ? 1 : 0)} ${u[i]}`;
   };
+  const summaryParts = [];
+  if (bytesTotal) summaryParts.push(`${fmtBytes(bytesTotal)} \u2022 $${costTotal.toFixed(4)}`);
+  const title = summaryParts.join(" \u2022 ");
 
-  const statusChip = hasError
-    ? `<span class="fa-chip fa-chip--err">\u2717 falhou</span>`
-    : `<span class="fa-chip fa-chip--ok">\u2713 pronto</span>`;
-  const stepsChip = `<span class="fa-chip">${okCount}/${toolResults.length || 0} steps</span>`;
-  const costChip = bytesTotal
-    ? `<span class="fa-chip" title="Bytes processados no BigQuery">\ud83d\udcca ${fmtBytes(bytesTotal)} \u00b7 $${costTotal.toFixed(4)}</span>`
-    : "";
-  const personaChip = `<span class="fa-chip fa-chip--soft">\ud83e\udded ${_escFA(persona)}</span>`;
-  const warnChip = warningItems.length
-    ? `<span class="fa-chip fa-chip--warn" title="${_escFA(warningItems.join(" | "))}">\u26a0 ${warningItems.length} aviso(s)</span>`
-    : "";
-
-  return `<div class="fa-statusbar">${statusChip}${stepsChip}${costChip}${personaChip}${warnChip}</div>`;
+  const chip = hasError
+    ? `<span class="fa-chip fa-chip--err" title="${_escFA(title)}">\u2717</span>`
+    : `<span class="fa-chip fa-chip--ok" title="${_escFA(title)}">\u2713</span>`;
+  return `<div class="fa-statusbar">${chip}</div>`;
 }
 
 
-// ── Details: steps executados + artefatos (tabela/sql/schema/stats/vega).
+// Mostra APENAS artefatos que respondem à pergunta (tabelas finais, gráficos,
+// estatísticas, forecast, anexos). Esconde artefatos de steps preparatórios
+// (bq_list_datasets, bq_list_tables, bq_get_schema) e SQL/schema técnicos.
+// Sem painel "Detalhes da execução".
+const _FA_ANSWER_CAPS = new Set([
+  "text_to_sql",
+  "bq_query",
+  "metric_execute",
+  "stats_describe",
+  "viz_spec",
+  "forecast_simple",
+  "attachment_analyze",
+  "org_fact_recall",
+]);
+
 function _faDetailsHtml(data) {
   const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
   const artifacts = Array.isArray(data.artifacts) ? data.artifacts : [];
-  if (toolResults.length === 0 && artifacts.length === 0) return "";
+  if (artifacts.length === 0) return "";
 
-  const detailId = `fa-det-${faMsgCounter}`;
-  const bodyId = `fa-detbody-${faMsgCounter}`;
+  const answerArtifacts = artifacts.filter((a) => {
+    const stepIdx = typeof a.step_index === "number" ? a.step_index : -1;
+    if (stepIdx < 0 || stepIdx >= toolResults.length) return false;
+    const cap = (toolResults[stepIdx] || {}).capability;
+    if (!_FA_ANSWER_CAPS.has(cap)) return false;
+    // SQL e schema são detalhes técnicos — escondemos por padrão.
+    if (a.type === "sql" || a.type === "schema") return false;
+    return true;
+  });
+  if (!answerArtifacts.length) return "";
 
-  const stepsHtml = toolResults
-    .map((r, idx) => {
-      const cap = _escFA(r.capability || "?");
-      const status = r.ok ? "✓" : "✗";
-      const statusColor = r.ok ? "var(--porto-primary)" : "var(--color-danger)";
-      const err = r.ok ? "" : ` — ${_escFA(r.error || "erro")}`;
-      return `<li><span style="color:${statusColor};font-weight:600">${status}</span> <code>${cap}</code> <small style="color:var(--ink2)">[step ${idx}]</small>${err}</li>`;
-    })
-    .join("");
-
-  const artifactsHtml = artifacts
+  const html = answerArtifacts
     .map((a) => _faRenderArtifact(a))
     .filter(Boolean)
     .join("");
-
-  return `
-    <div class="fa-details">
-      <button class="fa-details-toggle" id="${detailId}" onclick="toggleFADetails('${detailId}','${bodyId}')">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 18l6-6-6-6"/>
-        </svg>
-        Detalhes da execução (${toolResults.length} step(s), ${artifacts.length} artefato(s))
-      </button>
-      <div class="fa-details-body" id="${bodyId}">
-        ${
-          stepsHtml
-            ? `<div style="margin-bottom:10px"><strong style="font-size:12px;color:var(--ink2)">Steps:</strong><ul style="margin:4px 0 0 18px;padding:0;font-size:12px;line-height:1.6">${stepsHtml}</ul></div>`
-            : ""
-        }
-        ${artifactsHtml || ""}
-      </div>
-    </div>`;
+  if (!html) return "";
+  return `<div class="fa-answer-artifacts">${html}</div>`;
 }
 
 // Realce leve de SQL: keywords/strings/números/comentários em <span>.

@@ -542,7 +542,34 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
         try:
             info = get_dataset_tables_metadata(dataset_project, dataset_id, max_tables=80, max_columns=20)
         except Exception as exc:  # noqa: BLE001
-            return _err(f"Falha ao listar tabelas de {dataset_project}.{dataset_id}: {exc}")
+            # Mesma autocorreção do bq_list_tables: se o dataset não existe,
+            # lista os datasets reais do projeto e tenta fuzzy match.
+            msg = str(exc).lower()
+            if "not found" in msg or "notfound" in msg or "404" in msg:
+                try:
+                    available = _list_project_datasets(dataset_project)
+                except Exception:  # noqa: BLE001
+                    return _err(
+                        f"Dataset '{dataset_id}' não existe e não foi possível "
+                        f"listar o projeto."
+                    )
+                pick = _fuzzy_pick_dataset(dataset_id, available)
+                if not pick:
+                    return _err(
+                        f"Não encontrei um dataset compatível com '{dataset_id}' "
+                        f"no projeto."
+                    )
+                # Re-checa RBAC para o dataset substituto.
+                allowed_pick, reason_pick = rbac.check_dataset(context.get("user"), pick)
+                if not allowed_pick:
+                    return _err(f"RBAC: dataset substituto '{pick}' negado ({reason_pick}).")
+                try:
+                    info = get_dataset_tables_metadata(dataset_project, pick, max_tables=80, max_columns=20)
+                    dataset_id = pick
+                except Exception as exc2:  # noqa: BLE001
+                    return _err(f"Falha ao listar tabelas de {dataset_project}.{pick}: {exc2}")
+            else:
+                return _err(f"Falha ao listar tabelas de {dataset_project}.{dataset_id}: {exc}")
         all_tables = info.get("tables") or []
         if not all_tables:
             return _err(f"Dataset {dataset_project}.{dataset_id} não tem tabelas.")

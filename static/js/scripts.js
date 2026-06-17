@@ -4286,6 +4286,26 @@ function initFAInputListener() {
     });
     autoResizeFAInput(input);
   });
+
+  // Delegação global do botão "copiar" do SQL — sem inline JS, sem injeção.
+  document.addEventListener("click", (ev) => {
+    const target = ev.target;
+    if (!target || target.tagName !== "BUTTON") return;
+    const refId = target.getAttribute("data-fa-copy");
+    if (!refId) return;
+    const pre = document.getElementById(refId);
+    if (!pre) return;
+    const code = pre.querySelector("code");
+    const text = (code ? code.textContent : pre.textContent) || "";
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+    const original = target.textContent;
+    target.textContent = "copiado";
+    setTimeout(() => {
+      target.textContent = original || "copiar";
+    }, 1200);
+  });
 }
 
 function autoResizeFAInput(el) {
@@ -4648,11 +4668,10 @@ function _faRenderArtifact(a) {
     case "sql": {
       const sql = String(a.sql || "");
       if (!sql) return "";
+      // Botão "copiar" sem injeção: lê do <code> irmão via DOM, não do JS inline.
       const id = `fa-sql-${faMsgCounter}-${Math.random().toString(36).slice(2, 7)}`;
-      const sqlJson = JSON.stringify(sql);
       const copyBtn =
-        `<button class="fa-art-copy" type="button" ` +
-        `onclick='navigator.clipboard&&navigator.clipboard.writeText(${sqlJson});this.textContent="copiado";setTimeout(()=>this.textContent="copiar",1200)'>copiar</button>`;
+        `<button class="fa-art-copy" type="button" data-fa-copy="${id}">copiar</button>`;
       return (
         `<div class="fa-art-title">SQL executado${copyBtn}</div>` +
         `<pre id="${id}" class="fa-sql"><code>${_faHighlightSql(sql)}</code></pre>`

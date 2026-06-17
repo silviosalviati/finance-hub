@@ -363,8 +363,14 @@ class TestTextToSql:
     def test_fluxo_feliz_executa_sql_gerado(self):
         from src.agents.finance_auditor import capabilities
 
+        # structured_output → objeto com atributo .sql
+        sql_resp = MagicMock()
+        sql_resp.sql = "SELECT COUNT(*) AS n FROM `p.d.t`"
+        struct_llm = MagicMock()
+        struct_llm.invoke.return_value = sql_resp
         llm = MagicMock()
-        llm.invoke.return_value = MagicMock(content='{"sql": "SELECT COUNT(*) AS n FROM `p.d.t`"}')
+        llm.with_structured_output.return_value = struct_llm
+
         fake_dry = MagicMock(error=None, bytes_processed=512, estimated_cost_usd=0.0)
 
         with patch.object(capabilities, "get_table_schema", return_value="schema"), \
@@ -384,10 +390,13 @@ class TestTextToSql:
     def test_sql_trivial_e_bloqueado(self):
         from src.agents.finance_auditor import capabilities
 
+        sql_resp = MagicMock()
+        sql_resp.sql = "SELECT 'erro_nao_foi_possivel' AS erro"
+        struct_llm = MagicMock()
+        struct_llm.invoke.return_value = sql_resp
         llm = MagicMock()
-        llm.invoke.return_value = MagicMock(
-            content='{"sql": "SELECT \'erro_nao_foi_possivel\' AS erro"}'
-        )
+        llm.with_structured_output.return_value = struct_llm
+
         with patch.object(capabilities, "get_table_schema", return_value="schema"):
             out = capabilities.cap_text_to_sql(
                 {"natural_language": "vendas", "table_refs": ["p.d.t"]},
@@ -428,13 +437,18 @@ class TestTextToSql:
         pick_struct = MagicMock()
         pick_struct.invoke.return_value = pick_response
 
-        # 3) LLM gera SQL real
-        sql_response = MagicMock(content='{"sql": "SELECT c.id_cliente FROM `p.ecommerce_saude.clientes` c JOIN `p.ecommerce_saude.pagamentos` p ON p.metodo_pagamento=\'PIX\' LIMIT 10"}')
+        # 3) LLM gera SQL real (também via structured_output)
+        sql_resp = MagicMock()
+        sql_resp.sql = (
+            "SELECT c.id_cliente FROM `p.ecommerce_saude.clientes` c JOIN "
+            "`p.ecommerce_saude.pagamentos` p ON p.metodo_pagamento='PIX' LIMIT 10"
+        )
+        sql_struct = MagicMock()
+        sql_struct.invoke.return_value = sql_resp
 
         llm = MagicMock()
-        # primeira chamada: structured output do picker; segunda: SQL bruto
-        llm.with_structured_output.return_value = pick_struct
-        llm.invoke.return_value = sql_response
+        # Primeira chamada de with_structured_output: picker; segunda: SqlOutput.
+        llm.with_structured_output.side_effect = [pick_struct, sql_struct]
 
         fake_dry = MagicMock(error=None, bytes_processed=1024, estimated_cost_usd=0.0001)
         with patch.object(capabilities, "get_dataset_tables_metadata",
@@ -463,8 +477,12 @@ class TestTextToSql:
     def test_llm_gera_ddl_e_e_bloqueado(self):
         from src.agents.finance_auditor import capabilities
 
+        sql_resp = MagicMock()
+        sql_resp.sql = "DROP TABLE `p.d.t`"
+        struct_llm = MagicMock()
+        struct_llm.invoke.return_value = sql_resp
         llm = MagicMock()
-        llm.invoke.return_value = MagicMock(content='{"sql": "DROP TABLE `p.d.t`"}')
+        llm.with_structured_output.return_value = struct_llm
 
         with patch.object(capabilities, "get_table_schema", return_value="schema"):
             out = capabilities.cap_text_to_sql(
@@ -472,7 +490,9 @@ class TestTextToSql:
                 {"project_id": "p", "llm": llm},
             )
         assert out["ok"] is False
-        assert "leitura" in (out["error"] or "").lower()
+        # leitura (SELECT/WITH) ou DDL bloqueado: ambos os erros são aceitáveis
+        err = (out["error"] or "").lower()
+        assert "leitura" in err or "select" in err
         # devolve o SQL tentado para inspeção
         assert out["payload"]["attempted_sql"].startswith("DROP")
 

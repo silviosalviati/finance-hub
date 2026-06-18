@@ -50,6 +50,7 @@ from src.shared.tools.bigquery import (
     execute_query_rows,
     get_dataset_tables_metadata,
     get_table_schema,
+    list_datasets_with_labels,
 )
 from src.shared.tools.llm import invoke_with_retry
 
@@ -170,6 +171,40 @@ def _list_project_datasets(project_id: str) -> list[str]:
 
     client = _get_client(project_id)
     return [ds.dataset_id for ds in client.list_datasets(project_id)]
+
+
+def resolve_dataset_by_gerencia(project_id: str, gerencia_hint: str) -> dict[str, str] | None:
+    """Resolve o dataset cujo rotulo (label) do BigQuery corresponde à gerência.
+
+    A chave do rótulo é configurável (`FINANCE_AUDITOR_GERENCIA_LABEL_KEY`,
+    default "gerencia") — o valor é casado via `_fuzzy_pick_dataset` (mesma
+    lógica de match exato → substring → similaridade já usada para nomes de
+    dataset), aplicada aos *valores* do rótulo em vez dos *nomes* dos
+    datasets, já que o nome de um dataset pode não ter nenhuma relação
+    textual com a gerência à qual ele pertence.
+    """
+    if not gerencia_hint or not gerencia_hint.strip():
+        return None
+    label_key = get_runtime_config("FINANCE_AUDITOR_GERENCIA_LABEL_KEY", "gerencia")
+    try:
+        datasets = list_datasets_with_labels(project_id)
+    except Exception:  # noqa: BLE001
+        return None
+
+    value_to_dataset: dict[str, str] = {}
+    for ds in datasets:
+        value = str((ds.get("labels") or {}).get(label_key) or "").strip()
+        if value and value not in value_to_dataset:
+            value_to_dataset[value] = ds["dataset_id"]
+
+    picked_value = _fuzzy_pick_dataset(gerencia_hint, list(value_to_dataset.keys()))
+    if not picked_value:
+        return None
+    return {
+        "dataset_id": value_to_dataset[picked_value],
+        "gerencia": picked_value,
+        "label_key": label_key,
+    }
 
 
 def cap_bq_list_tables(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
@@ -508,6 +543,10 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
 
     table_refs = [str(t).strip() for t in (args.get("table_refs") or []) if str(t).strip()]
     dataset_ref = str(args.get("dataset_ref") or "").strip()
+    if not table_refs and not dataset_ref:
+        # Fallback: dataset já fixado no contexto (ex.: gerência pinada na
+        # sessão) — evita exigir que o Planner sempre informe dataset_ref.
+        dataset_ref = str(context.get("dataset_hint") or "").strip()
 
     llm = context.get("llm")
     if llm is None:

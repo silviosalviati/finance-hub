@@ -11,10 +11,13 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
+from src.agents.finance_auditor import rbac as finance_rbac
+from src.agents.finance_auditor.capabilities import resolve_dataset_by_gerencia
 from src.api.dependencies import get_checkpointer, get_current_user, get_registry
 from src.shared.config import get_runtime_config
 from src.shared.tools.bigquery import (
     get_dataset_tables_metadata,
+    get_dataset_tables_schema,
     validate_dataset_for_query_build,
     validate_query_context_for_query_analyzer,
 )
@@ -53,6 +56,11 @@ class SuggestionsRequest(BaseModel):
     project_id: str = Field(..., min_length=1, max_length=256)
     dataset_hint: str = Field(..., min_length=1, max_length=256)
     table_id: str = Field(..., min_length=1, max_length=256)
+
+
+class GerenciaRequest(BaseModel):
+    gerencia: str = Field(..., min_length=1, max_length=200)
+    project_id: str | None = None
 
 
 def _extract_known_schema_tokens(tables: list[dict[str, Any]]) -> tuple[set[str], set[str]]:
@@ -432,7 +440,7 @@ async def analyze_by_agent(
                 response = agent.analyze(
                     query=query,
                     project_id=project_id,
-                    dataset_hint=req.dataset_hint,
+                    dataset_hint=req.dataset_hint or profile.get("pinned_dataset_ref"),
                     user_profile=profile,
                     user=session,
                     attachments=req.attachments or [],
@@ -579,6 +587,177 @@ async def query_build_suggestions(
         return {"suggestions": filtered[:5]}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Erro ao gerar sugestoes: {exc}")
+
+
+# ── Gerência → dataset (rótulos BigQuery) ────────────────────────────────────
+
+_GERENCIA_CATALOG_CACHE_TTL = 600.0
+_gerencia_catalog_cache: dict[str, tuple[dict[str, Any], float]] = {}
+
+
+def _get_cached_dataset_catalog(project_id: str, dataset_id: str) -> dict[str, Any]:
+    import time as _time
+
+    dataset_ref = f"{project_id}.{dataset_id}"
+    cached = _gerencia_catalog_cache.get(dataset_ref)
+    now = _time.monotonic()
+    if cached and now - cached[1] < _GERENCIA_CATALOG_CACHE_TTL:
+        return cached[0]
+    info = get_dataset_tables_schema(project_id, dataset_id, max_tables=50, max_columns=50)
+    _gerencia_catalog_cache[dataset_ref] = (info, now)
+    return info
+
+
+_GERENCIA_SUGGESTIONS_SYSTEM_PROMPT = (
+    "Voce e um analista de dados senior. Gere exatamente 4 perguntas de negocio "
+    "em linguagem natural, em portugues, que um gestor poderia fazer sobre os "
+    "dados disponiveis nesta area. "
+    "As perguntas devem ser variadas: totais/agregacoes, rankings, tendencias "
+    "temporais e comparacoes. "
+    "REGRAS OBRIGATORIAS DE CONFIABILIDADE: "
+    "(1) Use somente tabelas e colunas que existam no schema fornecido. "
+    "(2) Nao invente nomes de campos, codigos, categorias ou valores literais especificos. "
+    "(3) Nao cite nomes tecnicos de tabelas, colunas ou SQL na pergunta — escreva em "
+    "linguagem de negocio. "
+    "(4) Nao use markdown. "
+    "Responda APENAS com JSON valido no formato: "
+    '{\"suggestions\": [\"sugestao 1\", \"sugestao 2\", \"sugestao 3\", \"sugestao 4\"]}'
+)
+
+
+def _fallback_gerencia_suggestions(tables: list[dict[str, Any]]) -> list[str]:
+    if not tables:
+        return ["Quais sao os principais indicadores disponiveis nesta area?"]
+    first = tables[0]
+    cols = [c.get("name") for c in (first.get("columns") or []) if c.get("name")]
+    table_label = first.get("table_id") or "esta base"
+    c1 = cols[0] if len(cols) > 0 else "id"
+    c2 = cols[1] if len(cols) > 1 else c1
+    return [
+        f"Qual a distribuicao geral dos registros em {table_label}?",
+        f"Quais sao os valores mais frequentes de {c1} em {table_label}?",
+        f"Como {c1} se relaciona com {c2} em {table_label}?",
+        "Quais tendencias recentes podem ser observadas nesses dados?",
+    ]
+
+
+async def _generate_gerencia_suggestions(tables: list[dict[str, Any]]) -> list[str]:
+    schema_lines = [
+        f"- {t.get('full_name', '')} | colunas: "
+        f"{', '.join(c.get('name', '') for c in (t.get('columns') or []))}"
+        for t in tables
+    ]
+    schema_ctx = "\n".join(schema_lines) if schema_lines else "(schema nao disponivel)"
+    user_prompt = (
+        f"Tabelas disponiveis nesta area:\n{schema_ctx}\n\n"
+        "Gere 4 perguntas de negocio variadas que explorem bem esses dados."
+    )
+    known_tables, known_columns = _extract_known_schema_tokens(tables)
+
+    suggestions: list[str] = []
+    try:
+        llm = _get_shared_llm()
+        structured_llm = llm.with_structured_output(SuggestionsResponse)
+        result: SuggestionsResponse = await invoke_with_retry_async(
+            structured_llm,
+            [
+                SystemMessage(content=_GERENCIA_SUGGESTIONS_SYSTEM_PROMPT),
+                HumanMessage(content=user_prompt),
+            ],
+        )
+        suggestions = result.suggestions if result else []
+    except Exception:
+        suggestions = []
+
+    filtered: list[str] = []
+    seen: set[str] = set()
+    for item in suggestions:
+        text = str(item or "").strip()
+        if not text:
+            continue
+        key = text.lower()
+        if key in seen:
+            continue
+        if _suggestion_has_unknown_field_refs(text, known_tables, known_columns):
+            continue
+        filtered.append(text)
+        seen.add(key)
+        if len(filtered) == 4:
+            break
+
+    if len(filtered) < 4:
+        for fb in _fallback_gerencia_suggestions(tables):
+            key = fb.lower()
+            if key in seen:
+                continue
+            filtered.append(fb)
+            seen.add(key)
+            if len(filtered) == 4:
+                break
+
+    return filtered[:4]
+
+
+@router.post("/api/agents/finance_auditor/gerencia")
+async def select_finance_gerencia(
+    req: GerenciaRequest,
+    session: dict[str, Any] = Depends(get_current_user),
+):
+    """Resolve a área (gerência) escolhida pelo usuário para um dataset real via
+    rótulo do BigQuery, "aprende" seu catálogo (tabelas/colunas/tipos/descrições)
+    e fixa o resultado na sessão de chat para as próximas perguntas."""
+    gerencia = req.gerencia.strip()
+    project_id = (req.project_id or "").strip() or get_runtime_config(
+        "FINANCE_AUDITOR_DEFAULT_PROJECT", "silviosalviati"
+    )
+
+    match = resolve_dataset_by_gerencia(project_id, gerencia)
+    if not match:
+        return {
+            "status": "not_found",
+            "gerencia": gerencia,
+            "message": "Ainda não encontrei uma base de dados rotulada para esta área.",
+        }
+
+    dataset_id = match["dataset_id"]
+    allowed, reason = finance_rbac.check_dataset(session, dataset_id)
+    if not allowed:
+        return {
+            "status": "denied",
+            "gerencia": gerencia,
+            "message": f"Acesso negado a esta área: {reason}",
+        }
+
+    try:
+        catalog = _get_cached_dataset_catalog(project_id, dataset_id)
+    except Exception as exc:
+        return {
+            "status": "error",
+            "gerencia": gerencia,
+            "message": f"Falha ao carregar o catálogo desta área: {exc}",
+        }
+
+    tables = catalog.get("tables") or []
+    dataset_ref = catalog.get("dataset_ref") or f"{project_id}.{dataset_id}"
+    suggestions = await _generate_gerencia_suggestions(tables)
+
+    checkpointer = get_checkpointer()
+    chat_session = _load_finance_chat_session(session["token"], checkpointer)
+    profile: dict[str, Any] = chat_session.get("profile", {})
+    profile["pinned_dataset_ref"] = dataset_ref
+    profile["pinned_gerencia"] = match["gerencia"]
+    chat_session["profile"] = profile
+    chat_session["updated_at"] = _now_iso()
+    _save_finance_chat_session(session["token"], checkpointer, chat_session)
+
+    return {
+        "status": "ok",
+        "gerencia": gerencia,
+        "dataset_ref": dataset_ref,
+        "table_count": len(tables),
+        "message": f"Conectado à base de dados desta área ({len(tables)} tabela(s) disponíveis).",
+        "suggestions": suggestions,
+    }
 
 
 @router.post("/api/agents/query_build/validate-dataset")

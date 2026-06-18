@@ -216,13 +216,23 @@ def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
         return {"plan": [], "plan_rationale": "bloqueado por guardrail"}
 
     request_text = state.get("request_text", "")
+    dataset_hint = str(state.get("dataset_hint") or "").strip()
+    human_content = request_text
+    if dataset_hint:
+        human_content = (
+            f"{request_text}\n\n"
+            f"[CONTEXTO: o dataset já está definido como '{dataset_hint}' "
+            "(gerência/área escolhida pelo usuário ou sessão). Use-o diretamente "
+            "em dataset_ref/table_refs do step final — NÃO planeje bq_list_datasets "
+            "para descobrir o dataset.]"
+        )
     try:
         structured_llm = llm.with_structured_output(PlanResponse)
         result: PlanResponse = invoke_with_retry(
             structured_llm,
             [
                 SystemMessage(content=PLANNER_PROMPT),
-                HumanMessage(content=request_text),
+                HumanMessage(content=human_content),
             ],
             max_attempts=2,
         )

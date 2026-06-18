@@ -4382,6 +4382,7 @@ function initFASuggestions() {
     {
       label: "Contas a pagar",
       prompt: "Quero falar sobre contas a pagar",
+      gerencia: "contas_a_pagar",
       icon: `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="4" width="18" height="16" rx="2"></rect>
@@ -4393,6 +4394,7 @@ function initFASuggestions() {
     {
       label: "Contas a receber",
       prompt: "Quero falar sobre contas a receber",
+      gerencia: "contas_receber",
       icon: `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="6" width="18" height="12" rx="2"></rect>
@@ -4404,6 +4406,7 @@ function initFASuggestions() {
     {
       label: "Experi\u00eancia do cliente",
       prompt: "Quero falar sobre experi\u00eancia do cliente",
+      gerencia: "experiencia_cliente",
       icon: `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 21s-6.5-4.35-9-8.13C1.24 10.3 2.26 6.5 5.8 5.37c2.03-.65 4.18.03 5.2 1.64 1.02-1.61 3.17-2.29 5.2-1.64 3.54 1.13 4.56 4.93 2.8 7.5C18.5 16.65 12 21 12 21z"></path>
@@ -4412,6 +4415,7 @@ function initFASuggestions() {
     {
       label: "Cobran\u00e7a",
       prompt: "Quero falar sobre cobran\u00e7a",
+      gerencia: "cobranca",
       icon: `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 1v22"></path>
@@ -4421,6 +4425,7 @@ function initFASuggestions() {
     {
       label: "Fluxo de Caixa",
       prompt: "Quero falar sobre fluxo de caixa",
+      gerencia: "fluxo_caixa",
       icon: `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 17l6-6 4 4 7-7"></path>
@@ -4446,6 +4451,9 @@ function initFASuggestions() {
     btn.className = "fa-topic-card";
     btn.setAttribute("aria-label", topic.label);
     btn.dataset.prompt = topic.prompt;
+    if (topic.gerencia) {
+      btn.dataset.gerencia = topic.gerencia;
+    }
     btn.innerHTML = `
       <span class="fa-topic-icon" aria-hidden="true">${topic.icon}</span>
       <span class="fa-topic-label">${topic.label}</span>
@@ -4540,6 +4548,41 @@ function useFASuggestion(btn) {
   autoResizeFAInput(input);
   setFASendButtonState({ disabled: false, loading: false });
   input.focus();
+
+  const gerencia = btn.dataset.gerencia || "";
+  if (gerencia) {
+    resolveFAGerencia(gerencia);
+  }
+}
+
+// ── Gerência → dataset (aprende o catálogo via rótulo do BigQuery) ──────────
+const _faGerenciaResolved = new Set();
+
+async function resolveFAGerencia(gerencia) {
+  if (_faGerenciaResolved.has(gerencia)) return;
+  try {
+    const res = await fetch("/api/agents/finance_auditor/gerencia", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ gerencia }),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data || data.status !== "ok") return;
+
+    _faGerenciaResolved.add(gerencia);
+
+    const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+    let text = data.message || "Conectado à base de dados desta área.";
+    if (suggestions.length) {
+      text +=
+        `\n\n## Próximas perguntas sugeridas\n\n` +
+        suggestions.map((s) => `- ${s}`).join("\n");
+    }
+    await appendFAChatTextMessage(text, { escapeInput: false });
+  } catch (e) {
+    // Falha silenciosa — comportamento atual (apenas pré-preencher) é preservado.
+  }
 }
 
 function clearFAChat() {
@@ -4674,7 +4717,7 @@ function appendFAErrorMessage(msg) {
   _faScrollBottom();
 }
 
-async function appendFAChatTextMessage(text) {
+async function appendFAChatTextMessage(text, opts = {}) {
   const area = document.getElementById("fa-messages");
   if (!area) return;
 
@@ -4696,7 +4739,7 @@ async function appendFAChatTextMessage(text) {
   _faScrollBottom();
 
   const slot = el.querySelector(".fa-report-slot");
-  await _faTypeMarkdownInto(slot, text, { escapeInput: true });
+  await _faTypeMarkdownInto(slot, text, { escapeInput: true, ...opts });
 }
 
 async function appendFABotMessage(data) {

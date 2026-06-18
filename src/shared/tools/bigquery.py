@@ -293,6 +293,20 @@ def validate_query_context_for_query_analyzer(
     }
 
 
+def list_datasets_with_labels(project_id: str) -> list[dict[str, Any]]:
+    """Lista datasets do projeto com seus rotulos (labels) do BigQuery.
+
+    `DatasetListItem.labels` ja vem populado pela API de listagem — nao ha
+    custo extra de uma chamada `get_dataset` por dataset.
+    """
+    resolved_project = _resolve_project_id(project_id)
+    client = _get_client(resolved_project)
+    return [
+        {"dataset_id": ds.dataset_id, "labels": dict(ds.labels or {})}
+        for ds in client.list_datasets(resolved_project)
+    ]
+
+
 def get_dataset_tables_metadata(
     project_id: str,
     dataset_hint: str,
@@ -620,6 +634,7 @@ __all__ = [
     "fetch_query_sample",
     "validate_dataset_for_query_build",
     "validate_query_context_for_query_analyzer",
+    "list_datasets_with_labels",
     "get_dataset_tables_metadata",
     "get_dataset_tables_schema",
     "format_bytes",

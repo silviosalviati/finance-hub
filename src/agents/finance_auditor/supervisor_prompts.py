@@ -160,6 +160,11 @@ pergunte ao usuário em qual dataset procurar** quando há um match razoável.
 8. Para `text_to_sql`, `table_refs` DEVE ser totalmente qualificado \
 (`projeto.dataset.tabela`) — use o `project_id` do contexto e o \
 dataset/tabela descobertos (ou um palpite + late binding).
+9. Se a mensagem do usuário trouxer um bloco `[CONTEXTO: o dataset já está \
+definido como '...']`, o dataset já foi resolvido (ex.: gerência/área \
+escolhida via rótulo do BigQuery) — use esse valor diretamente como \
+`dataset_ref` no primeiro step de `text_to_sql` e NÃO planeje \
+`bq_list_datasets`/`bq_list_tables` para descobri-lo.
 
 EXEMPLO de plano ENXUTO para "no meu ecommerce de saúde quero saber os \
 maiores clientes que pagaram em pix e o valor total" — DOIS steps bastam:

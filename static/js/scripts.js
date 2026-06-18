@@ -4229,27 +4229,42 @@ function _faPrepareAnswerMarkdown(text, data = {}) {
   return prepared;
 }
 
+// Um único mapa cobre a classe visual (cor/fundo da seção) e o emoji do
+// cabeçalho, para o ícone sempre bater com o tipo de conteúdo respondido —
+// inclui tanto o formato padrão (Resumo/Achados/...) quanto as 5 seções do
+// modo "análise profunda" (O que aconteceu?/Por que.../...).
+const _FA_SECTION_KINDS = [
+  { re: /resumo/i, kind: "summary", icon: "📋" },
+  { re: /achado|insight/i, kind: "insights", icon: "🔍" },
+  { re: /tabela|detalhamento/i, kind: "details", icon: "📊" },
+  { re: /a[cç][aã]o|recomend/i, kind: "actions", icon: "✅" },
+  { re: /risc/i, kind: "risks", icon: "⚠️" },
+  { re: /pr[oó]ximas perguntas/i, kind: "followups", icon: "💬" },
+  { re: /o que aconteceu/i, kind: "fact", icon: "📌" },
+  { re: /por que aconteceu|causa raiz/i, kind: "rootcause", icon: "🔎" },
+  { re: /qual o impacto/i, kind: "impact", icon: "💥" },
+  { re: /o que fazer/i, kind: "solution", icon: "🛠️" },
+  { re: /o que priorizar/i, kind: "priority", icon: "🎯" },
+];
+
+function _faClassifySection(title) {
+  const text = String(title || "");
+  for (const entry of _FA_SECTION_KINDS) {
+    if (entry.re.test(text)) return entry;
+  }
+  return { kind: "default", icon: "🧩" };
+}
+
 function _faEnhanceReportDom(container) {
   if (!container) return;
   const report = container.querySelector(".fa-report");
   if (!report) return;
 
-  const classifySection = (title) => {
-    const value = String(title || "").toLowerCase();
-    if (value.includes("resumo")) return "summary";
-    if (value.includes("achado") || value.includes("insight")) return "insights";
-    if (value.includes("tabela") || value.includes("detalhamento")) return "details";
-    if (value.includes("acao") || value.includes("ação") || value.includes("recomend")) return "actions";
-    if (value.includes("risc")) return "risks";
-    if (value.includes("próxim") || value.includes("proxim")) return "followups";
-    return "default";
-  };
-
   const headingsForWrap = Array.from(report.querySelectorAll(":scope > h2"));
   headingsForWrap.forEach((heading) => {
     if (heading.parentElement?.classList.contains("fa-report-section")) return;
     const section = document.createElement("section");
-    const kind = classifySection(heading.textContent || "");
+    const { kind } = _faClassifySection(heading.textContent || "");
     section.className = `fa-report-section fa-report-section--${kind}`;
     report.insertBefore(section, heading);
     section.appendChild(heading);
@@ -4278,12 +4293,7 @@ function _faEnhanceReportDom(container) {
 
   report.querySelectorAll("h2").forEach((heading) => {
     if (heading.querySelector(".fa-sec-ico")) return;
-    const title = (heading.textContent || "").toLowerCase();
-    let icon = "•";
-    if (title.includes("resumo")) icon = "◉";
-    else if (title.includes("achado")) icon = "◆";
-    else if (title.includes("tabela") || title.includes("detalhamento")) icon = "▦";
-    else if (title.includes("próxim") || title.includes("proxim")) icon = "→";
+    const { icon } = _faClassifySection(heading.textContent || "");
     const badge = document.createElement("span");
     badge.className = "fa-sec-ico";
     badge.textContent = icon;
@@ -4906,13 +4916,13 @@ function _faStatusPillHtml(data) {
   if (!toolResults.length) return "";
 
   if (_faIsFailedResult(data)) {
-    return `<span class="fa-status-pill fa-status-pill--err">Falhou</span>`;
+    return `<span class="fa-status-pill fa-status-pill--err">❌ Falhou</span>`;
   }
   const okCount = toolResults.filter((r) => r && r.ok).length;
   if (okCount < toolResults.length) {
-    return `<span class="fa-status-pill fa-status-pill--warn">Parcial</span>`;
+    return `<span class="fa-status-pill fa-status-pill--warn">⚠️ Parcial</span>`;
   }
-  return `<span class="fa-status-pill fa-status-pill--ok">Concluido</span>`;
+  return `<span class="fa-status-pill fa-status-pill--ok">✅ Concluido</span>`;
 }
 
 // Cartão exibido no lugar de "próximas perguntas sugeridas" quando a análise
@@ -4923,7 +4933,7 @@ function _faRetryCardHtml(originalQuery) {
   if (!query) return "";
   return (
     `<div class="fa-retry-card">` +
-    `<span class="fa-retry-icon" aria-hidden="true">↻</span>` +
+    `<span class="fa-retry-icon" aria-hidden="true">🔄</span>` +
     `<div class="fa-retry-text">Não consegui concluir essa análise com os dados disponíveis.</div>` +
     `<button type="button" class="fa-retry-btn" data-followup="${_escFA(query)}">Tentar novamente</button>` +
     `</div>`
@@ -5071,7 +5081,7 @@ function _faRenderArtifact(a, index = 0) {
           ? `<div class="fa-art-more-note">+${rows.length - 25} linha(s) ocultas</div>`
           : "";
       return _faArtCard(index, {
-        icon: "▦",
+        icon: "📋",
         title: a.title || "Tabela",
         meta: `${rows.length} linha${rows.length === 1 ? "" : "s"}`,
         bodyHtml:
@@ -5085,7 +5095,7 @@ function _faRenderArtifact(a, index = 0) {
       // Botão "copiar" sem injeção: lê do <code> irmão via DOM, não do JS inline.
       const sqlId = `fa-sql-${faMsgCounter}-${Math.random().toString(36).slice(2, 7)}`;
       return _faArtCard(index, {
-        icon: "{ }",
+        icon: "💻",
         title: "SQL executado",
         extraHead: `<button class="fa-art-copy" type="button" data-fa-copy="${sqlId}">copiar</button>`,
         bodyHtml: `<pre id="${sqlId}" class="fa-sql"><code>${_faHighlightSql(sql)}</code></pre>`,
@@ -5095,7 +5105,7 @@ function _faRenderArtifact(a, index = 0) {
       const text = String(a.text || "");
       if (!text) return "";
       return _faArtCard(index, {
-        icon: "≡",
+        icon: "🗂️",
         title: `Schema: ${a.table_ref || ""}`,
         bodyHtml: `<pre class="fa-art-schema"><code>${_escFA(text)}</code></pre>`,
       });
@@ -5117,7 +5127,7 @@ function _faRenderArtifact(a, index = 0) {
         })
         .join("");
       return _faArtCard(index, {
-        icon: "Σ",
+        icon: "📐",
         title: "Estatística descritiva",
         bodyHtml: `<div class="fa-art-table-scroll"><table class="fa-artifact-table"><thead><tr><th>coluna</th><th>tipo</th><th>count</th><th>mean</th><th>median</th><th>stdev</th><th>min</th><th>max</th></tr></thead><tbody>${rows}</tbody></table></div>`,
       });

@@ -4327,22 +4327,33 @@ async function _faTypeMarkdownInto(container, sourceText, options = {}) {
   while (cursor < total) {
     const step =
       total > 2400
-        ? 32
+        ? 28
         : total > 1400
-          ? 24
+          ? 20
           : total > 800
-            ? 16
+            ? 13
             : total > 280
-              ? 10
-              : 4;
-    const delay =
+              ? 8
+              : 3;
+    const baseDelay =
       total > 1400
-        ? Math.max(FA_TYPING_BASE_DELAY_MS, 14)
+        ? Math.max(FA_TYPING_BASE_DELAY_MS, 15)
         : total > 800
-          ? Math.max(FA_TYPING_BASE_DELAY_MS, 18)
+          ? Math.max(FA_TYPING_BASE_DELAY_MS, 19)
           : total > 280
-            ? Math.max(FA_TYPING_BASE_DELAY_MS, 22)
-            : Math.max(FA_TYPING_BASE_DELAY_MS, 30);
+            ? Math.max(FA_TYPING_BASE_DELAY_MS, 24)
+            : Math.max(FA_TYPING_BASE_DELAY_MS, 32);
+
+    // Jitter sutil para fugir do ritmo robótico/uniforme.
+    const jitter = Math.floor(Math.random() * 11) - 4;
+    let delay = Math.max(6, baseDelay + jitter);
+
+    // Pequena pausa após pontuação de frase, como alguém respirando ao
+    // digitar — reforça a sensação de pessoa real, não de barra de progresso.
+    const prevChar = prepared[cursor - 1];
+    if (prevChar && /[.!?:]/.test(prevChar) && prepared[cursor] === " ") {
+      delay += 110;
+    }
 
     cursor = Math.min(total, cursor + step);
     const partial = prepared.slice(0, cursor);
@@ -4665,6 +4676,15 @@ function appendFAUserMessage(text) {
   return id;
 }
 
+const FA_THINKING_PHASES = [
+  "Entendendo sua pergunta",
+  "Consultando as bases de dados",
+  "Cruzando as informações",
+  "Validando os resultados",
+  "Redigindo a resposta",
+];
+let faThinkingInterval = null;
+
 function appendFAThinking() {
   const area = document.getElementById("fa-messages");
   if (!area) return;
@@ -4679,17 +4699,35 @@ function appendFAThinking() {
     <div class="fa-msg-main">
       <div class="fa-bubble fa-bubble--thinking">
         <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">⚙</span>
-          <span class="fa-bubble-title">Finance Voice IA analisando</span>
+          <span class="fa-bubble-icon" aria-hidden="true">✦</span>
+          <span class="fa-bubble-title">Finance Voice IA</span>
         </div>
-        <div class="fa-thinking-dots"><span></span><span></span><span></span></div>
+        <div class="fa-thinking-body">
+          <div class="fa-thinking-phase">
+            ${FA_THINKING_PHASES[0]}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>
+          </div>
+          <div class="fa-thinking-track"></div>
+        </div>
       </div>
     </div>`;
   area.appendChild(el);
   _faScrollBottom();
+
+  let phaseIdx = 0;
+  if (faThinkingInterval) clearInterval(faThinkingInterval);
+  faThinkingInterval = setInterval(() => {
+    const phaseEl = document.querySelector(`#${id} .fa-thinking-phase`);
+    if (!phaseEl) return;
+    phaseIdx = (phaseIdx + 1) % FA_THINKING_PHASES.length;
+    phaseEl.innerHTML = `${FA_THINKING_PHASES[phaseIdx]}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>`;
+  }, 2200);
 }
 
 function removeFAThinking() {
+  if (faThinkingInterval) {
+    clearInterval(faThinkingInterval);
+    faThinkingInterval = null;
+  }
   if (!faThinkingId) return;
   document.getElementById(faThinkingId)?.remove();
   faThinkingId = null;
@@ -4751,45 +4789,67 @@ async function appendFABotMessage(data) {
   el.id = id;
   el.className = "fa-msg fa-msg-bot";
 
-  const metricsHtml = _faMetricsHtml(data);
-  const detailsHtml = _faDetailsHtml(data);
-
   const persona = String(data.persona || "").trim();
-  const timeSuffix = persona ? ` · Persona: ${_escFA(persona)}` : "";
+  const statusPill = _faStatusPillHtml(data);
+  const personaTag = persona ? `<span class="fa-persona-tag">${_escFA(persona)}</span>` : "";
+  const metaCaption = _faMetaCaptionHtml(data);
 
   el.innerHTML = `
     <div class="fa-msg-avatar">FV</div>
     <div class="fa-msg-main fa-msg-main--report">
       <div class="fa-bubble fa-bubble--bot fa-bubble--report">
         <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">📊</span>
+          <span class="fa-bubble-icon" aria-hidden="true">✦</span>
           <span class="fa-bubble-title">Finance Voice IA</span>
+          <span class="fa-bubble-head-meta">${personaTag}${statusPill}</span>
         </div>
         <div class="fa-bubble-body">
-          ${metricsHtml}
           <div class="fa-report-slot"></div>
-          ${detailsHtml}
+          <div class="fa-art-slot"></div>
         </div>
       </div>
-      <div class="fa-msg-time">${_faNow()}${timeSuffix}</div>
+      <div class="fa-msg-time">${_faNow()}</div>
+      ${metaCaption}
     </div>`;
 
   area.appendChild(el);
   _faScrollBottom();
 
+  // A narrativa e digitada primeiro - so depois os cartoes de dados entram
+  // em cena, em sequencia, como alguem que explica e depois mostra.
   const slot = el.querySelector(".fa-report-slot");
   await _faTypeMarkdownInto(slot, data.markdown_report || data.chat_answer || "", { data });
+
+  const artifactsHtml = _faDetailsHtml(data);
+  if (artifactsHtml) {
+    const artSlot = el.querySelector(".fa-art-slot");
+    if (artSlot) {
+      artSlot.innerHTML = artifactsHtml;
+      _faScrollBottom();
+    }
+  }
 }
 
-// Cabe\u00e7alho m\u00ednimo: um \u00fanico chip de status, sem detalhes t\u00e9cnicos.
-// Hover (title) mostra contexto resumido sem poluir a UI.
-function _faMetricsHtml(data) {
+// Pilula de status no cabecalho da bolha - substitui o antigo chip isolado.
+function _faStatusPillHtml(data) {
   const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
-  // Sem steps (modo conversacional): sem chip nenhum.
   if (!toolResults.length) return "";
 
   const okCount = toolResults.filter((r) => r && r.ok).length;
-  const hasError = !!data.error || okCount === 0;
+  if (data.error || okCount === 0) {
+    return `<span class="fa-status-pill fa-status-pill--err">Falhou</span>`;
+  }
+  if (okCount < toolResults.length) {
+    return `<span class="fa-status-pill fa-status-pill--warn">Parcial</span>`;
+  }
+  return `<span class="fa-status-pill fa-status-pill--ok">Concluido</span>`;
+}
+
+// Legenda discreta de custo/volume sob o horario - so aparece quando ha
+// consumo de BigQuery a relatar.
+function _faMetaCaptionHtml(data) {
+  const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
+  if (!toolResults.length) return "";
 
   let bytesTotal = 0;
   let costTotal = 0;
@@ -4798,24 +4858,17 @@ function _faMetricsHtml(data) {
     if (typeof p.bytes_processed === "number") bytesTotal += p.bytes_processed;
     if (typeof p.estimated_cost_usd === "number") costTotal += p.estimated_cost_usd;
   }
-  const fmtBytes = (n) => {
-    if (!n) return "0 B";
-    const u = ["B", "KB", "MB", "GB", "TB"];
-    let i = 0;
-    while (n >= 1024 && i < u.length - 1) {
-      n /= 1024;
-      i++;
-    }
-    return `${n.toFixed(i ? 1 : 0)} ${u[i]}`;
-  };
-  const summaryParts = [];
-  if (bytesTotal) summaryParts.push(`${fmtBytes(bytesTotal)} \u2022 $${costTotal.toFixed(4)}`);
-  const title = summaryParts.join(" \u2022 ");
+  if (!bytesTotal) return "";
 
-  const chip = hasError
-    ? `<span class="fa-chip fa-chip--err" title="${_escFA(title)}">\u2717</span>`
-    : `<span class="fa-chip fa-chip--ok" title="${_escFA(title)}">\u2713</span>`;
-  return `<div class="fa-statusbar">${chip}</div>`;
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let n = bytesTotal;
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i++;
+  }
+  const bytesStr = `${n.toFixed(i ? 1 : 0)} ${units[i]}`;
+  return `<div class="fa-meta-caption">${bytesStr} processados - custo estimado $${costTotal.toFixed(4)}</div>`;
 }
 
 
@@ -4850,12 +4903,12 @@ function _faDetailsHtml(data) {
   });
   if (!answerArtifacts.length) return "";
 
-  const html = answerArtifacts
-    .map((a) => _faRenderArtifact(a))
+  const cards = answerArtifacts
+    .map((a, i) => _faRenderArtifact(a, i))
     .filter(Boolean)
     .join("");
-  if (!html) return "";
-  return `<div class="fa-answer-artifacts">${html}</div>`;
+  if (!cards) return "";
+  return `<div class="fa-answer-artifacts"><div class="fa-art-eyebrow">Dados da análise</div>${cards}</div>`;
 }
 
 // Realce leve de SQL: keywords/strings/números/comentários em <span>.
@@ -4873,8 +4926,27 @@ function _faHighlightSql(sql) {
     .replace(new RegExp("\\b" + KW + "\\b", "gi"), '<span class="kw">$1</span>');
 }
 
+// Casca comum de um cartão de artefato: ícone + título + meta opcional no
+// cabeçalho, corpo customizável. `index` alimenta o atraso do efeito de
+// entrada escalonado (--i) definido em CSS.
+function _faArtCard(index, { icon, title, meta = "", extraHead = "", bodyHtml, padded = false }) {
+  const bodyClass = padded ? "fa-art-card-body fa-art-card-body--padded" : "fa-art-card-body";
+  const metaHtml = meta ? `<span class="fa-art-card-meta">${_escFA(meta)}</span>` : "";
+  return (
+    `<div class="fa-art-card" style="--i:${index}">` +
+    `<div class="fa-art-card-head">` +
+    `<span class="fa-art-card-icon" aria-hidden="true">${icon}</span>` +
+    `<span class="fa-art-card-title">${_escFA(title)}</span>` +
+    metaHtml +
+    extraHead +
+    `</div>` +
+    `<div class="${bodyClass}">${bodyHtml}</div>` +
+    `</div>`
+  );
+}
+
 // Renderiza um artefato individual conforme o tipo.
-function _faRenderArtifact(a) {
+function _faRenderArtifact(a, index = 0) {
   if (!a || typeof a !== "object") return "";
   const type = String(a.type || "");
   switch (type) {
@@ -4899,33 +4971,37 @@ function _faRenderArtifact(a) {
         .join("");
       const moreNote =
         rows.length > 25
-          ? `<div style="font-size:11px;color:var(--ink2,#5a6877);margin-top:4px">+${rows.length - 25} linha(s) ocultas</div>`
+          ? `<div class="fa-art-more-note">+${rows.length - 25} linha(s) ocultas</div>`
           : "";
-      return (
-        `<div class="fa-art-title">${_escFA(a.title || "Tabela")}</div>` +
-        `<div style="overflow:auto;max-height:320px"><table class="fa-artifact-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` +
-        moreNote
-      );
+      return _faArtCard(index, {
+        icon: "▦",
+        title: a.title || "Tabela",
+        meta: `${rows.length} linha${rows.length === 1 ? "" : "s"}`,
+        bodyHtml:
+          `<div class="fa-art-table-scroll"><table class="fa-artifact-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` +
+          moreNote,
+      });
     }
     case "sql": {
       const sql = String(a.sql || "");
       if (!sql) return "";
       // Botão "copiar" sem injeção: lê do <code> irmão via DOM, não do JS inline.
-      const id = `fa-sql-${faMsgCounter}-${Math.random().toString(36).slice(2, 7)}`;
-      const copyBtn =
-        `<button class="fa-art-copy" type="button" data-fa-copy="${id}">copiar</button>`;
-      return (
-        `<div class="fa-art-title">SQL executado${copyBtn}</div>` +
-        `<pre id="${id}" class="fa-sql"><code>${_faHighlightSql(sql)}</code></pre>`
-      );
+      const sqlId = `fa-sql-${faMsgCounter}-${Math.random().toString(36).slice(2, 7)}`;
+      return _faArtCard(index, {
+        icon: "{ }",
+        title: "SQL executado",
+        extraHead: `<button class="fa-art-copy" type="button" data-fa-copy="${sqlId}">copiar</button>`,
+        bodyHtml: `<pre id="${sqlId}" class="fa-sql"><code>${_faHighlightSql(sql)}</code></pre>`,
+      });
     }
     case "schema": {
       const text = String(a.text || "");
       if (!text) return "";
-      return (
-        `<div class="fa-art-title">Schema: ${_escFA(a.table_ref || "")}</div>` +
-        `<pre style="background:#f7f9fc;color:#1f2a36;padding:8px 10px;border-radius:6px;overflow:auto;font-size:12px;border:1px solid #e5e8ed;margin:0"><code>${_escFA(text)}</code></pre>`
-      );
+      return _faArtCard(index, {
+        icon: "≡",
+        title: `Schema: ${a.table_ref || ""}`,
+        bodyHtml: `<pre class="fa-art-schema"><code>${_escFA(text)}</code></pre>`,
+      });
     }
     case "stats": {
       const cols = a.columns && typeof a.columns === "object" ? a.columns : {};
@@ -4943,13 +5019,22 @@ function _faRenderArtifact(a) {
           return `<tr><td>${_escFA(k)}</td><td>categorical</td><td>${c.count ?? ""}</td><td colspan="5">distinct=${c.distinct ?? ""} · top: ${_escFA(top)}</td></tr>`;
         })
         .join("");
-      return `<div style="margin:10px 0"><strong style="font-size:12px;color:var(--ink2)">Estatística descritiva</strong><div style="overflow:auto;margin-top:4px"><table class="fa-artifact-table"><thead><tr><th>coluna</th><th>tipo</th><th>count</th><th>mean</th><th>median</th><th>stdev</th><th>min</th><th>max</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      return _faArtCard(index, {
+        icon: "Σ",
+        title: "Estatística descritiva",
+        bodyHtml: `<div class="fa-art-table-scroll"><table class="fa-artifact-table"><thead><tr><th>coluna</th><th>tipo</th><th>count</th><th>mean</th><th>median</th><th>stdev</th><th>min</th><th>max</th></tr></thead><tbody>${rows}</tbody></table></div>`,
+      });
     }
     case "vega_lite": {
       const spec = a.spec || {};
-      const id = `fa-vega-${faMsgCounter}-${Math.random().toString(36).slice(2, 8)}`;
+      const vid = `fa-vega-${faMsgCounter}-${Math.random().toString(36).slice(2, 8)}`;
       const specJson = JSON.stringify(spec).replace(/</g, "\\u003c");
-      return `<div style="margin:10px 0"><strong style="font-size:12px;color:var(--ink2)">Gráfico${a.title ? ": " + _escFA(a.title) : ""}</strong><div id="${id}" style="margin-top:6px;min-height:240px"></div><script>(function(){try{var s=${specJson};if(window.vegaEmbed){window.vegaEmbed('#${id}',s,{actions:false});}else{document.getElementById('${id}').innerHTML='<pre style=\\"font-size:11px;overflow:auto;max-height:200px\\">'+JSON.stringify(s,null,2)+'</pre>';}}catch(e){document.getElementById('${id}').textContent='Erro renderizando gráfico: '+e.message;}})();<\/script></div>`;
+      return _faArtCard(index, {
+        icon: "📈",
+        title: a.title ? `Gráfico: ${a.title}` : "Gráfico",
+        padded: true,
+        bodyHtml: `<div id="${vid}" style="min-height:240px"></div><script>(function(){try{var s=${specJson};if(window.vegaEmbed){window.vegaEmbed('#${vid}',s,{actions:false});}else{document.getElementById('${vid}').innerHTML='<pre style=\\"font-size:11px;overflow:auto;max-height:200px\\">'+JSON.stringify(s,null,2)+'</pre>';}}catch(e){document.getElementById('${vid}').textContent='Erro renderizando gráfico: '+e.message;}})();<\/script>`,
+      });
     }
     default:
       return "";

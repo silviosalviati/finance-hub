@@ -163,6 +163,21 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_finance_audit_log_user_ts
                 ON finance_audit_log (user_id, ts DESC);
+
+            -- RAG do catálogo: índice semântico de datasets/tabelas/colunas
+            -- para o Planner achar dados por significado, não por nome.
+            CREATE TABLE IF NOT EXISTS finance_catalog_index (
+                project_id TEXT NOT NULL,
+                dataset_id TEXT NOT NULL,
+                table_id TEXT NOT NULL,
+                full_name TEXT NOT NULL,
+                text_summary TEXT NOT NULL DEFAULT '',
+                embedding_json TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (project_id, dataset_id, table_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_finance_catalog_index_project
+                ON finance_catalog_index (project_id);
         """)
 
         _seed_if_empty(conn)
@@ -676,3 +691,57 @@ def list_finance_audit(limit: int = 50, user_id: str | None = None) -> list[dict
                 (limit,),
             ).fetchall()
     return [dict(r) for r in rows]
+
+
+# ── Finance Voice IA — RAG do catálogo (datasets/tabelas/colunas) ───────────
+
+def upsert_catalog_entry(
+    *,
+    project_id: str,
+    dataset_id: str,
+    table_id: str,
+    full_name: str,
+    text_summary: str,
+    embedding_json: str,
+) -> None:
+    now = _utcnow()
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO finance_catalog_index"
+            " (project_id, dataset_id, table_id, full_name, text_summary,"
+            "  embedding_json, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)"
+            " ON CONFLICT(project_id, dataset_id, table_id) DO UPDATE SET"
+            "   full_name = excluded.full_name,"
+            "   text_summary = excluded.text_summary,"
+            "   embedding_json = excluded.embedding_json,"
+            "   updated_at = excluded.updated_at",
+            (project_id, dataset_id, table_id, full_name, text_summary, embedding_json, now),
+        )
+
+
+def list_catalog_entries(project_id: str) -> list[dict[str, Any]]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM finance_catalog_index WHERE project_id = ? ORDER BY dataset_id, table_id",
+            (project_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_catalog_entries_for_dataset(project_id: str, dataset_id: str) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "DELETE FROM finance_catalog_index WHERE project_id = ? AND dataset_id = ?",
+            (project_id, dataset_id),
+        )
+
+
+def get_catalog_oldest_update(project_id: str) -> str | None:
+    """Data da entrada mais antiga do índice — usada para decidir TTL."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT MIN(updated_at) AS oldest FROM finance_catalog_index WHERE project_id = ?",
+            (project_id,),
+        ).fetchone()
+    return row["oldest"] if row and row["oldest"] else None

@@ -26,7 +26,7 @@ from typing import Any, Callable
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from src.agents.finance_auditor import forecast as forecast_mod
+from src.agents.finance_auditor import catalog_index, forecast as forecast_mod
 from src.agents.finance_auditor import multimodal, org_memory, rbac, semantic_layer
 from src.agents.finance_auditor.supervisor_schemas import (
     CAPABILITY_ATTACHMENT_ANALYZE,
@@ -34,6 +34,7 @@ from src.agents.finance_auditor.supervisor_schemas import (
     CAPABILITY_BQ_LIST_DATASETS,
     CAPABILITY_BQ_LIST_TABLES,
     CAPABILITY_BQ_QUERY,
+    CAPABILITY_CATALOG_SEARCH,
     CAPABILITY_CHAT_ANSWER,
     CAPABILITY_FORECAST_SIMPLE,
     CAPABILITY_METRIC_EXECUTE,
@@ -625,6 +626,27 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
             f"{', '.join(t.get('table_id', '') for t in picked)}."
         )
 
+    # Caminho RAG: nem table_refs nem dataset_ref informados — busca as
+    # tabelas certas por SIGNIFICADO no índice do catálogo, em vez de exigir
+    # que o Planner já saiba (ou chute) o nome do dataset.
+    elif not table_refs and not dataset_ref:
+        matches = catalog_index.search_catalog(project_id, natural_language, top_k=5)
+        allowed_matches = []
+        for m in matches:
+            allowed, _reason = rbac.check_dataset(context.get("user"), m["dataset_id"])
+            if allowed:
+                allowed_matches.append(m)
+        if not allowed_matches:
+            return _err(
+                "Não encontrei tabelas relevantes para essa pergunta no catálogo. "
+                "Informe `table_refs` ou `dataset_ref` explicitamente."
+            )
+        table_refs = [m["full_name"] for m in allowed_matches]
+        auto_picked_note = (
+            "Tabelas selecionadas automaticamente por busca semântica no catálogo: "
+            f"{', '.join(m['table_id'] for m in allowed_matches)}."
+        )
+
     if not table_refs:
         return _err(
             "Informe `table_refs` (lista qualificada) OU `dataset_ref` para descoberta automática."
@@ -911,6 +933,48 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
 
 
 # ---------------------------------------------------------------------------
+# catalog_search — RAG sobre datasets/tabelas/colunas (descoberta por significado)
+# ---------------------------------------------------------------------------
+
+def cap_catalog_search(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    query = str(args.get("query") or context.get("request_text") or "").strip()
+    if not query:
+        return _err("query ausente para catalog_search.")
+    project_id = (context.get("project_id") or "").strip()
+    if not project_id:
+        return _err("project_id ausente para catalog_search.")
+    try:
+        top_k = int(args.get("top_k") or 5)
+    except (TypeError, ValueError):
+        top_k = 5
+
+    matches = catalog_index.search_catalog(project_id, query, top_k=max(1, min(top_k, 20)))
+    user = context.get("user")
+    visible = [m for m in matches if rbac.check_dataset(user, m["dataset_id"])[0]]
+
+    rows = [
+        {
+            "table_ref": m["full_name"],
+            "dataset_id": m["dataset_id"],
+            "table_id": m["table_id"],
+            "score": m["score"],
+        }
+        for m in visible
+    ]
+    return _ok(
+        payload={"query": query, "matches": rows, "match_count": len(rows)},
+        artifacts=[
+            {
+                "type": "table",
+                "title": f"Tabelas relevantes (busca: {query})",
+                "columns": ["table_ref", "score"],
+                "rows": rows,
+            }
+        ] if rows else [],
+    )
+
+
+# ---------------------------------------------------------------------------
 # metric_lookup — busca no Semantic Layer
 # ---------------------------------------------------------------------------
 
@@ -1170,6 +1234,7 @@ CAPABILITY_REGISTRY: dict[str, Callable[[dict[str, Any], dict[str, Any]], dict[s
     CAPABILITY_TEXT_TO_SQL: cap_text_to_sql,
     CAPABILITY_STATS_DESCRIBE: cap_stats_describe,
     CAPABILITY_VIZ_SPEC: cap_viz_spec,
+    CAPABILITY_CATALOG_SEARCH: cap_catalog_search,
     CAPABILITY_METRIC_LOOKUP: cap_metric_lookup,
     CAPABILITY_METRIC_EXECUTE: cap_metric_execute,
     CAPABILITY_ORG_FACT_SAVE: cap_org_fact_save,
@@ -1199,6 +1264,7 @@ __all__ = [
     "cap_text_to_sql",
     "cap_stats_describe",
     "cap_viz_spec",
+    "cap_catalog_search",
     "cap_metric_lookup",
     "cap_metric_execute",
     "cap_org_fact_save",

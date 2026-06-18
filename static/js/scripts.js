@@ -4718,7 +4718,7 @@ function _faAppendPhaseBubble(phases) {
           <span class="fa-bubble-icon" aria-hidden="true">✦</span>
           <span class="fa-bubble-title">Finance Voice IA</span>
         </div>
-        <div class="fa-thinking-body">
+        <div class="fa-thinking-body" role="status" aria-live="polite">
           <div class="fa-thinking-phase">
             ${phases[0]}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>
           </div>
@@ -4837,6 +4837,7 @@ async function appendFABotMessage(data) {
   const statusPill = _faStatusPillHtml(data);
   const personaTag = persona ? `<span class="fa-persona-tag">${_escFA(persona)}</span>` : "";
   const metaCaption = _faMetaCaptionHtml(data);
+  const reportSlotId = `${id}-report`;
 
   el.innerHTML = `
     <div class="fa-msg-avatar">FV</div>
@@ -4845,10 +4846,13 @@ async function appendFABotMessage(data) {
         <div class="fa-bubble-head">
           <span class="fa-bubble-icon" aria-hidden="true">✦</span>
           <span class="fa-bubble-title">Finance Voice IA</span>
-          <span class="fa-bubble-head-meta">${personaTag}${statusPill}</span>
+          <span class="fa-bubble-head-meta">
+            ${personaTag}${statusPill}
+            <button type="button" class="fa-copy-answer-btn" data-fa-copy="${reportSlotId}" aria-label="Copiar resposta">copiar</button>
+          </span>
         </div>
         <div class="fa-bubble-body">
-          <div class="fa-report-slot"></div>
+          <div class="fa-report-slot" id="${reportSlotId}"></div>
           <div class="fa-art-slot"></div>
           <div class="fa-retry-slot"></div>
         </div>

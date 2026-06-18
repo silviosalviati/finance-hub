@@ -4527,6 +4527,9 @@ function initFAInputListener() {
       autoResizeFAInput(inputEl);
       setFASendButtonState({ disabled: false, loading: false });
       inputEl.focus();
+      // Pergunta sugerida/retry: o usuário já demonstrou a intenção ao
+      // clicar — assume e envia direto, sem exigir um segundo clique.
+      sendFAMessage();
       return;
     }
 
@@ -4927,7 +4930,6 @@ function _faRetryCardHtml(originalQuery) {
 // consumo de BigQuery a relatar.
 function _faMetaCaptionHtml(data) {
   const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
-  if (!toolResults.length) return "";
 
   let bytesTotal = 0;
   let costTotal = 0;
@@ -4936,17 +4938,28 @@ function _faMetaCaptionHtml(data) {
     if (typeof p.bytes_processed === "number") bytesTotal += p.bytes_processed;
     if (typeof p.estimated_cost_usd === "number") costTotal += p.estimated_cost_usd;
   }
-  if (!bytesTotal) return "";
+  const totalTokens = Number(data.token_usage?.total_tokens) || 0;
 
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let n = bytesTotal;
-  let i = 0;
-  while (n >= 1024 && i < units.length - 1) {
-    n /= 1024;
-    i++;
+  if (!bytesTotal && !totalTokens) return "";
+
+  const parts = [];
+  if (bytesTotal) {
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let n = bytesTotal;
+    let i = 0;
+    while (n >= 1024 && i < units.length - 1) {
+      n /= 1024;
+      i++;
+    }
+    const bytesStr = `${n.toFixed(i ? 1 : 0)} ${units[i]}`;
+    parts.push(`${bytesStr} processados`);
+    parts.push(`custo estimado $${costTotal.toFixed(4)}`);
   }
-  const bytesStr = `${n.toFixed(i ? 1 : 0)} ${units[i]}`;
-  return `<div class="fa-meta-caption">${bytesStr} processados - custo estimado $${costTotal.toFixed(4)}</div>`;
+  if (totalTokens) {
+    parts.push(`tokens usados ${totalTokens.toLocaleString("pt-BR")}`);
+  }
+
+  return `<div class="fa-meta-caption">${parts.join(" · ")}</div>`;
 }
 
 
@@ -4975,8 +4988,10 @@ function _faDetailsHtml(data) {
     if (stepIdx < 0 || stepIdx >= toolResults.length) return false;
     const cap = (toolResults[stepIdx] || {}).capability;
     if (!_FA_ANSWER_CAPS.has(cap)) return false;
-    // SQL e schema são detalhes técnicos — escondemos por padrão.
-    if (a.type === "sql" || a.type === "schema") return false;
+    // SQL/schema são detalhes técnicos; a tabela de resultado bruto já
+    // aparece na narrativa (Tabela-resumo/Detalhamento) — mostrar de novo
+    // aqui só duplicava a informação.
+    if (a.type === "sql" || a.type === "schema" || a.type === "table") return false;
     return true;
   });
   if (!answerArtifacts.length) return "";

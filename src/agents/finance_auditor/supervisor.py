@@ -361,15 +361,20 @@ def node_router(
 # Nó 4b — reflect (auto-crítica + sugestão de retomada)
 # ---------------------------------------------------------------------------
 
+def _has_answer(tool_results: list[dict[str, Any]]) -> bool:
+    """True se ao menos uma capability "produtora de resposta" teve sucesso."""
+    return any(
+        (r.get("capability") or "") in _ANSWER_PRODUCING and r.get("ok")
+        for r in tool_results
+    )
+
+
 def node_reflect(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     tool_results = state.get("tool_results") or []
     iteration = int(state.get("iteration") or 0)
 
     any_failed = any(not r.get("ok") for r in tool_results)
-    has_answer = any(
-        (r.get("capability") or "") in _ANSWER_PRODUCING and r.get("ok")
-        for r in tool_results
-    )
+    has_answer = _has_answer(tool_results)
     needs_retry = any_failed or not has_answer
 
     # Sem motivo para refletir, ou já atingimos o teto de iterações.
@@ -508,6 +513,35 @@ def _summarize_tool_results_for_llm(results: list[dict[str, Any]]) -> str:
         return str(summary)
 
 
+_TECH_LEAK_PATTERN = re.compile(
+    r"\btimestamp\b|\bdatetime\b|\bbigquery\b|\bdry-?run\b|\bschema\b|"
+    r"\btipo de dados?\b|\bincompat[ií]vel\b|"
+    r"\bfun[cç][aã]o(?:\(?[oa]?es\)?)? que (?:eu )?utiliz\w*\b|"
+    r"\bdetalhes? t[eé]cnicos?\b|\berro\s+t[eé]cnico\b",
+    re.IGNORECASE,
+)
+
+_FAILURE_FALLBACK_ANSWER = (
+    "## Resumo executivo\n\n"
+    "Tentei responder à sua pergunta, mas não consegui concluir a análise "
+    "com os dados disponíveis agora.\n\n"
+    "Para tentar de novo com mais precisão, me diga o período exato que "
+    "você quer analisar e se há algum recorte específico (produto, cliente "
+    "ou categoria) que devo considerar."
+)
+
+
+def _looks_like_tech_leak(text: str) -> bool:
+    """Detecta jargão técnico que o Composer foi instruído a nunca usar.
+
+    Rede de segurança determinística (mesmo espírito do `pii_guard`): a
+    instrução do prompt nem sempre é seguida à risca pelo LLM, então isso
+    garante uma resposta profissional mesmo quando o modelo "vaza" detalhe
+    de implementação ao explicar uma falha total.
+    """
+    return bool(_TECH_LEAK_PATTERN.search(text or ""))
+
+
 def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     if state.get("error"):
         return {"final_answer": f"_{state['error']}_"}
@@ -521,6 +555,7 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
 
     tool_results = state.get("tool_results") or []
     warnings = state.get("warnings") or []
+    answer_succeeded = _has_answer(tool_results)
 
     user_content = (
         f"Pergunta original do usuário:\n{state.get('request_text', '')}\n\n"
@@ -538,17 +573,16 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
         )
         text = str(getattr(response, "content", response) or "").strip()
         if text:
+            if not answer_succeeded and _looks_like_tech_leak(text):
+                text = _FAILURE_FALLBACK_ANSWER
             return {"final_answer": text}
     except Exception as exc:  # noqa: BLE001
         return {
-            "final_answer": (
-                "Não foi possível gerar a resposta final neste momento. "
-                f"Detalhes técnicos: {exc}"
-            ),
+            "final_answer": _FAILURE_FALLBACK_ANSWER,
             "warnings": [*warnings, f"Composer falhou: {exc}"],
         }
 
-    return {"final_answer": "Sem conteúdo gerado pelo Composer."}
+    return {"final_answer": _FAILURE_FALLBACK_ANSWER}
 
 
 # ---------------------------------------------------------------------------

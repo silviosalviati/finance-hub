@@ -4213,7 +4213,13 @@ function _faPrepareAnswerMarkdown(text, data = {}) {
     prepared = `## Resumo executivo\n\n${prepared}`;
   }
 
-  if (!/##\s+pr[oó]ximas perguntas sugeridas/i.test(prepared)) {
+  if (data.suppressFollowups) {
+    // Falha total: sugerir "próximas perguntas" ao lado de um retry confunde
+    // mais do que ajuda — o cartão de retry (abaixo) assume esse papel.
+    prepared = prepared
+      .replace(/\n*##\s+pr[oó]ximas perguntas sugeridas[\s\S]*$/i, "")
+      .trim();
+  } else if (!/##\s+pr[oó]ximas perguntas sugeridas/i.test(prepared)) {
     const suggestions = _faSuggestedFollowups(data.original_query || data.query || "");
     prepared +=
       `\n\n## Próximas perguntas sugeridas\n\n` +
@@ -4824,6 +4830,7 @@ async function appendFABotMessage(data) {
   el.className = "fa-msg fa-msg-bot";
 
   const persona = String(data.persona || "").trim();
+  const isFailed = _faIsFailedResult(data);
   const statusPill = _faStatusPillHtml(data);
   const personaTag = persona ? `<span class="fa-persona-tag">${_escFA(persona)}</span>` : "";
   const metaCaption = _faMetaCaptionHtml(data);
@@ -4840,6 +4847,7 @@ async function appendFABotMessage(data) {
         <div class="fa-bubble-body">
           <div class="fa-report-slot"></div>
           <div class="fa-art-slot"></div>
+          <div class="fa-retry-slot"></div>
         </div>
       </div>
       <div class="fa-msg-time">${_faNow()}</div>
@@ -4849,10 +4857,20 @@ async function appendFABotMessage(data) {
   area.appendChild(el);
   _faScrollBottom();
 
-  // A narrativa e digitada primeiro - so depois os cartoes de dados entram
-  // em cena, em sequencia, como alguem que explica e depois mostra.
+  // A narrativa e digitada primeiro - so depois os cartoes de dados (ou o
+  // retry, em caso de falha) entram em cena.
   const slot = el.querySelector(".fa-report-slot");
-  await _faTypeMarkdownInto(slot, data.markdown_report || data.chat_answer || "", { data });
+  const typingData = isFailed ? { ...data, suppressFollowups: true } : data;
+  await _faTypeMarkdownInto(slot, data.markdown_report || data.chat_answer || "", { data: typingData });
+
+  if (isFailed) {
+    const retrySlot = el.querySelector(".fa-retry-slot");
+    if (retrySlot) {
+      retrySlot.innerHTML = _faRetryCardHtml(data.original_query);
+      _faScrollBottom();
+    }
+    return;
+  }
 
   const artifactsHtml = _faDetailsHtml(data);
   if (artifactsHtml) {
@@ -4864,19 +4882,45 @@ async function appendFABotMessage(data) {
   }
 }
 
+// Verdadeiro quando nenhuma capability "produtora de resposta" teve sucesso
+// — usado tanto para a pílula de status quanto para decidir entre mostrar
+// "próximas perguntas" (sugestão de avanço) ou um cartão de retry (sem
+// avanço possível, o caminho certo é tentar de novo).
+function _faIsFailedResult(data) {
+  const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
+  if (!toolResults.length) return false;
+  const okCount = toolResults.filter((r) => r && r.ok).length;
+  return !!data.error || okCount === 0;
+}
+
 // Pilula de status no cabecalho da bolha - substitui o antigo chip isolado.
 function _faStatusPillHtml(data) {
   const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
   if (!toolResults.length) return "";
 
-  const okCount = toolResults.filter((r) => r && r.ok).length;
-  if (data.error || okCount === 0) {
+  if (_faIsFailedResult(data)) {
     return `<span class="fa-status-pill fa-status-pill--err">Falhou</span>`;
   }
+  const okCount = toolResults.filter((r) => r && r.ok).length;
   if (okCount < toolResults.length) {
     return `<span class="fa-status-pill fa-status-pill--warn">Parcial</span>`;
   }
   return `<span class="fa-status-pill fa-status-pill--ok">Concluido</span>`;
+}
+
+// Cartão exibido no lugar de "próximas perguntas sugeridas" quando a análise
+// falhou de ponta a ponta — oferece uma única ação clara (tentar de novo) em
+// vez de sugestões genéricas que pareceriam ignorar a falha.
+function _faRetryCardHtml(originalQuery) {
+  const query = String(originalQuery || "").trim();
+  if (!query) return "";
+  return (
+    `<div class="fa-retry-card">` +
+    `<span class="fa-retry-icon" aria-hidden="true">↻</span>` +
+    `<div class="fa-retry-text">Não consegui concluir essa análise com os dados disponíveis.</div>` +
+    `<button type="button" class="fa-retry-btn" data-followup="${_escFA(query)}">Tentar novamente</button>` +
+    `</div>`
+  );
 }
 
 // Legenda discreta de custo/volume sob o horario - so aparece quando ha

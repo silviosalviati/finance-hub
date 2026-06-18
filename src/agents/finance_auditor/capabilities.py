@@ -843,16 +843,26 @@ def _infer_field_type(values: list[Any]) -> str:
     return "nominal"
 
 
+def _suggest_chart_type(x_type: str, y_type: str) -> str:
+    """Heurística de escolha de gráfico quando o Planner não informa `chart_type`.
+
+    Deliberadamente nunca sugere `arc` (pizza): exige leitura semântica de
+    "parte de um todo" que não dá para inferir só do tipo das colunas — fica
+    reservado para quando o Planner pede explicitamente.
+    """
+    if x_type == "temporal":
+        return "line"
+    if x_type == "quantitative" and y_type == "quantitative":
+        return "point"
+    return "bar"
+
+
 def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     rows, err = _resolve_source_rows(args, context)
     if err:
         return _err(err)
     if not rows:
         return _err("Sem linhas para gerar gráfico.")
-
-    chart_type = str(args.get("chart_type") or "bar").lower()
-    if chart_type not in _VALID_CHART_TYPES:
-        return _err(f"chart_type inválido: {chart_type}. Use um de {sorted(_VALID_CHART_TYPES)}.")
 
     x = str(args.get("x") or "").strip()
     y = str(args.get("y") or "").strip()
@@ -866,6 +876,12 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
 
     x_type = _infer_field_type([r.get(x) for r in rows])
     y_type = _infer_field_type([r.get(y) for r in rows])
+
+    requested_chart_type = str(args.get("chart_type") or "").strip().lower()
+    auto_selected = not bool(requested_chart_type)
+    chart_type = requested_chart_type or _suggest_chart_type(x_type, y_type)
+    if chart_type not in _VALID_CHART_TYPES:
+        return _err(f"chart_type inválido: {chart_type}. Use um de {sorted(_VALID_CHART_TYPES)}.")
 
     encoding: dict[str, Any] = {
         "x": {"field": x, "type": x_type},
@@ -884,7 +900,12 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
         spec["title"] = title
 
     return _ok(
-        payload={"chart_type": chart_type, "row_count": len(rows), "title": title},
+        payload={
+            "chart_type": chart_type,
+            "row_count": len(rows),
+            "title": title,
+            "auto_selected": auto_selected,
+        },
         artifacts=[{"type": "vega_lite", "title": title or f"{chart_type} chart", "spec": spec}],
     )
 

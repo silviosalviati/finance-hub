@@ -3,10 +3,12 @@
 Topologia:
     START
       → guardrails_in
-      → persona_resolver
-      → planner            (LLM com structured output → PlanResponse)
-      → router             (executa cada step do plano em sequência)
-      → composer           (LLM redige resposta final na altitude da persona)
+      → persona_resolver        (altitude: coordenador/gerente/diretor)
+      → response_mode_resolver  (estrutura: padrao/analise_profunda)
+      → planner                 (LLM com structured output → PlanResponse)
+      → router                  (executa cada step do plano em sequência)
+      → composer                (LLM redige resposta final na altitude da
+                                  persona e na estrutura do response_mode)
       → guardrails_out
       → END
 
@@ -32,6 +34,12 @@ from src.agents.finance_auditor.personas import (
     VALID_PERSONAS,
     detect_persona,
     get_persona_prompt,
+)
+from src.agents.finance_auditor.response_mode import (
+    RESPONSE_MODE_ANALISE_PROFUNDA,
+    RESPONSE_MODE_PADRAO,
+    detect_response_mode,
+    get_response_mode_prompt,
 )
 from src.agents.finance_auditor.supervisor_prompts import (
     COMPOSER_PROMPT_TEMPLATE,
@@ -160,6 +168,16 @@ def node_persona_resolver(state: SupervisorState) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Nó 2b — response_mode_resolver
+# ---------------------------------------------------------------------------
+
+def node_response_mode_resolver(state: SupervisorState) -> dict[str, Any]:
+    """Decide a estrutura da resposta (independente da persona/altitude)."""
+    mode = detect_response_mode(state.get("request_text", ""))
+    return {"response_mode": mode}
+
+
+# ---------------------------------------------------------------------------
 # Nó 3 — planner
 # ---------------------------------------------------------------------------
 
@@ -219,12 +237,23 @@ def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     dataset_hint = str(state.get("dataset_hint") or "").strip()
     human_content = request_text
     if dataset_hint:
-        human_content = (
-            f"{request_text}\n\n"
+        human_content += (
+            "\n\n"
             f"[CONTEXTO: o dataset já está definido como '{dataset_hint}' "
             "(gerência/área escolhida pelo usuário ou sessão). Use-o diretamente "
             "em dataset_ref/table_refs do step final — NÃO planeje bq_list_datasets "
             "para descobrir o dataset.]"
+        )
+    if state.get("response_mode") == RESPONSE_MODE_ANALISE_PROFUNDA:
+        human_content += (
+            "\n\n"
+            "[CONTEXTO: o usuário pediu uma ANÁLISE PROFUNDA (causa raiz, "
+            "impacto, plano de ação) — não apenas o número. Além do "
+            "`text_to_sql` principal, planeje também `stats_describe` sobre "
+            "os dados centrais e, se a pergunta envolver evolução no tempo, "
+            "`forecast_simple`. Esses steps adicionais fundamentam as seções "
+            "de causa raiz e impacto da resposta final — não entregue só os "
+            "dados brutos.]"
         )
     try:
         structured_llm = llm.with_structured_output(PlanResponse)
@@ -485,7 +514,10 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
 
     persona = state.get("persona") or PERSONA_GERAL
     persona_block = get_persona_prompt(persona)
-    system_prompt = COMPOSER_PROMPT_TEMPLATE.format(persona_block=persona_block)
+    mode_block = get_response_mode_prompt(state.get("response_mode") or RESPONSE_MODE_PADRAO)
+    system_prompt = COMPOSER_PROMPT_TEMPLATE.format(
+        persona_block=persona_block, mode_block=mode_block
+    )
 
     tool_results = state.get("tool_results") or []
     warnings = state.get("warnings") or []
@@ -586,6 +618,7 @@ def build_supervisor_graph(
 
     workflow.add_node("guardrails_in", node_guardrails_in)
     workflow.add_node("persona_resolver", node_persona_resolver)
+    workflow.add_node("response_mode_resolver", node_response_mode_resolver)
     workflow.add_node("planner", lambda s: node_planner(s, llm=llm))
     workflow.add_node(
         "router",
@@ -599,7 +632,8 @@ def build_supervisor_graph(
 
     workflow.add_edge(START, "guardrails_in")
     workflow.add_edge("guardrails_in", "persona_resolver")
-    workflow.add_edge("persona_resolver", "planner")
+    workflow.add_edge("persona_resolver", "response_mode_resolver")
+    workflow.add_edge("response_mode_resolver", "planner")
     workflow.add_edge("planner", "router")
     workflow.add_edge("router", "reflect")
     workflow.add_conditional_edges(

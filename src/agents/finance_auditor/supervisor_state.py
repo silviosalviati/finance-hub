@@ -23,6 +23,9 @@ class SupervisorState(TypedDict, total=False):
     # --- Persona ---
     persona: str  # coordenador | gerente | diretor | geral
 
+    # --- Response Mode ---
+    response_mode: str  # padrao | analise_profunda
+
     # --- Planner ---
     plan: list[dict[str, Any]]      # lista de steps: {capability, args, rationale}
     plan_rationale: str

@@ -104,7 +104,8 @@ class FinanceAuditorAgent(BaseAgent):
             "agent_id": self.agent_id,
             "display_name": self.display_name,
             "supervisor_nodes": (
-                "guardrails_in,persona_resolver,planner,router,composer,audit,guardrails_out"
+                "guardrails_in,persona_resolver,response_mode_resolver,planner,"
+                "router,composer,audit,guardrails_out"
             ),
             "capabilities": (
                 "bq_list_datasets,bq_list_tables,bq_get_schema,bq_query,"

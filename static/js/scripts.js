@@ -4151,7 +4151,8 @@ function restartShowcaseAutoplay() {
 // ─────────────────────────────────────
 
 let faIsLoading = false;
-let faThinkingId = null;
+let faThinkingHandle = null;
+let faLearningHandle = null;
 let faInputListenerBound = false;
 let faMsgCounter = 0;
 const FA_TYPING_BASE_DELAY_MS = 16;
@@ -4562,15 +4563,18 @@ function useFASuggestion(btn) {
 
   const gerencia = btn.dataset.gerencia || "";
   if (gerencia) {
-    resolveFAGerencia(gerencia);
+    const label = btn.querySelector(".fa-topic-label")?.textContent?.trim() || "";
+    resolveFAGerencia(gerencia, label);
   }
 }
 
 // ── Gerência → dataset (aprende o catálogo via rótulo do BigQuery) ──────────
 const _faGerenciaResolved = new Set();
 
-async function resolveFAGerencia(gerencia) {
+async function resolveFAGerencia(gerencia, label = "") {
   if (_faGerenciaResolved.has(gerencia)) return;
+
+  appendFALearning(label);
   try {
     const res = await fetch("/api/agents/finance_auditor/gerencia", {
       method: "POST",
@@ -4590,9 +4594,12 @@ async function resolveFAGerencia(gerencia) {
         `\n\n## Próximas perguntas sugeridas\n\n` +
         suggestions.map((s) => `- ${s}`).join("\n");
     }
+    removeFALearning();
     await appendFAChatTextMessage(text, { escapeInput: false });
   } catch (e) {
     // Falha silenciosa — comportamento atual (apenas pré-preencher) é preservado.
+  } finally {
+    removeFALearning();
   }
 }
 
@@ -4683,14 +4690,14 @@ const FA_THINKING_PHASES = [
   "Validando os resultados",
   "Redigindo a resposta",
 ];
-let faThinkingInterval = null;
-
-function appendFAThinking() {
+// Casca compartilhada de uma "bolha de fase": cabeçalho padrão + texto que
+// roda entre `phases` a cada 2.2s. Usada tanto para o "pensando" do chat
+// quanto para o "aprendendo o produto de dados" da seleção de gerência.
+function _faAppendPhaseBubble(phases) {
   const area = document.getElementById("fa-messages");
-  if (!area) return;
+  if (!area) return null;
 
-  const id = `fa-think-${++faMsgCounter}`;
-  faThinkingId = id;
+  const id = `fa-phase-${++faMsgCounter}`;
   const el = document.createElement("div");
   el.id = id;
   el.className = "fa-msg fa-msg-bot";
@@ -4704,7 +4711,7 @@ function appendFAThinking() {
         </div>
         <div class="fa-thinking-body">
           <div class="fa-thinking-phase">
-            ${FA_THINKING_PHASES[0]}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>
+            ${phases[0]}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>
           </div>
           <div class="fa-thinking-track"></div>
         </div>
@@ -4713,24 +4720,51 @@ function appendFAThinking() {
   area.appendChild(el);
   _faScrollBottom();
 
-  let phaseIdx = 0;
-  if (faThinkingInterval) clearInterval(faThinkingInterval);
-  faThinkingInterval = setInterval(() => {
+  let idx = 0;
+  const interval = setInterval(() => {
     const phaseEl = document.querySelector(`#${id} .fa-thinking-phase`);
     if (!phaseEl) return;
-    phaseIdx = (phaseIdx + 1) % FA_THINKING_PHASES.length;
-    phaseEl.innerHTML = `${FA_THINKING_PHASES[phaseIdx]}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>`;
+    idx = (idx + 1) % phases.length;
+    phaseEl.innerHTML = `${phases[idx]}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>`;
   }, 2200);
+
+  return {
+    remove() {
+      clearInterval(interval);
+      document.getElementById(id)?.remove();
+    },
+  };
+}
+
+function appendFAThinking() {
+  removeFAThinking();
+  faThinkingHandle = _faAppendPhaseBubble(FA_THINKING_PHASES);
 }
 
 function removeFAThinking() {
-  if (faThinkingInterval) {
-    clearInterval(faThinkingInterval);
-    faThinkingInterval = null;
-  }
-  if (!faThinkingId) return;
-  document.getElementById(faThinkingId)?.remove();
-  faThinkingId = null;
+  if (!faThinkingHandle) return;
+  faThinkingHandle.remove();
+  faThinkingHandle = null;
+}
+
+// Indicador exibido enquanto a gerência escolhida está sendo resolvida e o
+// catálogo (tabelas/colunas/descrições) está sendo aprendido — evita a tela
+// "vazia" entre o clique no cartão e a confirmação/sugestões.
+function appendFALearning(label) {
+  removeFALearning();
+  const safeLabel = label ? _escFA(label) : "";
+  const phases = [
+    `Estou aprendendo o produto de dados${safeLabel ? ` de ${safeLabel}` : ""}, aguarde`,
+    "Lendo tabelas, colunas e descrições",
+    "Preparando sugestões de perguntas",
+  ];
+  faLearningHandle = _faAppendPhaseBubble(phases);
+}
+
+function removeFALearning() {
+  if (!faLearningHandle) return;
+  faLearningHandle.remove();
+  faLearningHandle = null;
 }
 
 function appendFAErrorMessage(msg) {

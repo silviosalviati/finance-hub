@@ -4679,15 +4679,15 @@ pre {
 }
 
 .fa-sec-ico {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   background: var(--porto-sky);
   color: var(--porto-primary);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -4727,6 +4727,31 @@ pre {
 
 .fa-report-section--followups {
   background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+}
+
+/* Modo "análise profunda" — fato → causa raiz → impacto → solução → prioridade */
+.fa-report-section--fact {
+  background: linear-gradient(180deg, #ffffff 0%, #f6fbff 100%);
+}
+
+.fa-report-section--rootcause {
+  background: linear-gradient(180deg, #ffffff 0%, #fffaf3 100%);
+  border-color: color-mix(in srgb, var(--amber) 18%, white);
+}
+
+.fa-report-section--impact {
+  background: linear-gradient(180deg, #ffffff 0%, #fff6f6 100%);
+  border-color: color-mix(in srgb, var(--rose) 14%, white);
+}
+
+.fa-report-section--solution {
+  background: linear-gradient(180deg, #ffffff 0%, #f6fcf9 100%);
+  border-color: color-mix(in srgb, var(--emerald) 14%, white);
+}
+
+.fa-report-section--priority {
+  background: linear-gradient(180deg, #ffffff 0%, #f8f6ff 100%);
+  border-color: color-mix(in srgb, var(--violet) 14%, white);
 }
 
 .fa-report-lead {

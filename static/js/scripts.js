@@ -4845,7 +4845,9 @@ async function appendFABotMessage(data) {
   const persona = String(data.persona || "").trim();
   const isFailed = _faIsFailedResult(data);
   const statusPill = _faStatusPillHtml(data);
-  const personaTag = persona ? `<span class="fa-persona-tag">${_escFA(persona)}</span>` : "";
+  const personaTag = persona
+    ? `<span class="fa-persona-tag">${_faPersonaIcon(persona)} ${_escFA(persona)}</span>`
+    : "";
   const metaCaption = _faMetaCaptionHtml(data);
   const reportSlotId = `${id}-report`;
 
@@ -4911,6 +4913,17 @@ function _faIsFailedResult(data) {
 }
 
 // Pilula de status no cabecalho da bolha - substitui o antigo chip isolado.
+const _FA_PERSONA_ICONS = {
+  coordenador: "🛠️",
+  gerente: "📈",
+  diretor: "🎯",
+  geral: "👤",
+};
+
+function _faPersonaIcon(persona) {
+  return _FA_PERSONA_ICONS[String(persona || "").toLowerCase()] || "👤";
+}
+
 function _faStatusPillHtml(data) {
   const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
   if (!toolResults.length) return "";

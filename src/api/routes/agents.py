@@ -755,7 +755,7 @@ async def select_finance_gerencia(
         "gerencia": gerencia,
         "dataset_ref": dataset_ref,
         "table_count": len(tables),
-        "message": f"Conectado à base de dados desta área ({len(tables)} tabela(s) disponíveis).",
+        "message": "Conectado à base de dados desta área.",
         "suggestions": suggestions,
     }
 

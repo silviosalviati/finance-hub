@@ -425,6 +425,15 @@ Devolva APENAS uma query SELECT/WITH executável. A query deve:
 - Aplicar LIMIT compatível com o pedido (default 200) salvo se o usuário \
 pedir explicitamente uma agregação.
 - Evitar SELECT *: liste colunas explicitamente quando possível.
+- Ao filtrar por período relativo ("últimos N dias/meses/anos"), confira o \
+tipo da coluna de data/hora no schema antes de escrever o filtro: \
+`TIMESTAMP_SUB`/`TIMESTAMP_ADD` NÃO aceitam MONTH/QUARTER/YEAR (só DAY, \
+HOUR, MINUTE, SECOND, MILLISECOND, MICROSECOND), e o BigQuery não compara \
+`DATE` com `TIMESTAMP`/`DATETIME` sem conversão explícita. Para evitar os \
+dois erros de uma vez, normalize a coluna com `DATE(coluna)` (funciona para \
+TIMESTAMP, DATETIME ou DATE) e compare com `DATE_SUB(CURRENT_DATE(), \
+INTERVAL N MONTH)` — essa forma aceita qualquer unidade e nunca dá erro de \
+tipo incompatível.
 - Não usar DDL/DML (INSERT/UPDATE/DELETE/CREATE/etc).
 - Não incluir comentários longos, mensagens de erro nem placeholders.
 - Se não for possível responder com os dados disponíveis, devolva uma query \

@@ -4209,7 +4209,7 @@ function _faPrepareAnswerMarkdown(text, data = {}) {
 
   if (!prepared) return prepared;
 
-  if (!/##\s+resumo executivo/i.test(prepared)) {
+  if (!data.skipExecutiveSummary && !/##\s+resumo executivo/i.test(prepared)) {
     prepared = `## Resumo executivo\n\n${prepared}`;
   }
 
@@ -4349,17 +4349,14 @@ async function _faTypeMarkdownInto(container, sourceText, options = {}) {
     tokens[tokens.length - 1] += prepared.slice(consumedLength);
   }
 
-  const wordsPerTick = total > 2400 ? 3 : total > 1400 ? 2 : 1;
-  const baseDelay =
-    total > 2400
-      ? 55
-      : total > 1400
-        ? 70
-        : total > 800
-          ? 90
-          : total > 280
-            ? 115
-            : 150;
+  const wordCount = tokens.length;
+  // Duração total cresce de forma sub-linear com o tamanho da resposta:
+  // respostas curtas "digitam" rápido, longas não demoram uma eternidade.
+  const targetDurationMs = Math.min(6500, Math.max(900, 160 * Math.pow(wordCount, 0.55)));
+  const desiredTickMs = 70;
+  const wordsPerTick = Math.max(1, Math.round(wordCount / (targetDurationMs / desiredTickMs)));
+  const ticks = Math.ceil(wordCount / wordsPerTick);
+  const baseDelay = targetDurationMs / ticks;
 
   const startedAt = Date.now();
   let revealed = "";
@@ -4368,7 +4365,7 @@ async function _faTypeMarkdownInto(container, sourceText, options = {}) {
     revealed += chunk;
 
     // Jitter sutil para fugir do ritmo robótico/uniforme.
-    const jitter = Math.floor(Math.random() * 25) - 10;
+    const jitter = baseDelay * (Math.random() * 0.4 - 0.2);
     let delay = Math.max(FA_TYPING_BASE_DELAY_MS, baseDelay + jitter);
 
     // Pequena pausa após pontuação de frase, como alguém respirando ao
@@ -4617,7 +4614,10 @@ async function resolveFAGerencia(gerencia, label = "") {
         suggestions.map((s) => `- ${s}`).join("\n");
     }
     removeFALearning();
-    await appendFAChatTextMessage(text, { escapeInput: false });
+    await appendFAChatTextMessage(text, {
+      escapeInput: false,
+      data: { skipExecutiveSummary: true },
+    });
   } catch (e) {
     // Falha silenciosa — comportamento atual (apenas pré-preencher) é preservado.
   } finally {
@@ -4956,17 +4956,15 @@ function _faRetryCardHtml(originalQuery) {
   );
 }
 
-// Legenda discreta de custo/volume sob o horario - so aparece quando ha
+// Legenda discreta de volume/tokens sob o horario - so aparece quando ha
 // consumo de BigQuery a relatar.
 function _faMetaCaptionHtml(data) {
   const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
 
   let bytesTotal = 0;
-  let costTotal = 0;
   for (const r of toolResults) {
     const p = (r && r.payload) || {};
     if (typeof p.bytes_processed === "number") bytesTotal += p.bytes_processed;
-    if (typeof p.estimated_cost_usd === "number") costTotal += p.estimated_cost_usd;
   }
   const totalTokens = Number(data.token_usage?.total_tokens) || 0;
 
@@ -4983,7 +4981,6 @@ function _faMetaCaptionHtml(data) {
     }
     const bytesStr = `${n.toFixed(i ? 1 : 0)} ${units[i]}`;
     parts.push(`${bytesStr} processados`);
-    parts.push(`custo estimado $${costTotal.toFixed(4)}`);
   }
   if (totalTokens) {
     parts.push(`tokens usados ${totalTokens.toLocaleString("pt-BR")}`);

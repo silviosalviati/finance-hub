@@ -4339,42 +4339,45 @@ async function _faTypeMarkdownInto(container, sourceText, options = {}) {
     return;
   }
 
-  const startedAt = Date.now();
-  let cursor = 0;
-  while (cursor < total) {
-    const step =
-      total > 2400
-        ? 28
-        : total > 1400
-          ? 20
-          : total > 800
-            ? 13
-            : total > 280
-              ? 8
-              : 3;
-    const baseDelay =
-      total > 1400
-        ? Math.max(FA_TYPING_BASE_DELAY_MS, 15)
+  // Tokens = palavra + espaço(s)/quebra(s) que a antecedem, preservando o
+  // texto original ao serem concatenados. Revelar palavra por palavra (em
+  // vez de blocos de caracteres de tamanho fixo) evita o corte no meio da
+  // palavra que dava o ar de barra de progresso/robótico.
+  const tokens = prepared.match(/\s*\S+/g) || [prepared];
+  const consumedLength = tokens.reduce((n, t) => n + t.length, 0);
+  if (consumedLength < total) {
+    tokens[tokens.length - 1] += prepared.slice(consumedLength);
+  }
+
+  const wordsPerTick = total > 2400 ? 3 : total > 1400 ? 2 : 1;
+  const baseDelay =
+    total > 2400
+      ? 55
+      : total > 1400
+        ? 70
         : total > 800
-          ? Math.max(FA_TYPING_BASE_DELAY_MS, 19)
+          ? 90
           : total > 280
-            ? Math.max(FA_TYPING_BASE_DELAY_MS, 24)
-            : Math.max(FA_TYPING_BASE_DELAY_MS, 32);
+            ? 115
+            : 150;
+
+  const startedAt = Date.now();
+  let revealed = "";
+  for (let i = 0; i < tokens.length; i += wordsPerTick) {
+    const chunk = tokens.slice(i, i + wordsPerTick).join("");
+    revealed += chunk;
 
     // Jitter sutil para fugir do ritmo robótico/uniforme.
-    const jitter = Math.floor(Math.random() * 11) - 4;
-    let delay = Math.max(6, baseDelay + jitter);
+    const jitter = Math.floor(Math.random() * 25) - 10;
+    let delay = Math.max(FA_TYPING_BASE_DELAY_MS, baseDelay + jitter);
 
     // Pequena pausa após pontuação de frase, como alguém respirando ao
     // digitar — reforça a sensação de pessoa real, não de barra de progresso.
-    const prevChar = prepared[cursor - 1];
-    if (prevChar && /[.!?:]/.test(prevChar) && prepared[cursor] === " ") {
-      delay += 110;
+    if (/[.!?:]["'’”)\]]?$/.test(chunk.trimEnd())) {
+      delay += 130;
     }
 
-    cursor = Math.min(total, cursor + step);
-    const partial = prepared.slice(0, cursor);
-    container.innerHTML = `<div class="fa-report fa-report--typing">${_faMdToHtml(partial)}</div>`;
+    container.innerHTML = `<div class="fa-report fa-report--typing">${_faMdToHtml(revealed)}</div>`;
     _faScrollBottom();
     await _faWait(delay);
   }

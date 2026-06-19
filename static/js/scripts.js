@@ -4320,7 +4320,7 @@ function _faHighlightNumbersInNode(textNode) {
       const cls = negative ? "fa-delta--down" : "fa-delta--up";
       return `<span class="fa-delta ${cls}">${_faIcon(negative ? "trend-down" : "trend-up", 11)}${trimmed}</span>`;
     })
-    .replace(/(R\$\s?\d[\d.,]*\s?(?:mil|milh[oõ]es?|bilh[oõ]es?)?)/g, (m) => `<span class="fa-money">${m.trim()}</span>`);
+    .replace(/(R\$\s?\d[\d.,]*\s?(?:milh(?:ão|ões)|bilh(?:ão|ões)|mil)?)/g, (m) => `<span class="fa-money">${m.trim()}</span>`);
   if (replaced === escaped) return;
   const span = document.createElement("span");
   span.innerHTML = replaced;
@@ -4356,7 +4356,7 @@ function _faDiretorStatCards(report) {
   );
   if (items.length < 2) return;
 
-  const headlineRe = /^(R\$\s?[\d.,]+\s?(?:mil|milh[oõ]es?|bilh[oõ]es?)?|[+-]?\d{1,3}(?:[.,]\d+)?\s?%)/;
+  const headlineRe = /^(R\$\s?[\d.,]+\s?(?:milh(?:ão|ões)|bilh(?:ão|ões)|mil)?|[+-]?\d{1,3}(?:[.,]\d+)?\s?%)/;
   const hits = items
     .map((li) => ({ li, match: (li.textContent || "").match(headlineRe) }))
     .filter((m) => m.match);

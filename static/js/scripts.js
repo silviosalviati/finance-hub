@@ -4229,22 +4229,73 @@ function _faPrepareAnswerMarkdown(text, data = {}) {
   return prepared;
 }
 
-// Um único mapa cobre a classe visual (cor/fundo da seção) e o emoji do
+// Set de ícones SVG inline (stroke=currentColor) — substitui os emojis nos
+// cabeçalhos de seção, badges de persona e cartões de artefato por algo
+// consistente com o resto da identidade visual (cor controlada via CSS).
+const _FA_ICON_PATHS = {
+  clipboard:
+    '<rect x="4" y="3" width="10" height="13" rx="1.5"/><rect x="6.5" y="1.3" width="5" height="2.6" rx="1"/>' +
+    '<line x1="6.5" y1="9" x2="11.5" y2="9"/><line x1="6.5" y1="12" x2="11.5" y2="12"/>',
+  search: '<circle cx="7.5" cy="7.5" r="4.7"/><line x1="11" y1="11" x2="15.5" y2="15.5"/>',
+  grid:
+    '<rect x="2" y="3" width="14" height="12" rx="1.5"/><line x1="2" y1="7.5" x2="16" y2="7.5"/>' +
+    '<line x1="2" y1="11.5" x2="16" y2="11.5"/><line x1="9" y1="3" x2="9" y2="15"/>',
+  "check-circle": '<circle cx="9" cy="9" r="7.2"/><polyline points="5.5 9 8 11.5 12.5 6.2"/>',
+  "alert-triangle":
+    '<path d="M9 2 L16.5 15.5 L1.5 15.5 Z"/><line x1="9" y1="7" x2="9" y2="10.6"/>' +
+    '<circle cx="9" cy="13" r="0.9" fill="currentColor" stroke="none"/>',
+  message:
+    '<path d="M3 4.5h12a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H8l-3.5 3v-3H3A1.5 1.5 0 0 1 1.5 12V6A1.5 1.5 0 0 1 3 4.5Z"/>',
+  flag: '<line x1="4" y1="2" x2="4" y2="16"/><path d="M4 3 h9 l-2.2 3 L13 9 H4 Z"/>',
+  target: '<circle cx="9" cy="9" r="7"/><circle cx="9" cy="9" r="4"/><circle cx="9" cy="9" r="1" fill="currentColor" stroke="none"/>',
+  zap: '<path d="M9.5 1.5 L4 10 H8.5 L7.5 16.5 L14 7.5 H9.5 Z"/>',
+  sliders:
+    '<line x1="4" y1="3" x2="4" y2="15"/><circle cx="4" cy="7" r="1.6"/>' +
+    '<line x1="9" y1="3" x2="9" y2="15"/><circle cx="9" cy="11" r="1.6"/>' +
+    '<line x1="14" y1="3" x2="14" y2="15"/><circle cx="14" cy="6" r="1.6"/>',
+  priority: '<line x1="3" y1="5" x2="15" y2="5"/><line x1="3" y1="9" x2="11" y2="9"/><line x1="3" y1="13" x2="7" y2="13"/>',
+  sparkle:
+    '<line x1="9" y1="2" x2="9" y2="16"/><line x1="2" y1="9" x2="16" y2="9"/>' +
+    '<line x1="4.2" y1="4.2" x2="13.8" y2="13.8"/><line x1="13.8" y1="4.2" x2="4.2" y2="13.8"/>',
+  "trend-up": '<line x1="3" y1="14" x2="15" y2="3"/><polyline points="8 3 15 3 15 10"/>',
+  "trend-down": '<line x1="3" y1="3" x2="15" y2="14"/><polyline points="15 7 15 14 8 14"/>',
+  star: '<path d="M9 1.5 L11 7 L16.5 9 L11 11 L9 16.5 L7 11 L1.5 9 L7 7 Z" fill="currentColor" stroke="none"/>',
+  user: '<circle cx="9" cy="6" r="3"/><path d="M3 16c0-3.5 2.7-6 6-6s6 2.5 6 6"/>',
+  code: '<polyline points="6 4 2 9 6 14"/><polyline points="12 4 16 9 12 14"/>',
+  database:
+    '<ellipse cx="9" cy="4" rx="6" ry="2.2"/><path d="M3 4v10c0 1.2 2.7 2.2 6 2.2s6-1 6-2.2V4"/>' +
+    '<path d="M3 9c0 1.2 2.7 2.2 6 2.2s6-1 6-2.2"/>',
+  activity: '<polyline points="2 9 5 9 7 4 10 14 12 9 16 9"/>',
+  "bar-chart":
+    '<line x1="4" y1="15" x2="4" y2="9"/><line x1="9" y1="15" x2="9" y2="5"/>' +
+    '<line x1="14" y1="15" x2="14" y2="11"/><line x1="2" y1="15" x2="16" y2="15"/>',
+  clock: '<circle cx="9" cy="9" r="7"/><line x1="9" y1="9" x2="9" y2="5"/><line x1="9" y1="9" x2="12" y2="11"/>',
+};
+
+function _faIcon(name, size = 14) {
+  const inner = _FA_ICON_PATHS[name] || _FA_ICON_PATHS.sparkle;
+  return (
+    `<svg width="${size}" height="${size}" viewBox="0 0 18 18" fill="none" stroke="currentColor" ` +
+    `stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`
+  );
+}
+
+// Um único mapa cobre a classe visual (cor/fundo da seção) e o ícone do
 // cabeçalho, para o ícone sempre bater com o tipo de conteúdo respondido —
 // inclui tanto o formato padrão (Resumo/Achados/...) quanto as 5 seções do
 // modo "análise profunda" (O que aconteceu?/Por que.../...).
 const _FA_SECTION_KINDS = [
-  { re: /resumo/i, kind: "summary", icon: "📋" },
-  { re: /achado|insight/i, kind: "insights", icon: "🔍" },
-  { re: /tabela|detalhamento/i, kind: "details", icon: "📊" },
-  { re: /a[cç][aã]o|recomend/i, kind: "actions", icon: "✅" },
-  { re: /risc/i, kind: "risks", icon: "⚠️" },
-  { re: /pr[oó]ximas perguntas/i, kind: "followups", icon: "💬" },
-  { re: /o que aconteceu/i, kind: "fact", icon: "📌" },
-  { re: /por que aconteceu|causa raiz/i, kind: "rootcause", icon: "🔎" },
-  { re: /qual o impacto/i, kind: "impact", icon: "💥" },
-  { re: /o que fazer/i, kind: "solution", icon: "🛠️" },
-  { re: /o que priorizar/i, kind: "priority", icon: "🎯" },
+  { re: /resumo/i, kind: "summary", icon: "clipboard" },
+  { re: /achado|insight/i, kind: "insights", icon: "search" },
+  { re: /tabela|detalhamento/i, kind: "details", icon: "grid" },
+  { re: /a[cç][aã]o|recomend/i, kind: "actions", icon: "check-circle" },
+  { re: /risc/i, kind: "risks", icon: "alert-triangle" },
+  { re: /pr[oó]ximas perguntas/i, kind: "followups", icon: "message" },
+  { re: /o que aconteceu/i, kind: "fact", icon: "flag" },
+  { re: /por que aconteceu|causa raiz/i, kind: "rootcause", icon: "target" },
+  { re: /qual o impacto/i, kind: "impact", icon: "zap" },
+  { re: /o que fazer/i, kind: "solution", icon: "sliders" },
+  { re: /o que priorizar/i, kind: "priority", icon: "priority" },
 ];
 
 function _faClassifySection(title) {
@@ -4252,13 +4303,111 @@ function _faClassifySection(title) {
   for (const entry of _FA_SECTION_KINDS) {
     if (entry.re.test(text)) return entry;
   }
-  return { kind: "default", icon: "🧩" };
+  return { kind: "default", icon: "sparkle" };
 }
 
-function _faEnhanceReportDom(container) {
+// Realça percentuais (+12%/-8,5%) e valores em R$ dentro de texto corrido —
+// chips coloridos por sinal (verde/vermelho) e cor de marca para dinheiro,
+// reforçando visualmente os números que mais importam na resposta.
+function _faHighlightNumbersInNode(textNode) {
+  const original = textNode.nodeValue;
+  if (!original || !/[%]|R\$/.test(original)) return;
+  const escaped = _escFA(original);
+  const replaced = escaped
+    .replace(/([+-]?\d{1,3}(?:[.,]\d+)?\s?%)/g, (m) => {
+      const trimmed = m.trim();
+      const negative = trimmed.startsWith("-");
+      const cls = negative ? "fa-delta--down" : "fa-delta--up";
+      return `<span class="fa-delta ${cls}">${_faIcon(negative ? "trend-down" : "trend-up", 11)}${trimmed}</span>`;
+    })
+    .replace(/(R\$\s?\d[\d.,]*\s?(?:mil|milh[oõ]es?|bilh[oõ]es?)?)/g, (m) => `<span class="fa-money">${m.trim()}</span>`);
+  if (replaced === escaped) return;
+  const span = document.createElement("span");
+  span.innerHTML = replaced;
+  textNode.replaceWith(...Array.from(span.childNodes));
+}
+
+function _faHighlightNumbers(report) {
+  const selector = [
+    ".fa-report-section--summary p",
+    ".fa-report-section--insights li",
+    ".fa-report-section--fact p",
+    ".fa-report-section--impact p",
+    ".fa-report-section--rootcause li",
+    ".fa-report-section--solution li",
+  ].join(", ");
+  report.querySelectorAll(selector).forEach((el) => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    let node;
+    while ((node = walker.nextNode())) textNodes.push(node);
+    textNodes.forEach(_faHighlightNumbersInNode);
+  });
+}
+
+// Persona "diretor": achados que começam com um número (R$/percentual) viram
+// cartões de estatística (número grande + descrição) em vez de bullet simples
+// — visão executiva pede a conclusão em destaque, não o texto corrido.
+function _faDiretorStatCards(report) {
+  const items = Array.from(
+    report.querySelectorAll(
+      ".fa-report-section--insights .fa-report-bullets li, .fa-report-section--fact .fa-report-bullets li",
+    ),
+  );
+  if (items.length < 2) return;
+
+  const headlineRe = /^(R\$\s?[\d.,]+\s?(?:mil|milh[oõ]es?|bilh[oõ]es?)?|[+-]?\d{1,3}(?:[.,]\d+)?\s?%)/;
+  const hits = items
+    .map((li) => ({ li, match: (li.textContent || "").match(headlineRe) }))
+    .filter((m) => m.match);
+  if (hits.length < 2) return;
+
+  hits.forEach(({ li, match }) => {
+    const text = li.textContent || "";
+    const headline = match[1].trim();
+    const rest = text.slice(match[0].length).replace(/^[\s,:;\-–—]+/, "").trim();
+    const isPct = /%$/.test(headline);
+    const negative = isPct && headline.startsWith("-");
+    const trendIcon = isPct ? _faIcon(negative ? "trend-down" : "trend-up", 16) : "";
+    li.classList.add("fa-stat-card");
+    li.innerHTML =
+      `<span class="fa-stat-headline${negative ? " fa-stat-headline--down" : ""}">${trendIcon}${_escFA(headline)}</span>` +
+      `<span class="fa-stat-desc">${_escFA(rest)}</span>`;
+  });
+  hits[0].li.closest(".fa-report-bullets")?.classList.add("fa-report-bullets--stats");
+}
+
+// Persona "coordenador": ações/prioridades viram cards de checklist com ícone
+// de check e, quando o texto menciona um prazo, um chip de urgência — visão
+// operacional pede "o que fazer e até quando", não um parágrafo corrido.
+const _FA_URGENCY_RE = /\b(imediat\w*|hoje|24h|24-48h|24\/48h|48h|72h|24-72h|esta semana|nas pr[oó]ximas \d+h)\b/i;
+
+function _faCoordenadorActionCards(report) {
+  const items = report.querySelectorAll(
+    ".fa-report-section--actions .fa-report-bullets li, " +
+      ".fa-report-section--priority .fa-report-bullets li, " +
+      ".fa-report-section--solution .fa-report-bullets li",
+  );
+  items.forEach((li) => {
+    if (li.classList.contains("fa-action-card")) return;
+    const text = li.textContent || "";
+    const urgencyMatch = text.match(_FA_URGENCY_RE);
+    const original = li.innerHTML;
+    li.classList.add("fa-action-card");
+    const urgencyHtml = urgencyMatch
+      ? `<span class="fa-urgency-chip">${_faIcon("clock", 11)}${_escFA(urgencyMatch[0])}</span>`
+      : "";
+    li.innerHTML =
+      `<span class="fa-action-check">${_faIcon("check-circle", 13)}</span>` +
+      `<span class="fa-action-body">${original}</span>${urgencyHtml}`;
+  });
+}
+
+function _faEnhanceReportDom(container, persona = "geral") {
   if (!container) return;
   const report = container.querySelector(".fa-report");
   if (!report) return;
+  report.dataset.faPersona = String(persona || "geral").toLowerCase();
 
   const headingsForWrap = Array.from(report.querySelectorAll(":scope > h2"));
   headingsForWrap.forEach((heading) => {
@@ -4296,7 +4445,7 @@ function _faEnhanceReportDom(container) {
     const { icon } = _faClassifySection(heading.textContent || "");
     const badge = document.createElement("span");
     badge.className = "fa-sec-ico";
-    badge.textContent = icon;
+    badge.innerHTML = _faIcon(icon, 13);
     heading.prepend(badge);
   });
 
@@ -4304,9 +4453,14 @@ function _faEnhanceReportDom(container) {
     p.classList.add("fa-report-lead");
   });
 
-  report.querySelectorAll(".fa-report-section--insights ul, .fa-report-section--actions ul").forEach((list) => {
-    list.classList.add("fa-report-bullets");
-  });
+  report
+    .querySelectorAll(
+      ".fa-report-section--insights ul, .fa-report-section--actions ul, " +
+        ".fa-report-section--fact ul, .fa-report-section--solution ul, .fa-report-section--priority ul",
+    )
+    .forEach((list) => {
+      list.classList.add("fa-report-bullets");
+    });
 
   const headings = Array.from(report.querySelectorAll("h2"));
   const nextQuestionsHeading = headings.find((h) =>
@@ -4323,12 +4477,17 @@ function _faEnhanceReportDom(container) {
       });
     }
   }
+
+  _faHighlightNumbers(report);
+  if (report.dataset.faPersona === "diretor") _faDiretorStatCards(report);
+  if (report.dataset.faPersona === "coordenador") _faCoordenadorActionCards(report);
 }
 
 async function _faTypeMarkdownInto(container, sourceText, options = {}) {
   if (!container) return;
 
   const { escapeInput = false } = options;
+  const persona = String((options.data || {}).persona || "geral").trim().toLowerCase();
   const source = String(sourceText || "");
   const normalized = escapeInput ? _escFA(source) : _faPrepareAnswerMarkdown(source, options.data || {});
   const prepared = normalized;
@@ -4385,7 +4544,7 @@ async function _faTypeMarkdownInto(container, sourceText, options = {}) {
   }
 
   container.innerHTML = `<div class="fa-report">${_faMdToHtml(prepared)}</div>`;
-  _faEnhanceReportDom(container);
+  _faEnhanceReportDom(container, persona);
   _faScrollBottom();
 }
 
@@ -4849,7 +5008,7 @@ async function appendFABotMessage(data) {
   const isFailed = _faIsFailedResult(data);
   const statusPill = _faStatusPillHtml(data);
   const personaTag = persona
-    ? `<span class="fa-persona-tag">${_faPersonaIcon(persona)} ${_escFA(persona)}</span>`
+    ? `<span class="fa-persona-tag fa-persona-tag--${_escFA(persona.toLowerCase())}">${_faPersonaIcon(persona)} ${_escFA(persona)}</span>`
     : "";
   const metaCaption = _faMetaCaptionHtml(data);
   const reportSlotId = `${id}-report`;
@@ -4917,14 +5076,14 @@ function _faIsFailedResult(data) {
 
 // Pilula de status no cabecalho da bolha - substitui o antigo chip isolado.
 const _FA_PERSONA_ICONS = {
-  coordenador: "🛠️",
-  gerente: "📈",
-  diretor: "🎯",
-  geral: "👤",
+  coordenador: "sliders",
+  gerente: "trend-up",
+  diretor: "star",
+  geral: "user",
 };
 
 function _faPersonaIcon(persona) {
-  return _FA_PERSONA_ICONS[String(persona || "").toLowerCase()] || "👤";
+  return _faIcon(_FA_PERSONA_ICONS[String(persona || "").toLowerCase()] || "user", 12);
 }
 
 function _faStatusPillHtml(data) {
@@ -5094,7 +5253,7 @@ function _faRenderArtifact(a, index = 0) {
           ? `<div class="fa-art-more-note">+${rows.length - 25} linha(s) ocultas</div>`
           : "";
       return _faArtCard(index, {
-        icon: "📋",
+        icon: _faIcon("grid", 13),
         title: a.title || "Tabela",
         meta: `${rows.length} linha${rows.length === 1 ? "" : "s"}`,
         bodyHtml:
@@ -5108,7 +5267,7 @@ function _faRenderArtifact(a, index = 0) {
       // Botão "copiar" sem injeção: lê do <code> irmão via DOM, não do JS inline.
       const sqlId = `fa-sql-${faMsgCounter}-${Math.random().toString(36).slice(2, 7)}`;
       return _faArtCard(index, {
-        icon: "💻",
+        icon: _faIcon("code", 13),
         title: "SQL executado",
         extraHead: `<button class="fa-art-copy" type="button" data-fa-copy="${sqlId}">copiar</button>`,
         bodyHtml: `<pre id="${sqlId}" class="fa-sql"><code>${_faHighlightSql(sql)}</code></pre>`,
@@ -5118,7 +5277,7 @@ function _faRenderArtifact(a, index = 0) {
       const text = String(a.text || "");
       if (!text) return "";
       return _faArtCard(index, {
-        icon: "🗂️",
+        icon: _faIcon("database", 13),
         title: `Schema: ${a.table_ref || ""}`,
         bodyHtml: `<pre class="fa-art-schema"><code>${_escFA(text)}</code></pre>`,
       });
@@ -5140,7 +5299,7 @@ function _faRenderArtifact(a, index = 0) {
         })
         .join("");
       return _faArtCard(index, {
-        icon: "📐",
+        icon: _faIcon("activity", 13),
         title: "Estatística descritiva",
         bodyHtml: `<div class="fa-art-table-scroll"><table class="fa-artifact-table"><thead><tr><th>coluna</th><th>tipo</th><th>count</th><th>mean</th><th>median</th><th>stdev</th><th>min</th><th>max</th></tr></thead><tbody>${rows}</tbody></table></div>`,
       });
@@ -5150,7 +5309,7 @@ function _faRenderArtifact(a, index = 0) {
       const vid = `fa-vega-${faMsgCounter}-${Math.random().toString(36).slice(2, 8)}`;
       const specJson = JSON.stringify(spec).replace(/</g, "\\u003c");
       return _faArtCard(index, {
-        icon: "📈",
+        icon: _faIcon("bar-chart", 13),
         title: a.title ? `Gráfico: ${a.title}` : "Gráfico",
         padded: true,
         bodyHtml: `<div id="${vid}" style="min-height:240px"></div><script>(function(){try{var s=${specJson};if(window.vegaEmbed){window.vegaEmbed('#${vid}',s,{actions:false});}else{document.getElementById('${vid}').innerHTML='<pre style=\\"font-size:11px;overflow:auto;max-height:200px\\">'+JSON.stringify(s,null,2)+'</pre>';}}catch(e){document.getElementById('${vid}').textContent='Erro renderizando gráfico: '+e.message;}})();<\/script>`,

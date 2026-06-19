@@ -439,6 +439,11 @@ tipo incompatível.
 - Se não for possível responder com os dados disponíveis, devolva uma query \
 mínima válida que ainda consulte a tabela mais provável (NUNCA devolva uma \
 mensagem de erro em forma de string).
+- Se a entrada incluir uma seção "TENTATIVA ANTERIOR FALHOU" com SQL e erro \
+do BigQuery, sua prioridade é corrigir EXATAMENTE essa causa — leia a \
+mensagem de erro com atenção e ajuste só o que ela aponta, em vez de gerar \
+uma query genérica do zero (que tende a repetir o mesmo erro ou trocar por \
+outro da mesma natureza).
 """
 
 
@@ -550,6 +555,13 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
     natural_language = str(args.get("natural_language") or context.get("request_text") or "").strip()
     if not natural_language:
         return _err("natural_language ausente.")
+
+    # Preenchidos automaticamente pelo router (`_attach_retry_feedback`) quando
+    # este step é um retry pós-Reflect de um text_to_sql que falhou — sem
+    # isso, a "autocorreção" seria as cegas: o LLM regeneraria do zero sem
+    # saber qual SQL já foi tentada nem por que o BigQuery a rejeitou.
+    previous_sql = str(args.get("previous_sql") or "").strip()
+    previous_error = str(args.get("previous_error") or "").strip()
 
     table_refs = [str(t).strip() for t in (args.get("table_refs") or []) if str(t).strip()]
     dataset_ref = str(args.get("dataset_ref") or "").strip()
@@ -689,6 +701,12 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
         f"PERGUNTA:\n{natural_language}\n\n"
         f"SCHEMAS DISPONÍVEIS:\n{schemas_text}"
     )
+    if previous_sql and previous_error:
+        user_msg += (
+            "\n\nTENTATIVA ANTERIOR FALHOU — corrija especificamente este "
+            f"problema, não repita o mesmo padrão:\nSQL anterior:\n{previous_sql}\n\n"
+            f"Erro retornado pelo BigQuery:\n{previous_error}"
+        )
     sql = ""
     try:
         structured_llm = llm.with_structured_output(_SqlOutput)

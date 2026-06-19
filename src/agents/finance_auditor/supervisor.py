@@ -457,19 +457,53 @@ def _reflect_router(state: SupervisorState) -> str:
     return "router"
 
 
+def _attach_retry_feedback(
+    steps: list[dict[str, Any]], tool_results: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Propaga SQL + erro da última tentativa de text_to_sql que falhou para o
+    retry sugerido pelo Reflect.
+
+    Sem isso, `cap_text_to_sql` regeneraria a query do zero, sem saber o que
+    já foi tentado nem por que o BigQuery rejeitou — a "autocorreção" do Reflect
+    ficaria só no texto do plano, não na prática.
+    """
+    last_failed_sql_attempt: dict[str, Any] | None = None
+    for r in tool_results:
+        if r.get("capability") == "text_to_sql" and not r.get("ok"):
+            last_failed_sql_attempt = r
+
+    if not last_failed_sql_attempt:
+        return steps
+
+    payload = last_failed_sql_attempt.get("payload") or {}
+    attempted_sql = str(payload.get("attempted_sql") or "").strip()
+    error = str(last_failed_sql_attempt.get("error") or "").strip()
+    if not attempted_sql or not error:
+        return steps
+
+    for step in steps:
+        if step.get("capability") != "text_to_sql":
+            continue
+        step_args = dict(step.get("args") or {})
+        step_args.setdefault("previous_sql", attempted_sql)
+        step_args.setdefault("previous_error", error)
+        step["args"] = step_args
+    return steps
+
+
 def node_apply_reflect_plan(state: SupervisorState) -> dict[str, Any]:
     """Anexa ao plano os steps sugeridos pelo reflect (limite global)."""
     reflect = state.get("reflect") or {}
     suggested = reflect.get("suggested_steps") or []
     if not suggested:
         return {}
-    plan = list(state.get("plan") or [])
-    plan.extend(
-        _normalize_plan_steps(
-            [dict(step) for step in suggested],
-            request_text=state.get("request_text", ""),
-        )
+    normalized = _normalize_plan_steps(
+        [dict(step) for step in suggested],
+        request_text=state.get("request_text", ""),
     )
+    normalized = _attach_retry_feedback(normalized, state.get("tool_results") or [])
+    plan = list(state.get("plan") or [])
+    plan.extend(normalized)
     plan = plan[:_MAX_PLAN_STEPS * _MAX_ITERATIONS]
     return {"plan": plan}
 

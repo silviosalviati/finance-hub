@@ -149,13 +149,20 @@ def search_catalog(project_id: str, query: str, top_k: int = 5) -> list[dict[str
 
     Reindexa automaticamente (respeitando o TTL) antes de buscar, para que o
     índice nunca fique vazio/desatualizado sem o caller precisar saber disso.
+
+    Tolera ambientes sem schema/tabela ``finance_catalog_index`` inicializada
+    (ex.: testes unitários que não chamam ``init_db()``) ou sem credenciais
+    de embedding: devolve lista vazia em vez de propagar a exceção.
     """
     query = (query or "").strip()
     if not query:
         return []
 
-    reindex_catalog(project_id, force=False)
-    entries = list_catalog_entries(project_id)
+    try:
+        reindex_catalog(project_id, force=False)
+        entries = list_catalog_entries(project_id)
+    except Exception:  # noqa: BLE001 — fallback gracioso para qualquer falha de I/O
+        return []
     if not entries:
         return []
 

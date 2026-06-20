@@ -367,7 +367,7 @@
 <body>
 
 <h1>Finance Voice IA — Topologia do Agente</h1>
-<p class="subtitle">LangGraph StateGraph · 9 nós · self-critique loop · 10 capabilities · governança (RBAC + PII + audit)</p>
+<p class="subtitle">LangGraph StateGraph · 10 nós · self-critique loop · 15 capabilities · catalog RAG · governança (RBAC + PII + audit)</p>
 
 <div class="canvas">
 
@@ -390,6 +390,13 @@
     <div class="node node-det">
       <div class="node-title">persona_resolver</div>
       <div class="node-sub">Heurística regex → Coord / Gerente / Diretor / Geral · perfil sticky por sessão</div>
+    </div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-tip"></div></div>
+
+    <!-- response_mode_resolver -->
+    <div class="node node-det">
+      <div class="node-title">response_mode_resolver</div>
+      <div class="node-sub">Detecta <code>padrao</code> vs <code>analise_profunda</code> via regex · ajusta verbosidade do composer</div>
     </div>
     <div class="arrow"><div class="arrow-line"></div><div class="arrow-tip"></div></div>
 
@@ -500,12 +507,13 @@
     <div class="side-card">
       <div class="side-card-title"><div class="dot" style="background:#60a5fa"></div>Estatísticas</div>
       <div class="stat-row">
-        <div class="stat-chip"><div class="stat-num">9</div><div class="stat-lbl">Nós</div></div>
+        <div class="stat-chip"><div class="stat-num">10</div><div class="stat-lbl">Nós</div></div>
         <div class="stat-chip"><div class="stat-num">1</div><div class="stat-lbl">Cond. edge</div></div>
         <div class="stat-chip"><div class="stat-num">4</div><div class="stat-lbl">LLM calls</div></div>
         <div class="stat-chip"><div class="stat-num">2</div><div class="stat-lbl">Iter máx</div></div>
-        <div class="stat-chip"><div class="stat-num">10</div><div class="stat-lbl">Caps</div></div>
+        <div class="stat-chip"><div class="stat-num">15</div><div class="stat-lbl">Caps</div></div>
         <div class="stat-chip"><div class="stat-num">4</div><div class="stat-lbl">Personas</div></div>
+        <div class="stat-chip"><div class="stat-num">2</div><div class="stat-lbl">Resp modes</div></div>
       </div>
     </div>
 
@@ -521,11 +529,12 @@
 
     <!-- Capabilities -->
     <div class="side-card">
-      <div class="side-card-title"><div class="dot" style="background:#7dd3fc"></div>Capability Registry (10)</div>
+      <div class="side-card-title"><div class="dot" style="background:#7dd3fc"></div>Capability Registry (15)</div>
       <div class="cap-grid">
         <div class="cap-row"><code>bq_list_datasets</code><span class="cap-tag disc">descoberta</span></div>
         <div class="cap-row"><code>bq_list_tables</code><span class="cap-tag disc">fuzzy</span></div>
         <div class="cap-row"><code>bq_get_schema</code><span class="cap-tag disc">descoberta</span></div>
+        <div class="cap-row"><code>catalog_search</code><span class="cap-tag disc">RAG</span></div>
         <div class="cap-row"><code>bq_query</code><span class="cap-tag answer">answer</span></div>
         <div class="cap-row"><code>text_to_sql</code><span class="cap-tag answer">autônomo</span></div>
         <div class="cap-row"><code>metric_execute</code><span class="cap-tag answer">semântico</span></div>
@@ -533,9 +542,9 @@
         <div class="cap-row"><code>viz_spec</code><span class="cap-tag answer">Vega-Lite</span></div>
         <div class="cap-row"><code>forecast_simple</code><span class="cap-tag answer">OLS</span></div>
         <div class="cap-row"><code>attachment_analyze</code><span class="cap-tag answer">CSV/img</span></div>
+        <div class="cap-row"><code>org_fact_recall</code><span class="cap-tag answer">memória</span></div>
         <div class="cap-row"><code>metric_lookup</code><span class="cap-tag gov">semantic</span></div>
         <div class="cap-row"><code>org_fact_save</code><span class="cap-tag gov">memória</span></div>
-        <div class="cap-row"><code>org_fact_recall</code><span class="cap-tag gov">memória</span></div>
         <div class="cap-row"><code>chat_answer</code><span class="cap-tag chat">fallback</span></div>
       </div>
     </div>
@@ -577,6 +586,10 @@
         <div><strong style="color:#e2e8f0">text_to_sql autônomo</strong><br>discover → LLM picker → schema → SQL · fuzzy <code>dataset_ref</code></div>
       </div>
       <div class="side-item">
+        <div class="side-icon si-sky">🔎</div>
+        <div><strong style="color:#e2e8f0">Catalog RAG</strong><br>Embeddings <code>text-embedding-005</code> · cosine puro Python · TTL com reindex automático</div>
+      </div>
+      <div class="side-item">
         <div class="side-icon si-org">📎</div>
         <div><strong style="color:#e2e8f0">Multimodal</strong><br>CSV (stdlib) + imagem (Gemini multimodal)</div>
       </div>
@@ -595,6 +608,7 @@
           <span class="pill">users</span><span class="pill">app_config</span>
           <span class="pill">finance_semantic_metrics</span><span class="pill">finance_user_acl</span>
           <span class="pill">finance_audit_log</span><span class="pill">finance_org_facts</span>
+          <span class="pill">finance_catalog_index</span>
         </div>
       </div>
       <div class="side-item">

@@ -143,6 +143,31 @@ class TestPersonaNode:
 
 
 # ---------------------------------------------------------------------------
+# Planner normalization
+# ---------------------------------------------------------------------------
+
+class TestPlannerNormalization:
+    def test_metric_lookup_sem_query_usa_request_text(self):
+        from src.agents.finance_auditor.supervisor import _normalize_plan_steps
+
+        out = _normalize_plan_steps(
+            [{"capability": "metric_lookup", "args": {}, "rationale": ""}],
+            request_text="ticket medio pedidos",
+        )
+        assert out[0]["args"]["query"] == "ticket medio pedidos"
+
+    def test_metric_execute_sem_key_vira_metric_lookup(self):
+        from src.agents.finance_auditor.supervisor import _normalize_plan_steps
+
+        out = _normalize_plan_steps(
+            [{"capability": "metric_execute", "args": {"name": "Ticket Médio"}, "rationale": "x"}],
+            request_text="qual o ticket medio?",
+        )
+        assert out[0]["capability"] == "metric_lookup"
+        assert out[0]["args"] == {"query": "Ticket Médio"}
+
+
+# ---------------------------------------------------------------------------
 # Capabilities — guardrails de SQL e dispatch
 # ---------------------------------------------------------------------------
 

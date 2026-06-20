@@ -3,10 +3,12 @@
 Topologia:
     START
       → guardrails_in
-      → persona_resolver
-      → planner            (LLM com structured output → PlanResponse)
-      → router             (executa cada step do plano em sequência)
-      → composer           (LLM redige resposta final na altitude da persona)
+      → persona_resolver        (altitude: coordenador/gerente/diretor)
+      → response_mode_resolver  (estrutura: padrao/analise_profunda)
+      → planner                 (LLM com structured output → PlanResponse)
+      → router                  (executa cada step do plano em sequência)
+      → composer                (LLM redige resposta final na altitude da
+                                  persona e na estrutura do response_mode)
       → guardrails_out
       → END
 
@@ -33,12 +35,20 @@ from src.agents.finance_auditor.personas import (
     detect_persona,
     get_persona_prompt,
 )
+from src.agents.finance_auditor.response_mode import (
+    RESPONSE_MODE_ANALISE_PROFUNDA,
+    RESPONSE_MODE_PADRAO,
+    detect_response_mode,
+    get_response_mode_prompt,
+)
 from src.agents.finance_auditor.supervisor_prompts import (
     COMPOSER_PROMPT_TEMPLATE,
     PLANNER_PROMPT,
     REFLECT_PROMPT,
 )
 from src.agents.finance_auditor.supervisor_schemas import (
+    CAPABILITY_METRIC_EXECUTE,
+    CAPABILITY_METRIC_LOOKUP,
     CAPABILITY_CHAT_ANSWER,
     PlanResponse,
     PlanStep,
@@ -158,6 +168,16 @@ def node_persona_resolver(state: SupervisorState) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Nó 2b — response_mode_resolver
+# ---------------------------------------------------------------------------
+
+def node_response_mode_resolver(state: SupervisorState) -> dict[str, Any]:
+    """Decide a estrutura da resposta (independente da persona/altitude)."""
+    mode = detect_response_mode(state.get("request_text", ""))
+    return {"response_mode": mode}
+
+
+# ---------------------------------------------------------------------------
 # Nó 3 — planner
 # ---------------------------------------------------------------------------
 
@@ -171,18 +191,77 @@ def _fallback_plan(reason: str) -> list[dict[str, Any]]:
     ]
 
 
+def _normalize_plan_steps(
+    steps: list[dict[str, Any]],
+    *,
+    request_text: str,
+) -> list[dict[str, Any]]:
+    """Corrige pequenos desvios estruturais do planner antes da execucao."""
+    normalized: list[dict[str, Any]] = []
+    fallback_query = (request_text or "").strip()
+
+    for step in steps:
+        item = dict(step)
+        capability = str(item.get("capability") or "").strip().lower()
+        args = dict(item.get("args") or {})
+        rationale = str(item.get("rationale") or "")
+
+        if capability == CAPABILITY_METRIC_LOOKUP and not str(args.get("query") or "").strip():
+            args["query"] = fallback_query
+            item["args"] = args
+
+        elif capability == CAPABILITY_METRIC_EXECUTE:
+            key = str(args.get("key") or "").strip()
+            if not key:
+                query = (
+                    str(args.get("query") or "").strip()
+                    or str(args.get("name") or "").strip()
+                    or str(args.get("metric") or "").strip()
+                    or fallback_query
+                )
+                item = {
+                    "capability": CAPABILITY_METRIC_LOOKUP,
+                    "args": {"query": query},
+                    "rationale": rationale or "normalizacao: localizar a metrica antes de executar",
+                }
+
+        normalized.append(item)
+    return normalized
+
+
 def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     if not state.get("guardrail_in_ok", True):
         return {"plan": [], "plan_rationale": "bloqueado por guardrail"}
 
     request_text = state.get("request_text", "")
+    dataset_hint = str(state.get("dataset_hint") or "").strip()
+    human_content = request_text
+    if dataset_hint:
+        human_content += (
+            "\n\n"
+            f"[CONTEXTO: o dataset já está definido como '{dataset_hint}' "
+            "(gerência/área escolhida pelo usuário ou sessão). Use-o diretamente "
+            "em dataset_ref/table_refs do step final — NÃO planeje bq_list_datasets "
+            "para descobrir o dataset.]"
+        )
+    if state.get("response_mode") == RESPONSE_MODE_ANALISE_PROFUNDA:
+        human_content += (
+            "\n\n"
+            "[CONTEXTO: o usuário pediu uma ANÁLISE PROFUNDA (causa raiz, "
+            "impacto, plano de ação) — não apenas o número. Além do "
+            "`text_to_sql` principal, planeje também `stats_describe` sobre "
+            "os dados centrais e, se a pergunta envolver evolução no tempo, "
+            "`forecast_simple`. Esses steps adicionais fundamentam as seções "
+            "de causa raiz e impacto da resposta final — não entregue só os "
+            "dados brutos.]"
+        )
     try:
         structured_llm = llm.with_structured_output(PlanResponse)
         result: PlanResponse = invoke_with_retry(
             structured_llm,
             [
                 SystemMessage(content=PLANNER_PROMPT),
-                HumanMessage(content=request_text),
+                HumanMessage(content=human_content),
             ],
             max_attempts=2,
         )
@@ -200,8 +279,12 @@ def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
         }
 
     steps = result.steps[:_MAX_PLAN_STEPS]
+    normalized_steps = _normalize_plan_steps(
+        [s.model_dump() if isinstance(s, PlanStep) else dict(s) for s in steps],
+        request_text=request_text,
+    )
     return {
-        "plan": [s.model_dump() if isinstance(s, PlanStep) else dict(s) for s in steps],
+        "plan": normalized_steps,
         "plan_rationale": result.rationale or "",
     }
 
@@ -278,15 +361,20 @@ def node_router(
 # Nó 4b — reflect (auto-crítica + sugestão de retomada)
 # ---------------------------------------------------------------------------
 
+def _has_answer(tool_results: list[dict[str, Any]]) -> bool:
+    """True se ao menos uma capability "produtora de resposta" teve sucesso."""
+    return any(
+        (r.get("capability") or "") in _ANSWER_PRODUCING and r.get("ok")
+        for r in tool_results
+    )
+
+
 def node_reflect(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     tool_results = state.get("tool_results") or []
     iteration = int(state.get("iteration") or 0)
 
     any_failed = any(not r.get("ok") for r in tool_results)
-    has_answer = any(
-        (r.get("capability") or "") in _ANSWER_PRODUCING and r.get("ok")
-        for r in tool_results
-    )
+    has_answer = _has_answer(tool_results)
     needs_retry = any_failed or not has_answer
 
     # Sem motivo para refletir, ou já atingimos o teto de iterações.
@@ -369,14 +457,53 @@ def _reflect_router(state: SupervisorState) -> str:
     return "router"
 
 
+def _attach_retry_feedback(
+    steps: list[dict[str, Any]], tool_results: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Propaga SQL + erro da última tentativa de text_to_sql que falhou para o
+    retry sugerido pelo Reflect.
+
+    Sem isso, `cap_text_to_sql` regeneraria a query do zero, sem saber o que
+    já foi tentado nem por que o BigQuery rejeitou — a "autocorreção" do Reflect
+    ficaria só no texto do plano, não na prática.
+    """
+    last_failed_sql_attempt: dict[str, Any] | None = None
+    for r in tool_results:
+        if r.get("capability") == "text_to_sql" and not r.get("ok"):
+            last_failed_sql_attempt = r
+
+    if not last_failed_sql_attempt:
+        return steps
+
+    payload = last_failed_sql_attempt.get("payload") or {}
+    attempted_sql = str(payload.get("attempted_sql") or "").strip()
+    error = str(last_failed_sql_attempt.get("error") or "").strip()
+    if not attempted_sql or not error:
+        return steps
+
+    for step in steps:
+        if step.get("capability") != "text_to_sql":
+            continue
+        step_args = dict(step.get("args") or {})
+        step_args.setdefault("previous_sql", attempted_sql)
+        step_args.setdefault("previous_error", error)
+        step["args"] = step_args
+    return steps
+
+
 def node_apply_reflect_plan(state: SupervisorState) -> dict[str, Any]:
     """Anexa ao plano os steps sugeridos pelo reflect (limite global)."""
     reflect = state.get("reflect") or {}
     suggested = reflect.get("suggested_steps") or []
     if not suggested:
         return {}
+    normalized = _normalize_plan_steps(
+        [dict(step) for step in suggested],
+        request_text=state.get("request_text", ""),
+    )
+    normalized = _attach_retry_feedback(normalized, state.get("tool_results") or [])
     plan = list(state.get("plan") or [])
-    plan.extend(suggested)
+    plan.extend(normalized)
     plan = plan[:_MAX_PLAN_STEPS * _MAX_ITERATIONS]
     return {"plan": plan}
 
@@ -420,16 +547,49 @@ def _summarize_tool_results_for_llm(results: list[dict[str, Any]]) -> str:
         return str(summary)
 
 
+_TECH_LEAK_PATTERN = re.compile(
+    r"\btimestamp\b|\bdatetime\b|\bbigquery\b|\bdry-?run\b|\bschema\b|"
+    r"\btipo de dados?\b|\bincompat[ií]vel\b|"
+    r"\bfun[cç][aã]o(?:\(?[oa]?es\)?)? que (?:eu )?utiliz\w*\b|"
+    r"\bdetalhes? t[eé]cnicos?\b|\berro\s+t[eé]cnico\b",
+    re.IGNORECASE,
+)
+
+_FAILURE_FALLBACK_ANSWER = (
+    "## Resumo executivo\n\n"
+    "Tentei responder à sua pergunta, mas não consegui concluir a análise "
+    "com os dados disponíveis agora.\n\n"
+    "Para tentar de novo com mais precisão, me diga o período exato que "
+    "você quer analisar e se há algum recorte específico (produto, cliente "
+    "ou categoria) que devo considerar."
+)
+
+
+def _looks_like_tech_leak(text: str) -> bool:
+    """Detecta jargão técnico que o Composer foi instruído a nunca usar.
+
+    Rede de segurança determinística (mesmo espírito do `pii_guard`): a
+    instrução do prompt nem sempre é seguida à risca pelo LLM, então isso
+    garante uma resposta profissional mesmo quando o modelo "vaza" detalhe
+    de implementação ao explicar uma falha total.
+    """
+    return bool(_TECH_LEAK_PATTERN.search(text or ""))
+
+
 def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     if state.get("error"):
         return {"final_answer": f"_{state['error']}_"}
 
     persona = state.get("persona") or PERSONA_GERAL
     persona_block = get_persona_prompt(persona)
-    system_prompt = COMPOSER_PROMPT_TEMPLATE.format(persona_block=persona_block)
+    mode_block = get_response_mode_prompt(state.get("response_mode") or RESPONSE_MODE_PADRAO)
+    system_prompt = COMPOSER_PROMPT_TEMPLATE.format(
+        persona_block=persona_block, mode_block=mode_block
+    )
 
     tool_results = state.get("tool_results") or []
     warnings = state.get("warnings") or []
+    answer_succeeded = _has_answer(tool_results)
 
     user_content = (
         f"Pergunta original do usuário:\n{state.get('request_text', '')}\n\n"
@@ -447,17 +607,16 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
         )
         text = str(getattr(response, "content", response) or "").strip()
         if text:
+            if not answer_succeeded and _looks_like_tech_leak(text):
+                text = _FAILURE_FALLBACK_ANSWER
             return {"final_answer": text}
     except Exception as exc:  # noqa: BLE001
         return {
-            "final_answer": (
-                "Não foi possível gerar a resposta final neste momento. "
-                f"Detalhes técnicos: {exc}"
-            ),
+            "final_answer": _FAILURE_FALLBACK_ANSWER,
             "warnings": [*warnings, f"Composer falhou: {exc}"],
         }
 
-    return {"final_answer": "Sem conteúdo gerado pelo Composer."}
+    return {"final_answer": _FAILURE_FALLBACK_ANSWER}
 
 
 # ---------------------------------------------------------------------------
@@ -527,6 +686,7 @@ def build_supervisor_graph(
 
     workflow.add_node("guardrails_in", node_guardrails_in)
     workflow.add_node("persona_resolver", node_persona_resolver)
+    workflow.add_node("response_mode_resolver", node_response_mode_resolver)
     workflow.add_node("planner", lambda s: node_planner(s, llm=llm))
     workflow.add_node(
         "router",
@@ -540,7 +700,8 @@ def build_supervisor_graph(
 
     workflow.add_edge(START, "guardrails_in")
     workflow.add_edge("guardrails_in", "persona_resolver")
-    workflow.add_edge("persona_resolver", "planner")
+    workflow.add_edge("persona_resolver", "response_mode_resolver")
+    workflow.add_edge("response_mode_resolver", "planner")
     workflow.add_edge("planner", "router")
     workflow.add_edge("router", "reflect")
     workflow.add_conditional_edges(

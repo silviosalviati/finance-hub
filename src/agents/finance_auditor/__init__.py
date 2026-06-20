@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from langchain_core.callbacks.usage import get_usage_metadata_callback
+
 from src.agents.finance_auditor.supervisor import build_supervisor_graph
 from src.core.base_agent import BaseAgent
 from src.shared.config import get_runtime_config
@@ -64,8 +66,15 @@ class FinanceAuditorAgent(BaseAgent):
         }
 
         final_state: dict[str, Any] | None = None
-        for event in graph.stream(initial_state, stream_mode="values"):
-            final_state = event
+        # Captura o uso real de tokens de TODA chamada LLM feita durante a
+        # execução (planner, reflect, composer e qualquer LLM interno de
+        # capability, ex.: text_to_sql) — funciona mesmo com structured
+        # output, pois opera no nível de callback do provider, não no
+        # objeto já parseado.
+        with get_usage_metadata_callback() as usage_cb:
+            for event in graph.stream(initial_state, stream_mode="values"):
+                final_state = event
+            token_usage = self._summarize_token_usage(usage_cb.usage_metadata)
 
         if not final_state:
             return {
@@ -73,6 +82,7 @@ class FinanceAuditorAgent(BaseAgent):
                 "error": "Supervisor não produziu resultado.",
                 "markdown_report": "",
                 "warnings": [],
+                "token_usage": token_usage,
             }
 
         if final_state.get("error"):
@@ -81,6 +91,7 @@ class FinanceAuditorAgent(BaseAgent):
                 "error": final_state["error"],
                 "markdown_report": final_state.get("final_answer", ""),
                 "warnings": final_state.get("warnings", []),
+                "token_usage": token_usage,
             }
 
         return {
@@ -97,6 +108,23 @@ class FinanceAuditorAgent(BaseAgent):
             "warnings": final_state.get("warnings", []),
             "pii": final_state.get("pii", {}),
             "audit_id": final_state.get("audit_id"),
+            "token_usage": token_usage,
+        }
+
+    @staticmethod
+    def _summarize_token_usage(usage_by_model: dict[str, dict[str, int]]) -> dict[str, Any]:
+        total_tokens = 0
+        input_tokens = 0
+        output_tokens = 0
+        for usage in (usage_by_model or {}).values():
+            total_tokens += int(usage.get("total_tokens") or 0)
+            input_tokens += int(usage.get("input_tokens") or 0)
+            output_tokens += int(usage.get("output_tokens") or 0)
+        return {
+            "total_tokens": total_tokens,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "by_model": usage_by_model or {},
         }
 
     def runtime_info(self) -> dict[str, str]:
@@ -104,7 +132,8 @@ class FinanceAuditorAgent(BaseAgent):
             "agent_id": self.agent_id,
             "display_name": self.display_name,
             "supervisor_nodes": (
-                "guardrails_in,persona_resolver,planner,router,composer,audit,guardrails_out"
+                "guardrails_in,persona_resolver,response_mode_resolver,planner,"
+                "router,composer,audit,guardrails_out"
             ),
             "capabilities": (
                 "bq_list_datasets,bq_list_tables,bq_get_schema,bq_query,"

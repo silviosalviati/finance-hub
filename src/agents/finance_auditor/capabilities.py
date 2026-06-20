@@ -26,7 +26,7 @@ from typing import Any, Callable
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from src.agents.finance_auditor import forecast as forecast_mod
+from src.agents.finance_auditor import catalog_index, forecast as forecast_mod
 from src.agents.finance_auditor import multimodal, org_memory, rbac, semantic_layer
 from src.agents.finance_auditor.supervisor_schemas import (
     CAPABILITY_ATTACHMENT_ANALYZE,
@@ -34,6 +34,7 @@ from src.agents.finance_auditor.supervisor_schemas import (
     CAPABILITY_BQ_LIST_DATASETS,
     CAPABILITY_BQ_LIST_TABLES,
     CAPABILITY_BQ_QUERY,
+    CAPABILITY_CATALOG_SEARCH,
     CAPABILITY_CHAT_ANSWER,
     CAPABILITY_FORECAST_SIMPLE,
     CAPABILITY_METRIC_EXECUTE,
@@ -50,6 +51,7 @@ from src.shared.tools.bigquery import (
     execute_query_rows,
     get_dataset_tables_metadata,
     get_table_schema,
+    list_datasets_with_labels,
 )
 from src.shared.tools.llm import invoke_with_retry
 
@@ -170,6 +172,40 @@ def _list_project_datasets(project_id: str) -> list[str]:
 
     client = _get_client(project_id)
     return [ds.dataset_id for ds in client.list_datasets(project_id)]
+
+
+def resolve_dataset_by_gerencia(project_id: str, gerencia_hint: str) -> dict[str, str] | None:
+    """Resolve o dataset cujo rotulo (label) do BigQuery corresponde à gerência.
+
+    A chave do rótulo é configurável (`FINANCE_AUDITOR_GERENCIA_LABEL_KEY`,
+    default "gerencia") — o valor é casado via `_fuzzy_pick_dataset` (mesma
+    lógica de match exato → substring → similaridade já usada para nomes de
+    dataset), aplicada aos *valores* do rótulo em vez dos *nomes* dos
+    datasets, já que o nome de um dataset pode não ter nenhuma relação
+    textual com a gerência à qual ele pertence.
+    """
+    if not gerencia_hint or not gerencia_hint.strip():
+        return None
+    label_key = get_runtime_config("FINANCE_AUDITOR_GERENCIA_LABEL_KEY", "gerencia")
+    try:
+        datasets = list_datasets_with_labels(project_id)
+    except Exception:  # noqa: BLE001
+        return None
+
+    value_to_dataset: dict[str, str] = {}
+    for ds in datasets:
+        value = str((ds.get("labels") or {}).get(label_key) or "").strip()
+        if value and value not in value_to_dataset:
+            value_to_dataset[value] = ds["dataset_id"]
+
+    picked_value = _fuzzy_pick_dataset(gerencia_hint, list(value_to_dataset.keys()))
+    if not picked_value:
+        return None
+    return {
+        "dataset_id": value_to_dataset[picked_value],
+        "gerencia": picked_value,
+        "label_key": label_key,
+    }
 
 
 def cap_bq_list_tables(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
@@ -389,11 +425,25 @@ Devolva APENAS uma query SELECT/WITH executável. A query deve:
 - Aplicar LIMIT compatível com o pedido (default 200) salvo se o usuário \
 pedir explicitamente uma agregação.
 - Evitar SELECT *: liste colunas explicitamente quando possível.
+- Ao filtrar por período relativo ("últimos N dias/meses/anos"), confira o \
+tipo da coluna de data/hora no schema antes de escrever o filtro: \
+`TIMESTAMP_SUB`/`TIMESTAMP_ADD` NÃO aceitam MONTH/QUARTER/YEAR (só DAY, \
+HOUR, MINUTE, SECOND, MILLISECOND, MICROSECOND), e o BigQuery não compara \
+`DATE` com `TIMESTAMP`/`DATETIME` sem conversão explícita. Para evitar os \
+dois erros de uma vez, normalize a coluna com `DATE(coluna)` (funciona para \
+TIMESTAMP, DATETIME ou DATE) e compare com `DATE_SUB(CURRENT_DATE(), \
+INTERVAL N MONTH)` — essa forma aceita qualquer unidade e nunca dá erro de \
+tipo incompatível.
 - Não usar DDL/DML (INSERT/UPDATE/DELETE/CREATE/etc).
 - Não incluir comentários longos, mensagens de erro nem placeholders.
 - Se não for possível responder com os dados disponíveis, devolva uma query \
 mínima válida que ainda consulte a tabela mais provável (NUNCA devolva uma \
 mensagem de erro em forma de string).
+- Se a entrada incluir uma seção "TENTATIVA ANTERIOR FALHOU" com SQL e erro \
+do BigQuery, sua prioridade é corrigir EXATAMENTE essa causa — leia a \
+mensagem de erro com atenção e ajuste só o que ela aponta, em vez de gerar \
+uma query genérica do zero (que tende a repetir o mesmo erro ou trocar por \
+outro da mesma natureza).
 """
 
 
@@ -506,8 +556,19 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
     if not natural_language:
         return _err("natural_language ausente.")
 
+    # Preenchidos automaticamente pelo router (`_attach_retry_feedback`) quando
+    # este step é um retry pós-Reflect de um text_to_sql que falhou — sem
+    # isso, a "autocorreção" seria as cegas: o LLM regeneraria do zero sem
+    # saber qual SQL já foi tentada nem por que o BigQuery a rejeitou.
+    previous_sql = str(args.get("previous_sql") or "").strip()
+    previous_error = str(args.get("previous_error") or "").strip()
+
     table_refs = [str(t).strip() for t in (args.get("table_refs") or []) if str(t).strip()]
     dataset_ref = str(args.get("dataset_ref") or "").strip()
+    if not table_refs and not dataset_ref:
+        # Fallback: dataset já fixado no contexto (ex.: gerência pinada na
+        # sessão) — evita exigir que o Planner sempre informe dataset_ref.
+        dataset_ref = str(context.get("dataset_hint") or "").strip()
 
     llm = context.get("llm")
     if llm is None:
@@ -586,6 +647,27 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
             f"{', '.join(t.get('table_id', '') for t in picked)}."
         )
 
+    # Caminho RAG: nem table_refs nem dataset_ref informados — busca as
+    # tabelas certas por SIGNIFICADO no índice do catálogo, em vez de exigir
+    # que o Planner já saiba (ou chute) o nome do dataset.
+    elif not table_refs and not dataset_ref:
+        matches = catalog_index.search_catalog(project_id, natural_language, top_k=5)
+        allowed_matches = []
+        for m in matches:
+            allowed, _reason = rbac.check_dataset(context.get("user"), m["dataset_id"])
+            if allowed:
+                allowed_matches.append(m)
+        if not allowed_matches:
+            return _err(
+                "Não encontrei tabelas relevantes para essa pergunta no catálogo. "
+                "Informe `table_refs` ou `dataset_ref` explicitamente."
+            )
+        table_refs = [m["full_name"] for m in allowed_matches]
+        auto_picked_note = (
+            "Tabelas selecionadas automaticamente por busca semântica no catálogo: "
+            f"{', '.join(m['table_id'] for m in allowed_matches)}."
+        )
+
     if not table_refs:
         return _err(
             "Informe `table_refs` (lista qualificada) OU `dataset_ref` para descoberta automática."
@@ -619,6 +701,12 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
         f"PERGUNTA:\n{natural_language}\n\n"
         f"SCHEMAS DISPONÍVEIS:\n{schemas_text}"
     )
+    if previous_sql and previous_error:
+        user_msg += (
+            "\n\nTENTATIVA ANTERIOR FALHOU — corrija especificamente este "
+            f"problema, não repita o mesmo padrão:\nSQL anterior:\n{previous_sql}\n\n"
+            f"Erro retornado pelo BigQuery:\n{previous_error}"
+        )
     sql = ""
     try:
         structured_llm = llm.with_structured_output(_SqlOutput)
@@ -804,16 +892,26 @@ def _infer_field_type(values: list[Any]) -> str:
     return "nominal"
 
 
+def _suggest_chart_type(x_type: str, y_type: str) -> str:
+    """Heurística de escolha de gráfico quando o Planner não informa `chart_type`.
+
+    Deliberadamente nunca sugere `arc` (pizza): exige leitura semântica de
+    "parte de um todo" que não dá para inferir só do tipo das colunas — fica
+    reservado para quando o Planner pede explicitamente.
+    """
+    if x_type == "temporal":
+        return "line"
+    if x_type == "quantitative" and y_type == "quantitative":
+        return "point"
+    return "bar"
+
+
 def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     rows, err = _resolve_source_rows(args, context)
     if err:
         return _err(err)
     if not rows:
         return _err("Sem linhas para gerar gráfico.")
-
-    chart_type = str(args.get("chart_type") or "bar").lower()
-    if chart_type not in _VALID_CHART_TYPES:
-        return _err(f"chart_type inválido: {chart_type}. Use um de {sorted(_VALID_CHART_TYPES)}.")
 
     x = str(args.get("x") or "").strip()
     y = str(args.get("y") or "").strip()
@@ -827,6 +925,12 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
 
     x_type = _infer_field_type([r.get(x) for r in rows])
     y_type = _infer_field_type([r.get(y) for r in rows])
+
+    requested_chart_type = str(args.get("chart_type") or "").strip().lower()
+    auto_selected = not bool(requested_chart_type)
+    chart_type = requested_chart_type or _suggest_chart_type(x_type, y_type)
+    if chart_type not in _VALID_CHART_TYPES:
+        return _err(f"chart_type inválido: {chart_type}. Use um de {sorted(_VALID_CHART_TYPES)}.")
 
     encoding: dict[str, Any] = {
         "x": {"field": x, "type": x_type},
@@ -845,8 +949,55 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
         spec["title"] = title
 
     return _ok(
-        payload={"chart_type": chart_type, "row_count": len(rows), "title": title},
+        payload={
+            "chart_type": chart_type,
+            "row_count": len(rows),
+            "title": title,
+            "auto_selected": auto_selected,
+        },
         artifacts=[{"type": "vega_lite", "title": title or f"{chart_type} chart", "spec": spec}],
+    )
+
+
+# ---------------------------------------------------------------------------
+# catalog_search — RAG sobre datasets/tabelas/colunas (descoberta por significado)
+# ---------------------------------------------------------------------------
+
+def cap_catalog_search(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    query = str(args.get("query") or context.get("request_text") or "").strip()
+    if not query:
+        return _err("query ausente para catalog_search.")
+    project_id = (context.get("project_id") or "").strip()
+    if not project_id:
+        return _err("project_id ausente para catalog_search.")
+    try:
+        top_k = int(args.get("top_k") or 5)
+    except (TypeError, ValueError):
+        top_k = 5
+
+    matches = catalog_index.search_catalog(project_id, query, top_k=max(1, min(top_k, 20)))
+    user = context.get("user")
+    visible = [m for m in matches if rbac.check_dataset(user, m["dataset_id"])[0]]
+
+    rows = [
+        {
+            "table_ref": m["full_name"],
+            "dataset_id": m["dataset_id"],
+            "table_id": m["table_id"],
+            "score": m["score"],
+        }
+        for m in visible
+    ]
+    return _ok(
+        payload={"query": query, "matches": rows, "match_count": len(rows)},
+        artifacts=[
+            {
+                "type": "table",
+                "title": f"Tabelas relevantes (busca: {query})",
+                "columns": ["table_ref", "score"],
+                "rows": rows,
+            }
+        ] if rows else [],
     )
 
 
@@ -1110,6 +1261,7 @@ CAPABILITY_REGISTRY: dict[str, Callable[[dict[str, Any], dict[str, Any]], dict[s
     CAPABILITY_TEXT_TO_SQL: cap_text_to_sql,
     CAPABILITY_STATS_DESCRIBE: cap_stats_describe,
     CAPABILITY_VIZ_SPEC: cap_viz_spec,
+    CAPABILITY_CATALOG_SEARCH: cap_catalog_search,
     CAPABILITY_METRIC_LOOKUP: cap_metric_lookup,
     CAPABILITY_METRIC_EXECUTE: cap_metric_execute,
     CAPABILITY_ORG_FACT_SAVE: cap_org_fact_save,
@@ -1139,6 +1291,7 @@ __all__ = [
     "cap_text_to_sql",
     "cap_stats_describe",
     "cap_viz_spec",
+    "cap_catalog_search",
     "cap_metric_lookup",
     "cap_metric_execute",
     "cap_org_fact_save",

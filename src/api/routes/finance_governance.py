@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_admin_user
-from src.agents.finance_auditor import alerting, org_memory
+from src.agents.finance_auditor import alerting, catalog_index, org_memory
 from src.core.database import (
     append_finance_audit,
     delete_finance_metric,
@@ -208,3 +208,24 @@ async def alerts_run(
     )
     triggered = [r for r in results if r.get("triggered")]
     return {"evaluated": len(results), "triggered": len(triggered), "results": results}
+
+
+# ── RAG do catálogo (datasets/tabelas/colunas por significado) ─────────────
+
+class CatalogReindexRequest(BaseModel):
+    project_id: str = Field(..., min_length=1, max_length=200)
+    force: bool = False
+
+
+@router.post("/catalog/reindex")
+async def catalog_reindex(
+    req: CatalogReindexRequest,
+    _admin: dict[str, Any] = Depends(get_admin_user),
+):
+    """Reindexa o catálogo (embeddings de datasets/tabelas/colunas) usado pelo \
+    Planner para achar dados por significado em vez de chutar nome de dataset.
+
+    Sem `force`, respeita o TTL (`FINANCE_AUDITOR_CATALOG_TTL_HOURS`) — útil \
+    para forçar atualização imediata depois de criar/alterar um dataset.
+    """
+    return catalog_index.reindex_catalog(req.project_id, force=req.force)

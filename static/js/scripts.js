@@ -4162,41 +4162,133 @@ function _faWait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function _faSuggestedFollowups(query) {
-  const q = String(query || "").toLowerCase();
-  if (/pix|clientes?|receb/.test(q)) {
-    return [
+// Sugestões cruzam tema (detectado por palavra-chave na pergunta original)
+// com persona: diretor pensa em impacto/meta, gerente em segmentação/comparação,
+// coordenador em ação/prazo — "geral" mantém o tom neutro de antes.
+const _FA_FOLLOWUP_BY_THEME = [
+  {
+    re: /pix|clientes?|receb/,
+    geral: [
       "Quais clientes via Pix mais cresceram em relação ao período anterior?",
       "Qual a concentração de receita nos 10 principais clientes pagantes via Pix?",
       "Existe diferença de inadimplência entre Pix e outros meios de pagamento?",
-    ];
-  }
-  if (/contas a pagar|fornecedor|despesa/.test(q)) {
-    return [
+    ],
+    diretor: [
+      "Qual o impacto da receita via Pix no resultado consolidado do período?",
+      "Como a concentração nos principais clientes pagantes afeta o risco da carteira?",
+      "Essa tendência de Pix sustenta a meta de receita do trimestre?",
+    ],
+    gerente: [
+      "Quais segmentos de cliente explicam o crescimento via Pix?",
+      "Quero abrir a concentração de receita por região ou produto.",
+      "Como a inadimplência via Pix se compara entre carteiras?",
+    ],
+    coordenador: [
+      "Quais clientes Pix preciso acompanhar de perto esta semana?",
+      "Quais contas com maior concentração precisam de ação imediata?",
+      "Que casos de inadimplência via Pix devo priorizar hoje?",
+    ],
+  },
+  {
+    re: /contas a pagar|fornecedor|despesa/,
+    geral: [
       "Quais fornecedores concentram o maior volume a pagar?",
       "Quais vencimentos críticos estão previstos para os próximos 7 dias?",
       "Onde houve maior aumento de despesa em relação ao período anterior?",
-    ];
-  }
-  if (/cobran/.test(q)) {
-    return [
+    ],
+    diretor: [
+      "Qual o impacto desse volume a pagar no fluxo de caixa do trimestre?",
+      "Esses fornecedores representam algum risco de concentração para o negócio?",
+      "Como essa despesa se compara ao orçamento aprovado?",
+    ],
+    gerente: [
+      "Quero abrir o volume a pagar por categoria de despesa.",
+      "Quais fornecedores tiveram maior variação de custo no período?",
+      "Como os vencimentos críticos se distribuem entre as áreas?",
+    ],
+    coordenador: [
+      "Quais pagamentos preciso liberar nos próximos 7 dias?",
+      "Quais fornecedores preciso contatar hoje por atraso?",
+      "Que vencimentos críticos exigem ação imediata?",
+    ],
+  },
+  {
+    re: /cobran/,
+    geral: [
       "Quais faixas de atraso concentram mais valor em aberto?",
       "Quais carteiras tiveram piora de recuperação no período?",
       "Que ações priorizar para reduzir inadimplência nesta semana?",
-    ];
-  }
-  if (/fluxo de caixa|caixa/.test(q)) {
-    return [
+    ],
+    diretor: [
+      "Qual o impacto da inadimplência atual no resultado do período?",
+      "Como a taxa de recuperação se compara à meta da diretoria?",
+      "Existe algum risco de concentração de perda em carteiras específicas?",
+    ],
+    gerente: [
+      "Quero abrir a inadimplência por carteira ou segmento de cliente.",
+      "Quais faixas de atraso pioraram mais em relação ao período anterior?",
+      "Como a recuperação varia entre as equipes de cobrança?",
+    ],
+    coordenador: [
+      "Quais casos de maior valor em aberto preciso tratar hoje?",
+      "Quem são os responsáveis pelas carteiras com piora de recuperação?",
+      "Que ações de cobrança preciso disparar esta semana?",
+    ],
+  },
+  {
+    re: /fluxo de caixa|caixa/,
+    geral: [
       "Quais entradas e saídas mais pressionam o caixa neste período?",
       "Qual a projeção do caixa para os próximos 30 dias?",
       "Onde há maior risco de descasamento entre recebimentos e pagamentos?",
-    ];
-  }
-  return [
+    ],
+    diretor: [
+      "Qual o impacto dessa posição de caixa na liquidez do trimestre?",
+      "Essa projeção sustenta os compromissos estratégicos dos próximos 30 dias?",
+      "Existe risco de descasamento que exija decisão da diretoria?",
+    ],
+    gerente: [
+      "Quero abrir as entradas e saídas por área ou centro de custo.",
+      "Como a projeção de caixa varia entre os cenários otimista e conservador?",
+      "Quais áreas mais contribuem para o risco de descasamento?",
+    ],
+    coordenador: [
+      "Quais pagamentos preciso priorizar para não comprometer o caixa esta semana?",
+      "Que recebimentos preciso acompanhar de perto nos próximos dias?",
+      "Onde preciso agir hoje para reduzir o risco de descasamento?",
+    ],
+  },
+];
+
+const _FA_FOLLOWUP_DEFAULT = {
+  geral: [
     "Qual recorte por período você quer aprofundar agora?",
     "Quais segmentos ou clientes merecem um detalhamento maior?",
     "Quer que eu compare esse resultado com o período anterior?",
-  ];
+  ],
+  diretor: [
+    "Qual o impacto disso no resultado do período?",
+    "Como isso se compara à meta ou ao orçamento aprovado?",
+    "Existe algum risco que mereça atenção da diretoria?",
+  ],
+  gerente: [
+    "Quero abrir esse resultado por segmento, região ou produto.",
+    "Como isso se compara ao período anterior?",
+    "Quais áreas explicam a maior parte dessa variação?",
+  ],
+  coordenador: [
+    "O que preciso tratar com prioridade hoje a partir desse resultado?",
+    "Quais casos específicos preciso acompanhar esta semana?",
+    "Quem são os responsáveis pelos pontos mais críticos aqui?",
+  ],
+};
+
+function _faSuggestedFollowups(query, persona) {
+  const q = String(query || "").toLowerCase();
+  const p = String(persona || "").toLowerCase();
+  const theme = _FA_FOLLOWUP_BY_THEME.find((t) => t.re.test(q));
+  const bucket = theme || _FA_FOLLOWUP_DEFAULT;
+  return bucket[p] || bucket.geral;
 }
 
 function _faPrepareAnswerMarkdown(text, data = {}) {
@@ -4220,7 +4312,7 @@ function _faPrepareAnswerMarkdown(text, data = {}) {
       .replace(/\n*##\s+pr[oó]ximas perguntas sugeridas[\s\S]*$/i, "")
       .trim();
   } else if (!/##\s+pr[oó]ximas perguntas sugeridas/i.test(prepared)) {
-    const suggestions = _faSuggestedFollowups(data.original_query || data.query || "");
+    const suggestions = _faSuggestedFollowups(data.original_query || data.query || "", data.persona);
     prepared +=
       `\n\n## Próximas perguntas sugeridas\n\n` +
       suggestions.map((item) => `- ${item}`).join("\n");

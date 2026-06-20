@@ -5063,89 +5063,39 @@ async function appendFABotMessage(data) {
   }
 }
 
-// Verdadeiro quando nenhuma capability "produtora de resposta" teve sucesso
-// — usado tanto para a pílula de status quanto para decidir entre mostrar
-// "próximas perguntas" (sugestão de avanço) ou um cartão de retry (sem
-// avanço possível, o caminho certo é tentar de novo).
-function _faIsFailedResult(data) {
+// Cabe\u00e7alho m\u00ednimo: um \u00fanico chip de status, sem detalhes t\u00e9cnicos.
+// Hover (title) mostra contexto resumido sem poluir a UI.
+function _faMetricsHtml(data) {
   const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
-  if (!toolResults.length) return false;
-  const okCount = toolResults.filter((r) => r && r.ok).length;
-  return !!data.error || okCount === 0;
-}
-
-// Pilula de status no cabecalho da bolha - substitui o antigo chip isolado.
-const _FA_PERSONA_ICONS = {
-  coordenador: "sliders",
-  gerente: "trend-up",
-  diretor: "star",
-  geral: "user",
-};
-
-function _faPersonaIcon(persona) {
-  return _faIcon(_FA_PERSONA_ICONS[String(persona || "").toLowerCase()] || "user", 12);
-}
-
-function _faStatusPillHtml(data) {
-  const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
+  // Sem steps (modo conversacional): sem chip nenhum.
   if (!toolResults.length) return "";
 
-  if (_faIsFailedResult(data)) {
-    return `<span class="fa-status-pill fa-status-pill--err">❌ Falhou</span>`;
-  }
   const okCount = toolResults.filter((r) => r && r.ok).length;
-  if (okCount < toolResults.length) {
-    return `<span class="fa-status-pill fa-status-pill--warn">⚠️ Parcial</span>`;
-  }
-  return `<span class="fa-status-pill fa-status-pill--ok">✅ Concluido</span>`;
-}
-
-// Cartão exibido no lugar de "próximas perguntas sugeridas" quando a análise
-// falhou de ponta a ponta — oferece uma única ação clara (tentar de novo) em
-// vez de sugestões genéricas que pareceriam ignorar a falha.
-function _faRetryCardHtml(originalQuery) {
-  const query = String(originalQuery || "").trim();
-  if (!query) return "";
-  return (
-    `<div class="fa-retry-card">` +
-    `<span class="fa-retry-icon" aria-hidden="true">🔄</span>` +
-    `<div class="fa-retry-text">Não consegui concluir essa análise com os dados disponíveis.</div>` +
-    `<button type="button" class="fa-retry-btn" data-followup="${_escFA(query)}">Tentar novamente</button>` +
-    `</div>`
-  );
-}
-
-// Legenda discreta de volume/tokens sob o horario - so aparece quando ha
-// consumo de BigQuery a relatar.
-function _faMetaCaptionHtml(data) {
-  const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
+  const hasError = !!data.error || okCount === 0;
 
   let bytesTotal = 0;
   for (const r of toolResults) {
     const p = (r && r.payload) || {};
     if (typeof p.bytes_processed === "number") bytesTotal += p.bytes_processed;
   }
-  const totalTokens = Number(data.token_usage?.total_tokens) || 0;
-
-  if (!bytesTotal && !totalTokens) return "";
-
-  const parts = [];
-  if (bytesTotal) {
-    const units = ["B", "KB", "MB", "GB", "TB"];
-    let n = bytesTotal;
+  const fmtBytes = (n) => {
+    if (!n) return "0 B";
+    const u = ["B", "KB", "MB", "GB", "TB"];
     let i = 0;
     while (n >= 1024 && i < units.length - 1) {
       n /= 1024;
       i++;
     }
-    const bytesStr = `${n.toFixed(i ? 1 : 0)} ${units[i]}`;
-    parts.push(`${bytesStr} processados`);
-  }
-  if (totalTokens) {
-    parts.push(`tokens usados ${totalTokens.toLocaleString("pt-BR")}`);
-  }
+    return `${n.toFixed(i ? 1 : 0)} ${u[i]}`;
+  };
+  const summaryParts = [];
+  if (bytesTotal) summaryParts.push(`${fmtBytes(bytesTotal)} \u2022 $${costTotal.toFixed(4)}`);
+  const title = summaryParts.join(" \u2022 ");
 
-  return `<div class="fa-meta-caption">${parts.join(" · ")}</div>`;
+  const chip = hasError
+    ? `<span class="fa-chip fa-chip--err" title="${_escFA(title)}">\u2717</span>`
+    : `<span class="fa-chip fa-chip--ok" title="${_escFA(title)}">\u2713</span>`;
+  return `<div class="fa-statusbar">${chip}</div>`;
 }
 
 
@@ -5174,20 +5124,18 @@ function _faDetailsHtml(data) {
     if (stepIdx < 0 || stepIdx >= toolResults.length) return false;
     const cap = (toolResults[stepIdx] || {}).capability;
     if (!_FA_ANSWER_CAPS.has(cap)) return false;
-    // SQL/schema são detalhes técnicos; a tabela de resultado bruto já
-    // aparece na narrativa (Tabela-resumo/Detalhamento) — mostrar de novo
-    // aqui só duplicava a informação.
-    if (a.type === "sql" || a.type === "schema" || a.type === "table") return false;
+    // SQL e schema são detalhes técnicos — escondemos por padrão.
+    if (a.type === "sql" || a.type === "schema") return false;
     return true;
   });
   if (!answerArtifacts.length) return "";
 
-  const cards = answerArtifacts
-    .map((a, i) => _faRenderArtifact(a, i))
+  const html = answerArtifacts
+    .map((a) => _faRenderArtifact(a))
     .filter(Boolean)
     .join("");
-  if (!cards) return "";
-  return `<div class="fa-answer-artifacts"><div class="fa-art-eyebrow">Dados da análise</div>${cards}</div>`;
+  if (!html) return "";
+  return `<div class="fa-answer-artifacts">${html}</div>`;
 }
 
 // Realce leve de SQL: keywords/strings/números/comentários em <span>.

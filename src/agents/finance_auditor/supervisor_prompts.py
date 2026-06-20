@@ -192,11 +192,10 @@ como usar o chat.
 
 **REGRA #7-TER (inferir dataset pelo contexto):** quando o usuário menciona \
 o tipo de negócio no histórico ("tenho um ecommerce de saúde", "minha \
-operação de logística"), gere um plano de UM ÚNICO step com `text_to_sql` + \
-`natural_language` (sem `dataset_ref`) — a busca por significado no \
-catálogo resolve isso sem precisar adivinhar o nome do dataset. **Não \
-pergunte ao usuário em qual dataset procurar** quando a pergunta já dá \
-contexto de negócio suficiente.
+operação de logística"), assuma a correspondência fuzzy (`ecommerce_saude`, \
+`logistica_vendas`) e gere um plano de UM ÚNICO step com `text_to_sql` + \
+`dataset_ref` — o sistema tem correção fuzzy para nomes próximos. **Não \
+pergunte ao usuário em qual dataset procurar** quando há um match razoável.
 8. Para `text_to_sql`, `table_refs` DEVE ser totalmente qualificado \
 (`projeto.dataset.tabela`) — use o `project_id` do contexto e o \
 dataset/tabela descobertos (ou um palpite + late binding).

@@ -4995,6 +4995,16 @@ async function appendFAChatTextMessage(text, opts = {}) {
   await _faTypeMarkdownInto(slot, text, { escapeInput: true, ...opts });
 }
 
+// Verdadeiro quando nenhuma capability "produtora de resposta" teve sucesso —
+// usado tanto para o chip de status quanto para decidir entre mostrar
+// "próximas perguntas" (sugestão de avanço) ou suprimi-las após uma falha.
+function _faIsFailedResult(data) {
+  const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
+  if (!toolResults.length) return false;
+  const okCount = toolResults.filter((r) => r && r.ok).length;
+  return !!data.error || okCount === 0;
+}
+
 async function appendFABotMessage(data) {
   const area = document.getElementById("fa-messages");
   if (!area) return;
@@ -5006,11 +5016,10 @@ async function appendFABotMessage(data) {
 
   const persona = String(data.persona || "").trim();
   const isFailed = _faIsFailedResult(data);
-  const statusPill = _faStatusPillHtml(data);
   const personaTag = persona
-    ? `<span class="fa-persona-tag fa-persona-tag--${_escFA(persona.toLowerCase())}">${_faPersonaIcon(persona)} ${_escFA(persona)}</span>`
+    ? `<span class="fa-persona-tag fa-persona-tag--${_escFA(persona.toLowerCase())}">${_escFA(persona)}</span>`
     : "";
-  const metaCaption = _faMetaCaptionHtml(data);
+  const metricsHtml = _faMetricsHtml(data);
   const reportSlotId = `${id}-report`;
 
   el.innerHTML = `
@@ -5021,37 +5030,27 @@ async function appendFABotMessage(data) {
           <span class="fa-bubble-icon" aria-hidden="true">✦</span>
           <span class="fa-bubble-title">Finance Voice IA</span>
           <span class="fa-bubble-head-meta">
-            ${personaTag}${statusPill}
+            ${personaTag}${metricsHtml}
             <button type="button" class="fa-copy-answer-btn" data-fa-copy="${reportSlotId}" aria-label="Copiar resposta">copiar</button>
           </span>
         </div>
         <div class="fa-bubble-body">
           <div class="fa-report-slot" id="${reportSlotId}"></div>
           <div class="fa-art-slot"></div>
-          <div class="fa-retry-slot"></div>
         </div>
       </div>
       <div class="fa-msg-time">${_faNow()}</div>
-      ${metaCaption}
     </div>`;
 
   area.appendChild(el);
   _faScrollBottom();
 
-  // A narrativa e digitada primeiro - so depois os cartoes de dados (ou o
-  // retry, em caso de falha) entram em cena.
+  // A narrativa e digitada primeiro - so depois os cartoes de dados entram em cena.
   const slot = el.querySelector(".fa-report-slot");
   const typingData = isFailed ? { ...data, suppressFollowups: true } : data;
   await _faTypeMarkdownInto(slot, data.markdown_report || data.chat_answer || "", { data: typingData });
 
-  if (isFailed) {
-    const retrySlot = el.querySelector(".fa-retry-slot");
-    if (retrySlot) {
-      retrySlot.innerHTML = _faRetryCardHtml(data.original_query);
-      _faScrollBottom();
-    }
-    return;
-  }
+  if (isFailed) return;
 
   const artifactsHtml = _faDetailsHtml(data);
   if (artifactsHtml) {
@@ -5070,26 +5069,17 @@ function _faMetricsHtml(data) {
   // Sem steps (modo conversacional): sem chip nenhum.
   if (!toolResults.length) return "";
 
-  const okCount = toolResults.filter((r) => r && r.ok).length;
-  const hasError = !!data.error || okCount === 0;
+  const hasError = _faIsFailedResult(data);
 
   let bytesTotal = 0;
+  let costTotal = 0;
   for (const r of toolResults) {
     const p = (r && r.payload) || {};
     if (typeof p.bytes_processed === "number") bytesTotal += p.bytes_processed;
+    if (typeof p.estimated_cost_usd === "number") costTotal += p.estimated_cost_usd;
   }
-  const fmtBytes = (n) => {
-    if (!n) return "0 B";
-    const u = ["B", "KB", "MB", "GB", "TB"];
-    let i = 0;
-    while (n >= 1024 && i < units.length - 1) {
-      n /= 1024;
-      i++;
-    }
-    return `${n.toFixed(i ? 1 : 0)} ${u[i]}`;
-  };
   const summaryParts = [];
-  if (bytesTotal) summaryParts.push(`${fmtBytes(bytesTotal)} \u2022 $${costTotal.toFixed(4)}`);
+  if (bytesTotal) summaryParts.push(`${fmtBytes(bytesTotal)} \u2022 ${fmtUSD(costTotal)}`);
   const title = summaryParts.join(" \u2022 ");
 
   const chip = hasError

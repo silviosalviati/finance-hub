@@ -4169,51 +4169,34 @@ pre {
   gap: 6px;
 }
 
-.fa-status-pill {
+.fa-statusbar {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px 2px 6px;
-  border-radius: 999px;
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  white-space: nowrap;
 }
 
-.fa-status-pill::before {
-  content: "";
-  width: 5px;
-  height: 5px;
+.fa-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: default;
 }
 
-.fa-status-pill--ok {
+.fa-chip--ok {
   background: var(--emerald-bg);
   color: var(--emerald);
   border: 1px solid #a7f3d0;
 }
-.fa-status-pill--ok::before {
-  background: var(--emerald);
-}
 
-.fa-status-pill--warn {
-  background: var(--amber-bg);
-  color: var(--amber);
-  border: 1px solid #fde68a;
-}
-.fa-status-pill--warn::before {
-  background: var(--amber);
-}
-
-.fa-status-pill--err {
+.fa-chip--err {
   background: var(--rose-bg);
   color: var(--rose);
   border: 1px solid #fecdd3;
-}
-.fa-status-pill--err::before {
-  background: var(--rose);
 }
 
 .fa-persona-tag {
@@ -4227,16 +4210,6 @@ pre {
   border-radius: 999px;
   padding: 2px 8px;
   white-space: nowrap;
-}
-
-.fa-meta-caption {
-  margin-top: 3px;
-  font-size: 10.5px;
-  color: var(--ink3);
-}
-
-.fa-meta-caption::before {
-  content: "⛁ ";
 }
 
 .fa-copy-answer-btn {
@@ -5100,58 +5073,6 @@ pre {
   transform: translateY(-1px);
 }
 
-/* ── Retry (falha total — substitui as próximas perguntas) ── */
-.fa-retry-card {
-  margin-top: 14px;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 12px 14px;
-  border: 1px solid #fecdd3;
-  border-radius: 12px;
-  background: var(--rose-bg);
-  animation: fa-art-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.fa-retry-icon {
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: #fff;
-  color: var(--rose);
-  font-size: 14px;
-  border: 1px solid #fecdd3;
-}
-
-.fa-retry-text {
-  flex: 1;
-  font-size: 12.5px;
-  color: #9f1239;
-  line-height: 1.45;
-}
-
-.fa-retry-btn {
-  flex-shrink: 0;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.1px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--rose);
-  background: #fff;
-  color: var(--rose);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.fa-retry-btn:hover {
-  background: var(--rose);
-  color: #fff;
-}
 
 /* ── Collapsible details ── */
 .fa-details {

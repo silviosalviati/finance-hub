@@ -178,6 +178,19 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_finance_catalog_index_project
                 ON finance_catalog_index (project_id);
+
+            -- Sessões de login — persistidas para sobreviver a reload e para
+            -- serem visíveis por qualquer worker/processo (multi-worker).
+            CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                username TEXT NOT NULL,
+                name TEXT NOT NULL,
+                is_admin INTEGER NOT NULL DEFAULT 0,
+                expires_at TEXT NOT NULL,
+                login_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_sessions_expires
+                ON sessions (expires_at);
         """)
 
         _seed_if_empty(conn)
@@ -245,6 +258,45 @@ def _seed_config_defaults(conn: sqlite3.Connection) -> None:
 
 def _looks_like_bcrypt(value: str) -> bool:
     return value.startswith("$2a$") or value.startswith("$2b$") or value.startswith("$2y$")
+
+
+# ── Sessions CRUD ────────────────────────────────────────────────────────────
+
+def create_session_row(
+    token: str, username: str, name: str, is_admin: bool, expires_at: str, login_at: str
+) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO sessions (token, username, name, is_admin, expires_at, login_at)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (token, username, name, 1 if is_admin else 0, expires_at, login_at),
+        )
+
+
+def get_session_row(token: str) -> dict[str, Any] | None:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT token, username, name, is_admin, expires_at, login_at"
+            " FROM sessions WHERE token = ?",
+            (token,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def delete_session_row(token: str) -> None:
+    with get_db() as conn:
+        conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+
+
+def delete_expired_sessions(now_iso: str) -> None:
+    with get_db() as conn:
+        conn.execute("DELETE FROM sessions WHERE expires_at < ?", (now_iso,))
+
+
+def count_sessions() -> int:
+    with get_db() as conn:
+        row = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()
+    return int(row[0]) if row else 0
 
 
 # ── Users CRUD ──────────────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ Cobre componentes puros (sem chamadas reais a LLM ou BigQuery):
 
 from __future__ import annotations
 
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -603,6 +604,74 @@ class TestRouterChaining:
         assert out["tool_results"][1]["payload"]["columns"]["x"]["type"] == "numeric"
         # O step B viu o resultado do step A.
         assert seen_results and seen_results[0][0]["capability"] == "cap_a"
+
+    def test_steps_independentes_rodam_em_paralelo(self):
+        """Dois steps sem referência um ao outro devem rodar concorrentemente
+        — sem isso, o tempo total seria a soma dos dois (>= 0.4s)."""
+        from src.agents.finance_auditor import capabilities as cmod
+        from src.agents.finance_auditor.supervisor import node_router
+
+        def slow(args, context):
+            time.sleep(0.2)
+            return {"ok": True, "payload": {}, "error": None, "artifacts": []}
+
+        with patch.dict(cmod.CAPABILITY_REGISTRY, {"cap_slow_a": slow, "cap_slow_b": slow}, clear=False):
+            state = {
+                "plan": [
+                    {"capability": "cap_slow_a", "args": {}},
+                    {"capability": "cap_slow_b", "args": {}},
+                ],
+                "request_text": "q", "project_id": "p", "dataset_hint": None,
+            }
+            started = time.monotonic()
+            out = node_router(state, llm=MagicMock(), llm_creative=MagicMock())
+            elapsed = time.monotonic() - started
+
+        assert len(out["tool_results"]) == 2
+        assert all(r["ok"] for r in out["tool_results"])
+        # Paralelo: ~0.2s + overhead. Sequencial seria ~0.4s.
+        assert elapsed < 0.35, f"esperava execução paralela, levou {elapsed:.3f}s"
+
+    def test_step_dependente_so_roda_apos_a_dependencia_em_onda_separada(self):
+        """Step com ${step_0...} no args espera o step 0 terminar — mesmo
+        quando há um terceiro step independente que poderia rodar antes."""
+        from src.agents.finance_auditor import capabilities as cmod
+        from src.agents.finance_auditor.supervisor import node_router
+
+        order: list[str] = []
+
+        def cap_a(args, context):
+            time.sleep(0.05)
+            order.append("a")
+            return {"ok": True, "payload": {"value": "42"}, "error": None, "artifacts": []}
+
+        def cap_b_independente(args, context):
+            order.append("b")
+            return {"ok": True, "payload": {}, "error": None, "artifacts": []}
+
+        def cap_c_depende_de_a(args, context):
+            order.append("c")
+            return {"ok": True, "payload": {"echo": args.get("v")}, "error": None, "artifacts": []}
+
+        with patch.dict(
+            cmod.CAPABILITY_REGISTRY,
+            {"cap_a": cap_a, "cap_b_independente": cap_b_independente, "cap_c_depende_de_a": cap_c_depende_de_a},
+            clear=False,
+        ):
+            state = {
+                "plan": [
+                    {"capability": "cap_a", "args": {}},
+                    {"capability": "cap_b_independente", "args": {}},
+                    {"capability": "cap_c_depende_de_a", "args": {"v": "${step_0.payload.value}"}},
+                ],
+                "request_text": "q", "project_id": "p", "dataset_hint": None,
+            }
+            out = node_router(state, llm=MagicMock(), llm_creative=MagicMock())
+
+        assert [r["ok"] for r in out["tool_results"]] == [True, True, True]
+        # C só roda depois que A terminou (placeholder resolvido corretamente).
+        assert order.index("c") > order.index("a")
+        assert out["tool_results"][2]["payload"]["echo"] == "42"
 
 
 # ---------------------------------------------------------------------------

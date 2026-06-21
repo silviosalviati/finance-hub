@@ -14,11 +14,18 @@ from src.agents.query_analyzer import QueryAnalyzerAgent
 from src.agents.query_build import QueryBuildAgent
 from src.agents.schema_graph import SchemaGraphAgent
 from src.core.checkpointer import CheckpointConfig, FileCheckpointer
-from src.core.database import get_config_value, get_user
+from src.core.database import (
+    count_sessions,
+    create_session_row,
+    delete_expired_sessions,
+    delete_session_row,
+    get_config_value,
+    get_session_row,
+    get_user,
+)
 from src.core.registry import AgentRegistry
 from src.shared.config import get_runtime_config
 
-_sessions: dict[str, dict[str, Any]] = {}
 _registry: AgentRegistry | None = None
 _checkpointer: FileCheckpointer | None = None
 
@@ -50,17 +57,24 @@ def _utcnow() -> datetime:
 
 
 def create_session(username: str, name: str, is_admin: bool = False) -> dict[str, Any]:
+    now = _utcnow()
+    # Faxina oportunista: nenhum cron dedicado, então aproveita o login de
+    # alguém para descartar sessões vencidas em vez de deixá-las acumular.
+    delete_expired_sessions(now.isoformat())
+
     token = str(uuid.uuid4())
-    session = {
+    expires = now + timedelta(hours=int(get_runtime_config("SESSION_TTL_HOURS", "8")))
+    login_at = now.isoformat()
+    create_session_row(token, username, name, is_admin, expires.isoformat(), login_at)
+
+    return {
         "token": token,
         "username": username,
         "name": name,
         "is_admin": is_admin,
-        "expires": _utcnow() + timedelta(hours=int(get_runtime_config("SESSION_TTL_HOURS", "8"))),
-        "login_at": _utcnow().isoformat(),
+        "expires": expires,
+        "login_at": login_at,
     }
-    _sessions[token] = session
-    return session
 
 
 def extract_bearer_token(authorization: str | None) -> str:
@@ -71,25 +85,33 @@ def extract_bearer_token(authorization: str | None) -> str:
 
 def get_current_user(authorization: str = Header(default=None)) -> dict[str, Any]:
     token = extract_bearer_token(authorization)
-    session = _sessions.get(token)
+    row = get_session_row(token)
 
-    if not session:
+    if not row:
         raise HTTPException(status_code=401, detail="Sessao invalida ou expirada.")
 
-    if _utcnow() > session["expires"]:
-        _sessions.pop(token, None)
+    expires = datetime.fromisoformat(row["expires_at"])
+    if _utcnow() > expires:
+        delete_session_row(token)
         raise HTTPException(status_code=401, detail="Sessao expirada. Faca login novamente.")
 
-    return session
+    return {
+        "token": row["token"],
+        "username": row["username"],
+        "name": row["name"],
+        "is_admin": bool(row["is_admin"]),
+        "expires": expires,
+        "login_at": row["login_at"],
+    }
 
 
 def remove_current_session(authorization: str | None) -> None:
     token = extract_bearer_token(authorization)
-    _sessions.pop(token, None)
+    delete_session_row(token)
 
 
 def session_count() -> int:
-    return len(_sessions)
+    return count_sessions()
 
 
 def _is_bcrypt_hash(value: str) -> bool:

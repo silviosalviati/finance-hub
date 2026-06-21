@@ -16,7 +16,9 @@ necessidade de um vector DB dedicado.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import math
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -28,6 +30,8 @@ from src.core.database import (
 )
 from src.shared.config import get_runtime_config
 from src.shared.tools.bigquery import get_dataset_tables_schema, list_datasets_with_labels
+
+_logger = logging.getLogger(__name__)
 
 _DEFAULT_TTL_HOURS = 24
 _DEFAULT_EMBEDDING_MODEL = "text-embedding-005"
@@ -197,4 +201,36 @@ def search_catalog(project_id: str, query: str, top_k: int = 5) -> list[dict[str
     ]
 
 
-__all__ = ["reindex_catalog", "search_catalog"]
+async def warmup_catalog_loop(project_ids: list[str]) -> None:
+    """Mantém o índice do catálogo sempre quente, fora do request do usuário.
+
+    Sem isso, a primeira busca depois do TTL vencer paga o custo total da
+    reindexação (listar datasets, schema de cada um, embeddings) dentro da
+    resposta de algum usuário. Aqui a checagem (e reindexação, se estiver
+    vencida) roda em loop de fundo, bem antes do TTL vencer de fato.
+
+    Pensado para ser disparado via `asyncio.create_task` no lifespan do app
+    e cancelado no shutdown — nunca levanta, só loga e segue.
+    """
+    ttl_hours = int(
+        get_runtime_config("FINANCE_AUDITOR_CATALOG_TTL_HOURS", str(_DEFAULT_TTL_HOURS))
+    )
+    # Confere bem antes do TTL vencer (margem de 1h), nunca depois. Para TTLs
+    # bem curtos (<=1h, ex.: testes manuais), confere na metade do prazo.
+    interval_hours = (ttl_hours - 1) if ttl_hours > 1 else max(ttl_hours / 2, 0.05)
+
+    while True:
+        for project_id in project_ids:
+            try:
+                result = await asyncio.to_thread(reindex_catalog, project_id, False)
+                if result.get("reindexed"):
+                    _logger.info(
+                        "Catálogo pré-aquecido: %s (%s tabelas)",
+                        project_id, result.get("tables_indexed"),
+                    )
+            except Exception:  # noqa: BLE001 — warmup nunca deve derrubar o processo
+                _logger.exception("Falha ao pré-aquecer catálogo de %s", project_id)
+        await asyncio.sleep(interval_hours * 3600)
+
+
+__all__ = ["reindex_catalog", "search_catalog", "warmup_catalog_loop"]

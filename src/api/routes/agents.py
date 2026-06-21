@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -440,7 +441,11 @@ async def analyze_by_agent(
                 answer = await _build_rag_chat_answer(query, profile, relevant_turns)
                 response = _build_finance_chat_response(answer)
             else:
-                response = agent.analyze(
+                # agent.analyze é síncrono e pode levar muitos segundos
+                # (LLM + BigQuery) — roda numa thread para não travar o
+                # event loop e, com ele, todo usuário concorrente.
+                response = await asyncio.to_thread(
+                    agent.analyze,
                     query=query,
                     project_id=project_id,
                     dataset_hint=req.dataset_hint or profile.get("pinned_dataset_ref"),
@@ -478,7 +483,9 @@ async def analyze_by_agent(
         analyze_kwargs: dict = {"query": query, "project_id": project_id, "dataset_hint": req.dataset_hint}
         if agent_id == "query_analyzer" and req.thread_id:
             analyze_kwargs["thread_id"] = req.thread_id
-        result = agent.analyze(**analyze_kwargs)
+        # Mesmo motivo do finance_auditor acima: síncrono e potencialmente
+        # lento (LLM/BigQuery), roda fora do event loop.
+        result = await asyncio.to_thread(agent.analyze, **analyze_kwargs)
         checkpoint_key = f"{session['token']}-{agent_id}"
         checkpointer.save(checkpoint_key, result)
         # Para schema_graph persiste também com chave de projeto para cache compartilhado

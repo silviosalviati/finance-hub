@@ -6,7 +6,8 @@ Topologia:
       → persona_resolver        (altitude: coordenador/gerente/diretor)
       → response_mode_resolver  (estrutura: padrao/analise_profunda)
       → planner                 (LLM com structured output → PlanResponse)
-      → router                  (executa cada step do plano em sequência)
+      → router                  (executa os steps do plano em ondas — em
+                                  paralelo quando independentes entre si)
       → composer                (LLM redige resposta final na altitude da
                                   persona e na estrutura do response_mode)
       → guardrails_out
@@ -20,6 +21,7 @@ from __future__ import annotations
 
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -129,6 +131,41 @@ def _resolve_placeholders(value: Any, prior_results: list[dict[str, Any]], proje
     if isinstance(value, list):
         return [_resolve_placeholders(v, prior_results, project_id) for v in value]
     return value
+
+
+_STEP_REF_RE = re.compile(r"^step_(\d+)\.")
+
+
+def _step_dependencies(raw_args: Any) -> set[int]:
+    """Índices de steps que este step referencia — via ${step_N.path} em
+    qualquer string dos args (recursivo em dict/list) ou via o argumento
+    direto `source_step_index` (usado por stats_describe/viz_spec/forecast).
+    Usado pelo router para decidir quais steps podem rodar em paralelo."""
+    deps: set[int] = set()
+
+    def _scan(value: Any) -> None:
+        if isinstance(value, str):
+            for m in _TPL_RE.finditer(value):
+                ref = _STEP_REF_RE.match(m.group(1).strip())
+                if ref:
+                    deps.add(int(ref.group(1)))
+        elif isinstance(value, dict):
+            for v in value.values():
+                _scan(v)
+        elif isinstance(value, list):
+            for v in value:
+                _scan(v)
+
+    _scan(raw_args)
+
+    if isinstance(raw_args, dict) and raw_args.get("source_step_index") is not None:
+        try:
+            deps.add(int(raw_args["source_step_index"]))
+        except (TypeError, ValueError):
+            pass
+
+    return deps
+
 
 _INJECTION_MARKERS = (
     "ignore previous",
@@ -290,8 +327,37 @@ def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Nó 4 — router (executa cada step em sequência; injeta LLM e tool_results)
+# Nó 4 — router (executa steps em ondas: paralelo dentro da onda quando não
+# há dependência entre eles via ${step_N...}/source_step_index; injeta LLM e
+# tool_results)
 # ---------------------------------------------------------------------------
+
+def _run_step(
+    idx: int,
+    step: dict[str, Any],
+    base_context: dict[str, Any],
+    snapshot: list[dict[str, Any]],
+) -> tuple[int, dict[str, Any], dict[str, Any]]:
+    capability = str(step.get("capability") or "").strip().lower()
+    raw_args = step.get("args") or {}
+
+    # Late binding: ${PROJECT} e ${step_N.path} → valores reais.
+    args = _resolve_placeholders(raw_args, snapshot, base_context.get("project_id", ""))
+
+    # Encadeamento: cada step recebe os resultados anteriores no context.
+    step_context = {**base_context, "tool_results": snapshot}
+
+    outcome = execute_capability(capability, args, step_context)
+    entry = {
+        "step_index": idx,
+        "capability": capability,
+        "args": args,
+        "ok": outcome.get("ok", False),
+        "payload": outcome.get("payload"),
+        "error": outcome.get("error"),
+    }
+    return idx, entry, outcome
+
 
 def node_router(
     state: SupervisorState,
@@ -310,44 +376,62 @@ def node_router(
     }
 
     # Em re-execução (pós-reflect), preserva o que já foi executado.
-    results: list[dict[str, Any]] = list(state.get("tool_results") or [])
+    results: list[dict[str, Any] | None] = list(state.get("tool_results") or [])
     artifacts: list[dict[str, Any]] = list(state.get("artifacts") or [])
     warnings: list[str] = list(state.get("warnings") or [])
     start_idx = len(results)
     iteration = int(state.get("iteration") or 0) + 1
 
-    for offset, step in enumerate(plan[start_idx:]):
-        idx = start_idx + offset
-        capability = str(step.get("capability") or "").strip().lower()
-        raw_args = step.get("args") or {}
+    new_steps = list(enumerate(plan[start_idx:], start=start_idx))
+    results.extend([None] * len(new_steps))
 
-        # Late binding: ${PROJECT} e ${step_N.path} → valores reais.
-        args = _resolve_placeholders(
-            raw_args, results, base_context.get("project_id", "")
-        )
-
-        # Encadeamento: cada step recebe os resultados anteriores no context.
-        step_context = {**base_context, "tool_results": list(results)}
-
-        outcome = execute_capability(capability, args, step_context)
-
-        results.append(
-            {
-                "step_index": idx,
-                "capability": capability,
-                "args": args,
-                "ok": outcome.get("ok", False),
-                "payload": outcome.get("payload"),
-                "error": outcome.get("error"),
-            }
-        )
+    def _record(idx: int, entry: dict[str, Any], outcome: dict[str, Any]) -> None:
+        results[idx] = entry
         for art in outcome.get("artifacts") or []:
             artifacts.append({"step_index": idx, **art})
-
         if not outcome.get("ok"):
             warnings.append(
-                f"Step {idx} ({capability}) falhou: {outcome.get('error') or 'erro desconhecido'}"
+                f"Step {idx} ({entry['capability']}) falhou: "
+                f"{outcome.get('error') or 'erro desconhecido'}"
             )
+
+    pending = new_steps
+    while pending:
+        # Snapshot fixo para esta onda: nenhum step "pronto" depende de outro
+        # da MESMA onda (senão não estaria pronto), então todos podem ler o
+        # mesmo retrato de tool_results sem se esperar.
+        snapshot = list(results)
+
+        ready: list[tuple[int, dict[str, Any]]] = []
+        still_pending: list[tuple[int, dict[str, Any]]] = []
+        for idx, step in pending:
+            deps = _step_dependencies(step.get("args") or {})
+            if all(0 <= d < idx and results[d] is not None for d in deps):
+                ready.append((idx, step))
+            else:
+                still_pending.append((idx, step))
+
+        if not ready:
+            # Não devia acontecer com plans válidos (dependência circular ou
+            # referência inválida) — executa o resto em ordem em vez de
+            # travar silenciosamente num loop infinito.
+            ready, still_pending = pending, []
+
+        if len(ready) == 1:
+            idx, step = ready[0]
+            idx, entry, outcome = _run_step(idx, step, base_context, snapshot)
+            _record(idx, entry, outcome)
+        else:
+            with ThreadPoolExecutor(max_workers=len(ready)) as pool:
+                futures = [
+                    pool.submit(_run_step, idx, step, base_context, snapshot)
+                    for idx, step in ready
+                ]
+                for future in as_completed(futures):
+                    idx, entry, outcome = future.result()
+                    _record(idx, entry, outcome)
+
+        pending = still_pending
 
     return {
         "tool_results": results,

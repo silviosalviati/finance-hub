@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from src.agents.finance_auditor.catalog_index import warmup_catalog_loop
 from src.api.dependencies import session_count
 from src.api.routes.admin import router as admin_router
 from src.api.routes.agents import router as agents_router
@@ -21,7 +24,7 @@ from src.api.routes.auth import router as auth_router
 from src.api.routes.finance_governance import router as finance_governance_router
 from src.api.routes.schema_explorer import router as schema_explorer_router
 from src.core.database import init_db
-from src.shared.config import ALLOWED_ORIGINS, LLM_PROVIDER, validate_runtime_config
+from src.shared.config import ALLOWED_ORIGINS, get_gcp_project_ids, validate_runtime_config
 from src.shared.tracing import configure_tracing
 
 
@@ -37,12 +40,20 @@ def _portal_html_path() -> Path:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()              
-    configure_tracing()    
+    init_db()
+    configure_tracing()
     _validate_startup_config()
-    print(f"LLM_PROVIDER: {LLM_PROVIDER}")
     print(f"ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")
-    yield
+
+    # Mantém o índice do catálogo do Finance Voice IA sempre quente, fora do
+    # request de algum usuário (ver warmup_catalog_loop).
+    warmup_task = asyncio.create_task(warmup_catalog_loop(get_gcp_project_ids()))
+    try:
+        yield
+    finally:
+        warmup_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await warmup_task
 
 
 app = FastAPI(title="Finance Hub IA", version="3.0.0", lifespan=lifespan)
@@ -87,4 +98,16 @@ async def favicon():
 
 
 if __name__ == "__main__":
-    uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, reload=True)
+    import os
+
+    # reload=True é só para dev (reinicia o processo a cada arquivo salvo,
+    # derruba conexões em andamento) — nunca deve ir para produção. Sessões
+    # agora vivem no SQLite (não mais num dict em memória), então workers>1
+    # é seguro: qualquer worker reconhece o login feito em outro.
+    reload_enabled = os.getenv("UVICORN_RELOAD", "false").strip().lower() in ("1", "true", "yes")
+
+    if reload_enabled:
+        uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, reload=True)
+    else:
+        workers = int(os.getenv("UVICORN_WORKERS", "1"))
+        uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, workers=workers)

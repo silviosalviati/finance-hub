@@ -54,7 +54,13 @@ def _get_credentials_path() -> str:
     return _resolve_credentials_path(configured)
 
 
+@lru_cache(maxsize=16)
 def _get_client(project_id: str | None) -> bigquery.Client:
+    # bigquery.Client é seguro para uso concorrente (mesmo padrão de reuso
+    # recomendado pela própria lib) — recriar um por chamada só pagava
+    # overhead de conexão/transporte sem ganhar nada em troca. Limite de 16
+    # entradas evita crescimento ilimitado caso project_id venha de input
+    # do usuário com valores variados.
     resolved_project_id = _resolve_project_id(project_id)
     credentials_path = _get_credentials_path()
     credentials = _get_base_credentials(credentials_path)

@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -21,6 +22,25 @@ router = APIRouter(tags=["schema-explorer"])
 _CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform.read-only"
 
 
+def _fetch_cloud_resource_manager_projects(creds_path: str) -> list[str]:
+    from google.auth.transport.requests import Request as GRequest
+    creds = service_account.Credentials.from_service_account_file(
+        creds_path, scopes=[_CLOUD_PLATFORM_SCOPE]
+    )
+    creds.refresh(GRequest())
+    req = urllib.request.Request(
+        "https://cloudresourcemanager.googleapis.com/v1/projects",
+        headers={"Authorization": f"Bearer {creds.token}"},
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read().decode())
+    return sorted(
+        p["projectId"]
+        for p in data.get("projects", [])
+        if p.get("lifecycleState") == "ACTIVE"
+    )
+
+
 @router.get("/api/schema-explorer/projects")
 async def list_projects(
     session: dict[str, Any] = Depends(get_current_user),
@@ -29,22 +49,8 @@ async def list_projects(
     configured = get_gcp_project_ids()
     creds_path = get_runtime_config("GOOGLE_APPLICATION_CREDENTIALS", "secrets/credentials.json")
     try:
-        from google.auth.transport.requests import Request as GRequest
-        creds = service_account.Credentials.from_service_account_file(
-            creds_path, scopes=[_CLOUD_PLATFORM_SCOPE]
-        )
-        creds.refresh(GRequest())
-        req = urllib.request.Request(
-            "https://cloudresourcemanager.googleapis.com/v1/projects",
-            headers={"Authorization": f"Bearer {creds.token}"},
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
-        api_projects = sorted(
-            p["projectId"]
-            for p in data.get("projects", [])
-            if p.get("lifecycleState") == "ACTIVE"
-        )
+        # Refresh de credencial + chamada HTTP — síncrono, roda numa thread.
+        api_projects = await asyncio.to_thread(_fetch_cloud_resource_manager_projects, creds_path)
         if api_projects:
             # Merge: configured projects first (preserves preferred order), then any extras from API
             seen: set[str] = set()
@@ -59,6 +65,11 @@ async def list_projects(
     return configured
 
 
+def _list_dataset_ids(project_id: str) -> list[str]:
+    client = _get_bq_client(project_id)
+    return sorted(ds.dataset_id for ds in client.list_datasets())
+
+
 @router.get("/api/schema-explorer/datasets")
 async def list_datasets(
     project_id: str = Query(default=""),
@@ -69,8 +80,8 @@ async def list_datasets(
     if not resolved:
         raise HTTPException(status_code=400, detail="project_id \u00e9 obrigat\u00f3rio.")
     try:
-        client = _get_bq_client(resolved)
-        return sorted(ds.dataset_id for ds in client.list_datasets())
+        # Chamada BigQuery \u2014 s\u00edncrona, roda numa thread.
+        return await asyncio.to_thread(_list_dataset_ids, resolved)
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -289,6 +300,16 @@ async def get_schema_explorer_graph(
     if cached is not None:
         return cached
 
+    # BigQuery (3 queries) + processamento síncrono — roda numa thread para
+    # não travar o event loop enquanto outro usuário espera resposta.
+    return await asyncio.to_thread(
+        _build_schema_explorer_graph, resolved_project, dataset_id, cache_key
+    )
+
+
+def _build_schema_explorer_graph(
+    resolved_project: str, dataset_id: str, cache_key: str
+) -> dict[str, Any]:
     try:
         client = _get_bq_client(resolved_project)
     except Exception as exc:

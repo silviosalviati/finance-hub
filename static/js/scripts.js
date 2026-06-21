@@ -5162,7 +5162,12 @@ function _faScrollMessageToTop(el) {
   const area = document.getElementById("fa-messages");
   if (!area || !el) return;
   _faEnsureScrollSpacer();
-  area.scrollTo({ top: Math.max(0, el.offsetTop - 12), behavior: "smooth" });
+  // getBoundingClientRect (não offsetTop): offsetTop é relativo ao
+  // ancestral posicionado mais próximo, que não é necessariamente
+  // #fa-messages — usar direto jogava a rolagem pra um ponto sem relação
+  // com a posição real da mensagem dentro da área rolável.
+  const delta = el.getBoundingClientRect().top - area.getBoundingClientRect().top;
+  area.scrollTo({ top: Math.max(0, area.scrollTop + delta - 12), behavior: "smooth" });
 }
 
 function _faUserInitials() {

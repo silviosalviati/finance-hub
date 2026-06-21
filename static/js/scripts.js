@@ -5605,6 +5605,74 @@ function _faHighlightSql(sql) {
     .replace(new RegExp("\\b" + KW + "\\b", "gi"), '<span class="kw">$1</span>');
 }
 
+const _FA_CHART_TYPE_LABEL = {
+  bar: "Barras",
+  line: "Linha",
+  area: "Área",
+  point: "Dispersão",
+  arc: "Pizza",
+};
+
+// O resto do produto já formata número/data em pt-BR (toLocaleString); sem
+// isso o Vega usava o locale en-US padrão (",1234.5" / "Jan 2026") e o
+// gráfico destoava visualmente do restante da resposta. `vega.formatLocale`
+// e `vega.timeFormatLocale` setam o locale padrão pra toda a lib de uma vez
+// — não existe campo "locale" no spec do Vega-Lite, então isso tem que
+// rodar uma vez no frontend antes do primeiro vegaEmbed.
+let _faVegaLocaleReady = false;
+function _faEnsureVegaLocale() {
+  if (_faVegaLocaleReady || !window.vega) return;
+  try {
+    window.vega.formatLocale({
+      decimal: ",",
+      thousands: ".",
+      grouping: [3],
+      currency: ["R$ ", ""],
+    });
+    window.vega.timeFormatLocale({
+      dateTime: "%A, %e de %B de %Y. %X",
+      date: "%d/%m/%Y",
+      time: "%H:%M:%S",
+      periods: ["AM", "PM"],
+      days: ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"],
+      shortDays: ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"],
+      months: [
+        "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+        "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+      ],
+      shortMonths: ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"],
+    });
+    _faVegaLocaleReady = true;
+  } catch (e) {
+    // Sem locale custom, o gráfico ainda renderiza (só em en-US) — não é
+    // motivo para quebrar o card.
+  }
+}
+
+// Fallback de erro do gráfico Vega-Lite: escapa o dump do spec (pode conter
+// strings vindas de dados de query) antes de ir pro innerHTML — sem isso um
+// valor de coluna com "</pre><script>" seria executado como HTML/JS real.
+function _faChartErrorHtml(message, spec) {
+  const safeMsg = _escFA(message || "Erro desconhecido");
+  let dump = "";
+  if (spec) {
+    try {
+      dump = _escFA(JSON.stringify(spec, null, 2));
+    } catch (e) {
+      dump = "";
+    }
+  }
+  return (
+    `<div class="fa-chart-error">` +
+    `<span class="fa-chart-error-icon" aria-hidden="true">${_faIcon("alert-triangle", 14)}</span>` +
+    `<div class="fa-chart-error-body">` +
+    `<div class="fa-chart-error-title">Não foi possível renderizar o gráfico</div>` +
+    `<div class="fa-chart-error-msg">${safeMsg}</div>` +
+    (dump ? `<pre class="fa-chart-error-dump">${dump}</pre>` : "") +
+    `</div></div>`
+  );
+}
+
 // Casca comum de um cartão de artefato: ícone + título + meta opcional no
 // cabeçalho, corpo customizável. `index` alimenta o atraso do efeito de
 // entrada escalonado (--i) definido em CSS.
@@ -5686,11 +5754,20 @@ function _faRenderArtifact(a, index = 0) {
       const spec = a.spec || {};
       const vid = `fa-vega-${faMsgCounter}-${Math.random().toString(36).slice(2, 8)}`;
       const specJson = JSON.stringify(spec).replace(/</g, "\\u003c");
+      const chartType = String(a.chart_type || (spec.mark && spec.mark.type) || "");
+      const typeLabel = _FA_CHART_TYPE_LABEL[chartType] || "";
       return _faArtCard(index, {
         icon: _faIcon("bar-chart", 13),
         title: a.title ? `Gráfico: ${a.title}` : "Gráfico",
+        meta: typeLabel,
         padded: true,
-        bodyHtml: `<div id="${vid}" style="min-height:240px"></div><script>(function(){try{var s=${specJson};if(window.vegaEmbed){window.vegaEmbed('#${vid}',s,{actions:false}).catch(function(e){document.getElementById('${vid}').innerHTML='<div style=\\"font-size:12px;color:#b91c1c;padding:8px\\">Erro renderizando gráfico: '+(e&&e.message?e.message:e)+'</div><pre style=\\"font-size:11px;overflow:auto;max-height:200px\\">'+JSON.stringify(s,null,2)+'</pre>';});}else{document.getElementById('${vid}').innerHTML='<pre style=\\"font-size:11px;overflow:auto;max-height:200px\\">'+JSON.stringify(s,null,2)+'</pre>';}}catch(e){document.getElementById('${vid}').textContent='Erro renderizando gráfico: '+e.message;}})();<\/script>`,
+        bodyHtml:
+          `<div class="fa-chart-frame"><div id="${vid}" class="fa-chart-canvas"></div></div>` +
+          `<script>(function(){var el=document.getElementById('${vid}');try{_faEnsureVegaLocale();var s=${specJson};` +
+          `if(window.vegaEmbed){window.vegaEmbed('#${vid}',s,{actions:false,renderer:'svg'})` +
+          `.catch(function(e){el.innerHTML=_faChartErrorHtml(e&&e.message?e.message:String(e),s);});}` +
+          `else{el.innerHTML=_faChartErrorHtml('Biblioteca de gráficos não carregada.',s);}}` +
+          `catch(e){el.innerHTML=_faChartErrorHtml(e&&e.message?e.message:String(e),null);}})();<\/script>`,
       });
     }
     default:

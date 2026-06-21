@@ -921,6 +921,121 @@ def cap_stats_describe(args: dict[str, Any], context: dict[str, Any]) -> dict[st
 
 _VALID_CHART_TYPES = {"bar", "line", "area", "point", "arc"}
 
+# Paleta de marca (Porto Seguro) com extensões semânticas — usada tanto para
+# a cor única de marks quanto para o range categórico (color encoding).
+_CHART_PALETTE = [
+    "#004691",  # porto-primary
+    "#00a1e4",  # porto-vivid
+    "#059669",  # emerald
+    "#d97706",  # amber
+    "#6d28d9",  # violet
+    "#0891b2",  # teal
+    "#be123c",  # rose
+    "#64748b",  # slate (overflow de categorias)
+]
+
+# Nota: o locale pt-BR de numero/data ("1.234,56", "jan/2026") e setado
+# globalmente no frontend via vega.formatLocale/vega.timeFormatLocale (ver
+# scripts.js, _faEnsureVegaLocale) -- nao existe propriedade "locale" no
+# nivel raiz de um spec Vega-Lite, entao nao tem como (nem precisa) ir aqui.
+
+# Tema visual aplicado a todo gráfico gerado: tipografia da marca (Sora/DM
+# Sans), grid sutil só no eixo Y, eixos sem moldura pesada e paleta de marca
+# — visual de terminal financeiro em vez do tema cru padrão do Vega-Lite.
+_VEGA_CONFIG = {
+    "background": "transparent",
+    "font": "DM Sans, sans-serif",
+    "title": {
+        "font": "Sora, sans-serif",
+        "fontSize": 13,
+        "fontWeight": 600,
+        "color": "#0a1628",
+        "subtitleColor": "#8096b2",
+        "subtitleFontSize": 10.5,
+        "subtitleFontWeight": 500,
+        "anchor": "start",
+        "offset": 14,
+    },
+    "axis": {
+        "labelFont": "DM Sans, sans-serif",
+        "labelFontSize": 10.5,
+        "labelColor": "#3d5276",
+        "labelPadding": 6,
+        "titleFont": "DM Sans, sans-serif",
+        "titleFontSize": 11,
+        "titleFontWeight": 600,
+        "titleColor": "#3d5276",
+        "titlePadding": 12,
+        "domainColor": "#d1dce7",
+        "tickColor": "#d1dce7",
+        "tickSize": 4,
+        "gridColor": "#eef2f7",
+        "gridDash": [3, 3],
+    },
+    "axisY": {"grid": True, "domain": False, "ticks": False},
+    "axisX": {"grid": False},
+    "legend": {
+        "labelFont": "DM Sans, sans-serif",
+        "labelFontSize": 10.5,
+        "labelColor": "#3d5276",
+        "titleFont": "DM Sans, sans-serif",
+        "titleFontSize": 11,
+        "titleColor": "#0a1628",
+        "symbolType": "circle",
+        "symbolSize": 70,
+        "orient": "top",
+        "direction": "horizontal",
+        "offset": 10,
+        "padding": 4,
+    },
+    "view": {"stroke": "transparent"},
+    "range": {"category": _CHART_PALETTE},
+    "bar": {"color": "#004691", "cornerRadiusTopLeft": 4, "cornerRadiusTopRight": 4},
+    "line": {"color": "#004691", "strokeWidth": 2.5},
+    "point": {"color": "#004691", "filled": True, "size": 64},
+    "area": {"color": "#004691", "line": True, "opacity": 0.22},
+    "arc": {"stroke": "#ffffff", "strokeWidth": 2},
+}
+
+
+def _humanize_field(name: str) -> str:
+    """"vlr_receita_mensal" -> "Vlr receita mensal" — título de eixo legível
+    sem precisar que o Planner descreva cada coluna."""
+    cleaned = re.sub(r"[_\-]+", " ", str(name)).strip()
+    return f"{cleaned[:1].upper()}{cleaned[1:]}" if cleaned else str(name)
+
+
+def _number_format(values: list[Any]) -> str:
+    """Formato de eixo (combinado com o locale pt-BR setado no frontend):
+    abrevia números grandes (1,2M) pra não estourar o espaço do gráfico —
+    nunca assume moeda/unidade, só ajusta separador de milhar/abreviação
+    para o que os dados de fato têm."""
+    nums = [_to_float(v) for v in values if _is_number(v)]
+    if not nums:
+        return ",.0f"
+    if max(abs(v) for v in nums) >= 1_000_000:
+        return ".2~s"
+    has_decimals = any(abs(v - round(v)) > 1e-9 for v in nums)
+    return ",.2f" if has_decimals else ",.0f"
+
+
+def _tooltip_number_format(values: list[Any]) -> str:
+    """Formato de tooltip: nunca abrevia — é exatamente ao passar o mouse que
+    o usuário quer o valor exato, não a aproximação "1,2M" do eixo."""
+    nums = [_to_float(v) for v in values if _is_number(v)]
+    if not nums:
+        return ",.0f"
+    has_decimals = any(abs(v - round(v)) > 1e-9 for v in nums)
+    return ",.2f" if has_decimals else ",.0f"
+
+
+def _date_precision_format(values: list[Any]) -> tuple[str, str]:
+    """(formato_eixo, formato_tooltip) conforme granularidade real da coluna
+    temporal — dia (YYYY-MM-DD) vs mês (YYYY-MM)."""
+    sample = [v for v in values if isinstance(v, str)][:50]
+    day_level = any(len(v) >= 10 for v in sample)
+    return ("%d/%b", "%d/%m/%Y") if day_level else ("%b/%Y", "%b/%Y")
+
 
 def _infer_field_type(values: list[Any]) -> str:
     sample = [v for v in values if v is not None][:50]
@@ -993,30 +1108,134 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
     if chart_type not in _VALID_CHART_TYPES:
         return _err(f"chart_type inválido: {chart_type}. Use um de {sorted(_VALID_CHART_TYPES)}.")
 
-    encoding: dict[str, Any] = {
-        "x": {"field": x, "type": x_type},
-        "y": {"field": y, "type": y_type},
-    }
-    if color:
-        encoding["color"] = {"field": color, "type": _infer_field_type([r.get(color) for r in rows])}
+    x_title = _humanize_field(x)
+    y_title = _humanize_field(y)
+    # Eixo abrevia números grandes (1,2M) pra caber no espaço do gráfico;
+    # tooltip sempre mostra o valor exato — é justamente o que o usuário
+    # quer ao passar o mouse, não a mesma aproximação do eixo.
+    y_axis_fmt = _number_format([r.get(y) for r in rows]) if y_type == "quantitative" else None
+    y_tooltip_fmt = _tooltip_number_format([r.get(y) for r in rows]) if y_type == "quantitative" else None
+    x_axis_num_fmt = _number_format([r.get(x) for r in rows]) if x_type == "quantitative" else None
+    x_tooltip_num_fmt = _tooltip_number_format([r.get(x) for r in rows]) if x_type == "quantitative" else None
+    x_axis_date_fmt = x_tooltip_date_fmt = None
+    if x_type == "temporal":
+        x_axis_date_fmt, x_tooltip_date_fmt = _date_precision_format([r.get(x) for r in rows])
+
+    if chart_type == "arc":
+        # Pizza/rosca: o mark "arc" não tem canais x/y — é "theta" (ângulo,
+        # proporcional ao valor) + "color" (categoria) que o Vega-Lite espera.
+        # O código antigo mandava x/y como em barra/linha, o que nunca
+        # desenhava uma pizza de fato (sem "theta" o arco cobre o círculo
+        # inteiro com um valor só).
+        encoding: dict[str, Any] = {
+            "theta": {"field": y, "type": "quantitative", "title": y_title, "stack": True},
+            # Legenda do tema global é horizontal no topo (ok para 2-4 séries
+            # de bar/line/area) — mas pizza costuma ter mais categorias e
+            # cortava texto ("Sudeste", "Sul") por falta de espaço horizontal.
+            # À direita, em coluna, escala para qualquer nº de categorias.
+            "color": {"field": x, "type": "nominal", "title": x_title, "legend": {"orient": "right", "columns": 1}},
+            "tooltip": [
+                {"field": x, "type": "nominal", "title": x_title},
+                {"field": y, "type": "quantitative", "title": y_title, **({"format": y_tooltip_fmt} if y_tooltip_fmt else {})},
+            ],
+        }
+        mark: dict[str, Any] = {
+            "type": "arc",
+            "innerRadius": 68,
+            "cornerRadius": 2,
+        }
+    else:
+        x_axis: dict[str, Any] = {}
+        if x_axis_date_fmt:
+            x_axis["format"] = x_axis_date_fmt
+        elif x_axis_num_fmt:
+            x_axis["format"] = x_axis_num_fmt
+        if chart_type == "bar" and x_type == "nominal" and len({r.get(x) for r in rows}) > 8:
+            # Muitas categorias num bar chart: rótulos horizontais colidem —
+            # inclina e limita a largura em vez de deixar texto truncado/sobreposto.
+            x_axis["labelAngle"] = -35
+            x_axis["labelLimit"] = 120
+
+        x_tooltip_fmt = x_tooltip_date_fmt or x_tooltip_num_fmt
+        tooltip_fields: list[dict[str, Any]] = [
+            {
+                "field": x,
+                "type": x_type,
+                "title": x_title,
+                **({"format": x_tooltip_fmt} if x_tooltip_fmt else {}),
+            },
+            {"field": y, "type": y_type, "title": y_title, **({"format": y_tooltip_fmt} if y_tooltip_fmt else {})},
+        ]
+        encoding = {
+            "x": {"field": x, "type": x_type, "title": x_title, **({"axis": x_axis} if x_axis else {})},
+            "y": {"field": y, "type": y_type, "title": y_title, **({"axis": {"format": y_axis_fmt}} if y_axis_fmt else {})},
+            "tooltip": tooltip_fields,
+        }
+        if color:
+            color_type = _infer_field_type([r.get(color) for r in rows])
+            color_title = _humanize_field(color)
+            encoding["color"] = {"field": color, "type": color_type, "title": color_title}
+            tooltip_fields.append({"field": color, "type": color_type, "title": color_title})
+
+        if chart_type == "line":
+            mark = {"type": "line", "interpolate": "monotone", "strokeWidth": 2.5, "point": {"filled": True, "size": 34}}
+        elif chart_type == "area":
+            if color:
+                mark = {"type": "area", "interpolate": "monotone", "opacity": 0.28, "line": {"strokeWidth": 2}}
+            else:
+                # Sem série categórica: gradiente suave da cor de marca até
+                # transparente na base — leitura de "volume" mais clara do
+                # que um preenchimento sólido chapado.
+                mark = {
+                    "type": "area",
+                    "interpolate": "monotone",
+                    "line": {"color": "#004691", "strokeWidth": 2.5},
+                    "color": {
+                        "x1": 0, "y1": 1, "x2": 0, "y2": 0,
+                        "gradient": "linear",
+                        "stops": [
+                            {"offset": 0, "color": "rgba(0,70,145,0.02)"},
+                            {"offset": 1, "color": "rgba(0,70,145,0.32)"},
+                        ],
+                    },
+                }
+        elif chart_type == "point":
+            mark = {"type": "point", "filled": True, "size": 70}
+        else:  # bar
+            mark = {"type": "bar", "cornerRadiusTopLeft": 3, "cornerRadiusTopRight": 3}
+
+    row_count = len(rows)
+    display_title = title or f"{y_title} por {x_title}"
+    subtitle = f"{row_count} registro{'s' if row_count != 1 else ''}"
+
+    if chart_type == "arc":
+        # Pizza/rosca tem aspecto circular fixo — "width: container" estica
+        # o raio pro tamanho do card e, com innerRadius fixo, vira um anel
+        # fino e sem graça quando a legenda (à direita) sobra pouca largura
+        # pro círculo. Tamanho fixo mantém a proporção previsível.
+        size_props: dict[str, Any] = {"width": 240, "height": 240}
+    else:
+        size_props = {"width": "container", "height": 280, "autosize": {"type": "fit-x", "contains": "padding"}}
 
     spec: dict[str, Any] = {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        **size_props,
+        "background": "transparent",
         "data": {"values": rows[:500]},  # cap defensivo para payload do frontend
-        "mark": {"type": chart_type, "tooltip": True},
+        "title": {"text": display_title, "subtitle": subtitle},
+        "mark": mark,
         "encoding": encoding,
+        "config": _VEGA_CONFIG,
     }
-    if title:
-        spec["title"] = title
 
     return _ok(
         payload={
             "chart_type": chart_type,
-            "row_count": len(rows),
-            "title": title,
+            "row_count": row_count,
+            "title": display_title,
             "auto_selected": auto_selected,
         },
-        artifacts=[{"type": "vega_lite", "title": title or f"{chart_type} chart", "spec": spec}],
+        artifacts=[{"type": "vega_lite", "title": display_title, "chart_type": chart_type, "spec": spec}],
     )
 
 

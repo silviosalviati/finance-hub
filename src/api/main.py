@@ -99,11 +99,6 @@ async def favicon():
 
 if __name__ == "__main__":
     import os
-
-    # reload=True é só para dev (reinicia o processo a cada arquivo salvo,
-    # derruba conexões em andamento) — nunca deve ir para produção. Sessões
-    # agora vivem no SQLite (não mais num dict em memória), então workers>1
-    # é seguro: qualquer worker reconhece o login feito em outro.
     reload_enabled = os.getenv("UVICORN_RELOAD", "false").strip().lower() in ("1", "true", "yes")
 
     if reload_enabled:

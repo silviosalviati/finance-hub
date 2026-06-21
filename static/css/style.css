@@ -7591,3 +7591,106 @@ pre.fa-sql .com {
   margin: 0;
   white-space: pre-wrap;
 }
+
+/* gráfico (Vega-Lite) — moldura tipo "painel de terminal financeiro" em
+   volta do SVG renderizado pelo vega-embed */
+.fa-chart-frame {
+  background: #fff;
+  border-radius: 8px;
+}
+
+.fa-chart-canvas {
+  min-height: 280px;
+}
+
+/* vega-embed injeta seu próprio <style> com ".vega-embed{display:inline-block}"
+   — isso colapsa a largura pra 0 quando o spec usa "width":"container" (o
+   container shrink-wrap no conteúdo, e o conteúdo tenta ocupar a largura do
+   container: dependência circular). Seletor de duas classes para ganhar
+   especificidade do override sem depender da ordem de inserção do <style>. */
+.fa-chart-canvas.vega-embed {
+  display: block;
+  width: 100%;
+}
+
+.fa-chart-canvas summary {
+  display: none;
+}
+
+.fa-chart-error {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background: var(--rose-bg);
+  border: 1px solid color-mix(in srgb, var(--rose) 30%, white);
+  border-radius: 10px;
+}
+
+.fa-chart-error-icon {
+  flex-shrink: 0;
+  color: var(--rose);
+  margin-top: 1px;
+}
+
+.fa-chart-error-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--rose);
+}
+
+.fa-chart-error-msg {
+  font-size: 11.5px;
+  color: var(--ink2);
+  margin-top: 2px;
+}
+
+.fa-chart-error-dump {
+  margin-top: 8px;
+  font-size: 10.5px;
+  font-family: var(--mono);
+  color: var(--ink3);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  overflow: auto;
+  max-height: 180px;
+}
+
+/* Tooltip nativo do Vega (vega-tooltip) — por padrão vem com o tema cru da
+   lib (borda preta, sans-serif genérica); aqui alinhamos à identidade visual
+   do produto (cores, raio, sombra, tipografia). Seletor de ID porque é
+   assim que o vega-tooltip injeta o elemento no <body>. */
+#vg-tooltip-element {
+  font-family: var(--body) !important;
+  font-size: 11.5px !important;
+  background: var(--ink-primary) !important;
+  color: #e7edf6 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 8px 11px !important;
+  box-shadow: var(--shadow-lg) !important;
+  max-width: 260px;
+}
+
+#vg-tooltip-element.vg-tooltip h2 {
+  color: #fff !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+  padding-bottom: 4px !important;
+  margin-bottom: 4px !important;
+}
+
+#vg-tooltip-element table tr td.key {
+  color: #9fb3cc !important;
+  font-weight: 500 !important;
+  padding: 2px 8px 2px 0 !important;
+}
+
+#vg-tooltip-element table tr td.value {
+  color: #fff !important;
+  font-weight: 600 !important;
+  padding: 2px 0 !important;
+}

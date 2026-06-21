@@ -5124,14 +5124,37 @@ function clearFAChat() {
   _faRenderQuickSuggestions([]);
 }
 
-// Ancora a pergunta recém-enviada no topo da área visível e não acompanha
-// mais o rodapé a partir daí — a resposta cresce abaixo dela sem puxar a
-// tela; em respostas longas, o usuário rola manualmente (mesmo padrão do
-// Claude/ChatGPT).
+// Garante espaço suficiente abaixo da última mensagem para a rolagem
+// "pegar" no topo mesmo que ainda não haja resposta alguma — sem isso, o
+// navegador limita o scroll ao que já existe (mensagem nova + indicador de
+// "pensando" juntos quase nunca enchem a tela), e a pergunta não sobe de
+// fato. Removido quando a troca termina (sucesso ou erro).
+function _faEnsureScrollSpacer(area) {
+  let spacer = document.getElementById("fa-scroll-spacer");
+  if (!spacer) {
+    spacer = document.createElement("div");
+    spacer.id = "fa-scroll-spacer";
+    spacer.setAttribute("aria-hidden", "true");
+    spacer.style.flexShrink = "0";
+  }
+  area.appendChild(spacer); // sempre realocado como último filho
+  spacer.style.height = `${area.clientHeight}px`;
+}
+
+function _faCollapseScrollSpacer() {
+  document.getElementById("fa-scroll-spacer")?.remove();
+}
+
+// Ancora a pergunta recém-enviada no topo da área visível, com rolagem
+// suave (em vez de um salto instantâneo) para reforçar a impressão de
+// scroll automático — e não acompanha mais o rodapé a partir daí: a
+// resposta cresce abaixo dela sem puxar a tela; em respostas longas, o
+// usuário rola manualmente (mesmo padrão do Claude/ChatGPT).
 function _faScrollMessageToTop(el) {
   const area = document.getElementById("fa-messages");
   if (!area || !el) return;
-  area.scrollTop = Math.max(0, el.offsetTop - 12);
+  _faEnsureScrollSpacer(area);
+  area.scrollTo({ top: Math.max(0, el.offsetTop - 12), behavior: "smooth" });
 }
 
 function _faUserInitials() {
@@ -5826,6 +5849,7 @@ async function sendFAMessage() {
     removeFAThinking();
     appendFAErrorMessage(prettifyErrorMessage(e.message));
   } finally {
+    _faCollapseScrollSpacer();
     faIsLoading = false;
     setFAInteractionLock(false);
     setFASendButtonState({

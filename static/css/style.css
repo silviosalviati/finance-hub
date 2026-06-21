@@ -7600,7 +7600,7 @@ pre.fa-sql .com {
 }
 
 .fa-chart-canvas {
-  min-height: 280px;
+  min-height: 320px;
 }
 
 /* vega-embed injeta seu próprio <style> com ".vega-embed{display:inline-block}"

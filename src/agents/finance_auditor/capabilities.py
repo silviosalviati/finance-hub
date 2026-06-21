@@ -1005,6 +1005,22 @@ def _humanize_field(name: str) -> str:
     return f"{cleaned[:1].upper()}{cleaned[1:]}" if cleaned else str(name)
 
 
+def _humanize_bool_columns(rows: list[dict[str, Any]], columns: list[str]) -> list[dict[str, Any]]:
+    """Coluna 100% booleana (True/False) aparece crua como "true"/"false" na
+    legenda e no tooltip — vira "Sim"/"Não", sem alterar o que o dado representa."""
+    bool_cols = {
+        col
+        for col in columns
+        if (values := [r.get(col) for r in rows if r.get(col) is not None]) and all(isinstance(v, bool) for v in values)
+    }
+    if not bool_cols:
+        return rows
+    return [
+        {k: ("Sim" if v is True else "Não" if v is False else v) if k in bool_cols else v for k, v in r.items()}
+        for r in rows
+    ]
+
+
 def _number_format(values: list[Any]) -> str:
     """Formato de eixo (combinado com o locale pt-BR setado no frontend):
     abrevia números grandes (1,2M) pra não estourar o espaço do gráfico —
@@ -1099,6 +1115,8 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
     color = (color_arg if color_arg in rows[0] else _fuzzy_pick_column(color_arg, available_cols)) if color_arg else None
     title = str(args.get("title") or "").strip()
 
+    rows = _humanize_bool_columns(rows, [c for c in (x, y, color) if c])
+
     x_type = _infer_field_type([r.get(x) for r in rows])
     y_type = _infer_field_type([r.get(y) for r in rows])
 
@@ -1166,9 +1184,13 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
             },
             {"field": y, "type": y_type, "title": y_title, **({"format": y_tooltip_fmt} if y_tooltip_fmt else {})},
         ]
+        # Sem título de eixo: o card já mostra o título do gráfico no cabeçalho
+        # e o nome técnico da coluna ("mes_referencia") não agrega nada visto
+        # dobrado debaixo do eixo — os valores dos ticks já bastam. O nome
+        # legível continua disponível no tooltip/legenda.
         encoding = {
-            "x": {"field": x, "type": x_type, "title": x_title, **({"axis": x_axis} if x_axis else {})},
-            "y": {"field": y, "type": y_type, "title": y_title, **({"axis": {"format": y_axis_fmt}} if y_axis_fmt else {})},
+            "x": {"field": x, "type": x_type, "axis": {**x_axis, "title": None}},
+            "y": {"field": y, "type": y_type, "axis": {"title": None, **({"format": y_axis_fmt} if y_axis_fmt else {})}},
             "tooltip": tooltip_fields,
         }
         if color:
@@ -1206,23 +1228,26 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
 
     row_count = len(rows)
     display_title = title or f"{y_title} por {x_title}"
-    subtitle = f"{row_count} registro{'s' if row_count != 1 else ''}"
 
     if chart_type == "arc":
         # Pizza/rosca tem aspecto circular fixo — "width: container" estica
         # o raio pro tamanho do card e, com innerRadius fixo, vira um anel
         # fino e sem graça quando a legenda (à direita) sobra pouca largura
         # pro círculo. Tamanho fixo mantém a proporção previsível.
-        size_props: dict[str, Any] = {"width": 240, "height": 240}
+        size_props: dict[str, Any] = {"width": 260, "height": 260}
     else:
-        size_props = {"width": "container", "height": 280, "autosize": {"type": "fit-x", "contains": "padding"}}
+        # Sem título dentro do spec (o card já mostra), a altura toda vira
+        # palco do gráfico — maior que antes pra aproveitar esse espaço.
+        size_props = {"width": "container", "height": 320, "autosize": {"type": "fit-x", "contains": "padding"}}
 
     spec: dict[str, Any] = {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         **size_props,
         "background": "transparent",
         "data": {"values": rows[:500]},  # cap defensivo para payload do frontend
-        "title": {"text": display_title, "subtitle": subtitle},
+        # Sem "title": o card de artefato (frontend) já mostra o título —
+        # repetir aqui dentro do SVG só duplicava o texto e roubava espaço
+        # vertical do gráfico em si.
         "mark": mark,
         "encoding": encoding,
         "config": _VEGA_CONFIG,

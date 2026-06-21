@@ -4849,7 +4849,7 @@ async function resolveFAGerencia(gerencia, label = "") {
     const res = await fetch("/api/agents/finance_auditor/gerencia", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ gerencia }),
+      body: JSON.stringify({ gerencia, label }),
     });
     if (!res.ok) return;
     const data = await res.json();
@@ -4858,7 +4858,7 @@ async function resolveFAGerencia(gerencia, label = "") {
     _faGerenciaResolved.add(gerencia);
 
     const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
-    let text = data.message || "Conectado à base de dados desta área.";
+    let text = data.message || "Estou pronto para responder perguntas sobre esta área.";
     if (suggestions.length) {
       text +=
         `\n\n## Próximas perguntas sugeridas\n\n` +
@@ -5112,6 +5112,7 @@ async function appendFABotMessage(data) {
     ? `<span class="fa-persona-tag fa-persona-tag--${_escFA(persona.toLowerCase())}">${_escFA(persona)}</span>`
     : "";
   const metricsHtml = _faMetricsHtml(data);
+  const metaCaption = _faMetaCaptionHtml(data);
   const reportSlotId = `${id}-report`;
 
   el.innerHTML = `
@@ -5119,10 +5120,9 @@ async function appendFABotMessage(data) {
     <div class="fa-msg-main fa-msg-main--report">
       <div class="fa-bubble fa-bubble--bot fa-bubble--report">
         <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">✦</span>
-          <span class="fa-bubble-title">Finance Voice IA</span>
+          ${personaTag}
           <span class="fa-bubble-head-meta">
-            ${personaTag}${metricsHtml}
+            ${metricsHtml}
             <button type="button" class="fa-copy-answer-btn" data-fa-copy="${reportSlotId}" aria-label="Copiar resposta">copiar</button>
           </span>
         </div>
@@ -5132,6 +5132,7 @@ async function appendFABotMessage(data) {
         </div>
       </div>
       <div class="fa-msg-time">${_faNow()}</div>
+      ${metaCaption}
     </div>`;
 
   area.appendChild(el);
@@ -5154,14 +5155,24 @@ async function appendFABotMessage(data) {
   }
 }
 
-// Cabe\u00e7alho m\u00ednimo: um \u00fanico chip de status, sem detalhes t\u00e9cnicos.
-// Hover (title) mostra contexto resumido sem poluir a UI.
+// Chip \u00fanico de status no cabe\u00e7alho \u2014 sem detalhes t\u00e9cnicos. O detalhe de
+// bytes/custo/tokens vai na legenda vis\u00edvel sob o hor\u00e1rio (_faMetaCaptionHtml).
 function _faMetricsHtml(data) {
   const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
   // Sem steps (modo conversacional): sem chip nenhum.
   if (!toolResults.length) return "";
 
   const hasError = _faIsFailedResult(data);
+  const chip = hasError
+    ? `<span class="fa-chip fa-chip--err">\u2717</span>`
+    : `<span class="fa-chip fa-chip--ok">\u2713</span>`;
+  return `<div class="fa-statusbar">${chip}</div>`;
+}
+
+// Legenda discreta de volume/custo/tokens sob o hor\u00e1rio \u2014 s\u00f3 aparece quando
+// h\u00e1 consumo de BigQuery ou LLM a relatar.
+function _faMetaCaptionHtml(data) {
+  const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
 
   let bytesTotal = 0;
   let costTotal = 0;
@@ -5170,14 +5181,16 @@ function _faMetricsHtml(data) {
     if (typeof p.bytes_processed === "number") bytesTotal += p.bytes_processed;
     if (typeof p.estimated_cost_usd === "number") costTotal += p.estimated_cost_usd;
   }
-  const summaryParts = [];
-  if (bytesTotal) summaryParts.push(`${fmtBytes(bytesTotal)} \u2022 ${fmtUSD(costTotal)}`);
-  const title = summaryParts.join(" \u2022 ");
+  const totalTokens = Number(data.token_usage?.total_tokens) || 0;
 
-  const chip = hasError
-    ? `<span class="fa-chip fa-chip--err" title="${_escFA(title)}">\u2717</span>`
-    : `<span class="fa-chip fa-chip--ok" title="${_escFA(title)}">\u2713</span>`;
-  return `<div class="fa-statusbar">${chip}</div>`;
+  if (!bytesTotal && !totalTokens) return "";
+
+  const parts = [];
+  if (bytesTotal) parts.push(`${fmtBytes(bytesTotal)} processados`);
+  if (costTotal) parts.push(fmtUSD(costTotal));
+  if (totalTokens) parts.push(`${totalTokens.toLocaleString("pt-BR")} tokens`);
+
+  return `<div class="fa-meta-caption">${parts.join(" \u00b7 ")}</div>`;
 }
 
 
@@ -5208,6 +5221,9 @@ function _faDetailsHtml(data) {
     if (!_FA_ANSWER_CAPS.has(cap)) return false;
     // SQL e schema são detalhes técnicos — escondemos por padrão.
     if (a.type === "sql" || a.type === "schema") return false;
+    // Dump bruto da query: a narrativa já cobre esse dado — mostrar de novo
+    // aqui só duplica informação.
+    if (a.type === "table" && a.title === "Resultado da query") return false;
     return true;
   });
   if (!answerArtifacts.length) return "";

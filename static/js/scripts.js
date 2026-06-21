@@ -4525,6 +4525,8 @@ function _faHighlightNumbers(report) {
     ".fa-report-section--impact p",
     ".fa-report-section--rootcause li",
     ".fa-report-section--solution li",
+    ".fa-report-section--actions li",
+    ".fa-report-section--priority li",
   ].join(", ");
   report.querySelectorAll(selector).forEach((el) => {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -4567,12 +4569,13 @@ function _faDiretorStatCards(report) {
   hits[0].li.closest(".fa-report-bullets")?.classList.add("fa-report-bullets--stats");
 }
 
-// Persona "coordenador": ações/prioridades viram cards de checklist com ícone
-// de check e, quando o texto menciona um prazo, um chip de urgência — visão
-// operacional pede "o que fazer e até quando", não um parágrafo corrido.
+// Ações/recomendações/prioridades (qualquer persona) viram cards de
+// checklist com ícone de check e, quando o texto menciona um prazo, um chip
+// de urgência — "o que fazer e até quando" merece destaque visual em vez de
+// um parágrafo corrido, do coordenador ao diretor.
 const _FA_URGENCY_RE = /\b(imediat\w*|hoje|24h|24-48h|24\/48h|48h|72h|24-72h|esta semana|nas pr[oó]ximas \d+h)\b/i;
 
-function _faCoordenadorActionCards(report) {
+function _faActionCards(report) {
   const items = report.querySelectorAll(
     ".fa-report-section--actions .fa-report-bullets li, " +
       ".fa-report-section--priority .fa-report-bullets li, " +
@@ -4730,7 +4733,7 @@ function _faEnhanceReportDom(container, persona = "geral") {
 
   _faHighlightNumbers(report);
   if (report.dataset.faPersona === "diretor") _faDiretorStatCards(report);
-  if (report.dataset.faPersona === "coordenador") _faCoordenadorActionCards(report);
+  _faActionCards(report);
 
   return extractedSuggestions;
 }
@@ -5497,14 +5500,15 @@ function _faMetaCaptionHtml(data) {
 
 
 // Mostra APENAS artefatos que respondem à pergunta (tabelas finais, gráficos,
-// estatísticas, forecast, anexos). Esconde artefatos de steps preparatórios
+// forecast, anexos). Esconde artefatos de steps preparatórios
 // (bq_list_datasets, bq_list_tables, bq_get_schema) e SQL/schema técnicos.
-// Sem painel "Detalhes da execução".
+// "stats_describe" fica de fora de propósito: a tabela de estatística
+// descritiva é insumo interno do Composer, não algo a exibir como cartão —
+// o relatório já traduz o que importa dela em prosa.
 const _FA_ANSWER_CAPS = new Set([
   "text_to_sql",
   "bq_query",
   "metric_execute",
-  "stats_describe",
   "viz_spec",
   "forecast_simple",
   "attachment_analyze",
@@ -5628,28 +5632,6 @@ function _faRenderArtifact(a, index = 0) {
         icon: _faIcon("database", 13),
         title: `Schema: ${a.table_ref || ""}`,
         bodyHtml: `<pre class="fa-art-schema"><code>${_escFA(text)}</code></pre>`,
-      });
-    }
-    case "stats": {
-      const cols = a.columns && typeof a.columns === "object" ? a.columns : {};
-      const keys = Object.keys(cols);
-      if (!keys.length) return "";
-      const rows = keys
-        .map((k) => {
-          const c = cols[k] || {};
-          if (c.type === "numeric") {
-            return `<tr><td>${_escFA(k)}</td><td>numeric</td><td>${c.count ?? ""}</td><td>${c.mean ?? ""}</td><td>${c.median ?? ""}</td><td>${c.stdev ?? ""}</td><td>${c.min ?? ""}</td><td>${c.max ?? ""}</td></tr>`;
-          }
-          const top = Array.isArray(c.top)
-            ? c.top.map((t) => `${t.value}(${t.count})`).join(", ")
-            : "";
-          return `<tr><td>${_escFA(k)}</td><td>categorical</td><td>${c.count ?? ""}</td><td colspan="5">distinct=${c.distinct ?? ""} · top: ${_escFA(top)}</td></tr>`;
-        })
-        .join("");
-      return _faArtCard(index, {
-        icon: _faIcon("activity", 13),
-        title: "Estatística descritiva",
-        bodyHtml: `<div class="fa-art-table-scroll"><table class="fa-artifact-table"><thead><tr><th>coluna</th><th>tipo</th><th>count</th><th>mean</th><th>median</th><th>stdev</th><th>min</th><th>max</th></tr></thead><tbody>${rows}</tbody></table></div>`,
       });
     }
     case "vega_lite": {

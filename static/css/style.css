@@ -4865,7 +4865,7 @@ pre {
   line-height: 1.45;
 }
 
-/* ── Coordenador: ações/prioridades como checklist com prazo ── */
+/* ── Ações/recomendações/prioridades como checklist com prazo (qualquer persona) ── */
 .fa-report-bullets li.fa-action-card {
   display: flex;
   align-items: flex-start;

@@ -4973,6 +4973,24 @@ pre {
   color: var(--fa-accent, var(--porto-primary));
 }
 
+/* "Próximo passo:" tem ícone próprio (seta) inserido via JS — cancela o ✦
+   genérico acima para não duplicar quando o lead-in cai dentro de um resumo
+   ou de uma lista de achados/ações. */
+.fa-next-step-strong::before {
+  content: none;
+}
+
+.fa-next-step-ico {
+  display: inline-flex;
+  vertical-align: -2px;
+  margin-right: 4px;
+  color: var(--fa-accent, var(--porto-primary));
+}
+
+.fa-next-step-ico svg {
+  display: block;
+}
+
 /* Respostas conversacionais simples (sem seções/ícones de relatório) ganham
    um ícone no início do texto, para não ficarem "secas". */
 .fa-bubble--bot:not(.fa-bubble--report) .fa-report > p:first-child::before {

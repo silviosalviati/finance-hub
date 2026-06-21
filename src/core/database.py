@@ -122,6 +122,8 @@ def init_db() -> None:
                 owner TEXT NOT NULL DEFAULT '',
                 tags TEXT NOT NULL DEFAULT '',
                 alert_threshold TEXT NOT NULL DEFAULT '',
+                domain TEXT NOT NULL DEFAULT '',
+                is_official INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -205,6 +207,15 @@ def _migrate_finance_metrics_columns(conn: sqlite3.Connection) -> None:
         conn.execute(
             "ALTER TABLE finance_semantic_metrics ADD COLUMN"
             " alert_threshold TEXT NOT NULL DEFAULT ''"
+        )
+    if "domain" not in cols:
+        conn.execute(
+            "ALTER TABLE finance_semantic_metrics ADD COLUMN domain TEXT NOT NULL DEFAULT ''"
+        )
+    if "is_official" not in cols:
+        conn.execute(
+            "ALTER TABLE finance_semantic_metrics ADD COLUMN"
+            " is_official INTEGER NOT NULL DEFAULT 0"
         )
 
 
@@ -518,7 +529,7 @@ def update_dataset_memory(project_dataset: str, new_entries: list[dict]) -> None
 
 _METRIC_COLUMNS = (
     "key, name, description, source_table, sql_template, owner, tags,"
-    " alert_threshold, created_at, updated_at"
+    " alert_threshold, domain, is_official, created_at, updated_at"
 )
 
 
@@ -527,7 +538,7 @@ def list_finance_metrics() -> list[dict[str, Any]]:
         rows = conn.execute(
             f"SELECT {_METRIC_COLUMNS} FROM finance_semantic_metrics ORDER BY key"
         ).fetchall()
-    return [dict(r) for r in rows]
+    return [_decode_metric_row(r) for r in rows]
 
 
 def get_finance_metric(key: str) -> dict[str, Any] | None:
@@ -536,7 +547,13 @@ def get_finance_metric(key: str) -> dict[str, Any] | None:
             f"SELECT {_METRIC_COLUMNS} FROM finance_semantic_metrics WHERE key = ?",
             (key,),
         ).fetchone()
-    return dict(row) if row else None
+    return _decode_metric_row(row) if row else None
+
+
+def _decode_metric_row(row: sqlite3.Row) -> dict[str, Any]:
+    metric = dict(row)
+    metric["is_official"] = bool(metric.get("is_official"))
+    return metric
 
 
 def upsert_finance_metric(
@@ -549,6 +566,8 @@ def upsert_finance_metric(
     owner: str = "",
     tags: str = "",
     alert_threshold: str = "",
+    domain: str = "",
+    is_official: bool = False,
 ) -> dict[str, Any]:
     now = _utcnow()
     with get_db() as conn:
@@ -558,18 +577,19 @@ def upsert_finance_metric(
         if existing:
             conn.execute(
                 "UPDATE finance_semantic_metrics SET name=?, description=?, source_table=?,"
-                " sql_template=?, owner=?, tags=?, alert_threshold=?, updated_at=? WHERE key=?",
+                " sql_template=?, owner=?, tags=?, alert_threshold=?, domain=?, is_official=?,"
+                " updated_at=? WHERE key=?",
                 (name, description, source_table, sql_template, owner, tags,
-                 alert_threshold, now, key),
+                 alert_threshold, domain, int(bool(is_official)), now, key),
             )
             return {"key": key, "created": False, "updated_at": now}
         conn.execute(
             "INSERT INTO finance_semantic_metrics"
             " (key, name, description, source_table, sql_template, owner, tags,"
-            "  alert_threshold, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "  alert_threshold, domain, is_official, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (key, name, description, source_table, sql_template, owner, tags,
-             alert_threshold, now, now),
+             alert_threshold, domain, int(bool(is_official)), now, now),
         )
     return {"key": key, "created": True, "updated_at": now}
 

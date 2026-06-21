@@ -79,6 +79,7 @@ def _metric_score(metric: dict[str, Any], query: str, q_tokens: set[str]) -> int
     fields = (
         ("key", 5),
         ("name", 4),
+        ("domain", 4),
         ("tags", 3),
         ("description", 2),
     )
@@ -88,15 +89,23 @@ def _metric_score(metric: dict[str, Any], query: str, q_tokens: set[str]) -> int
 
     normalized_query = _slug(query).replace("_", " ").strip()
     if normalized_query:
-        for field, bonus in (("name", 4), ("description", 2), ("tags", 2)):
+        for field, bonus in (("name", 4), ("domain", 3), ("description", 2), ("tags", 2)):
             haystack = _slug(str(metric.get(field, ""))).replace("_", " ")
             if normalized_query in haystack:
                 score += bonus
     return score
 
 
-def search_metrics(query: str, top_k: int = 5) -> list[dict[str, Any]]:
-    """Retorna metricas ordenadas por relevancia lexical."""
+def search_metrics(
+    query: str, top_k: int = 5, official_only: bool = False
+) -> list[dict[str, Any]]:
+    """Retorna metricas ordenadas por relevancia lexical.
+
+    `official_only=True` restringe a busca ao Gold Metric Catalog (métricas
+    com `is_official=True`) — usado quando o Planner precisa eleger UMA
+    métrica confiável (ex.: para montar gráfico/dashboard automaticamente)
+    sem o usuário ter pedido uma métrica específica.
+    """
     q_tokens = _tokens(query)
     if not q_tokens:
         return []
@@ -107,14 +116,32 @@ def search_metrics(query: str, top_k: int = 5) -> list[dict[str, Any]]:
         limit = 5
     limit = max(1, min(limit, 20))
 
+    candidates = list_finance_metrics()
+    if official_only:
+        candidates = [m for m in candidates if m.get("is_official")]
+
     ranked: list[tuple[int, str, dict[str, Any]]] = []
-    for metric in list_finance_metrics():
+    for metric in candidates:
         score = _metric_score(metric, query, q_tokens)
         if score > 0:
             ranked.append((score, str(metric.get("key") or ""), metric))
 
     ranked.sort(key=lambda item: (-item[0], item[1]))
     return [metric for _, _, metric in ranked[:limit]]
+
+
+def pick_gold_metric(domain_query: str) -> dict[str, Any] | None:
+    """Elege a métrica principal (OFICIAL=TRUE) para o domínio informado.
+
+    É o passo "Selecionar a principal métrica do domínio" da regra de
+    gráfico/dashboard automático: dentre as métricas oficiais do Gold Metric
+    Catalog, devolve a que tem melhor overlap lexical com `domain_query`
+    (assunto/domínio inferido da pergunta do usuário). `None` quando nenhuma
+    métrica oficial corresponde — o chamador deve então cair para o caminho
+    ad-hoc (`text_to_sql` + `viz_spec`).
+    """
+    matches = search_metrics(domain_query, top_k=1, official_only=True)
+    return matches[0] if matches else None
 
 
 def default_period() -> tuple[str, str]:
@@ -179,6 +206,7 @@ def resolve_metric(key: str) -> dict[str, Any] | None:
 
 __all__ = [
     "default_period",
+    "pick_gold_metric",
     "render_sql",
     "resolve_metric",
     "search_metrics",

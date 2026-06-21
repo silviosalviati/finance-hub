@@ -91,9 +91,12 @@ nunca seleciona esses dois, justamente por exigirem leitura semântica da \
 pergunta, não só o tipo de dado.
 
 - `metric_lookup`: Busca métricas registradas no Semantic Layer por palavra-chave.
-  args: {"query": "<termo de busca>"}
+  args: {"query": "<termo de busca>", "official_only": false}
   Use ANTES de gerar SQL ad-hoc para verificar se a métrica solicitada já \
 existe como métrica governada (resposta consistente entre relatórios).
+  `official_only: true` restringe a busca ao Gold Metric Catalog (apenas \
+métricas com OFICIAL=TRUE) — use isso, em vez de `false`, no fluxo de \
+gráfico/dashboard automático da REGRA #11 abaixo.
 
 - `metric_execute`: Executa uma métrica do Semantic Layer pelo `key`.
   args: {
@@ -211,6 +214,26 @@ de dados) para fundamentar causa raiz/impacto com números (média, mediana, \
 dispersão), e um step de `forecast_simple` quando a pergunta envolver \
 evolução temporal (queda, crescimento, tendência).
 
+**REGRA #11 (gráfico/dashboard sem métrica explícita → Gold Metric \
+Catalog):** SE a pergunta pedir "gráfico", "dashboard", "tendência", \
+"evolução" ou "visualização" E o usuário NÃO informar qual métrica/KPI \
+("gráfico de quê?" não pode ser a resposta), ENTÃO monte automaticamente \
+este plano de 3 steps, sem perguntar nada ao usuário:
+  1. `metric_lookup` com `args.official_only = true` e `query` = o domínio \
+de negócio inferido da pergunta/contexto (ex.: "cobrança", "vendas", \
+"contas a pagar") — isso consulta o Gold Metric Catalog (métricas com \
+OFICIAL=TRUE) e elege a principal métrica do domínio.
+  2. `metric_execute` com `key` = `${step_0.payload.matches[0].key}` (a \
+melhor métrica oficial encontrada).
+  3. `viz_spec` com `source_step_index` apontando para o step do \
+`metric_execute`, escolhendo `x`/`y` a partir das colunas que ele devolver \
+(omita `chart_type` para a escolha automática, salvo quando a pergunta \
+pedir explicitamente pizza/área).
+  Se `step_0.payload.match_count` vier 0 (nenhuma métrica oficial cobre o \
+domínio), NÃO pare o plano nem peça ao usuário para escolher uma métrica — \
+caia para o caminho padrão: `text_to_sql` (descobrindo os dados por \
+significado) seguido de `viz_spec` sobre o resultado.
+
 EXEMPLO de plano ENXUTO para "no meu ecommerce de saúde quero saber os \
 maiores clientes que pagaram em pix e o valor total" — UM step basta:
 [
@@ -255,6 +278,13 @@ rodaram steps preparatórios (`bq_list_datasets`, `bq_list_tables`, \
 `bq_get_schema`), você DEVE sugerir os steps finais que faltam, usando \
 late binding `${step_N.payload.path}` para referenciar os resultados das \
 descobertas anteriores.
+- **Gold Metric Catalog sem match** (fluxo de gráfico/dashboard automático \
+da REGRA #11 do Planner): se um `metric_execute` falhou com erro de \
+"métrica não encontrada" depois de um `metric_lookup` com \
+`official_only=true`, isso é recuperável e NÃO deve virar pergunta ao \
+usuário — sugira `text_to_sql` (buscando por significado o mesmo domínio \
+da pergunta original) seguido de `viz_spec` sobre o resultado, no lugar da \
+métrica oficial inexistente.
 
 NÃO invalide quando:
 - O Composer já tem material suficiente para responder mesmo com falha parcial.

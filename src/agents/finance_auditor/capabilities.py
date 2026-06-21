@@ -1070,7 +1070,13 @@ def cap_metric_lookup(args: dict[str, Any], context: dict[str, Any]) -> dict[str
         top_k = int(args.get("top_k") or 5)
     except (TypeError, ValueError):
         top_k = 5
-    matches = semantic_layer.search_metrics(query, top_k=max(1, min(top_k, 20)))
+    # Gold Metric Catalog: quando o Planner pede gráfico/dashboard sem citar
+    # uma métrica, ele restringe a busca às métricas OFICIAL=TRUE para eleger
+    # a principal métrica do domínio (ver pick_gold_metric).
+    official_only = bool(args.get("official_only"))
+    matches = semantic_layer.search_metrics(
+        query, top_k=max(1, min(top_k, 20)), official_only=official_only
+    )
     # Filtra por RBAC.
     user = context.get("user")
     visible: list[dict[str, Any]] = []
@@ -1085,6 +1091,8 @@ def cap_metric_lookup(args: dict[str, Any], context: dict[str, Any]) -> dict[str
             "description": (m.get("description") or "")[:200],
             "source_table": m.get("source_table", ""),
             "tags": m.get("tags", ""),
+            "domain": m.get("domain", ""),
+            "is_official": bool(m.get("is_official")),
         }
         for m in visible
     ]
@@ -1094,7 +1102,7 @@ def cap_metric_lookup(args: dict[str, Any], context: dict[str, Any]) -> dict[str
             {
                 "type": "table",
                 "title": f"Métricas governadas (busca: {query})",
-                "columns": ["key", "name", "description", "source_table", "tags"],
+                "columns": ["key", "name", "description", "source_table", "tags", "domain", "is_official"],
                 "rows": rows,
             }
         ] if rows else [],

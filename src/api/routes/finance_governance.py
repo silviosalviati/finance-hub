@@ -41,6 +41,11 @@ class MetricUpsertRequest(BaseModel):
     tags: str = Field(default="", max_length=300)
     # Fase 4: threshold opcional (JSON string).
     alert_threshold: str = Field(default="", max_length=1000)
+    # Gold Metric Catalog: domínio de negócio (ex.: "cobranca", "vendas") e
+    # se é a métrica oficial desse domínio — usado pelo Planner para montar
+    # gráfico/dashboard automaticamente quando o usuário não cita uma métrica.
+    domain: str = Field(default="", max_length=120)
+    is_official: bool = False
 
 
 @router.get("/metrics")
@@ -71,6 +76,8 @@ async def upsert_metric(
         owner=req.owner,
         tags=req.tags,
         alert_threshold=req.alert_threshold,
+        domain=req.domain,
+        is_official=req.is_official,
     )
     return result
 

@@ -4461,6 +4461,7 @@ const _FA_ICON_PATHS = {
   clock: '<circle cx="9" cy="9" r="7"/><line x1="9" y1="9" x2="9" y2="5"/><line x1="9" y1="9" x2="12" y2="11"/>',
   "chevron-down": '<polyline points="4 7 9 12 14 7"/>',
   "chevron-up": '<polyline points="4 11 9 6 14 11"/>',
+  "arrow-right": '<line x1="3" y1="9" x2="14" y2="9"/><polyline points="9.5 4 14.5 9 9.5 14"/>',
 };
 
 function _faIcon(name, size = 14) {
@@ -4593,6 +4594,36 @@ function _faActionCards(report) {
     li.innerHTML =
       `<span class="fa-action-check">${_faIcon("check-circle", 13)}</span>` +
       `<span class="fa-action-body">${original}</span>${urgencyHtml}`;
+  });
+}
+
+// "Próximo passo:" é um lead-in livre que o LLM usa (em qualquer persona/
+// seção) para indicar a ação imediata sugerida ao final de um trecho — não é
+// um cabeçalho de seção, então o ícone é injetado por padrão de texto, igual
+// ao resto do enriquecimento pós-render, em vez de depender de um template.
+const _FA_NEXT_STEP_RE = /^pr[oó]ximo\s+passo\b/i;
+
+function _faIconizeNextStep(report) {
+  report.querySelectorAll("p, li").forEach((el) => {
+    if (el.querySelector(":scope > .fa-next-step-ico")) return;
+    const firstChild = el.firstChild;
+    const isStrongLead =
+      firstChild &&
+      firstChild.nodeType === Node.ELEMENT_NODE &&
+      firstChild.tagName === "STRONG";
+    const leadText = (isStrongLead ? firstChild.textContent : el.textContent || "").trim();
+    if (!_FA_NEXT_STEP_RE.test(leadText)) return;
+
+    const badge = document.createElement("span");
+    badge.className = "fa-next-step-ico";
+    badge.innerHTML = _faIcon("arrow-right", 13);
+
+    if (isStrongLead) {
+      firstChild.classList.add("fa-next-step-strong");
+      firstChild.prepend(badge);
+    } else {
+      el.prepend(badge);
+    }
   });
 }
 
@@ -4732,6 +4763,7 @@ function _faEnhanceReportDom(container, persona = "geral") {
   });
 
   _faHighlightNumbers(report);
+  _faIconizeNextStep(report);
   if (report.dataset.faPersona === "diretor") _faDiretorStatCards(report);
   _faActionCards(report);
 

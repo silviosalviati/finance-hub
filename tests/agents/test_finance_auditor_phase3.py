@@ -197,6 +197,48 @@ class TestSemanticLayer:
         assert "{custom}" in sql
         assert used == {"date_start": "2026-01-01", "date_end": "2026-03-10", "limit": 1000}
 
+    def test_search_metrics_official_only_filtra_nao_oficiais(self):
+        from src.agents.finance_auditor import semantic_layer
+
+        fake = [
+            {"key": "cobranca_oficial", "name": "Inadimplência oficial",
+             "description": "metrica governada de cobranca", "source_table": "x",
+             "tags": "cobranca", "domain": "cobranca", "is_official": True},
+            {"key": "cobranca_ad_hoc", "name": "Inadimplência (rascunho)",
+             "description": "metrica de cobranca ainda nao validada", "source_table": "x",
+             "tags": "cobranca", "domain": "cobranca", "is_official": False},
+        ]
+        with patch.object(semantic_layer, "list_finance_metrics", return_value=fake):
+            out = semantic_layer.search_metrics("cobranca", top_k=5, official_only=True)
+        assert [m["key"] for m in out] == ["cobranca_oficial"]
+
+    def test_pick_gold_metric_elege_principal_do_dominio(self):
+        from src.agents.finance_auditor import semantic_layer
+
+        fake = [
+            {"key": "cobranca_oficial", "name": "Inadimplência oficial",
+             "description": "metrica governada de cobranca", "source_table": "x",
+             "tags": "cobranca", "domain": "cobranca", "is_official": True},
+            {"key": "vendas_oficial", "name": "Receita oficial",
+             "description": "metrica governada de vendas", "source_table": "x",
+             "tags": "vendas", "domain": "vendas", "is_official": True},
+        ]
+        with patch.object(semantic_layer, "list_finance_metrics", return_value=fake):
+            picked = semantic_layer.pick_gold_metric("cobranca")
+        assert picked is not None
+        assert picked["key"] == "cobranca_oficial"
+
+    def test_pick_gold_metric_sem_match_retorna_none(self):
+        from src.agents.finance_auditor import semantic_layer
+
+        fake = [
+            {"key": "vendas_oficial", "name": "Receita oficial",
+             "description": "metrica governada de vendas", "source_table": "x",
+             "tags": "vendas", "domain": "vendas", "is_official": True},
+        ]
+        with patch.object(semantic_layer, "list_finance_metrics", return_value=fake):
+            assert semantic_layer.pick_gold_metric("logistica") is None
+
     def test_resolve_metric_normaliza_key_e_nome(self):
         from src.agents.finance_auditor import semantic_layer
 
@@ -250,6 +292,26 @@ class TestCapMetricLookup:
         assert out["ok"] is True
         keys = [r["key"] for r in out["payload"]["matches"]]
         assert keys == ["vendas_diarias"]
+
+    def test_official_only_e_repassado_e_aparece_no_payload(self):
+        from src.agents.finance_auditor import capabilities
+
+        fake_matches = [
+            {"key": "cobranca_oficial", "name": "Inadimplência oficial",
+             "description": "x", "source_table": "y", "tags": "cobranca",
+             "domain": "cobranca", "is_official": True},
+        ]
+        with patch.object(
+            capabilities.semantic_layer, "search_metrics", return_value=fake_matches
+        ) as mock_search, patch.object(
+            capabilities.rbac, "check_metric", return_value=(True, "")
+        ):
+            out = capabilities.cap_metric_lookup(
+                {"query": "cobranca", "official_only": True}, {"user": {"username": "u1"}}
+            )
+        assert mock_search.call_args.kwargs["official_only"] is True
+        assert out["payload"]["matches"][0]["is_official"] is True
+        assert out["payload"]["matches"][0]["domain"] == "cobranca"
 
 
 # ---------------------------------------------------------------------------

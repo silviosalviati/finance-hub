@@ -5188,8 +5188,25 @@ function _faEnsureScrollSpacer() {
   spacer.style.height = `${area.clientHeight}px`;
 }
 
+// Remover o espaçador de golpe encolhe scrollHeight; se a resposta for
+// curta (chat rápido, erro, resultado breve) o conteúdo real não enche o
+// espaço que o espaçador reservava, e o navegador FORÇA o scrollTop de
+// volta pra baixo (clamp) — desfazendo a pergunta que tinha sido fixada no
+// topo. Resposta longa (tabela, gráfico) preenche sozinha e mascarava o
+// problema; daí o "nem sempre" do comportamento. Em vez de remover tudo,
+// encolhe só o que sobra (o que não está "em uso" sustentando a posição
+// atual) — sem isso, zero impacto quando o conteúdo já é longo o bastante.
 function _faCollapseScrollSpacer() {
-  document.getElementById("fa-scroll-spacer")?.remove();
+  const area = document.getElementById("fa-messages");
+  const spacer = document.getElementById("fa-scroll-spacer");
+  if (!area || !spacer) return;
+  const spacerTopDelta = spacer.getBoundingClientRect().top - area.getBoundingClientRect().top;
+  const neededSpacer = Math.max(0, area.clientHeight - spacerTopDelta);
+  if (neededSpacer <= 0) {
+    spacer.remove();
+  } else {
+    spacer.style.height = `${neededSpacer}px`;
+  }
 }
 
 // O espaçador existe só para a ROLAGEM PROGRAMÁTICA ter espaço de sobra —
@@ -5243,6 +5260,26 @@ function _faScrollMessageToTop(el) {
   // com a posição real da mensagem dentro da área rolável.
   const delta = el.getBoundingClientRect().top - area.getBoundingClientRect().top;
   area.scrollTo({ top: Math.max(0, area.scrollTop + delta - 12), behavior: "smooth" });
+}
+
+// _faScrollMessageToTop (chamada lá no início, antes da resposta chegar) só
+// tem efeito DURADOURO se o conteúdo final preencher o espaço que o
+// espaçador reservava. Resposta curta (chat rápido, erro, resultado breve)
+// não preenche, _faCollapseScrollSpacer() encolhe a área rolável, e o
+// navegador FORÇA o scrollTop de volta pra baixo (clamp) — desfazendo a
+// pergunta fixada no topo. Resposta longa (tabela, gráfico) preenche
+// sozinha e mascarava o problema, daí o "nem sempre" do comportamento.
+// Chamada por último, JÁ SEM espaçador (depois de _faCollapseScrollSpacer):
+// o melhor scroll possível com o conteúdo real, sem o espaçador ser
+// removido depois e desfazer o que acabou de ser ajustado. Instantâneo (sem
+// "smooth"): é uma correção de posição, não um efeito visual — animado,
+// corria o risco de _faCollapseScrollSpacer() ler scrollTop no meio da
+// animação (valor ainda não assentado) e encolher o espaçador errado.
+function _faScrollMessageToTopFinal(el) {
+  const area = document.getElementById("fa-messages");
+  if (!area || !el) return;
+  const delta = el.getBoundingClientRect().top - area.getBoundingClientRect().top;
+  area.scrollTop = Math.max(0, area.scrollTop + delta - 12);
 }
 
 function _faUserInitials() {
@@ -5990,6 +6027,13 @@ async function sendFAMessage() {
       data.original_query = text;
     }
     removeFAThinking();
+    // Reconfirma a pergunta no topo depois que a bolha de "pensando" sai do
+    // DOM. Pra respostas rápidas (ex.: response_mode "chat"), o scroll
+    // suave disparado em _faScrollMessageToTop logo após enviar a pergunta
+    // ainda podia estar animando quando removeFAThinking() destrava o
+    // scroll e muda o layout — a mutação no meio da animação podia cortá-la
+    // antes de chegar no topo, daí o "nem sempre sobe até o limite".
+    _faScrollMessageToTopFinal(document.getElementById(userMsgId));
 
     if (data.status === "error") {
       appendFAErrorMessage(
@@ -6005,9 +6049,11 @@ async function sendFAMessage() {
     }
   } catch (e) {
     removeFAThinking();
+    _faScrollMessageToTopFinal(document.getElementById(userMsgId));
     appendFAErrorMessage(prettifyErrorMessage(e.message));
   } finally {
     _faCollapseScrollSpacer();
+    _faScrollMessageToTopFinal(document.getElementById(userMsgId));
     faIsLoading = false;
     setFAInteractionLock(false);
     setFASendButtonState({

@@ -5605,14 +5605,6 @@ function _faHighlightSql(sql) {
     .replace(new RegExp("\\b" + KW + "\\b", "gi"), '<span class="kw">$1</span>');
 }
 
-const _FA_CHART_TYPE_LABEL = {
-  bar: "Barras",
-  line: "Linha",
-  area: "Área",
-  point: "Dispersão",
-  arc: "Pizza",
-};
-
 // O resto do produto já formata número/data em pt-BR (toLocaleString); sem
 // isso o Vega usava o locale en-US padrão (",1234.5" / "Jan 2026") e o
 // gráfico destoava visualmente do restante da resposta. `vega.formatLocale`
@@ -5754,12 +5746,9 @@ function _faRenderArtifact(a, index = 0) {
       const spec = a.spec || {};
       const vid = `fa-vega-${faMsgCounter}-${Math.random().toString(36).slice(2, 8)}`;
       const specJson = JSON.stringify(spec).replace(/</g, "\\u003c");
-      const chartType = String(a.chart_type || (spec.mark && spec.mark.type) || "");
-      const typeLabel = _FA_CHART_TYPE_LABEL[chartType] || "";
       return _faArtCard(index, {
         icon: _faIcon("bar-chart", 13),
         title: a.title ? `Gráfico: ${a.title}` : "Gráfico",
-        meta: typeLabel,
         padded: true,
         bodyHtml:
           `<div class="fa-chart-frame"><div id="${vid}" class="fa-chart-canvas"></div></div>` +

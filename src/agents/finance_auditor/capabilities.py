@@ -1198,6 +1198,12 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
             color_title = _humanize_field(color)
             encoding["color"] = {"field": color, "type": color_type, "title": color_title}
             tooltip_fields.append({"field": color, "type": color_type, "title": color_title})
+        elif chart_type == "bar" and x_type == "nominal":
+            # Sem série categórica explícita: colore cada barra pela própria
+            # categoria do eixo X — tudo numa cor só lia como "uma massa",
+            # não como categorias distintas pra comparar. Sem legenda: o
+            # rótulo do próprio eixo já identifica cada barra.
+            encoding["color"] = {"field": x, "type": "nominal", "legend": None}
 
         if chart_type == "line":
             mark = {"type": "line", "interpolate": "monotone", "strokeWidth": 2.5, "point": {"filled": True, "size": 34}}
@@ -1225,6 +1231,11 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
             mark = {"type": "point", "filled": True, "size": 70}
         else:  # bar
             mark = {"type": "bar", "cornerRadiusTopLeft": 3, "cornerRadiusTopRight": 3}
+            if x_type == "nominal":
+                # Banda inteira (padrão do Vega-Lite) deixa as barras coladas
+                # nas vizinhas, em bloco só — 62% da banda abre respiro real
+                # entre elas.
+                mark["width"] = {"band": 0.62}
 
     row_count = len(rows)
     display_title = title or f"{y_title} por {x_title}"

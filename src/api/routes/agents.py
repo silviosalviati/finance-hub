@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 import traceback
@@ -7,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
@@ -707,14 +709,19 @@ async def _generate_gerencia_suggestions(tables: list[dict[str, Any]]) -> list[s
     return filtered[:4]
 
 
-@router.post("/api/agents/finance_auditor/gerencia")
-async def select_finance_gerencia(
-    req: GerenciaRequest,
-    session: dict[str, Any] = Depends(get_current_user),
-):
+def _sse(payload: dict[str, Any]) -> str:
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+async def _gerencia_stream(req: GerenciaRequest, session: dict[str, Any]):
     """Resolve a área (gerência) escolhida pelo usuário para um dataset real via
     rótulo do BigQuery, "aprende" seu catálogo (tabelas/colunas/tipos/descrições)
-    e fixa o resultado na sessão de chat para as próximas perguntas."""
+    e fixa o resultado na sessão de chat para as próximas perguntas.
+
+    Emite um evento `phase` ao concluir cada etapa (não antes de começar —
+    a UI já mostra a fase seguinte enquanto ela roda) para o frontend
+    refletir o progresso real em vez de advinhar com um timer.
+    """
     gerencia = req.gerencia.strip()
     project_id = (req.project_id or "").strip() or get_runtime_config(
         "FINANCE_AUDITOR_DEFAULT_PROJECT", "silviosalviati"
@@ -722,32 +729,38 @@ async def select_finance_gerencia(
 
     match = resolve_dataset_by_gerencia(project_id, gerencia)
     if not match:
-        return {
+        yield _sse({
             "status": "not_found",
             "gerencia": gerencia,
             "message": "Ainda não encontrei uma base de dados rotulada para esta área.",
-        }
+        })
+        return
 
     dataset_id = match["dataset_id"]
     allowed, reason = finance_rbac.check_dataset(session, dataset_id)
     if not allowed:
-        return {
+        yield _sse({
             "status": "denied",
             "gerencia": gerencia,
             "message": f"Acesso negado a esta área: {reason}",
-        }
+        })
+        return
 
+    yield _sse({"phase": "catalog"})
     try:
         catalog = _get_cached_dataset_catalog(project_id, dataset_id)
     except Exception as exc:
-        return {
+        yield _sse({
             "status": "error",
             "gerencia": gerencia,
             "message": f"Falha ao carregar o catálogo desta área: {exc}",
-        }
+        })
+        return
 
     tables = catalog.get("tables") or []
     dataset_ref = catalog.get("dataset_ref") or f"{project_id}.{dataset_id}"
+
+    yield _sse({"phase": "suggestions"})
     suggestions = await _generate_gerencia_suggestions(tables)
 
     checkpointer = get_checkpointer()
@@ -759,14 +772,22 @@ async def select_finance_gerencia(
     chat_session["updated_at"] = _now_iso()
     _save_finance_chat_session(session["token"], checkpointer, chat_session)
 
-    return {
+    yield _sse({
         "status": "ok",
         "gerencia": gerencia,
         "dataset_ref": dataset_ref,
         "table_count": len(tables),
         "message": f"Estou pronto para responder perguntas sobre {(req.label or '').strip() or match['gerencia']}.",
         "suggestions": suggestions,
-    }
+    })
+
+
+@router.post("/api/agents/finance_auditor/gerencia")
+async def select_finance_gerencia(
+    req: GerenciaRequest,
+    session: dict[str, Any] = Depends(get_current_user),
+):
+    return StreamingResponse(_gerencia_stream(req, session), media_type="text/event-stream")
 
 
 @router.post("/api/agents/query_build/validate-dataset")

@@ -4861,6 +4861,39 @@ function useFASuggestion(btn) {
 // ── Gerência → dataset (aprende o catálogo via rótulo do BigQuery) ──────────
 const _faGerenciaResolved = new Set();
 
+// Lê o corpo `text/event-stream` do endpoint de gerência incrementalmente:
+// eventos com `phase` atualizam a bolha de status em tempo real; o último
+// evento (com `status`) é o resultado final. Eventos podem chegar picotados
+// entre chunks — só processa quando acha o separador "\n\n" completo.
+async function _faReadGerenciaStream(res, label) {
+  if (!res.body) return null;
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalEvent = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let sepIdx;
+    while ((sepIdx = buffer.indexOf("\n\n")) !== -1) {
+      const rawEvent = buffer.slice(0, sepIdx);
+      buffer = buffer.slice(sepIdx + 2);
+      const dataLine = rawEvent.split("\n").find((l) => l.startsWith("data:"));
+      if (!dataLine) continue;
+      const payload = JSON.parse(dataLine.slice(5).trim());
+      if (payload.phase) {
+        faLearningHandle?.setPhase(_faLearningPhaseText(payload.phase, label));
+      } else {
+        finalEvent = payload;
+      }
+    }
+  }
+  return finalEvent;
+}
+
 async function resolveFAGerencia(gerencia, label = "") {
   if (_faGerenciaResolved.has(gerencia)) return;
 
@@ -4872,7 +4905,7 @@ async function resolveFAGerencia(gerencia, label = "") {
       body: JSON.stringify({ gerencia, label }),
     });
     if (!res.ok) return;
-    const data = await res.json();
+    const data = await _faReadGerenciaStream(res, label);
     if (!data || data.status !== "ok") return;
 
     _faGerenciaResolved.add(gerencia);
@@ -4980,10 +5013,11 @@ const FA_THINKING_PHASES = [
   "Validando os resultados",
   "Redigindo a resposta",
 ];
-// Casca compartilhada de uma "bolha de fase": cabeçalho padrão + texto que
-// roda entre `phases` a cada 2.2s. Usada tanto para o "pensando" do chat
-// quanto para o "aprendendo o produto de dados" da seleção de gerência.
-function _faAppendPhaseBubble(phases) {
+// Casca compartilhada de uma "bolha de fase": avatar + texto de status que
+// muda conforme `setPhase(text)` é chamado. Não decide POR QUE o texto muda
+// — isso é do chamador (timer simulado para o "pensando" do chat, eventos
+// reais do backend para o "aprendendo" da seleção de gerência).
+function _faAppendPhaseBubble(initialText) {
   const area = document.getElementById("fa-messages");
   if (!area) return null;
 
@@ -4997,7 +5031,7 @@ function _faAppendPhaseBubble(phases) {
       <div class="fa-bubble fa-bubble--thinking">
         <div class="fa-thinking-body" role="status" aria-live="polite">
           <div class="fa-thinking-phase">
-            ${phases[0]}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>
+            ${initialText}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>
           </div>
           <div class="fa-thinking-track"></div>
         </div>
@@ -5006,17 +5040,13 @@ function _faAppendPhaseBubble(phases) {
   area.appendChild(el);
   _faScrollBottom();
 
-  let idx = 0;
-  const interval = setInterval(() => {
-    const phaseEl = document.querySelector(`#${id} .fa-thinking-phase`);
-    if (!phaseEl) return;
-    idx = (idx + 1) % phases.length;
-    phaseEl.innerHTML = `${phases[idx]}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>`;
-  }, 2200);
-
   return {
+    setPhase(text) {
+      const phaseEl = document.querySelector(`#${id} .fa-thinking-phase`);
+      if (!phaseEl) return;
+      phaseEl.innerHTML = `${text}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>`;
+    },
     remove() {
-      clearInterval(interval);
       document.getElementById(id)?.remove();
     },
   };
@@ -5024,7 +5054,25 @@ function _faAppendPhaseBubble(phases) {
 
 function appendFAThinking() {
   removeFAThinking();
-  faThinkingHandle = _faAppendPhaseBubble(FA_THINKING_PHASES);
+  const handle = _faAppendPhaseBubble(FA_THINKING_PHASES[0]);
+  let idx = 0;
+  const interval = setInterval(() => {
+    if (idx >= FA_THINKING_PHASES.length - 1) {
+      // Sem eventos reais aqui (o /analyze não faz streaming) — simulamos o
+      // avanço, mas sem repetir o ciclo do início ao chegar na última fase.
+      clearInterval(interval);
+      return;
+    }
+    idx += 1;
+    handle?.setPhase(FA_THINKING_PHASES[idx]);
+  }, 2200);
+
+  faThinkingHandle = {
+    remove() {
+      clearInterval(interval);
+      handle?.remove();
+    },
+  };
 }
 
 function removeFAThinking() {
@@ -5035,16 +5083,24 @@ function removeFAThinking() {
 
 // Indicador exibido enquanto a gerência escolhida está sendo resolvida e o
 // catálogo (tabelas/colunas/descrições) está sendo aprendido — evita a tela
-// "vazia" entre o clique no cartão e a confirmação/sugestões.
+// "vazia" entre o clique no cartão e a confirmação/sugestões. O texto muda
+// conforme eventos reais de fase chegam do backend (ver _gerenciaSseFetch),
+// não num timer simulado.
+function _faLearningPhaseText(phase, label) {
+  const safeLabel = label ? _escFA(label) : "";
+  switch (phase) {
+    case "catalog":
+      return "Lendo tabelas, colunas e descrições";
+    case "suggestions":
+      return "Preparando sugestões de perguntas";
+    default:
+      return `Estou aprendendo o produto de dados${safeLabel ? ` de ${safeLabel}` : ""}, aguarde`;
+  }
+}
+
 function appendFALearning(label) {
   removeFALearning();
-  const safeLabel = label ? _escFA(label) : "";
-  const phases = [
-    `Estou aprendendo o produto de dados${safeLabel ? ` de ${safeLabel}` : ""}, aguarde`,
-    "Lendo tabelas, colunas e descrições",
-    "Preparando sugestões de perguntas",
-  ];
-  faLearningHandle = _faAppendPhaseBubble(phases);
+  faLearningHandle = _faAppendPhaseBubble(_faLearningPhaseText(null, label));
 }
 
 function removeFALearning() {

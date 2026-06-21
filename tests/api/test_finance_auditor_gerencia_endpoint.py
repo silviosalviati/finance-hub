@@ -10,6 +10,7 @@ precisamos fazer `patch.object` direto no modulo de rotas — sobrescrever via
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -52,6 +53,24 @@ async def _fake_suggestions(_tables):
     return ["Pergunta 1", "Pergunta 2"]
 
 
+def _sse_events(raw: str) -> list[dict]:
+    """Decodifica o corpo `text/event-stream` em uma lista de payloads JSON."""
+    events = []
+    for block in raw.split("\n\n"):
+        for line in block.strip().splitlines():
+            if line.startswith("data:"):
+                events.append(json.loads(line[len("data:"):].strip()))
+    return events
+
+
+def _final_sse_event(raw: str) -> dict:
+    """Último evento do stream com `status` — o resultado final do endpoint."""
+    for event in reversed(_sse_events(raw)):
+        if "status" in event:
+            return event
+    raise AssertionError(f"Nenhum evento SSE com 'status' encontrado: {raw!r}")
+
+
 def test_gerencia_not_found_quando_sem_match():
     client = _build_client()
 
@@ -59,7 +78,7 @@ def test_gerencia_not_found_quando_sem_match():
         res = client.post("/api/agents/finance_auditor/gerencia", json={"gerencia": "cobranca"})
 
     assert res.status_code == 200
-    assert res.json()["status"] == "not_found"
+    assert _final_sse_event(res.text)["status"] == "not_found"
 
 
 def test_gerencia_denied_quando_rbac_nega():
@@ -75,7 +94,7 @@ def test_gerencia_denied_quando_rbac_nega():
         )
 
     assert res.status_code == 200
-    assert res.json()["status"] == "denied"
+    assert _final_sse_event(res.text)["status"] == "denied"
 
 
 def test_gerencia_ok_fixa_dataset_na_sessao_e_retorna_sugestoes():
@@ -109,7 +128,7 @@ def test_gerencia_ok_fixa_dataset_na_sessao_e_retorna_sugestoes():
         )
 
     assert res.status_code == 200
-    body = res.json()
+    body = _final_sse_event(res.text)
     assert body["status"] == "ok"
     assert body["dataset_ref"] == "silviosalviati.ecommerce_saude"
     assert body["table_count"] == 1

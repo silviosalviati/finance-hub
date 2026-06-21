@@ -5160,7 +5160,9 @@ function _faCollapseScrollSpacer() {
 // O espaçador existe só para a ROLAGEM PROGRAMÁTICA ter espaço de sobra —
 // não deve virar uma área vazia em que o usuário consiga "passear" rolando
 // manualmente para baixo antes da resposta existir. Prende o scroll no fim
-// do conteúdo real; rolar para cima continua sempre livre.
+// do conteúdo real; rolar para cima continua sempre livre. Só relevante
+// quando o scroll NÃO está travado (ver _faLockScroll) — enquanto travado
+// nenhuma das duas direções se move mesmo.
 function _faClampScrollBelowSpacer() {
   const area = document.getElementById("fa-messages");
   const spacer = document.getElementById("fa-scroll-spacer");
@@ -5170,6 +5172,22 @@ function _faClampScrollBelowSpacer() {
   if (maxScrollTop > 0 && area.scrollTop > maxScrollTop) {
     area.scrollTop = maxScrollTop;
   }
+}
+
+// Enquanto o bot está "pensando"/avaliando a resposta, ninguém deve poder
+// rolar a tela em nenhuma direção — a pergunta fica fixa no topo até a
+// resposta real começar a chegar. overflow:hidden bloqueia gesto do
+// usuário (roda do mouse, toque, teclado, arrastar a barra) mas continua
+// permitindo rolagem programática (scrollTo/scrollTop), então a animação
+// de _faScrollMessageToTop não é afetada.
+function _faLockScroll() {
+  const area = document.getElementById("fa-messages");
+  if (area) area.style.overflowY = "hidden";
+}
+
+function _faUnlockScroll() {
+  const area = document.getElementById("fa-messages");
+  if (area) area.style.overflowY = "";
 }
 
 // Ancora a mensagem (pergunta) no topo da área visível, com rolagem suave
@@ -5285,6 +5303,7 @@ function _faAppendPhaseBubble(initialText) {
 
 function appendFAThinking() {
   removeFAThinking();
+  _faLockScroll();
   const handle = _faAppendPhaseBubble(FA_THINKING_PHASES[0]);
   let idx = 0;
   const interval = setInterval(() => {
@@ -5307,6 +5326,7 @@ function appendFAThinking() {
 }
 
 function removeFAThinking() {
+  _faUnlockScroll();
   if (!faThinkingHandle) return;
   faThinkingHandle.remove();
   faThinkingHandle = null;

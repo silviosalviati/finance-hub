@@ -4723,7 +4723,6 @@ async function _faRevealText(text, renderChunk) {
     }
 
     renderChunk(revealed, false);
-    _faScrollBottom();
     await _faWait(delay);
   }
 
@@ -5065,9 +5064,14 @@ function clearFAChat() {
   _faRenderQuickSuggestions([]);
 }
 
-function _faScrollBottom() {
+// Ancora a pergunta recém-enviada no topo da área visível e não acompanha
+// mais o rodapé a partir daí — a resposta cresce abaixo dela sem puxar a
+// tela; em respostas longas, o usuário rola manualmente (mesmo padrão do
+// Claude/ChatGPT).
+function _faScrollMessageToTop(el) {
   const area = document.getElementById("fa-messages");
-  if (area) area.scrollTop = area.scrollHeight;
+  if (!area || !el) return;
+  area.scrollTop = Math.max(0, el.offsetTop - 12);
 }
 
 function _faUserInitials() {
@@ -5108,7 +5112,7 @@ function appendFAUserMessage(text) {
       <div class="fa-msg-time">${_faNow()}</div>
     </div>`;
   area.appendChild(el);
-  _faScrollBottom();
+  _faScrollMessageToTop(el);
 
   const slot = el.querySelector(".fa-bubble-body");
   _faTypeUserTextInto(slot, text);
@@ -5147,7 +5151,6 @@ function _faAppendPhaseBubble(initialText) {
       </div>
     </div>`;
   area.appendChild(el);
-  _faScrollBottom();
 
   return {
     setPhase(text) {
@@ -5237,7 +5240,6 @@ function appendFAErrorMessage(msg) {
       <div class="fa-msg-time">${_faNow()}</div>
     </div>`;
   area.appendChild(el);
-  _faScrollBottom();
 }
 
 async function appendFAChatTextMessage(text, opts = {}) {
@@ -5255,7 +5257,6 @@ async function appendFAChatTextMessage(text, opts = {}) {
       <div class="fa-msg-time">${_faNow()}</div>
     </div>`;
   area.appendChild(el);
-  _faScrollBottom();
 
   const slot = el.querySelector(".fa-report-slot");
   await _faTypeMarkdownInto(slot, text, { escapeInput: true, ...opts });
@@ -5297,7 +5298,6 @@ async function appendFABotMessage(data) {
     </div>`;
 
   area.appendChild(el);
-  _faScrollBottom();
 
   // A narrativa e digitada primeiro - so depois os cartoes de dados entram em cena.
   const slot = el.querySelector(".fa-report-slot");
@@ -5313,7 +5313,6 @@ async function appendFABotMessage(data) {
     const artSlot = el.querySelector(".fa-art-slot");
     if (artSlot) {
       artSlot.innerHTML = artifactsHtml;
-      _faScrollBottom();
     }
   }
 

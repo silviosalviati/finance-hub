@@ -20,6 +20,8 @@ import asyncio
 import json
 import logging
 import math
+import re
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -27,14 +29,25 @@ from src.core.database import (
     get_catalog_oldest_update,
     list_catalog_entries,
     upsert_catalog_entry,
+    upsert_finance_metric,
 )
 from src.shared.config import get_runtime_config
-from src.shared.tools.bigquery import get_dataset_tables_schema, list_datasets_with_labels
+from src.shared.tools.bigquery import (
+    execute_query_rows,
+    get_dataset_tables_schema,
+    list_datasets_with_labels,
+    list_table_ids,
+)
 
 _logger = logging.getLogger(__name__)
 
 _DEFAULT_TTL_HOURS = 24
 _DEFAULT_EMBEDDING_MODEL = "text-embedding-005"
+
+# Convenção de nome fixa do Gold Layer (igual em qualquer gerência) — o que
+# NÃO é fixo é em qual dataset ela mora, por isso a varredura abaixo passa
+# por todos os datasets do projeto em vez de assumir um dataset específico.
+_GOLD_METRIC_CATALOG_TABLE = "GOLD_METRIC_CATALOG"
 
 _embeddings_singleton: Any = None
 
@@ -140,6 +153,100 @@ def reindex_catalog(project_id: str, force: bool = False) -> dict[str, Any]:
     return {"reindexed": True, "tables_indexed": indexed, "datasets": len(datasets)}
 
 
+def _strip_accents(text: str) -> str:
+    return "".join(
+        c for c in unicodedata.normalize("NFD", text or "")
+        if unicodedata.category(c) != "Mn"
+    )
+
+
+def _slug(text: str) -> str:
+    base = _strip_accents(text).lower()
+    base = re.sub(r"[^a-z0-9]+", "_", base)
+    return base.strip("_")
+
+
+def sync_gold_metric_catalog(project_id: str) -> dict[str, Any]:
+    """Sincroniza `GOLD_METRIC_CATALOG` (Gold Layer) para `finance_semantic_metrics`.
+
+    Cada gerência tem o seu próprio dataset gold — não existe UM dataset/
+    tabela fixo para todo o projeto. Por isso a varredura passa por TODOS os
+    datasets do projeto e sincroniza onde encontrar uma tabela chamada
+    `GOLD_METRIC_CATALOG` (convenção de nome, não de localização); datasets
+    sem essa tabela são ignorados em silêncio — nem toda gerência precisa
+    ter métricas oficiais cadastradas.
+
+    A chave em `finance_semantic_metrics` é namespaced por
+    `{project}.{dataset}.{metric}` para que duas gerências possam ter uma
+    métrica com o mesmo nome (ex.: "TAXA_INADIMPLENCIA") sem colidir.
+    """
+    try:
+        datasets = list_datasets_with_labels(project_id)
+    except Exception as exc:  # noqa: BLE001
+        return {"datasets_scanned": 0, "datasets_with_catalog": 0, "synced": 0, "errors": [str(exc)]}
+
+    synced = 0
+    with_catalog = 0
+    errors: list[str] = []
+
+    for ds in datasets:
+        dataset_id = ds["dataset_id"]
+        try:
+            table_ids = list_table_ids(project_id, dataset_id)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{dataset_id}: falha ao listar tabelas ({exc})")
+            continue
+        if _GOLD_METRIC_CATALOG_TABLE not in table_ids:
+            continue
+
+        with_catalog += 1
+        table_ref = f"{project_id}.{dataset_id}.{_GOLD_METRIC_CATALOG_TABLE}"
+        try:
+            rows = execute_query_rows(f"SELECT * FROM `{table_ref}`", project_id, max_rows=500)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{table_ref}: falha ao ler ({exc})")
+            continue
+
+        for row in rows:
+            metric_name = str(row.get("METRIC_NAME") or "").strip()
+            if not metric_name:
+                continue
+            metric_id = str(row.get("METRIC_ID") or "").strip()
+            key = f"{project_id}.{dataset_id}.{_slug(metric_id or metric_name)}"
+
+            source_table_raw = str(row.get("SOURCE_TABLE") or "").strip()
+            source_table = f"{project_id}.{dataset_id}.{source_table_raw}" if source_table_raw else ""
+            # SQL_TEMPLATE é mais preciso (CASE/condições); FORMULA_SQL é o
+            # resumo simples usado quando a métrica não precisa de CASE.
+            sql_template = (
+                str(row.get("SQL_TEMPLATE") or "").strip()
+                or str(row.get("FORMULA_SQL") or "").strip()
+            )
+
+            try:
+                upsert_finance_metric(
+                    key,
+                    name=metric_name,
+                    description=str(row.get("DESCRICAO") or ""),
+                    source_table=source_table,
+                    sql_template=sql_template,
+                    owner=str(row.get("OWNER") or ""),
+                    tags=str(row.get("NIVEL") or ""),
+                    domain=str(row.get("DOMINIO") or "").strip().lower(),
+                    is_official=bool(row.get("OFICIAL")),
+                )
+                synced += 1
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{key}: falha ao sincronizar ({exc})")
+
+    return {
+        "datasets_scanned": len(datasets),
+        "datasets_with_catalog": with_catalog,
+        "synced": synced,
+        "errors": errors,
+    }
+
+
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
     if len(a) != len(b):
         return 0.0
@@ -233,7 +340,21 @@ async def warmup_catalog_loop(project_ids: list[str]) -> None:
                     )
             except Exception:  # noqa: BLE001 — warmup nunca deve derrubar o processo
                 _logger.exception("Falha ao pré-aquecer catálogo de %s", project_id)
+            try:
+                metric_result = await asyncio.to_thread(sync_gold_metric_catalog, project_id)
+                if metric_result.get("synced"):
+                    _logger.info(
+                        "Gold Metric Catalog sincronizado: %s (%s métricas, %s dataset(s) com catálogo)",
+                        project_id, metric_result.get("synced"), metric_result.get("datasets_with_catalog"),
+                    )
+            except Exception:  # noqa: BLE001 — warmup nunca deve derrubar o processo
+                _logger.exception("Falha ao sincronizar Gold Metric Catalog de %s", project_id)
         await asyncio.sleep(interval_hours * 3600)
 
 
-__all__ = ["reindex_catalog", "search_catalog", "warmup_catalog_loop"]
+__all__ = [
+    "reindex_catalog",
+    "search_catalog",
+    "sync_gold_metric_catalog",
+    "warmup_catalog_loop",
+]

@@ -50,6 +50,7 @@ from src.shared.tools.bigquery import (
     dry_run_query,
     execute_query_rows,
     get_dataset_tables_metadata,
+    get_table_column_types,
     get_table_schema,
     list_datasets_with_labels,
 )
@@ -1113,6 +1114,59 @@ def cap_metric_lookup(args: dict[str, Any], context: dict[str, Any]) -> dict[str
 # metric_execute — executa uma métrica registrada
 # ---------------------------------------------------------------------------
 
+# Gold Metric Catalog (sincronizado de qualquer dataset gold — ver
+# catalog_index.sync_gold_metric_catalog) guarda só a EXPRESSÃO de agregação
+# (ex.: "SUM(CASE WHEN DIAS_ATRASO <= 60 THEN VALOR_ABERTO END)"), não um
+# SELECT completo — diferente de métrica cadastrada manualmente via admin,
+# que já vem com SELECT/FROM/WHERE prontos. Detecta pela ausência de SELECT.
+_DATE_COLUMN_PREFERRED = "DATA_REFERENCIA"
+_DATE_COLUMN_EXCLUDE_PREFIXES = ("DT_PROCESSAMENTO", "DT_CADASTRO", "DT_ATUALIZACAO", "DT_CARGA", "DT_INSERCAO")
+_DATE_COLUMN_TYPES = {"DATE", "TIMESTAMP", "DATETIME"}
+
+
+def _is_bare_sql_expression(sql_template: str) -> bool:
+    return bool(sql_template.strip()) and not re.search(r"\bselect\b", sql_template, re.IGNORECASE)
+
+
+def _pick_date_column(columns: dict[str, str]) -> str | None:
+    """Escolhe a coluna de data de referência de uma tabela, sem nenhuma \
+    convenção hardcoded por gerência: prefere `DATA_REFERENCIA` (convenção \
+    deste Gold Layer); senão, a primeira coluna de data que não pareça \
+    timestamp de ETL/carga (`DT_PROCESSAMENTO` etc.)."""
+    if _DATE_COLUMN_PREFERRED in columns:
+        return _DATE_COLUMN_PREFERRED
+    for name, col_type in columns.items():
+        if col_type in _DATE_COLUMN_TYPES and not name.upper().startswith(_DATE_COLUMN_EXCLUDE_PREFIXES):
+            return name
+    return None
+
+
+def _build_query_from_bare_expression(
+    expression: str, source_table: str, project_id: str, date_start: str, date_end: str, limit: int
+) -> tuple[str, str]:
+    """Monta um SELECT executável a partir de uma expressão de agregação \
+    + tabela fonte do Gold Metric Catalog. Detecta a coluna de data \
+    dinamicamente via schema real do BigQuery — nada de nome de coluna/\
+    tabela/dataset fixo, já que cada gerência tem sua própria tabela fato.
+
+    Retorna (sql, date_column) — `date_column` vazio quando a tabela não tem \
+    uma coluna de data identificável (a query sai sem filtro/quebra temporal).
+    """
+    columns = get_table_column_types(source_table, project_id)
+    date_column = _pick_date_column(columns) or ""
+    if date_column:
+        sql = (
+            f"SELECT {date_column} AS data_referencia, {expression} AS valor\n"
+            f"FROM `{source_table}`\n"
+            f"WHERE {date_column} BETWEEN '{date_start}' AND '{date_end}'\n"
+            "GROUP BY 1\nORDER BY 1\n"
+            f"LIMIT {limit}"
+        )
+    else:
+        sql = f"SELECT {expression} AS valor\nFROM `{source_table}`\nLIMIT {limit}"
+    return sql, date_column
+
+
 def cap_metric_execute(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     key = str(args.get("key") or "").strip()
     if not key:
@@ -1123,15 +1177,35 @@ def cap_metric_execute(args: dict[str, Any], context: dict[str, Any]) -> dict[st
     metric = semantic_layer.resolve_metric(key)
     if not metric:
         return _err(f"Métrica '{key}' não encontrada no Semantic Layer.")
-    sql, params_used = semantic_layer.render_sql(
-        metric.get("sql_template", ""), args.get("params") or {}
-    )
-    if not sql:
-        return _err(f"Métrica '{key}' está sem sql_template.")
+
     project_id = (context.get("project_id") or "").strip()
     if not project_id:
         return _err("project_id ausente para executar métrica.")
-    row_limit = int((args.get("params") or {}).get("limit") or _DEFAULT_BQ_QUERY_MAX_ROWS)
+
+    raw_template = str(metric.get("sql_template") or "")
+    if not raw_template.strip():
+        return _err(f"Métrica '{key}' está sem sql_template.")
+
+    if _is_bare_sql_expression(raw_template):
+        # Gold Metric Catalog: expressão de agregação + SOURCE_TABLE — monta
+        # o SELECT (em vez do render_sql de template completo abaixo).
+        source_table = str(metric.get("source_table") or "").strip()
+        if not source_table:
+            return _err(f"Métrica '{key}' não tem SOURCE_TABLE configurado para montar a query.")
+        default_start, default_end = semantic_layer.default_period()
+        provided_params = args.get("params") or {}
+        date_start = str(provided_params.get("date_start") or default_start)
+        date_end = str(provided_params.get("date_end") or default_end)
+        row_limit = int(provided_params.get("limit") or _DEFAULT_BQ_QUERY_MAX_ROWS)
+        sql, _date_column = _build_query_from_bare_expression(
+            raw_template.strip(), source_table, project_id, date_start, date_end, row_limit
+        )
+        params_used = {"date_start": date_start, "date_end": date_end, "limit": row_limit}
+    else:
+        sql, params_used = semantic_layer.render_sql(raw_template, args.get("params") or {})
+        if not sql:
+            return _err(f"Métrica '{key}' está sem sql_template.")
+        row_limit = int((args.get("params") or {}).get("limit") or _DEFAULT_BQ_QUERY_MAX_ROWS)
     exec_result = _validate_and_run_sql(
         sql=sql, project_id=project_id, max_rows=row_limit, user=context.get("user")
     )

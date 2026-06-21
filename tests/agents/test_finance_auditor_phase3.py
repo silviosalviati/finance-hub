@@ -365,6 +365,114 @@ class TestCapMetricExecute:
         assert out["payload"]["params_used"]["date_start"] == "2026-01-01"
         assert out["payload"]["rows"] == [{"n": 1}]
 
+    def test_metrica_sem_sql_template_da_erro_claro(self):
+        from src.agents.finance_auditor import capabilities
+
+        metric = {"key": "vendas", "name": "Vendas", "sql_template": ""}
+        with patch.object(capabilities.rbac, "check_metric", return_value=(True, "")), \
+             patch.object(capabilities.semantic_layer, "resolve_metric", return_value=metric):
+            out = capabilities.cap_metric_execute({"key": "vendas"}, {"project_id": "p"})
+        assert out["ok"] is False
+        assert "sql_template" in out["error"]
+
+    def test_gold_metric_catalog_expressao_sem_source_table_da_erro(self):
+        """Métrica veio do Gold Metric Catalog (expressão pura, sem SELECT)
+        mas a linha original não tinha SOURCE_TABLE preenchido — não dá pra
+        montar a query, e o erro precisa deixar isso claro (não travar)."""
+        from src.agents.finance_auditor import capabilities
+
+        metric = {"key": "k", "name": "Valor recuperado", "sql_template": "SUM(VALOR_PAGO)", "source_table": ""}
+        with patch.object(capabilities.rbac, "check_metric", return_value=(True, "")), \
+             patch.object(capabilities.semantic_layer, "resolve_metric", return_value=metric):
+            out = capabilities.cap_metric_execute({"key": "k"}, {"project_id": "p"})
+        assert out["ok"] is False
+        assert "SOURCE_TABLE" in out["error"]
+
+    def test_gold_metric_catalog_monta_query_com_coluna_de_data_detectada(self):
+        """Expressão pura (sem SELECT) + SOURCE_TABLE: monta o SELECT sozinho,
+        descobrindo a coluna de data via schema real — sem nome de coluna
+        hardcoded, já que cada gerência/tabela fato pode ter um nome diferente."""
+        from src.agents.finance_auditor import capabilities
+
+        metric = {
+            "key": "p.d.taxa_inadimplencia",
+            "name": "Taxa de inadimplência",
+            "sql_template": "SAFE_DIVIDE(SUM(VALOR_ABERTO), SUM(VALOR_ORIGINAL))",
+            "source_table": "p.d.GOLD_FCT_CONTAS_RECEBER",
+        }
+        fake_dry = MagicMock(error=None, bytes_processed=512, estimated_cost_usd=0.0)
+        fake_columns = {"DATA_REFERENCIA": "DATE", "DT_PROCESSAMENTO": "TIMESTAMP", "VALOR_ABERTO": "NUMERIC"}
+
+        with patch.object(capabilities.rbac, "check_metric", return_value=(True, "")), \
+             patch.object(capabilities.semantic_layer, "resolve_metric", return_value=metric), \
+             patch.object(capabilities.rbac, "check_dataset", return_value=(True, "")), \
+             patch.object(capabilities, "get_table_column_types", return_value=fake_columns) as mock_cols, \
+             patch.object(capabilities, "dry_run_query", return_value=fake_dry), \
+             patch.object(capabilities, "execute_query_rows", return_value=[{"data_referencia": "2026-01-01", "valor": 0.05}]), \
+             patch.object(capabilities, "get_runtime_config", return_value=str(5 * 1024 ** 3)):
+            out = capabilities.cap_metric_execute(
+                {"key": "p.d.taxa_inadimplencia", "params": {"date_start": "2026-01-01", "date_end": "2026-01-31"}},
+                {"project_id": "p", "user": {}},
+            )
+
+        assert out["ok"] is True
+        mock_cols.assert_called_once_with("p.d.GOLD_FCT_CONTAS_RECEBER", "p")
+        sql = out["payload"]["sql"]
+        assert "DATA_REFERENCIA" in sql
+        assert "SAFE_DIVIDE(SUM(VALOR_ABERTO), SUM(VALOR_ORIGINAL))" in sql
+        assert "DT_PROCESSAMENTO" not in sql  # nunca escolhe coluna de ETL/carga como data de referência
+        assert out["payload"]["rows"] == [{"data_referencia": "2026-01-01", "valor": 0.05}]
+
+    def test_gold_metric_catalog_sem_coluna_de_data_monta_query_agregada(self):
+        from src.agents.finance_auditor import capabilities
+
+        metric = {
+            "key": "p.d.metrica",
+            "name": "Métrica",
+            "sql_template": "COUNT(DISTINCT ID_CLIENTE)",
+            "source_table": "p.d.GOLD_DIM_CLIENTE",
+        }
+        fake_dry = MagicMock(error=None, bytes_processed=10, estimated_cost_usd=0.0)
+
+        with patch.object(capabilities.rbac, "check_metric", return_value=(True, "")), \
+             patch.object(capabilities.semantic_layer, "resolve_metric", return_value=metric), \
+             patch.object(capabilities.rbac, "check_dataset", return_value=(True, "")), \
+             patch.object(capabilities, "get_table_column_types", return_value={"ID_CLIENTE": "STRING"}), \
+             patch.object(capabilities, "dry_run_query", return_value=fake_dry), \
+             patch.object(capabilities, "execute_query_rows", return_value=[{"valor": 42}]), \
+             patch.object(capabilities, "get_runtime_config", return_value=str(5 * 1024 ** 3)):
+            out = capabilities.cap_metric_execute({"key": "p.d.metrica"}, {"project_id": "p", "user": {}})
+
+        assert out["ok"] is True
+        assert "WHERE" not in out["payload"]["sql"]
+        assert "GROUP BY" not in out["payload"]["sql"]
+
+
+class TestPickDateColumnAndBareExpression:
+    def test_is_bare_sql_expression_detecta_expressao_sem_select(self):
+        from src.agents.finance_auditor.capabilities import _is_bare_sql_expression
+
+        assert _is_bare_sql_expression("SUM(VALOR_ABERTO)") is True
+        assert _is_bare_sql_expression("SELECT 1 AS n FROM t") is False
+        assert _is_bare_sql_expression("") is False
+
+    def test_pick_date_column_prefere_data_referencia(self):
+        from src.agents.finance_auditor.capabilities import _pick_date_column
+
+        cols = {"DT_PROCESSAMENTO": "TIMESTAMP", "DATA_REFERENCIA": "DATE", "DT_VENCIMENTO": "DATE"}
+        assert _pick_date_column(cols) == "DATA_REFERENCIA"
+
+    def test_pick_date_column_ignora_colunas_de_etl(self):
+        from src.agents.finance_auditor.capabilities import _pick_date_column
+
+        cols = {"DT_PROCESSAMENTO": "TIMESTAMP", "DT_CADASTRO": "DATE", "DT_VENCIMENTO": "DATE"}
+        assert _pick_date_column(cols) == "DT_VENCIMENTO"
+
+    def test_pick_date_column_sem_coluna_de_data_retorna_none(self):
+        from src.agents.finance_auditor.capabilities import _pick_date_column
+
+        assert _pick_date_column({"VALOR": "NUMERIC", "ID_CLIENTE": "STRING"}) is None
+
 
 # ---------------------------------------------------------------------------
 # RBAC integrado: bq_query bloqueia dataset não-permitido

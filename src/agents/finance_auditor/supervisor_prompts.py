@@ -178,8 +178,13 @@ cujas linhas (rows) servirão de fonte para `stats_describe` / `viz_spec` / \
 5. Se o usuário fornecer o nome exato do dataset/tabela, pode pular a \
 descoberta e ir direto para `bq_get_schema` + `text_to_sql`.
 6. **Semantic Layer first** (recomendação): inicie com `metric_lookup` \
-quando a pergunta parece corresponder a uma métrica governada; se houver \
-match, prefira `metric_execute`.
+quando a pergunta parece corresponder a uma métrica governada — inclusive \
+quando o usuário JÁ CITA o nome do indicador (ex.: "TAXA_INADIMPLENCIA", \
+"AGING_60") por extenso ou parecido; nesse caso use `official_only: true` \
+(é precisamente um nome de KPI conhecido, não uma busca exploratória). Se \
+houver match, prefira `metric_execute` à invenção de SQL ad-hoc — o \
+Gold Metric Catalog já tem a fórmula auditada, reescrevê-la do zero é como \
+o sistema antes desta regra acabava divergindo do indicador oficial.
 7. Se a pergunta for ambígua, prefira `text_to_sql` com uma interpretação \
 razoável a `chat_answer`.
 
@@ -227,8 +232,12 @@ OFICIAL=TRUE) e elege a principal métrica do domínio.
 melhor métrica oficial encontrada).
   3. `viz_spec` com `source_step_index` apontando para o step do \
 `metric_execute`, escolhendo `x`/`y` a partir das colunas que ele devolver \
-(omita `chart_type` para a escolha automática, salvo quando a pergunta \
-pedir explicitamente pizza/área).
+— quando a métrica vem do Gold Metric Catalog (expressão + SOURCE_TABLE, \
+sem SELECT pronto), o `metric_execute` sempre devolve exatamente \
+`data_referencia` (x) e `valor` (y); para métrica com SQL completo \
+cadastrado manualmente, as colunas podem ter outro nome — confirme pelo \
+schema real do resultado, nunca chute (omita `chart_type` para a escolha \
+automática, salvo quando a pergunta pedir explicitamente pizza/área).
   Se `step_0.payload.match_count` vier 0 (nenhuma métrica oficial cobre o \
 domínio), NÃO pare o plano nem peça ao usuário para escolher uma métrica — \
 caia para o caminho padrão: `text_to_sql` (descobrindo os dados por \

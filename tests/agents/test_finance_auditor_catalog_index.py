@@ -141,6 +141,106 @@ class TestReindexCatalog:
 
 
 # ---------------------------------------------------------------------------
+# sync_gold_metric_catalog
+# ---------------------------------------------------------------------------
+
+class TestSyncGoldMetricCatalog:
+    def test_ignora_datasets_sem_a_tabela_gold(self):
+        from src.agents.finance_auditor import catalog_index
+
+        fake_datasets = [
+            {"dataset_id": "dom_cobranca", "labels": {}},
+            {"dataset_id": "dom_vendas", "labels": {}},
+        ]
+        with patch.object(catalog_index, "list_datasets_with_labels", return_value=fake_datasets), \
+             patch.object(catalog_index, "list_table_ids", return_value=["BRONZE_X", "SILVER_X"]) as mock_list_tables, \
+             patch.object(catalog_index, "execute_query_rows") as mock_query, \
+             patch.object(catalog_index, "upsert_finance_metric") as mock_upsert:
+            result = catalog_index.sync_gold_metric_catalog("proj")
+
+        assert result == {"datasets_scanned": 2, "datasets_with_catalog": 0, "synced": 0, "errors": []}
+        assert mock_list_tables.call_count == 2
+        mock_query.assert_not_called()
+        mock_upsert.assert_not_called()
+
+    def test_sincroniza_so_o_dataset_que_tem_gold_metric_catalog(self):
+        """Não pode haver hardcode de dataset — duas gerências (datasets
+        diferentes), só uma tem GOLD_METRIC_CATALOG, só essa é sincronizada."""
+        from src.agents.finance_auditor import catalog_index
+
+        fake_datasets = [
+            {"dataset_id": "dom_cobranca", "labels": {"gerencia": "cobranca"}},
+            {"dataset_id": "dom_vendas", "labels": {"gerencia": "vendas"}},
+        ]
+        fake_rows = [
+            {
+                "METRIC_ID": "M001",
+                "METRIC_NAME": "TAXA_INADIMPLENCIA",
+                "DOMINIO": "COBRANCA",
+                "DESCRICAO": "Percentual em atraso",
+                "FORMULA_SQL": "SUM(VALOR_ABERTO)",
+                "SQL_TEMPLATE": "SUM(CASE WHEN STATUS='ATRASADO' THEN VALOR_ABERTO END)",
+                "OWNER": "GERENCIA_COBRANCA",
+                "NIVEL": "ESTRATEGICO",
+                "OFICIAL": True,
+                "SOURCE_TABLE": "GOLD_FCT_CONTAS_RECEBER",
+            },
+        ]
+
+        def fake_list_table_ids(project_id, dataset_id):
+            return ["GOLD_METRIC_CATALOG"] if dataset_id == "dom_cobranca" else ["BRONZE_X"]
+
+        with patch.object(catalog_index, "list_datasets_with_labels", return_value=fake_datasets), \
+             patch.object(catalog_index, "list_table_ids", side_effect=fake_list_table_ids), \
+             patch.object(catalog_index, "execute_query_rows", return_value=fake_rows) as mock_query, \
+             patch.object(catalog_index, "upsert_finance_metric") as mock_upsert:
+            result = catalog_index.sync_gold_metric_catalog("proj")
+
+        assert result["datasets_with_catalog"] == 1
+        assert result["synced"] == 1
+        mock_query.assert_called_once()
+        assert "dom_cobranca.GOLD_METRIC_CATALOG" in mock_query.call_args[0][0]
+
+        upsert_kwargs = mock_upsert.call_args.kwargs
+        # Prefere METRIC_ID (estável) ao nome quando ambos existem.
+        assert mock_upsert.call_args[0][0] == "proj.dom_cobranca.m001"
+        assert upsert_kwargs["domain"] == "cobranca"
+        assert upsert_kwargs["is_official"] is True
+        assert upsert_kwargs["source_table"] == "proj.dom_cobranca.GOLD_FCT_CONTAS_RECEBER"
+
+    def test_falha_ao_listar_datasets_nao_quebra(self):
+        from src.agents.finance_auditor import catalog_index
+
+        with patch.object(catalog_index, "list_datasets_with_labels", side_effect=RuntimeError("boom")):
+            result = catalog_index.sync_gold_metric_catalog("proj")
+
+        assert result["synced"] == 0
+        assert result["errors"]
+
+    def test_falha_pontual_de_um_dataset_nao_aborta_os_demais(self):
+        from src.agents.finance_auditor import catalog_index
+
+        fake_datasets = [
+            {"dataset_id": "dom_a", "labels": {}},
+            {"dataset_id": "dom_b", "labels": {}},
+        ]
+
+        def fake_list_table_ids(project_id, dataset_id):
+            if dataset_id == "dom_a":
+                raise RuntimeError("sem permissao")
+            return ["GOLD_METRIC_CATALOG"]
+
+        with patch.object(catalog_index, "list_datasets_with_labels", return_value=fake_datasets), \
+             patch.object(catalog_index, "list_table_ids", side_effect=fake_list_table_ids), \
+             patch.object(catalog_index, "execute_query_rows", return_value=[]), \
+             patch.object(catalog_index, "upsert_finance_metric"):
+            result = catalog_index.sync_gold_metric_catalog("proj")
+
+        assert result["datasets_with_catalog"] == 1
+        assert len(result["errors"]) == 1
+
+
+# ---------------------------------------------------------------------------
 # search_catalog
 # ---------------------------------------------------------------------------
 

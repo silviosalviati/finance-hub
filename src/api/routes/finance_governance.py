@@ -234,5 +234,12 @@ async def catalog_reindex(
 
     Sem `force`, respeita o TTL (`FINANCE_AUDITOR_CATALOG_TTL_HOURS`) — útil \
     para forçar atualização imediata depois de criar/alterar um dataset.
+
+    Também sincroniza o Gold Metric Catalog (`GOLD_METRIC_CATALOG`, quando \
+    existir em algum dataset do projeto) para o Semantic Layer — sem isso, \
+    métricas oficiais recém-cadastradas no BigQuery só apareceriam depois do \
+    próximo ciclo do warmup em background.
     """
-    return catalog_index.reindex_catalog(req.project_id, force=req.force)
+    catalog_result = catalog_index.reindex_catalog(req.project_id, force=req.force)
+    metrics_result = catalog_index.sync_gold_metric_catalog(req.project_id)
+    return {"catalog": catalog_result, "gold_metric_catalog": metrics_result}

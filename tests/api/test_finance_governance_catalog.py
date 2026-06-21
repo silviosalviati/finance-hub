@@ -36,7 +36,11 @@ def test_catalog_reindex_chama_catalog_index_com_force():
         fg_module.catalog_index,
         "reindex_catalog",
         return_value={"reindexed": True, "tables_indexed": 9, "datasets": 3},
-    ) as mock_reindex:
+    ) as mock_reindex, patch.object(
+        fg_module.catalog_index,
+        "sync_gold_metric_catalog",
+        return_value={"datasets_scanned": 3, "datasets_with_catalog": 1, "synced": 7, "errors": []},
+    ) as mock_sync:
         res = client.post(
             "/admin/finance/catalog/reindex",
             json={"project_id": "silviosalviati", "force": True},
@@ -44,9 +48,11 @@ def test_catalog_reindex_chama_catalog_index_com_force():
 
     assert res.status_code == 200
     body = res.json()
-    assert body["reindexed"] is True
-    assert body["tables_indexed"] == 9
+    assert body["catalog"]["reindexed"] is True
+    assert body["catalog"]["tables_indexed"] == 9
+    assert body["gold_metric_catalog"]["synced"] == 7
     mock_reindex.assert_called_once_with("silviosalviati", force=True)
+    mock_sync.assert_called_once_with("silviosalviati")
 
 
 def test_catalog_reindex_default_force_false():
@@ -54,7 +60,11 @@ def test_catalog_reindex_default_force_false():
 
     with patch.object(
         fg_module.catalog_index, "reindex_catalog", return_value={"reindexed": False}
-    ) as mock_reindex:
+    ) as mock_reindex, patch.object(
+        fg_module.catalog_index,
+        "sync_gold_metric_catalog",
+        return_value={"datasets_scanned": 0, "datasets_with_catalog": 0, "synced": 0, "errors": []},
+    ):
         res = client.post(
             "/admin/finance/catalog/reindex", json={"project_id": "silviosalviati"}
         )

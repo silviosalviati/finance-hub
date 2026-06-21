@@ -299,6 +299,20 @@ def validate_query_context_for_query_analyzer(
     }
 
 
+def list_table_ids(project_id: str, dataset_id: str) -> list[str]:
+    """Lista os IDs de tabelas de um dataset — checagem leve de existência.
+
+    Usado para descobrir, sem hardcoded de nome de dataset, em qual(is)
+    dataset(s) de um projeto existe uma tabela de convenção fixa (ex.:
+    `GOLD_METRIC_CATALOG`) — cada gerência tem o seu próprio dataset, então a
+    varredura precisa ser por todos os datasets do projeto, não um fixo.
+    """
+    resolved_project = _resolve_project_id(project_id)
+    client = _get_client(resolved_project)
+    dataset_ref = f"{resolved_project}.{dataset_id}"
+    return [t.table_id for t in client.list_tables(dataset_ref)]
+
+
 def list_datasets_with_labels(project_id: str) -> list[dict[str, Any]]:
     """Lista datasets do projeto com seus rotulos (labels) do BigQuery.
 
@@ -530,6 +544,19 @@ def _normalize_query_for_subquery(query: str) -> str:
     return cleaned
 
 
+def get_table_column_types(table_ref: str, project_id: str | None) -> dict[str, str]:
+    """Mapa {nome_coluna: tipo_bigquery} de uma tabela — usado para escolher
+    dinamicamente qual coluna é a data de referência de uma métrica do Gold
+    Metric Catalog, sem precisar de nenhuma convenção hardcoded por gerência.
+    """
+    try:
+        client = _get_client(project_id)
+        table = client.get_table(table_ref)
+        return {field.name: field.field_type for field in table.schema}
+    except Exception:
+        return {}
+
+
 def get_table_schema(
     table_ref: str,
     project_id: str | None,
@@ -636,11 +663,13 @@ __all__ = [
     "dry_run_query",
     "execute_query_rows",
     "get_table_schema",
+    "get_table_column_types",
     "get_schemas_for_query",
     "fetch_query_sample",
     "validate_dataset_for_query_build",
     "validate_query_context_for_query_analyzer",
     "list_datasets_with_labels",
+    "list_table_ids",
     "get_dataset_tables_metadata",
     "get_dataset_tables_schema",
     "format_bytes",

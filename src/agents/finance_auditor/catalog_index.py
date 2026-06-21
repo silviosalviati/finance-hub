@@ -42,22 +42,25 @@ _embeddings_singleton: Any = None
 def _get_embeddings() -> Any:
     """Cliente de embeddings — Vertex AI, mesmas credenciais já configuradas.
 
-    `VertexAIEmbeddings` está deprecado em favor de `GoogleGenerativeAIEmbeddings`,
-    mas este projeto autentica via service account/ADC (Vertex AI), não via
-    API key da Gemini Developer API — migrar exigiria um modelo de
-    autenticação novo. Mantemos `VertexAIEmbeddings` deliberadamente.
+    Desde `langchain-google-genai` 4.0.0, `GoogleGenerativeAIEmbeddings` passou
+    a suportar o backend Vertex AI (via ADC) além da Gemini Developer API —
+    `vertexai=True` + `project` usa as mesmas credenciais de service account
+    já configuradas, sem precisar de API key. Substitui a antiga
+    `VertexAIEmbeddings` (deprecada), mantendo o mesmo modelo e, portanto, a
+    mesma dimensionalidade dos embeddings já persistidos no catálogo.
     """
     global _embeddings_singleton
     if _embeddings_singleton is None:
-        from langchain_google_vertexai import VertexAIEmbeddings
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
         from src.shared.tools.llm import _ensure_google_adc_env
 
         _ensure_google_adc_env()
-        _embeddings_singleton = VertexAIEmbeddings(
-            model_name=get_runtime_config("FINANCE_AUDITOR_EMBEDDING_MODEL", _DEFAULT_EMBEDDING_MODEL),
+        _embeddings_singleton = GoogleGenerativeAIEmbeddings(
+            model=get_runtime_config("FINANCE_AUDITOR_EMBEDDING_MODEL", _DEFAULT_EMBEDDING_MODEL),
             project=get_runtime_config("VERTEXAI_PROJECT", "silviosalviati"),
             location=get_runtime_config("VERTEXAI_LOCATION", "us-central1"),
+            vertexai=True,
         )
     return _embeddings_singleton
 

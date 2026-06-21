@@ -5128,8 +5128,13 @@ function clearFAChat() {
 // "pegar" no topo mesmo que ainda não haja resposta alguma — sem isso, o
 // navegador limita o scroll ao que já existe (mensagem nova + indicador de
 // "pensando" juntos quase nunca enchem a tela), e a pergunta não sobe de
-// fato. Removido quando a troca termina (sucesso ou erro).
-function _faEnsureScrollSpacer(area) {
+// fato. Chamada de novo a cada nova bolha (pensando, resposta, erro) para
+// continuar sendo SEMPRE o último filho — senão o espaço vazio fica
+// encravado entre a pergunta e o que vem depois, empurrando o resto para
+// fora da tela. Removido quando a troca termina (sucesso ou erro).
+function _faEnsureScrollSpacer() {
+  const area = document.getElementById("fa-messages");
+  if (!area) return;
   let spacer = document.getElementById("fa-scroll-spacer");
   if (!spacer) {
     spacer = document.createElement("div");
@@ -5145,15 +5150,18 @@ function _faCollapseScrollSpacer() {
   document.getElementById("fa-scroll-spacer")?.remove();
 }
 
-// Ancora a pergunta recém-enviada no topo da área visível, com rolagem
-// suave (em vez de um salto instantâneo) para reforçar a impressão de
-// scroll automático — e não acompanha mais o rodapé a partir daí: a
-// resposta cresce abaixo dela sem puxar a tela; em respostas longas, o
-// usuário rola manualmente (mesmo padrão do Claude/ChatGPT).
+// Ancora a mensagem (pergunta) no topo da área visível, com rolagem suave
+// (em vez de um salto instantâneo) para reforçar a impressão de scroll
+// automático — e não acompanha mais o rodapé a partir daí: a resposta
+// cresce abaixo dela sem puxar a tela; em respostas longas, o usuário rola
+// manualmente (mesmo padrão do Claude/ChatGPT). Chamada só depois que TODO
+// o conteúdo síncrono desta rodada (pergunta + "pensando") já está no DOM,
+// para o alvo da rolagem não ficar defasado por mudanças de layout no meio
+// da animação.
 function _faScrollMessageToTop(el) {
   const area = document.getElementById("fa-messages");
   if (!area || !el) return;
-  _faEnsureScrollSpacer(area);
+  _faEnsureScrollSpacer();
   area.scrollTo({ top: Math.max(0, el.offsetTop - 12), behavior: "smooth" });
 }
 
@@ -5195,7 +5203,7 @@ function appendFAUserMessage(text) {
       <div class="fa-msg-time">${_faNow()}</div>
     </div>`;
   area.appendChild(el);
-  _faScrollMessageToTop(el);
+  _faEnsureScrollSpacer();
 
   const slot = el.querySelector(".fa-bubble-body");
   _faTypeUserTextInto(slot, text);
@@ -5234,6 +5242,7 @@ function _faAppendPhaseBubble(initialText) {
       </div>
     </div>`;
   area.appendChild(el);
+  _faEnsureScrollSpacer();
 
   return {
     setPhase(text) {
@@ -5323,6 +5332,7 @@ function appendFAErrorMessage(msg) {
       <div class="fa-msg-time">${_faNow()}</div>
     </div>`;
   area.appendChild(el);
+  _faEnsureScrollSpacer();
 }
 
 async function appendFAChatTextMessage(text, opts = {}) {
@@ -5340,6 +5350,7 @@ async function appendFAChatTextMessage(text, opts = {}) {
       <div class="fa-msg-time">${_faNow()}</div>
     </div>`;
   area.appendChild(el);
+  _faEnsureScrollSpacer();
 
   const slot = el.querySelector(".fa-report-slot");
   await _faTypeMarkdownInto(slot, text, { escapeInput: true, ...opts });
@@ -5381,6 +5392,7 @@ async function appendFABotMessage(data) {
     </div>`;
 
   area.appendChild(el);
+  _faEnsureScrollSpacer();
 
   // A narrativa e digitada primeiro - so depois os cartoes de dados entram em cena.
   const slot = el.querySelector(".fa-report-slot");
@@ -5801,8 +5813,11 @@ async function sendFAMessage() {
   setFASendButtonState({ disabled: true, loading: true });
   _faRenderQuickSuggestions([]);
 
-  appendFAUserMessage(text);
+  const userMsgId = appendFAUserMessage(text);
   appendFAThinking();
+  // Só rola depois que a pergunta E o "pensando" já estão no DOM — senão o
+  // alvo da rolagem fica defasado pela mudança de layout que vem a seguir.
+  _faScrollMessageToTop(document.getElementById(userMsgId));
 
   faIsLoading = true;
 

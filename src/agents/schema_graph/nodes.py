@@ -411,7 +411,7 @@ def infer_relationships(state: SchemaGraphState) -> dict[str, Any]:
 
     return {
         "raw_relationships": deduped,
-        "warnings": warnings,
+        "warnings": [],
         "error": None,
     }
 

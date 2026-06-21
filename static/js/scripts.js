@@ -4615,6 +4615,62 @@ function _faExtractSuggestedQuestions(report) {
   return items;
 }
 
+// "faixa_risco" / "FAIXA_RISCO" / "valorTotalAberto" -> "Faixa Risco" /
+// "Valor Total Aberto". Texto que já tem espaço/acentuação fica intacto —
+// só corrige nome técnico de coluna que o LLM esqueceu de traduzir.
+const _FA_HEADER_SMALL_WORDS = new Set(["de", "da", "do", "das", "dos", "e", "em", "a", "o"]);
+
+function _faHumanizeHeaderText(text) {
+  const raw = String(text || "").trim();
+  if (!raw || raw.includes(" ")) return raw;
+  const looksLikeIdentifier = /_/.test(raw) || /^[A-Z0-9_]+$/.test(raw) || /[a-z][A-Z]/.test(raw);
+  if (!looksLikeIdentifier) return raw;
+
+  const words = raw
+    .replace(/_/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return words
+    .map((w, i) => (i > 0 && _FA_HEADER_SMALL_WORDS.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+}
+
+// Número cru sem separador (ex.: "42681309.28") -> formato pt-BR
+// (ex.: "42.681.309,28"). Datas ISO (ex.: "2026-06-20") -> "20/06/2026".
+// Texto que já vem formatado (com "." de milhar ou "," decimal) não é tocado.
+function _faFormatTableCellText(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return raw;
+
+  if (/^-?\d+(\.\d+)?$/.test(raw)) {
+    const num = Number(raw);
+    return num.toLocaleString("pt-BR", {
+      minimumFractionDigits: raw.includes(".") ? 2 : 0,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+  if (isoMatch) {
+    const [, y, mo, d, h, mi] = isoMatch;
+    return h ? `${d}/${mo}/${y} ${h}:${mi}` : `${d}/${mo}/${y}`;
+  }
+
+  return raw;
+}
+
+function _faHumanizeTable(table) {
+  table.querySelectorAll("thead th").forEach((th) => {
+    th.textContent = _faHumanizeHeaderText(th.textContent);
+  });
+  table.querySelectorAll("tbody td").forEach((td) => {
+    td.textContent = _faFormatTableCellText(td.textContent);
+  });
+}
+
 function _faEnhanceReportDom(container, persona = "geral") {
   if (!container) return null;
   const report = container.querySelector(".fa-report");
@@ -4647,6 +4703,7 @@ function _faEnhanceReportDom(container, persona = "geral") {
   const extractedSuggestions = _faExtractSuggestedQuestions(report);
 
   report.querySelectorAll("table").forEach((table) => {
+    _faHumanizeTable(table);
     if (table.parentElement?.classList.contains("fa-report-table-wrap")) return;
     const wrap = document.createElement("div");
     wrap.className = "fa-report-table-wrap";

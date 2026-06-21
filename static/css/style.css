@@ -4751,22 +4751,19 @@ pre {
 .fa-report-bullets li {
   position: relative;
   margin: 0;
-  padding: 10px 12px 10px 34px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fff;
+  padding: 3px 0 3px 20px;
 }
 
 .fa-report-bullets li::before {
   content: "";
   position: absolute;
-  left: 12px;
-  top: 12px;
-  width: 12px;
-  height: 12px;
+  left: 0;
+  top: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 999px;
   background: var(--porto-sky);
-  box-shadow: inset 0 0 0 3px var(--porto-primary);
+  box-shadow: inset 0 0 0 2.5px var(--porto-primary);
 }
 
 .fa-report-section--rootcause .fa-report-bullets li::before {
@@ -4837,8 +4834,9 @@ pre {
   flex-direction: column;
   gap: 5px;
   padding: 14px 14px 12px;
+  border: 1px solid color-mix(in srgb, var(--fa-accent) 24%, white);
+  border-radius: 8px;
   background: linear-gradient(180deg, #ffffff 0%, var(--fa-accent-bg) 100%);
-  border-color: color-mix(in srgb, var(--fa-accent) 24%, white);
 }
 
 .fa-stat-headline {
@@ -4873,6 +4871,9 @@ pre {
   align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
 }
 
 .fa-action-check {
@@ -4954,6 +4955,31 @@ pre {
 .fa-report strong {
   font-weight: 600;
   color: var(--ink);
+}
+
+/* Palavra de destaque (negrito) no resumo e nos achados ganha cor de marca
+   + um ícone antes — reforça a ênfase sem precisar de caixa. */
+.fa-report-lead strong,
+.fa-report-bullets strong {
+  color: var(--fa-accent, var(--porto-primary));
+}
+
+.fa-report-lead strong::before,
+.fa-report-bullets strong::before {
+  content: "✦";
+  display: inline-block;
+  margin-right: 3px;
+  font-size: 0.8em;
+  color: var(--fa-accent, var(--porto-primary));
+}
+
+/* Respostas conversacionais simples (sem seções/ícones de relatório) ganham
+   um ícone no início do texto, para não ficarem "secas". */
+.fa-bubble--bot:not(.fa-bubble--report) .fa-report > p:first-child::before {
+  content: "✦";
+  margin-right: 6px;
+  color: var(--porto-primary);
+  font-weight: 700;
 }
 
 .fa-report em {

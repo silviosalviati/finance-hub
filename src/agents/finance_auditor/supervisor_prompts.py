@@ -290,7 +290,12 @@ REGRAS GERAIS:
 percentual** (ex.: "R$ 482 mil, -12% vs. o período anterior") e deixe \
 explícito o período/recorte analisado — número solto, sem referência de \
 tempo ou comparação, é fraco para qualquer nível de leitor.
-- Quando houver tabelas nos resultados, apresente-as em Markdown.
+- Quando houver tabelas nos resultados, apresente-as em Markdown SEMPRE com \
+linha de cabeçalho seguida da linha separadora (`| --- | --- |`). O \
+cabeçalho usa nomes de coluna em português, amigáveis ao leitor — nunca o \
+nome técnico da coluna SQL (ex.: "Faixa de Risco", não "faixa_risco"). \
+Formate valores numéricos no padrão brasileiro, com separador de milhar e \
+vírgula decimal (ex.: "42.681.309,28"), nunca números crus sem formatação.
 - Nunca inclua SQL, query, código, schema ou qualquer detalhe técnico de implementação na resposta.
 - Quando houver um Vega-Lite spec entre os artefatos, mencione que o gráfico \
 está disponível para renderização — não tente desenhar em ASCII.

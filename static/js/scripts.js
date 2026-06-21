@@ -4291,6 +4291,54 @@ function _faSuggestedFollowups(query, persona) {
   return bucket[p] || bucket.geral;
 }
 
+// Barra de sugestões fixa acima do input (estilo Veezoo) — substitui o antigo
+// bloco "Próximas perguntas sugeridas" dentro da bolha. Mostra as 2 primeiras
+// e esconde o resto atrás de "Mostrar mais".
+function _faRenderQuickSuggestions(suggestions) {
+  const bar = document.getElementById("fa-quick-suggestions");
+  if (!bar) return;
+
+  const list = (Array.isArray(suggestions) ? suggestions : [])
+    .map((s) => String(s || "").trim())
+    .filter(Boolean);
+
+  if (!list.length) {
+    bar.innerHTML = "";
+    bar.hidden = true;
+    return;
+  }
+
+  const chipHtml = (text) =>
+    `<button type="button" class="fa-suggestion-chip" data-followup="${_escFA(text)}">${_escFA(text)}</button>`;
+
+  const visible = list.slice(0, 2);
+  const extra = list.slice(2);
+  const extraHtml = extra.length
+    ? `<span class="fa-suggestions-extra" id="fa-suggestions-extra" hidden>${extra.map(chipHtml).join("")}</span>` +
+      `<button type="button" class="fa-suggestions-toggle" id="fa-suggestions-toggle" aria-expanded="false">` +
+      `Mostrar mais ${_faIcon("chevron-down", 11)}</button>`
+    : "";
+
+  bar.innerHTML =
+    `<span class="fa-suggestions-icon" aria-hidden="true">${_faIcon("sparkle", 13)}</span>` +
+    visible.map(chipHtml).join("") +
+    extraHtml;
+  bar.hidden = false;
+
+  const toggle = document.getElementById("fa-suggestions-toggle");
+  if (!toggle) return;
+  toggle.addEventListener("click", () => {
+    const extraEl = document.getElementById("fa-suggestions-extra");
+    if (!extraEl) return;
+    const expanded = toggle.getAttribute("aria-expanded") === "true";
+    extraEl.hidden = expanded;
+    toggle.setAttribute("aria-expanded", String(!expanded));
+    toggle.innerHTML = expanded
+      ? `Mostrar mais ${_faIcon("chevron-down", 11)}`
+      : `Mostrar menos ${_faIcon("chevron-up", 11)}`;
+  });
+}
+
 function _faPrepareAnswerMarkdown(text, data = {}) {
   let prepared = String(text || "");
   prepared = prepared.replace(/```sql[\s\S]*?```/gi, "");
@@ -4303,19 +4351,6 @@ function _faPrepareAnswerMarkdown(text, data = {}) {
 
   if (!data.skipExecutiveSummary && !/##\s+resumo executivo/i.test(prepared)) {
     prepared = `## Resumo executivo\n\n${prepared}`;
-  }
-
-  if (data.suppressFollowups) {
-    // Falha total: sugerir "próximas perguntas" ao lado de um retry confunde
-    // mais do que ajuda — o cartão de retry (abaixo) assume esse papel.
-    prepared = prepared
-      .replace(/\n*##\s+pr[oó]ximas perguntas sugeridas[\s\S]*$/i, "")
-      .trim();
-  } else if (!/##\s+pr[oó]ximas perguntas sugeridas/i.test(prepared)) {
-    const suggestions = _faSuggestedFollowups(data.original_query || data.query || "", data.persona);
-    prepared +=
-      `\n\n## Próximas perguntas sugeridas\n\n` +
-      suggestions.map((item) => `- ${item}`).join("\n");
   }
 
   return prepared;
@@ -4362,6 +4397,8 @@ const _FA_ICON_PATHS = {
     '<line x1="4" y1="15" x2="4" y2="9"/><line x1="9" y1="15" x2="9" y2="5"/>' +
     '<line x1="14" y1="15" x2="14" y2="11"/><line x1="2" y1="15" x2="16" y2="15"/>',
   clock: '<circle cx="9" cy="9" r="7"/><line x1="9" y1="9" x2="9" y2="5"/><line x1="9" y1="9" x2="12" y2="11"/>',
+  "chevron-down": '<polyline points="4 7 9 12 14 7"/>',
+  "chevron-up": '<polyline points="4 11 9 6 14 11"/>',
 };
 
 function _faIcon(name, size = 14) {
@@ -4382,7 +4419,6 @@ const _FA_SECTION_KINDS = [
   { re: /tabela|detalhamento/i, kind: "details", icon: "grid" },
   { re: /a[cç][aã]o|recomend/i, kind: "actions", icon: "check-circle" },
   { re: /risc/i, kind: "risks", icon: "alert-triangle" },
-  { re: /pr[oó]ximas perguntas/i, kind: "followups", icon: "message" },
   { re: /o que aconteceu/i, kind: "fact", icon: "flag" },
   { re: /por que aconteceu|causa raiz/i, kind: "rootcause", icon: "target" },
   { re: /qual o impacto/i, kind: "impact", icon: "zap" },
@@ -4553,22 +4589,6 @@ function _faEnhanceReportDom(container, persona = "geral") {
     .forEach((list) => {
       list.classList.add("fa-report-bullets");
     });
-
-  const headings = Array.from(report.querySelectorAll("h2"));
-  const nextQuestionsHeading = headings.find((h) =>
-    /próximas perguntas sugeridas|proximas perguntas sugeridas/i.test(h.textContent || ""),
-  );
-  if (nextQuestionsHeading) {
-    let node = nextQuestionsHeading.nextElementSibling;
-    while (node && node.tagName !== "UL") node = node.nextElementSibling;
-    if (node && !node.classList.contains("fa-followups")) {
-      node.classList.add("fa-followups");
-      node.querySelectorAll("li").forEach((li) => {
-        const text = li.textContent?.trim() || "";
-        li.innerHTML = `<button type="button" class="fa-followup-btn" data-followup="${_escFA(text)}">${_escFA(text)}</button>`;
-      });
-    }
-  }
 
   _faHighlightNumbers(report);
   if (report.dataset.faPersona === "diretor") _faDiretorStatCards(report);
@@ -4858,17 +4878,13 @@ async function resolveFAGerencia(gerencia, label = "") {
     _faGerenciaResolved.add(gerencia);
 
     const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
-    let text = data.message || "Estou pronto para responder perguntas sobre esta área.";
-    if (suggestions.length) {
-      text +=
-        `\n\n## Próximas perguntas sugeridas\n\n` +
-        suggestions.map((s) => `- ${s}`).join("\n");
-    }
+    const text = data.message || "Estou pronto para responder perguntas sobre esta área.";
     removeFALearning();
     await appendFAChatTextMessage(text, {
       escapeInput: false,
       data: { skipExecutiveSummary: true },
     });
+    _faRenderQuickSuggestions(suggestions);
   } catch (e) {
     // Falha silenciosa — comportamento atual (apenas pré-preencher) é preservado.
   } finally {
@@ -4903,6 +4919,7 @@ function clearFAChat() {
     autoResizeFAInput(input);
   }
   setFASendButtonState({ disabled: true, loading: false });
+  _faRenderQuickSuggestions([]);
 }
 
 function _faScrollBottom() {
@@ -5140,10 +5157,12 @@ async function appendFABotMessage(data) {
 
   // A narrativa e digitada primeiro - so depois os cartoes de dados entram em cena.
   const slot = el.querySelector(".fa-report-slot");
-  const typingData = isFailed ? { ...data, suppressFollowups: true } : data;
-  await _faTypeMarkdownInto(slot, data.markdown_report || data.chat_answer || "", { data: typingData });
+  await _faTypeMarkdownInto(slot, data.markdown_report || data.chat_answer || "", { data });
 
-  if (isFailed) return;
+  if (isFailed) {
+    _faRenderQuickSuggestions([]);
+    return;
+  }
 
   const artifactsHtml = _faDetailsHtml(data);
   if (artifactsHtml) {
@@ -5153,6 +5172,8 @@ async function appendFABotMessage(data) {
       _faScrollBottom();
     }
   }
+
+  _faRenderQuickSuggestions(_faSuggestedFollowups(data.original_query || data.query || "", persona));
 }
 
 // Chip \u00fanico de status no cabe\u00e7alho \u2014 sem detalhes t\u00e9cnicos. O detalhe de
@@ -5556,6 +5577,7 @@ async function sendFAMessage() {
   }
   setFAInteractionLock(true);
   setFASendButtonState({ disabled: true, loading: true });
+  _faRenderQuickSuggestions([]);
 
   appendFAUserMessage(text);
   appendFAThinking();

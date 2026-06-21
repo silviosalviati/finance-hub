@@ -3878,32 +3878,88 @@ pre {
   gap: 6px;
 }
 
-.fa-suggestion-chip {
+/* ── Barra de sugestões fixa acima do input (estilo Veezoo) ── */
+.fa-quick-suggestions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 4px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.fa-quick-suggestions[hidden] {
+  display: none;
+}
+
+.fa-suggestions-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
   background: var(--porto-sky);
-  color: var(--porto);
-  border: 1px solid var(--porto-sky2);
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 11.5px;
+  color: var(--porto-primary);
+  flex-shrink: 0;
+}
+
+.fa-suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  background: var(--white);
+  color: var(--ink2);
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
   cursor: pointer;
-  text-align: left;
-  line-height: 1.45;
+  white-space: nowrap;
   transition:
     background 0.15s,
-    border-color 0.15s;
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .fa-suggestion-chip:hover {
-  background: var(--porto-sky2);
-  border-color: var(--porto);
+  background: var(--porto-sky);
+  border-color: var(--porto-sky2);
+  color: var(--porto);
 }
 
 .fa-suggestion-chip:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-  background: var(--bg);
+}
+
+.fa-suggestions-extra {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fa-suggestions-extra[hidden] {
+  display: none;
+}
+
+.fa-suggestions-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
   color: var(--ink3);
-  border-color: var(--border);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 4px;
+  white-space: nowrap;
+}
+
+.fa-suggestions-toggle:hover {
+  color: var(--porto);
 }
 
 .fa-topic-card {
@@ -5040,42 +5096,6 @@ pre {
   font-style: italic;
   font-size: 12px;
 }
-
-.fa-followups {
-  list-style: none;
-  padding-left: 0;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-}
-
-.fa-followups li {
-  margin: 0;
-}
-
-.fa-followup-btn {
-  width: 100%;
-  text-align: left;
-  border: 1px solid color-mix(in srgb, var(--porto-primary) 14%, white);
-  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
-  color: var(--ink);
-  border-radius: 8px;
-  padding: 12px 14px;
-  font-size: 12.5px;
-  line-height: 1.45;
-  cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
-}
-
-.fa-followup-btn:hover {
-  border-color: color-mix(in srgb, var(--porto-primary) 30%, white);
-  box-shadow: 0 8px 18px rgba(0, 70, 145, 0.08);
-  transform: translateY(-1px);
-}
-
 
 /* ── Collapsible details ── */
 .fa-details {

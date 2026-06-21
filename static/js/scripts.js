@@ -4621,20 +4621,14 @@ function _faEnhanceReportDom(container, persona = "geral") {
   return extractedSuggestions;
 }
 
-async function _faTypeMarkdownInto(container, sourceText, options = {}) {
-  if (!container) return;
-
-  const { escapeInput = false } = options;
-  const persona = String((options.data || {}).persona || "geral").trim().toLowerCase();
-  const source = String(sourceText || "");
-  const normalized = escapeInput ? _escFA(source) : _faPrepareAnswerMarkdown(source, options.data || {});
-  const prepared = normalized;
+// Núcleo do efeito de "digitação": revela `text` palavra a palavra, chamando
+// `renderChunk(revealedSoFar, isFinal)` a cada tick. Compartilhado entre o
+// relatório do bot (markdown) e a pergunta do usuário (texto puro) — mesmo
+// ritmo nos dois lados da conversa.
+async function _faRevealText(text, renderChunk) {
+  const prepared = String(text || "");
   const total = prepared.length;
-
-  if (!total) {
-    container.innerHTML = `<div class="fa-report"></div>`;
-    return;
-  }
+  if (!total) return;
 
   // Tokens = palavra + espaço(s)/quebra(s) que a antecedem, preservando o
   // texto original ao serem concatenados. Revelar palavra por palavra (em
@@ -4647,8 +4641,8 @@ async function _faTypeMarkdownInto(container, sourceText, options = {}) {
   }
 
   const wordCount = tokens.length;
-  // Duração total cresce de forma sub-linear com o tamanho da resposta:
-  // respostas curtas "digitam" rápido, longas não demoram uma eternidade.
+  // Duração total cresce de forma sub-linear com o tamanho do texto: trechos
+  // curtos "digitam" rápido, longos não demoram uma eternidade.
   const targetDurationMs = Math.min(6500, Math.max(900, 160 * Math.pow(wordCount, 0.55)));
   const desiredTickMs = 70;
   const wordsPerTick = Math.max(1, Math.round(wordCount / (targetDurationMs / desiredTickMs)));
@@ -4671,7 +4665,7 @@ async function _faTypeMarkdownInto(container, sourceText, options = {}) {
       delay += 130;
     }
 
-    container.innerHTML = `<div class="fa-report fa-report--typing">${_faMdToHtml(revealed)}</div>`;
+    renderChunk(revealed, false);
     _faScrollBottom();
     await _faWait(delay);
   }
@@ -4681,10 +4675,42 @@ async function _faTypeMarkdownInto(container, sourceText, options = {}) {
     await _faWait(FA_TYPING_MIN_DURATION_MS - elapsed);
   }
 
-  container.innerHTML = `<div class="fa-report">${_faMdToHtml(prepared)}</div>`;
-  const extractedSuggestions = _faEnhanceReportDom(container, persona);
-  _faScrollBottom();
+  renderChunk(prepared, true);
+}
+
+async function _faTypeMarkdownInto(container, sourceText, options = {}) {
+  if (!container) return;
+
+  const { escapeInput = false } = options;
+  const persona = String((options.data || {}).persona || "geral").trim().toLowerCase();
+  const source = String(sourceText || "");
+  const prepared = escapeInput ? _escFA(source) : _faPrepareAnswerMarkdown(source, options.data || {});
+
+  if (!prepared) {
+    container.innerHTML = `<div class="fa-report"></div>`;
+    return;
+  }
+
+  let extractedSuggestions;
+  await _faRevealText(prepared, (revealed, isFinal) => {
+    if (!isFinal) {
+      container.innerHTML = `<div class="fa-report fa-report--typing">${_faMdToHtml(revealed)}</div>`;
+      return;
+    }
+    container.innerHTML = `<div class="fa-report">${_faMdToHtml(revealed)}</div>`;
+    extractedSuggestions = _faEnhanceReportDom(container, persona);
+  });
+
   return extractedSuggestions;
+}
+
+// Mesmo efeito de digitação do bot, mas para texto puro (a pergunta do
+// usuário) — sem interpretar markdown, só escapando o HTML.
+async function _faTypeUserTextInto(container, text) {
+  if (!container) return;
+  await _faRevealText(_escFA(text), (revealed) => {
+    container.innerHTML = revealed;
+  });
 }
 
 function setFAInteractionLock(locked) {
@@ -5020,12 +5046,15 @@ function appendFAUserMessage(text) {
     <div class="fa-msg-avatar">${_faUserInitials()}</div>
     <div class="fa-msg-main">
       <div class="fa-bubble fa-bubble--user">
-        <div class="fa-bubble-body">${_escFA(text)}</div>
+        <div class="fa-bubble-body"></div>
       </div>
       <div class="fa-msg-time">${_faNow()}</div>
     </div>`;
   area.appendChild(el);
   _faScrollBottom();
+
+  const slot = el.querySelector(".fa-bubble-body");
+  _faTypeUserTextInto(slot, text);
   return id;
 }
 

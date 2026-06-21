@@ -167,6 +167,38 @@ def _fuzzy_pick_dataset(hint: str, datasets: list[str]) -> str | None:
     return None
 
 
+def _fuzzy_pick_column(hint: str, columns: list[str]) -> str | None:
+    """Mesma lógica de `_fuzzy_pick_dataset`, mas para nome de coluna.
+
+    O Planner monta `viz_spec`/`stats_describe` no mesmo turno em que pediu
+    o `text_to_sql` — sem nunca ter visto o schema real da query que ele
+    mesmo gerou — e frequentemente chuta o nome da coluna (case errado,
+    abreviação, acento). Threshold de similaridade mais alto que o de
+    dataset (0.6 vs 0.4): colunas da MESMA tabela podem ser parecidas entre
+    si e semanticamente opostas (ex.: "valor_atual" vs "valor_anterior").
+    """
+    if not hint or not columns:
+        return None
+    hint_slug = _slug(hint)
+    if not hint_slug:
+        return None
+
+    for col in columns:
+        if _slug(col) == hint_slug:
+            return col
+    for col in columns:
+        col_slug = _slug(col)
+        if hint_slug in col_slug or col_slug in hint_slug:
+            return col
+    scored = sorted(
+        ((difflib.SequenceMatcher(None, hint_slug, _slug(col)).ratio(), col) for col in columns),
+        reverse=True,
+    )
+    if scored and scored[0][0] >= 0.6:
+        return scored[0][1]
+    return None
+
+
 def _list_project_datasets(project_id: str) -> list[str]:
     from src.shared.tools.bigquery import _get_client  # noqa: WPS437
 
@@ -846,11 +878,19 @@ def cap_stats_describe(args: dict[str, Any], context: dict[str, Any]) -> dict[st
     if not rows:
         return _ok(payload={"summary": "Sem linhas para analisar.", "columns": {}})
 
-    selected = args.get("columns") or []
-    if selected:
-        keys = [str(c) for c in selected]
+    available_cols = list(rows[0].keys())
+    requested = [str(c) for c in (args.get("columns") or [])]
+    if requested:
+        # Mesmo chute de nome de coluna do viz_spec (ver _fuzzy_pick_column)
+        # — resolve o que der; se nenhuma bater, cai para todas as colunas
+        # em vez de devolver estatística vazia silenciosamente.
+        resolved = [
+            c if c in rows[0] else _fuzzy_pick_column(c, available_cols)
+            for c in requested
+        ]
+        keys = [c for c in resolved if c is not None] or available_cols
     else:
-        keys = list(rows[0].keys())
+        keys = available_cols
 
     stats: dict[str, Any] = {}
     for col in keys:
@@ -913,14 +953,31 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
     if not rows:
         return _err("Sem linhas para gerar gráfico.")
 
-    x = str(args.get("x") or "").strip()
-    y = str(args.get("y") or "").strip()
-    if not x or not y:
+    x_arg = str(args.get("x") or "").strip()
+    y_arg = str(args.get("y") or "").strip()
+    if not x_arg or not y_arg:
         return _err("x e y são obrigatórios.")
-    if x not in rows[0] or y not in rows[0]:
-        return _err("x ou y não existem nas colunas do step de origem.")
 
-    color = str(args.get("color") or "").strip() or None
+    available_cols = list(rows[0].keys())
+    # Tolera nome de coluna "chutado" (case/acento/abreviação) — ver
+    # docstring de _fuzzy_pick_column. Se ainda assim não resolver, a
+    # mensagem de erro lista as colunas reais, para o Planner corrigir no
+    # replan em vez de tentar de novo às cegas.
+    x = x_arg if x_arg in rows[0] else _fuzzy_pick_column(x_arg, available_cols)
+    y = y_arg if y_arg in rows[0] else _fuzzy_pick_column(y_arg, available_cols)
+    if x is None or y is None:
+        unresolved = ", ".join(
+            f"{label}={arg!r}"
+            for label, arg, resolved in (("x", x_arg, x), ("y", y_arg, y))
+            if resolved is None
+        )
+        return _err(
+            f"{unresolved} não corresponde a nenhuma coluna do step de origem. "
+            f"Colunas disponíveis: {', '.join(available_cols)}."
+        )
+
+    color_arg = str(args.get("color") or "").strip()
+    color = (color_arg if color_arg in rows[0] else _fuzzy_pick_column(color_arg, available_cols)) if color_arg else None
     title = str(args.get("title") or "").strip()
 
     x_type = _infer_field_type([r.get(x) for r in rows])
@@ -936,7 +993,7 @@ def cap_viz_spec(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any
         "x": {"field": x, "type": x_type},
         "y": {"field": y, "type": y_type},
     }
-    if color and color in rows[0]:
+    if color:
         encoding["color"] = {"field": color, "type": _infer_field_type([r.get(color) for r in rows])}
 
     spec: dict[str, Any] = {

@@ -349,6 +349,43 @@ class TestVizSpec:
         )
         assert out["ok"] is False
 
+    def test_erro_lista_colunas_disponiveis(self):
+        """A mensagem de erro precisa listar as colunas reais — sem isso o
+        Planner tenta corrigir (replan) sem saber quais nomes existem."""
+        from src.agents.finance_auditor.capabilities import cap_viz_spec
+
+        out = cap_viz_spec(
+            {"source_step_index": 0, "chart_type": "bar", "x": "inexistente", "y": "b"},
+            self._ctx_with_rows([{"mes_referencia": "2025-01", "b": 2}]),
+        )
+        assert out["ok"] is False
+        assert "mes_referencia" in out["error"]
+        assert "b" in out["error"]
+
+    def test_nome_de_coluna_chutado_e_tolerado(self):
+        """O Planner monta o viz_spec sem nunca ter visto o schema real da
+        query — diferença de caixa/acento/abreviação não pode quebrar o
+        gráfico (era exatamente isso que acontecia antes do fix)."""
+        from src.agents.finance_auditor.capabilities import cap_viz_spec
+
+        rows = [
+            {"Mes_Referencia": "2025-01", "Valor_Total_Contas_Receber": 100},
+            {"Mes_Referencia": "2025-02", "Valor_Total_Contas_Receber": 200},
+        ]
+        out = cap_viz_spec(
+            {
+                "source_step_index": 0,
+                "chart_type": "line",
+                "x": "mes_referencia",  # case diferente do real
+                "y": "valor_total_contas_receber",  # idem
+            },
+            self._ctx_with_rows(rows),
+        )
+        assert out["ok"] is True
+        spec = out["artifacts"][0]["spec"]
+        assert spec["encoding"]["x"]["field"] == "Mes_Referencia"
+        assert spec["encoding"]["y"]["field"] == "Valor_Total_Contas_Receber"
+
 
 # ---------------------------------------------------------------------------
 # Capabilities Fase 2: text_to_sql

@@ -4993,10 +4993,6 @@ function appendFAUserMessage(text) {
     <div class="fa-msg-avatar">${_faUserInitials()}</div>
     <div class="fa-msg-main">
       <div class="fa-bubble fa-bubble--user">
-        <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">👤</span>
-          <span class="fa-bubble-title">Sua pergunta</span>
-        </div>
         <div class="fa-bubble-body">${_escFA(text)}</div>
       </div>
       <div class="fa-msg-time">${_faNow()}</div>

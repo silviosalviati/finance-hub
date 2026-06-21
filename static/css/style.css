@@ -3790,20 +3790,6 @@ pre {
   border-bottom: 1px solid var(--border);
 }
 
-.fa-sidebar-icon {
-  width: 34px;
-  height: 34px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  background: linear-gradient(135deg, var(--porto-sky2) 0%, var(--porto-sky) 100%);
-  color: var(--porto-primary);
-  border: 1px solid rgba(0, 70, 145, 0.15);
-  box-shadow: 0 2px 8px rgba(0, 70, 145, 0.1);
-  margin-bottom: 12px;
-}
-
 .fa-sidebar-eyebrow {
   display: flex;
   align-items: center;

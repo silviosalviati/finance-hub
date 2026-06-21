@@ -241,6 +241,53 @@ def _is_asking_name(query: str) -> bool:
     return bool(_ASK_NAME_PATTERN.search(query))
 
 
+_CONFIRMATION_WORDS = {
+    "sim", "ok", "okay", "claro", "certo", "certeza",
+    "pode", "podes", "vai", "manda", "confirmo", "confirmado",
+    "afirmativo", "isso", "exato", "correto", "prossiga", "prosseguir",
+    "continua", "continue", "vamos", "perfeito", "positivo",
+}
+
+
+def _is_confirmation_reply(query: str) -> bool:
+    """Resposta curta de confirmação (sim/ok/pode/...), sem conteúdo
+    analítico próprio — só faz sentido lida junto da pergunta anterior."""
+    normalized = _normalize_text(query).strip(" .,!?;:")
+    if not normalized:
+        return False
+    words = normalized.split()
+    if not words or len(words) > 4:
+        return False
+    return any(w in _CONFIRMATION_WORDS for w in words)
+
+
+def _resolve_pending_confirmation(query: str, turns: list[dict[str, Any]]) -> str:
+    """Religa uma confirmação curta ("sim") à pergunta original quando a
+    última resposta do bot terminou em pergunta (ex.: "Posso prosseguir?").
+
+    Sem isso, "sim" chega ao roteador como uma pergunta nova e sem contexto
+    próprio: não tem termo analítico (cai no chat genérico) e não tem
+    nenhuma palavra em comum com o turno anterior (a busca por relevância
+    léxica em `_retrieve_relevant_turns` não encontra nada) — o agente
+    responde algo genérico, ignorando a confirmação do usuário por completo.
+    """
+    if not turns or not _is_confirmation_reply(query):
+        return query
+
+    last_answer = str(turns[-1].get("answer_text") or "").strip()
+    if not last_answer.endswith("?"):
+        return query
+
+    pending_query = str(turns[-1].get("query") or "").strip()
+    if not pending_query:
+        return query
+
+    return (
+        f"{pending_query} (o usuário confirmou com \"{query.strip()}\" — "
+        "prossiga agora com a análise completa, sem perguntar de novo)"
+    )
+
+
 def _load_finance_chat_session(token: str, checkpointer) -> dict[str, Any]:
     key = f"{token}-finance_auditor-chat"
     payload = checkpointer.load(key)
@@ -421,13 +468,19 @@ async def analyze_by_agent(
                 checkpointer.save(checkpoint_key, repeated)
                 return repeated
 
-            remembered_name = _extract_user_name(query)
+            # "sim"/"pode"/"ok" em resposta a uma pergunta do bot ("Posso
+            # prosseguir?") religa à pergunta original — ver docstring.
+            # Usado daqui pra baixo no lugar de `query` cru; o histórico
+            # (turns) continua guardando o que o usuário de fato digitou.
+            effective_query = _resolve_pending_confirmation(query, turns)
+
+            remembered_name = _extract_user_name(effective_query)
             if remembered_name:
                 profile["name"] = remembered_name
                 response = _build_finance_chat_response(
                     f"Perfeito, vou lembrar. Seu nome é {remembered_name}."
                 )
-            elif _is_asking_name(query):
+            elif _is_asking_name(effective_query):
                 name = str(profile.get("name") or "").strip()
                 if name:
                     response = _build_finance_chat_response(f"Seu nome é {name}.")
@@ -436,9 +489,9 @@ async def analyze_by_agent(
                         "Ainda não tenho seu nome salvo nesta sessão. "
                         "Pode me dizer algo como: 'meu nome é João'."
                     )
-            elif not _is_analytics_query(query):
-                relevant_turns = _retrieve_relevant_turns(turns, query)
-                answer = await _build_rag_chat_answer(query, profile, relevant_turns)
+            elif not _is_analytics_query(effective_query):
+                relevant_turns = _retrieve_relevant_turns(turns, effective_query)
+                answer = await _build_rag_chat_answer(effective_query, profile, relevant_turns)
                 response = _build_finance_chat_response(answer)
             else:
                 # agent.analyze é síncrono e pode levar muitos segundos
@@ -446,7 +499,7 @@ async def analyze_by_agent(
                 # event loop e, com ele, todo usuário concorrente.
                 response = await asyncio.to_thread(
                     agent.analyze,
-                    query=query,
+                    query=effective_query,
                     project_id=project_id,
                     dataset_hint=req.dataset_hint or profile.get("pinned_dataset_ref"),
                     user_profile=profile,

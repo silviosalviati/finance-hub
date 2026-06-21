@@ -3902,15 +3902,22 @@ pre {
   font-weight: 500;
   line-height: 1.3;
   cursor: pointer;
-  white-space: nowrap;
-  max-width: 190px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 100%;
   position: relative;
   transition:
     background 0.15s,
     border-color 0.15s,
     color 0.15s;
+}
+
+/* O truncamento vive num filho — overflow:hidden no botão recortaria o
+   balão de leitura completa (::after), que fica posicionado fora da caixa. */
+.fa-suggestion-chip-text {
+  display: block;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fa-suggestion-chip:hover {
@@ -4257,56 +4264,6 @@ pre {
   line-height: 1.1;
 }
 
-.fa-statusbar {
-  display: inline-flex;
-  align-items: center;
-}
-
-.fa-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  cursor: default;
-}
-
-.fa-chip--ok {
-  background: var(--emerald-bg);
-  color: var(--emerald);
-  border: 1px solid #a7f3d0;
-}
-
-.fa-chip--err {
-  background: var(--rose-bg);
-  color: var(--rose);
-  border: 1px solid #fecdd3;
-}
-
-.fa-copy-answer-btn {
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  text-transform: uppercase;
-  background: transparent;
-  border: 1px solid var(--border2);
-  color: var(--ink3);
-  padding: 2px 8px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.fa-copy-answer-btn:hover {
-  background: var(--porto-sky);
-  border-color: var(--porto-sky2);
-  color: var(--porto);
-}
-
 .fa-bubble--bot .fa-bubble-head,
 .fa-msg-bot .fa-bubble .fa-bubble-head {
   background: linear-gradient(
@@ -4355,20 +4312,6 @@ pre {
 
 .fa-bubble--report {
   width: 100%;
-}
-
-.fa-report-footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  padding: 0 6px;
-}
-
-.fa-report-footer .fa-msg-time {
-  margin-top: 0;
-  padding: 0;
-  align-self: auto;
 }
 
 .fa-thinking-body {
@@ -4777,10 +4720,14 @@ pre {
 }
 
 .fa-report-lead {
-  font-size: 13px;
-  line-height: 1.7;
+  font-family: var(--display);
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.6;
   color: var(--ink);
-  padding: 2px 2px 8px;
+  padding: 4px 0 10px 14px;
+  margin-top: 2px;
+  border-left: 3px solid var(--fa-accent, var(--porto-vivid));
 }
 
 .fa-report ul,
@@ -4810,8 +4757,7 @@ pre {
   background: #fff;
 }
 
-.fa-report-section--insights .fa-report-bullets li::before,
-.fa-report-section--actions .fa-report-bullets li::before {
+.fa-report-bullets li::before {
   content: "";
   position: absolute;
   left: 12px;
@@ -4821,6 +4767,26 @@ pre {
   border-radius: 999px;
   background: var(--porto-sky);
   box-shadow: inset 0 0 0 3px var(--porto-primary);
+}
+
+.fa-report-section--rootcause .fa-report-bullets li::before {
+  background: var(--amber-bg);
+  box-shadow: inset 0 0 0 3px var(--amber);
+}
+
+.fa-report-section--impact .fa-report-bullets li::before {
+  background: var(--rose-bg);
+  box-shadow: inset 0 0 0 3px var(--rose);
+}
+
+.fa-report-section--solution .fa-report-bullets li::before {
+  background: var(--emerald-bg);
+  box-shadow: inset 0 0 0 3px var(--emerald);
+}
+
+.fa-report-section--priority .fa-report-bullets li::before {
+  background: var(--violet-bg);
+  box-shadow: inset 0 0 0 3px var(--violet);
 }
 
 .fa-report-bullets li.fa-stat-card::before,
@@ -4858,13 +4824,7 @@ pre {
 
 /* ── Diretor: resumo em destaque (hero) ── */
 .fa-report[data-fa-persona="diretor"] .fa-report-lead {
-  font-family: var(--display);
   font-size: 15.5px;
-  font-weight: 600;
-  line-height: 1.5;
-  padding: 4px 0 10px 14px;
-  margin-top: 2px;
-  border-left: 3px solid var(--violet);
 }
 
 /* ── Diretor: achados como cartões de estatística (número + descrição) ── */

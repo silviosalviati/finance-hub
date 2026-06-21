@@ -612,13 +612,13 @@ def _get_cached_dataset_catalog(project_id: str, dataset_id: str) -> dict[str, A
 
 
 _GERENCIA_SUGGESTIONS_SYSTEM_PROMPT = (
-    "Voce e um analista de dados senior. Gere exatamente 4 perguntas de negocio "
+    "Voce e um analista de dados senior. Gere exatamente 6 perguntas de negocio "
     "em linguagem natural, em portugues, sobre os dados disponiveis nesta area — "
-    "uma para cada papel abaixo, NESTA ORDEM EXATA: "
-    "1. Diretor: visao estrategica — impacto no resultado, metas, risco do negocio. "
-    "2. Gerente: visao tatica — comparacoes entre periodos, segmentacoes, tendencias. "
-    "3. Coordenador: visao operacional — o que fazer, prazos, prioridades, casos especificos. "
-    "4. Geral: pergunta exploratoria livre, sem vies de papel. "
+    "duas para cada papel abaixo, NESTA ORDEM EXATA (as duas perguntas de um "
+    "mesmo papel devem explorar angulos diferentes, sem se repetir): "
+    "1-2. Diretor: visao estrategica — impacto no resultado, metas, risco do negocio. "
+    "3-4. Gerente: visao tatica — comparacoes entre periodos, segmentacoes, tendencias. "
+    "5-6. Coordenador: visao operacional — o que fazer, prazos, prioridades, casos especificos. "
     "REGRAS OBRIGATORIAS DE CONFIABILIDADE: "
     "(1) Use somente tabelas e colunas que existam no schema fornecido. "
     "(2) Nao invente nomes de campos, codigos, categorias ou valores literais especificos. "
@@ -626,8 +626,9 @@ _GERENCIA_SUGGESTIONS_SYSTEM_PROMPT = (
     "linguagem de negocio. "
     "(4) Nao use markdown. "
     "Responda APENAS com JSON valido no formato: "
-    '{\"suggestions\": [\"pergunta do diretor\", \"pergunta do gerente\", '
-    '\"pergunta do coordenador\", \"pergunta geral\"]}'
+    '{\"suggestions\": [\"pergunta 1 do diretor\", \"pergunta 2 do diretor\", '
+    '\"pergunta 1 do gerente\", \"pergunta 2 do gerente\", '
+    '\"pergunta 1 do coordenador\", \"pergunta 2 do coordenador\"]}'
 )
 
 
@@ -635,7 +636,9 @@ def _fallback_gerencia_suggestions(tables: list[dict[str, Any]]) -> list[str]:
     if not tables:
         return [
             "Qual o impacto dos principais indicadores desta area no resultado do periodo?",
+            "Esses indicadores sustentam a meta do periodo para esta area?",
             "Como os principais indicadores desta area se comparam ao periodo anterior?",
+            "Quero abrir esses indicadores por segmento ou unidade.",
             "Quais casos desta area precisam de acao prioritaria agora?",
             "Quais sao os principais indicadores disponiveis nesta area?",
         ]
@@ -646,9 +649,11 @@ def _fallback_gerencia_suggestions(tables: list[dict[str, Any]]) -> list[str]:
     c2 = cols[1] if len(cols) > 1 else c1
     return [
         f"Qual o impacto de {table_label} no resultado geral do periodo?",
+        f"Existe algum risco relevante refletido em {table_label}?",
         f"Como {c1} se compara entre os periodos mais recentes em {table_label}?",
-        f"Quais casos em {table_label} precisam de acao prioritaria agora?",
         f"Como {c1} se relaciona com {c2} em {table_label}?",
+        f"Quais casos em {table_label} precisam de acao prioritaria agora?",
+        f"Quais registros de {table_label} preciso revisar hoje?",
     ]
 
 
@@ -661,7 +666,7 @@ async def _generate_gerencia_suggestions(tables: list[dict[str, Any]]) -> list[s
     schema_ctx = "\n".join(schema_lines) if schema_lines else "(schema nao disponivel)"
     user_prompt = (
         f"Tabelas disponiveis nesta area:\n{schema_ctx}\n\n"
-        "Gere 4 perguntas de negocio variadas que explorem bem esses dados."
+        "Gere 6 perguntas de negocio variadas que explorem bem esses dados."
     )
     known_tables, known_columns = _extract_known_schema_tokens(tables)
 
@@ -693,20 +698,20 @@ async def _generate_gerencia_suggestions(tables: list[dict[str, Any]]) -> list[s
             continue
         filtered.append(text)
         seen.add(key)
-        if len(filtered) == 4:
+        if len(filtered) == 6:
             break
 
-    if len(filtered) < 4:
+    if len(filtered) < 6:
         for fb in _fallback_gerencia_suggestions(tables):
             key = fb.lower()
             if key in seen:
                 continue
             filtered.append(fb)
             seen.add(key)
-            if len(filtered) == 4:
+            if len(filtered) == 6:
                 break
 
-    return filtered[:4]
+    return filtered[:6]
 
 
 def _sse(payload: dict[str, Any]) -> str:

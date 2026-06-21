@@ -4172,21 +4172,33 @@ const _FA_FOLLOWUP_BY_THEME = [
       "Quais clientes via Pix mais cresceram em relação ao período anterior?",
       "Qual a concentração de receita nos 10 principais clientes pagantes via Pix?",
       "Existe diferença de inadimplência entre Pix e outros meios de pagamento?",
+      "Como a receita via Pix se distribuiu entre os canais de pagamento no período?",
+      "Quais clientes pararam de pagar via Pix recentemente?",
+      "Qual o ticket médio das transações via Pix nesse período?",
     ],
     diretor: [
       "Qual o impacto da receita via Pix no resultado consolidado do período?",
       "Como a concentração nos principais clientes pagantes afeta o risco da carteira?",
       "Essa tendência de Pix sustenta a meta de receita do trimestre?",
+      "Essa receita via Pix está alinhada com o plano de expansão do negócio?",
+      "Qual o retorno desse canal de pagamento frente ao custo de operação?",
+      "Existe dependência excessiva de poucos clientes nessa receita?",
     ],
     gerente: [
       "Quais segmentos de cliente explicam o crescimento via Pix?",
       "Quero abrir a concentração de receita por região ou produto.",
       "Como a inadimplência via Pix se compara entre carteiras?",
+      "Como o ticket médio via Pix varia entre os segmentos de cliente?",
+      "Quero comparar a adesão ao Pix entre as carteiras regionais.",
+      "Quais campanhas explicam o crescimento recente via Pix?",
     ],
     coordenador: [
       "Quais clientes Pix preciso acompanhar de perto esta semana?",
       "Quais contas com maior concentração precisam de ação imediata?",
       "Que casos de inadimplência via Pix devo priorizar hoje?",
+      "Quais clientes com queda recente de pagamento via Pix preciso contatar?",
+      "Que ajustes operacionais preciso fazer para sustentar esse volume?",
+      "Quais alertas de inadimplência via Pix preciso resolver hoje?",
     ],
   },
   {
@@ -4195,21 +4207,33 @@ const _FA_FOLLOWUP_BY_THEME = [
       "Quais fornecedores concentram o maior volume a pagar?",
       "Quais vencimentos críticos estão previstos para os próximos 7 dias?",
       "Onde houve maior aumento de despesa em relação ao período anterior?",
+      "Como o volume a pagar evoluiu nos últimos meses?",
+      "Quais categorias de despesa têm a maior participação no total?",
+      "Existe concentração de pagamentos em poucos fornecedores?",
     ],
     diretor: [
       "Qual o impacto desse volume a pagar no fluxo de caixa do trimestre?",
       "Esses fornecedores representam algum risco de concentração para o negócio?",
       "Como essa despesa se compara ao orçamento aprovado?",
+      "Essa despesa compromete a margem projetada para o período?",
+      "Quais fornecedores estratégicos merecem renegociação de prazo?",
+      "Como esse volume a pagar se compara ao mesmo período do ano anterior?",
     ],
     gerente: [
       "Quero abrir o volume a pagar por categoria de despesa.",
       "Quais fornecedores tiveram maior variação de custo no período?",
       "Como os vencimentos críticos se distribuem entre as áreas?",
+      "Quero comparar o volume a pagar entre filiais ou unidades.",
+      "Quais contratos têm maior impacto no custo fixo mensal?",
+      "Como a sazonalidade afeta o volume de contas a pagar?",
     ],
     coordenador: [
       "Quais pagamentos preciso liberar nos próximos 7 dias?",
       "Quais fornecedores preciso contatar hoje por atraso?",
       "Que vencimentos críticos exigem ação imediata?",
+      "Quais aprovações de pagamento estão pendentes agora?",
+      "Quais duplicatas com erro preciso corrigir antes do vencimento?",
+      "Que fornecedores preciso notificar sobre mudança de prazo?",
     ],
   },
   {
@@ -4218,21 +4242,33 @@ const _FA_FOLLOWUP_BY_THEME = [
       "Quais faixas de atraso concentram mais valor em aberto?",
       "Quais carteiras tiveram piora de recuperação no período?",
       "Que ações priorizar para reduzir inadimplência nesta semana?",
+      "Qual o percentual de recuperação nos últimos 30 dias?",
+      "Como o tempo médio de atraso evoluiu no período?",
+      "Quais canais de cobrança têm melhor taxa de resposta?",
     ],
     diretor: [
       "Qual o impacto da inadimplência atual no resultado do período?",
       "Como a taxa de recuperação se compara à meta da diretoria?",
       "Existe algum risco de concentração de perda em carteiras específicas?",
+      "Essa inadimplência está dentro do apetite de risco aprovado?",
+      "Qual o custo da operação de cobrança frente ao valor recuperado?",
+      "Como nossa taxa de recuperação se compara ao mercado?",
     ],
     gerente: [
       "Quero abrir a inadimplência por carteira ou segmento de cliente.",
       "Quais faixas de atraso pioraram mais em relação ao período anterior?",
       "Como a recuperação varia entre as equipes de cobrança?",
+      "Quero comparar a efetividade dos canais de cobrança entre si.",
+      "Como a inadimplência se comporta por faixa de renda ou perfil de cliente?",
+      "Quais scripts ou abordagens tiveram melhor resultado no período?",
     ],
     coordenador: [
       "Quais casos de maior valor em aberto preciso tratar hoje?",
       "Quem são os responsáveis pelas carteiras com piora de recuperação?",
       "Que ações de cobrança preciso disparar esta semana?",
+      "Quais clientes preciso escalar para cobrança judicial?",
+      "Que renegociações estão pendentes de aprovação hoje?",
+      "Quais contas vencem nas próximas 24h sem contato registrado?",
     ],
   },
   {
@@ -4241,21 +4277,33 @@ const _FA_FOLLOWUP_BY_THEME = [
       "Quais entradas e saídas mais pressionam o caixa neste período?",
       "Qual a projeção do caixa para os próximos 30 dias?",
       "Onde há maior risco de descasamento entre recebimentos e pagamentos?",
+      "Qual o saldo de caixa projetado para o fim do mês?",
+      "Quais meses do ano historicamente pressionam mais o caixa?",
+      "Como as despesas recorrentes impactam o caixa disponível?",
     ],
     diretor: [
       "Qual o impacto dessa posição de caixa na liquidez do trimestre?",
       "Essa projeção sustenta os compromissos estratégicos dos próximos 30 dias?",
       "Existe risco de descasamento que exija decisão da diretoria?",
+      "Esse caixa sustenta os investimentos planejados para o próximo trimestre?",
+      "Existe necessidade de captação para cobrir o período mais apertado?",
+      "Como a posição de caixa atual se compara à meta anual?",
     ],
     gerente: [
       "Quero abrir as entradas e saídas por área ou centro de custo.",
       "Como a projeção de caixa varia entre os cenários otimista e conservador?",
       "Quais áreas mais contribuem para o risco de descasamento?",
+      "Quero abrir a projeção de caixa por cenário (otimista/conservador) e área.",
+      "Quais recebimentos atrasados mais afetam a previsão de caixa?",
+      "Como o ciclo financeiro (prazo médio de pagamento e recebimento) evoluiu?",
     ],
     coordenador: [
       "Quais pagamentos preciso priorizar para não comprometer o caixa esta semana?",
       "Que recebimentos preciso acompanhar de perto nos próximos dias?",
       "Onde preciso agir hoje para reduzir o risco de descasamento?",
+      "Quais pagamentos preciso adiar para não estourar o caixa esta semana?",
+      "Que recebimentos preciso antecipar para cobrir compromissos urgentes?",
+      "Quais contas preciso monitorar de hoje até o fim da semana?",
     ],
   },
 ];
@@ -4265,21 +4313,33 @@ const _FA_FOLLOWUP_DEFAULT = {
     "Qual recorte por período você quer aprofundar agora?",
     "Quais segmentos ou clientes merecem um detalhamento maior?",
     "Quer que eu compare esse resultado com o período anterior?",
+    "Quer ver esse resultado em outro formato, como gráfico ou tabela?",
+    "Há algum recorte por canal ou produto que valha explorar?",
+    "Quer que eu detalhe os números por trás dessa conclusão?",
   ],
   diretor: [
     "Qual o impacto disso no resultado do período?",
     "Como isso se compara à meta ou ao orçamento aprovado?",
     "Existe algum risco que mereça atenção da diretoria?",
+    "Esse resultado está alinhado com a meta do trimestre?",
+    "Quais decisões esse número deveria embasar agora?",
+    "Existe algum cenário de risco que precise ser monitorado?",
   ],
   gerente: [
     "Quero abrir esse resultado por segmento, região ou produto.",
     "Como isso se compara ao período anterior?",
     "Quais áreas explicam a maior parte dessa variação?",
+    "Quero abrir esse número por unidade, canal ou produto.",
+    "Como esse resultado se compara à média histórica?",
+    "Quais fatores mais influenciaram essa variação?",
   ],
   coordenador: [
     "O que preciso tratar com prioridade hoje a partir desse resultado?",
     "Quais casos específicos preciso acompanhar esta semana?",
     "Quem são os responsáveis pelos pontos mais críticos aqui?",
+    "Quais ações concretas esse resultado sugere para esta semana?",
+    "Quem precisa ser avisado sobre esse número?",
+    "Existe algum prazo associado a esse achado que eu deva priorizar?",
   ],
 };
 
@@ -4292,15 +4352,16 @@ function _faSuggestedFollowups(query, persona) {
 }
 
 // Barra de sugestões fixa acima do input (estilo Veezoo) — substitui o antigo
-// bloco "Próximas perguntas sugeridas" dentro da bolha. Mostra as 2 primeiras
-// e esconde o resto atrás de "Mostrar mais".
+// bloco "Próximas perguntas sugeridas" dentro da bolha. Sempre traz até 6
+// sugestões; mostra as 4 primeiras e esconde as 2 últimas atrás de "Mostrar mais".
 function _faRenderQuickSuggestions(suggestions) {
   const bar = document.getElementById("fa-quick-suggestions");
   if (!bar) return;
 
   const list = (Array.isArray(suggestions) ? suggestions : [])
     .map((s) => String(s || "").trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, 6);
 
   if (!list.length) {
     bar.innerHTML = "";
@@ -4309,10 +4370,11 @@ function _faRenderQuickSuggestions(suggestions) {
   }
 
   const chipHtml = (text) =>
-    `<button type="button" class="fa-suggestion-chip" data-followup="${_escFA(text)}">${_escFA(text)}</button>`;
+    `<button type="button" class="fa-suggestion-chip" data-followup="${_escFA(text)}">` +
+    `<span class="fa-suggestion-chip-text">${_escFA(text)}</span></button>`;
 
-  const visible = list.slice(0, 2);
-  const extra = list.slice(2);
+  const visible = list.slice(0, 4);
+  const extra = list.slice(4);
   const extraHtml = extra.length
     ? `<span class="fa-suggestions-extra" id="fa-suggestions-extra" hidden>${extra.map(chipHtml).join("")}</span>` +
       `<button type="button" class="fa-suggestions-toggle" id="fa-suggestions-toggle" aria-expanded="false">` +
@@ -4605,14 +4667,9 @@ function _faEnhanceReportDom(container, persona = "geral") {
     p.classList.add("fa-report-lead");
   });
 
-  report
-    .querySelectorAll(
-      ".fa-report-section--insights ul, .fa-report-section--actions ul, " +
-        ".fa-report-section--fact ul, .fa-report-section--solution ul, .fa-report-section--priority ul",
-    )
-    .forEach((list) => {
-      list.classList.add("fa-report-bullets");
-    });
+  report.querySelectorAll(".fa-report-section ul").forEach((list) => {
+    list.classList.add("fa-report-bullets");
+  });
 
   _faHighlightNumbers(report);
   if (report.dataset.faPersona === "diretor") _faDiretorStatCards(report);
@@ -5225,8 +5282,6 @@ async function appendFABotMessage(data) {
 
   const persona = String(data.persona || "").trim();
   const isFailed = _faIsFailedResult(data);
-  const metricsHtml = _faMetricsHtml(data);
-  const metaCaption = _faMetaCaptionHtml(data);
   const reportSlotId = `${id}-report`;
 
   el.innerHTML = `
@@ -5238,12 +5293,7 @@ async function appendFABotMessage(data) {
           <div class="fa-art-slot"></div>
         </div>
       </div>
-      <div class="fa-report-footer">
-        <span class="fa-msg-time">${_faNow()}</span>
-        ${metricsHtml}
-        <button type="button" class="fa-copy-answer-btn" data-fa-copy="${reportSlotId}" aria-label="Copiar resposta">copiar</button>
-      </div>
-      ${metaCaption}
+      <div class="fa-msg-time">${_faNow()}</div>
     </div>`;
 
   area.appendChild(el);
@@ -5267,24 +5317,17 @@ async function appendFABotMessage(data) {
     }
   }
 
+  // Legenda de volume/custo/tokens s\u00f3 aparece depois que a resposta (e os
+  // artefatos) terminaram de renderizar \u2014 n\u00e3o durante a digita\u00e7\u00e3o.
+  const metaCaption = _faMetaCaptionHtml(data);
+  if (metaCaption) {
+    el.querySelector(".fa-msg-time")?.insertAdjacentHTML("afterend", metaCaption);
+  }
+
   const suggestions = extractedSuggestions && extractedSuggestions.length
     ? extractedSuggestions
     : _faSuggestedFollowups(data.original_query || data.query || "", persona);
   _faRenderQuickSuggestions(suggestions);
-}
-
-// Chip \u00fanico de status no rodap\u00e9 da resposta \u2014 sem detalhes t\u00e9cnicos. O
-// detalhe de bytes/custo/tokens vai na legenda vis\u00edvel abaixo (_faMetaCaptionHtml).
-function _faMetricsHtml(data) {
-  const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
-  // Sem steps (modo conversacional): sem chip nenhum.
-  if (!toolResults.length) return "";
-
-  const hasError = _faIsFailedResult(data);
-  const chip = hasError
-    ? `<span class="fa-chip fa-chip--err">\u2717</span>`
-    : `<span class="fa-chip fa-chip--ok">\u2713</span>`;
-  return `<div class="fa-statusbar">${chip}</div>`;
 }
 
 // Legenda discreta de volume/custo/tokens sob o hor\u00e1rio \u2014 s\u00f3 aparece quando

@@ -4322,6 +4322,37 @@ pre {
   min-width: 248px;
 }
 
+/* ── Bolha "de linha": sem caixa, só avatar + texto corrido — usada pelo
+   indicador de pensando/aprendendo e pelas respostas conversacionais
+   simples. A análise completa (--report) continua em card. ── */
+.fa-msg-bot .fa-bubble--thinking,
+.fa-msg-bot .fa-bubble--bot:not(.fa-bubble--report) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.fa-msg-bot .fa-bubble--thinking:hover,
+.fa-msg-bot .fa-bubble--bot:not(.fa-bubble--report):hover {
+  transform: none;
+}
+
+.fa-bubble--thinking .fa-bubble-head,
+.fa-bubble--bot:not(.fa-bubble--report) .fa-bubble-head {
+  background: transparent;
+  border-bottom-color: transparent;
+  padding: 0 0 4px;
+}
+
+.fa-bubble--bot:not(.fa-bubble--report) .fa-bubble-body {
+  padding: 0;
+}
+
+.fa-bubble--thinking .fa-thinking-body {
+  padding: 0 0 2px;
+}
+
 .fa-bubble--report {
   width: 100%;
   box-shadow: 0 1px 3px rgba(5, 20, 45, 0.04);

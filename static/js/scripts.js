@@ -4995,10 +4995,6 @@ function _faAppendPhaseBubble(phases) {
     <div class="fa-msg-avatar">FV</div>
     <div class="fa-msg-main">
       <div class="fa-bubble fa-bubble--thinking">
-        <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">✦</span>
-          <span class="fa-bubble-title">Finance Voice IA</span>
-        </div>
         <div class="fa-thinking-body" role="status" aria-live="polite">
           <div class="fa-thinking-phase">
             ${phases[0]}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>
@@ -5089,10 +5085,6 @@ async function appendFAChatTextMessage(text, opts = {}) {
     <div class="fa-msg-avatar">FV</div>
     <div class="fa-msg-main">
       <div class="fa-bubble fa-bubble--bot">
-        <div class="fa-bubble-head">
-          <span class="fa-bubble-icon" aria-hidden="true">✦</span>
-          <span class="fa-bubble-title">Finance Voice IA</span>
-        </div>
         <div class="fa-bubble-body"><div class="fa-report-slot"></div></div>
       </div>
       <div class="fa-msg-time">${_faNow()}</div>

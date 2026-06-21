@@ -4254,13 +4254,6 @@ pre {
   line-height: 1.1;
 }
 
-.fa-bubble-head-meta {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .fa-statusbar {
   display: inline-flex;
   align-items: center;
@@ -4289,19 +4282,6 @@ pre {
   background: var(--rose-bg);
   color: var(--rose);
   border: 1px solid #fecdd3;
-}
-
-.fa-persona-tag {
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  color: var(--ink3);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 2px 8px;
-  white-space: nowrap;
 }
 
 .fa-copy-answer-btn {
@@ -4347,10 +4327,10 @@ pre {
 }
 
 /* ── Bolha "de linha": sem caixa, só avatar + texto corrido — usada pelo
-   indicador de pensando/aprendendo e pelas respostas conversacionais
-   simples. A análise completa (--report) continua em card. ── */
+   indicador de pensando/aprendendo, pelas respostas conversacionais simples
+   e pela análise completa (--report). Layout idêntico em todos os casos. ── */
 .fa-msg-bot .fa-bubble--thinking,
-.fa-msg-bot .fa-bubble--bot:not(.fa-bubble--report) {
+.fa-msg-bot .fa-bubble--bot {
   background: transparent;
   border-color: transparent;
   box-shadow: none;
@@ -4358,11 +4338,11 @@ pre {
 }
 
 .fa-msg-bot .fa-bubble--thinking:hover,
-.fa-msg-bot .fa-bubble--bot:not(.fa-bubble--report):hover {
+.fa-msg-bot .fa-bubble--bot:hover {
   transform: none;
 }
 
-.fa-bubble--bot:not(.fa-bubble--report) .fa-bubble-body {
+.fa-bubble--bot .fa-bubble-body {
   padding: 0;
 }
 
@@ -4372,18 +4352,20 @@ pre {
 
 .fa-bubble--report {
   width: 100%;
-  box-shadow: 0 1px 3px rgba(5, 20, 45, 0.04);
-  border-color: var(--border);
 }
 
-.fa-bubble--report .fa-bubble-head {
-  background: transparent;
-  border-bottom-color: transparent;
-  padding: 12px 16px 0;
+.fa-report-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 0 6px;
 }
 
-.fa-bubble--report .fa-bubble-body {
-  padding: 10px 16px 14px;
+.fa-report-footer .fa-msg-time {
+  margin-top: 0;
+  padding: 0;
+  align-self: auto;
 }
 
 .fa-thinking-body {
@@ -4867,36 +4849,8 @@ pre {
 }
 
 .fa-sec-ico svg,
-.fa-art-card-icon svg,
-.fa-persona-tag svg {
+.fa-art-card-icon svg {
   display: block;
-}
-
-.fa-persona-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.fa-persona-tag--diretor {
-  color: var(--violet);
-  background: var(--violet-bg);
-  border-color: color-mix(in srgb, var(--violet) 35%, white);
-}
-.fa-persona-tag--gerente {
-  color: var(--teal);
-  background: var(--teal-bg);
-  border-color: color-mix(in srgb, var(--teal) 35%, white);
-}
-.fa-persona-tag--coordenador {
-  color: var(--orange);
-  background: var(--orange-bg);
-  border-color: color-mix(in srgb, var(--orange) 35%, white);
-}
-.fa-persona-tag--geral {
-  color: var(--porto-primary);
-  background: var(--porto-sky);
-  border-color: color-mix(in srgb, var(--porto-primary) 35%, white);
 }
 
 /* ── Diretor: resumo em destaque (hero) ── */

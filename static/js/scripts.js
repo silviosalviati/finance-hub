@@ -4531,10 +4531,32 @@ function _faCoordenadorActionCards(report) {
   });
 }
 
+// Extrai e remove a seção "Próximas perguntas sugeridas" do relatório — essas
+// perguntas vivem na barra fixa (fa-quick-suggestions), nunca dentro do
+// report. O LLM ainda inclui essa seção na narrativa às vezes; aqui ela é
+// retirada e reaproveitada em vez de simplesmente descartada.
+function _faExtractSuggestedQuestions(report) {
+  const heading = Array.from(report.querySelectorAll("h2")).find((h) =>
+    /pr[oó]ximas perguntas sugeridas/i.test(h.textContent || ""),
+  );
+  if (!heading) return null;
+
+  const section = heading.closest(".fa-report-section");
+  const list = (section || report).querySelector("ul");
+  const items = list
+    ? Array.from(list.querySelectorAll("li"))
+        .map((li) => li.textContent?.trim() || "")
+        .filter(Boolean)
+    : [];
+
+  (section || heading).remove();
+  return items;
+}
+
 function _faEnhanceReportDom(container, persona = "geral") {
-  if (!container) return;
+  if (!container) return null;
   const report = container.querySelector(".fa-report");
-  if (!report) return;
+  if (!report) return null;
   report.dataset.faPersona = String(persona || "geral").toLowerCase();
 
   const headingsForWrap = Array.from(report.querySelectorAll(":scope > h2"));
@@ -4559,6 +4581,8 @@ function _faEnhanceReportDom(container, persona = "geral") {
       cursor = next;
     }
   });
+
+  const extractedSuggestions = _faExtractSuggestedQuestions(report);
 
   report.querySelectorAll("table").forEach((table) => {
     if (table.parentElement?.classList.contains("fa-report-table-wrap")) return;
@@ -4593,6 +4617,8 @@ function _faEnhanceReportDom(container, persona = "geral") {
   _faHighlightNumbers(report);
   if (report.dataset.faPersona === "diretor") _faDiretorStatCards(report);
   if (report.dataset.faPersona === "coordenador") _faCoordenadorActionCards(report);
+
+  return extractedSuggestions;
 }
 
 async function _faTypeMarkdownInto(container, sourceText, options = {}) {
@@ -4656,8 +4682,9 @@ async function _faTypeMarkdownInto(container, sourceText, options = {}) {
   }
 
   container.innerHTML = `<div class="fa-report">${_faMdToHtml(prepared)}</div>`;
-  _faEnhanceReportDom(container, persona);
+  const extractedSuggestions = _faEnhanceReportDom(container, persona);
   _faScrollBottom();
+  return extractedSuggestions;
 }
 
 function setFAInteractionLock(locked) {
@@ -5169,9 +5196,6 @@ async function appendFABotMessage(data) {
 
   const persona = String(data.persona || "").trim();
   const isFailed = _faIsFailedResult(data);
-  const personaTag = persona
-    ? `<span class="fa-persona-tag fa-persona-tag--${_escFA(persona.toLowerCase())}">${_escFA(persona)}</span>`
-    : "";
   const metricsHtml = _faMetricsHtml(data);
   const metaCaption = _faMetaCaptionHtml(data);
   const reportSlotId = `${id}-report`;
@@ -5180,19 +5204,16 @@ async function appendFABotMessage(data) {
     <div class="fa-msg-avatar">FV</div>
     <div class="fa-msg-main fa-msg-main--report">
       <div class="fa-bubble fa-bubble--bot fa-bubble--report">
-        <div class="fa-bubble-head">
-          ${personaTag}
-          <span class="fa-bubble-head-meta">
-            ${metricsHtml}
-            <button type="button" class="fa-copy-answer-btn" data-fa-copy="${reportSlotId}" aria-label="Copiar resposta">copiar</button>
-          </span>
-        </div>
         <div class="fa-bubble-body">
           <div class="fa-report-slot" id="${reportSlotId}"></div>
           <div class="fa-art-slot"></div>
         </div>
       </div>
-      <div class="fa-msg-time">${_faNow()}</div>
+      <div class="fa-report-footer">
+        <span class="fa-msg-time">${_faNow()}</span>
+        ${metricsHtml}
+        <button type="button" class="fa-copy-answer-btn" data-fa-copy="${reportSlotId}" aria-label="Copiar resposta">copiar</button>
+      </div>
       ${metaCaption}
     </div>`;
 
@@ -5201,7 +5222,7 @@ async function appendFABotMessage(data) {
 
   // A narrativa e digitada primeiro - so depois os cartoes de dados entram em cena.
   const slot = el.querySelector(".fa-report-slot");
-  await _faTypeMarkdownInto(slot, data.markdown_report || data.chat_answer || "", { data });
+  const extractedSuggestions = await _faTypeMarkdownInto(slot, data.markdown_report || data.chat_answer || "", { data });
 
   if (isFailed) {
     _faRenderQuickSuggestions([]);
@@ -5217,11 +5238,14 @@ async function appendFABotMessage(data) {
     }
   }
 
-  _faRenderQuickSuggestions(_faSuggestedFollowups(data.original_query || data.query || "", persona));
+  const suggestions = extractedSuggestions && extractedSuggestions.length
+    ? extractedSuggestions
+    : _faSuggestedFollowups(data.original_query || data.query || "", persona);
+  _faRenderQuickSuggestions(suggestions);
 }
 
-// Chip \u00fanico de status no cabe\u00e7alho \u2014 sem detalhes t\u00e9cnicos. O detalhe de
-// bytes/custo/tokens vai na legenda vis\u00edvel sob o hor\u00e1rio (_faMetaCaptionHtml).
+// Chip \u00fanico de status no rodap\u00e9 da resposta \u2014 sem detalhes t\u00e9cnicos. O
+// detalhe de bytes/custo/tokens vai na legenda vis\u00edvel abaixo (_faMetaCaptionHtml).
 function _faMetricsHtml(data) {
   const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
   // Sem steps (modo conversacional): sem chip nenhum.

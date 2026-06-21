@@ -4961,6 +4961,13 @@ function initFAInputListener() {
     autoResizeFAInput(input);
   });
 
+  // Impede rolar manualmente para dentro do espaçador (vazio) enquanto a
+  // resposta ainda não chegou — ver _faClampScrollBelowSpacer.
+  const messagesArea = document.getElementById("fa-messages");
+  if (messagesArea) {
+    messagesArea.addEventListener("scroll", _faClampScrollBelowSpacer, { passive: true });
+  }
+
   // Delegação global do botão "copiar" do SQL — sem inline JS, sem injeção.
   // closest("button") em vez de checar o target direto: chips de sugestão
   // têm um <span> interno (truncamento do texto) que recebe o clique antes
@@ -5148,6 +5155,21 @@ function _faEnsureScrollSpacer() {
 
 function _faCollapseScrollSpacer() {
   document.getElementById("fa-scroll-spacer")?.remove();
+}
+
+// O espaçador existe só para a ROLAGEM PROGRAMÁTICA ter espaço de sobra —
+// não deve virar uma área vazia em que o usuário consiga "passear" rolando
+// manualmente para baixo antes da resposta existir. Prende o scroll no fim
+// do conteúdo real; rolar para cima continua sempre livre.
+function _faClampScrollBelowSpacer() {
+  const area = document.getElementById("fa-messages");
+  const spacer = document.getElementById("fa-scroll-spacer");
+  if (!area || !spacer) return;
+  const spacerTopDelta = spacer.getBoundingClientRect().top - area.getBoundingClientRect().top;
+  const maxScrollTop = area.scrollTop + spacerTopDelta - area.clientHeight;
+  if (maxScrollTop > 0 && area.scrollTop > maxScrollTop) {
+    area.scrollTop = maxScrollTop;
+  }
 }
 
 // Ancora a mensagem (pergunta) no topo da área visível, com rolagem suave

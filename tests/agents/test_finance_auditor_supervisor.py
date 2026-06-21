@@ -386,6 +386,22 @@ class TestVizSpec:
         assert spec["encoding"]["x"]["field"] == "Mes_Referencia"
         assert spec["encoding"]["y"]["field"] == "Valor_Total_Contas_Receber"
 
+    def test_data_ano_mes_sem_dia_e_reconhecida_como_temporal(self):
+        """"2025-07" (sem dia) é um formato comum de consulta de evolução
+        mensal (FORMAT_DATE('%Y-%m', ...)) — sem isso caía em "nominal" e o
+        gráfico de linha perdia a ordenação temporal correta."""
+        from src.agents.finance_auditor.capabilities import cap_viz_spec
+
+        rows = [{"mes_referencia": "2025-07", "taxa": "0.30"}, {"mes_referencia": "2025-08", "taxa": "0.29"}]
+        out = cap_viz_spec(
+            {"source_step_index": 0, "chart_type": "line", "x": "mes_referencia", "y": "taxa"},
+            self._ctx_with_rows(rows),
+        )
+        assert out["ok"] is True
+        spec = out["artifacts"][0]["spec"]
+        assert spec["encoding"]["x"]["type"] == "temporal"
+        assert spec["encoding"]["y"]["type"] == "quantitative"
+
 
 # ---------------------------------------------------------------------------
 # Capabilities Fase 2: text_to_sql

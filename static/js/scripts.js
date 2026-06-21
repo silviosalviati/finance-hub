@@ -5490,6 +5490,7 @@ async function appendFABotMessage(data) {
     const artSlot = el.querySelector(".fa-art-slot");
     if (artSlot) {
       artSlot.innerHTML = artifactsHtml;
+      _faExecuteInlineScripts(artSlot);
     }
   }
 
@@ -5546,6 +5547,21 @@ const _FA_ANSWER_CAPS = new Set([
   "attachment_analyze",
   "org_fact_recall",
 ]);
+
+// `el.innerHTML = htmlComStringTag` insere o <script> no DOM mas o browser
+// NUNCA o executa (proteção padrão contra injeção) — é por isso que o card
+// de gráfico (vega_lite) ficava em branco, sem erro nenhum: o script que
+// chama vegaEmbed simplesmente nunca rodava. Recriar cada <script> como
+// elemento novo e reinseri-lo força a execução.
+function _faExecuteInlineScripts(container) {
+  if (!container) return;
+  container.querySelectorAll("script").forEach((oldScript) => {
+    const newScript = document.createElement("script");
+    Array.from(oldScript.attributes).forEach((attr) => newScript.setAttribute(attr.name, attr.value));
+    newScript.textContent = oldScript.textContent;
+    oldScript.replaceWith(newScript);
+  });
+}
 
 function _faDetailsHtml(data) {
   const toolResults = Array.isArray(data.tool_results) ? data.tool_results : [];
@@ -5674,7 +5690,7 @@ function _faRenderArtifact(a, index = 0) {
         icon: _faIcon("bar-chart", 13),
         title: a.title ? `Gráfico: ${a.title}` : "Gráfico",
         padded: true,
-        bodyHtml: `<div id="${vid}" style="min-height:240px"></div><script>(function(){try{var s=${specJson};if(window.vegaEmbed){window.vegaEmbed('#${vid}',s,{actions:false});}else{document.getElementById('${vid}').innerHTML='<pre style=\\"font-size:11px;overflow:auto;max-height:200px\\">'+JSON.stringify(s,null,2)+'</pre>';}}catch(e){document.getElementById('${vid}').textContent='Erro renderizando gráfico: '+e.message;}})();<\/script>`,
+        bodyHtml: `<div id="${vid}" style="min-height:240px"></div><script>(function(){try{var s=${specJson};if(window.vegaEmbed){window.vegaEmbed('#${vid}',s,{actions:false}).catch(function(e){document.getElementById('${vid}').innerHTML='<div style=\\"font-size:12px;color:#b91c1c;padding:8px\\">Erro renderizando gráfico: '+(e&&e.message?e.message:e)+'</div><pre style=\\"font-size:11px;overflow:auto;max-height:200px\\">'+JSON.stringify(s,null,2)+'</pre>';});}else{document.getElementById('${vid}').innerHTML='<pre style=\\"font-size:11px;overflow:auto;max-height:200px\\">'+JSON.stringify(s,null,2)+'</pre>';}}catch(e){document.getElementById('${vid}').textContent='Erro renderizando gráfico: '+e.message;}})();<\/script>`,
       });
     }
     default:

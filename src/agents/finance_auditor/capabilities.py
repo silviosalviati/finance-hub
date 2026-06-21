@@ -928,7 +928,10 @@ def _infer_field_type(values: list[Any]) -> str:
         return "nominal"
     if all(_is_number(v) for v in sample):
         return "quantitative"
-    if all(isinstance(v, str) and re.match(r"^\d{4}-\d{2}-\d{2}", v) for v in sample):
+    # Aceita "YYYY-MM-DD" (e variantes com hora) e também "YYYY-MM" puro —
+    # comum em consultas de evolução mensal (ex.: `FORMAT_DATE('%Y-%m', ...)`),
+    # que sem isso caía em "nominal" e quebrava a leitura temporal do gráfico.
+    if all(isinstance(v, str) and re.match(r"^\d{4}-\d{2}(-\d{2})?", v) for v in sample):
         return "temporal"
     return "nominal"
 

@@ -5679,18 +5679,30 @@ function _faMdToHtml(md) {
         .slice(1, -1)
         .split("|")
         .map((c) => c.trim());
-      // separator row (align row)
+      // separator row (align row) — só aparece logo após o cabeçalho.
       if (cells.every((c) => /^[-:]+$/.test(c))) continue;
 
       if (!inTable) {
         closeList();
-        // previous line was header → wrap in thead
-        const prevIdx = out.length - 1;
-        const prev = out[prevIdx] || "";
-        if (prev.startsWith("<tr>")) {
-          out[prevIdx] = `<table><thead>${prev}</thead><tbody>`;
+        // Lookahead: a linha seguinte sendo separadora confirma que ESTA
+        // linha é o cabeçalho — sem isso a linha de título era descartada
+        // (nunca virava <th>, a tabela nascia sem nenhuma coluna nomeada).
+        const nextLine = (lines[i + 1] || "").trimEnd();
+        const nextCells =
+          nextLine.startsWith("|") && nextLine.endsWith("|")
+            ? nextLine.slice(1, -1).split("|").map((c) => c.trim())
+            : [];
+        const nextIsSeparator = nextCells.length > 0 && nextCells.every((c) => /^[-:]+$/.test(c));
+
+        if (nextIsSeparator) {
+          const ths = cells.map((c) => `<th>${inline(c)}</th>`).join("");
+          out.push(`<table><thead><tr>${ths}</tr></thead><tbody>`);
         } else {
+          // Sem separador na próxima linha: não é cabeçalho formal — trata
+          // como a primeira linha de dados em vez de descartar.
           out.push("<table><thead></thead><tbody>");
+          const tds = cells.map((c) => `<td>${inline(c)}</td>`).join("");
+          out.push(`<tr>${tds}</tr>`);
         }
         inTable = true;
         continue;
@@ -5699,19 +5711,7 @@ function _faMdToHtml(md) {
       out.push(`<tr>${tds}</tr>`);
       continue;
     } else if (inTable) {
-      // Check if last pushed line was header (before tbody)
       closeTable();
-    }
-
-    // Detect table header (line with |, next line is separator)
-    if (line.startsWith("|")) {
-      const cells = line
-        .slice(1, -1)
-        .split("|")
-        .map((c) => c.trim());
-      const ths = cells.map((c) => `<th>${inline(c)}</th>`).join("");
-      out.push(`<tr>${ths}</tr>`);
-      continue;
     }
 
     // Unordered list

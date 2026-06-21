@@ -4905,9 +4905,12 @@ function initFAInputListener() {
   });
 
   // Delegação global do botão "copiar" do SQL — sem inline JS, sem injeção.
+  // closest("button") em vez de checar o target direto: chips de sugestão
+  // têm um <span> interno (truncamento do texto) que recebe o clique antes
+  // do botão que o envolve.
   document.addEventListener("click", (ev) => {
-    const target = ev.target;
-    if (!target || target.tagName !== "BUTTON") return;
+    const target = ev.target instanceof Element ? ev.target.closest("button") : null;
+    if (!target) return;
 
     const followup = target.getAttribute("data-followup");
     if (followup) {

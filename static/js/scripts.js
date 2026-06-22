@@ -4415,14 +4415,21 @@ function _faPrepareAnswerMarkdown(text, data = {}) {
 
   if (!prepared) return prepared;
 
-  // Só completa o cabeçalho que falta quando o texto já É um relatório
-  // estruturado (tem outras seções "##", ex. "Principais achados"). Uma
-  // resposta de "não encontrei dados" do Composer é prosa de propósito (ver
-  // REGRAS ANTI-META-RESPOSTA em supervisor_prompts.py) — sem seção "##"
-  // nenhuma. Forçar "## Resumo executivo" nela maquiava de bem-sucedida uma
-  // resposta que na verdade só está explicando uma falha.
+  // Só completa o cabeçalho que falta quando o texto já É um relatório no
+  // formato PADRÃO (Resumo executivo + achados) e só esqueceu o heading.
+  // Dois outros formatos do Composer não levam "Resumo executivo" por
+  // desenho, e injetá-lo viraria um cabeçalho vazio logo seguido de outro:
+  // (1) prosa pura de "não encontrei dados" (REGRAS ANTI-META-RESPOSTA em
+  // supervisor_prompts.py) — sem seção "##" nenhuma; (2) análise profunda
+  // (RESPONSE_MODE_ANALISE_PROFUNDA em response_mode.py) — estrutura própria
+  // "O que aconteceu? / Por que aconteceu? / ...". `data.composer_mode` é o
+  // sinal confiável (vem do backend); o teste de heading é rede de segurança
+  // pra quando esse campo não vier (ex.: respostas antigas em cache).
   const hasAnySection = /^##\s+/m.test(prepared);
-  if (hasAnySection && !data.skipExecutiveSummary && !/##\s+resumo executivo/i.test(prepared)) {
+  const isDeepAnalysis =
+    data.composer_mode === "analise_profunda" ||
+    /^##\s*(o que aconteceu|por que aconteceu|qual o impacto|o que fazer|o que priorizar)/im.test(prepared);
+  if (hasAnySection && !isDeepAnalysis && !data.skipExecutiveSummary && !/##\s+resumo executivo/i.test(prepared)) {
     prepared = `## Resumo executivo\n\n${prepared}`;
   }
 

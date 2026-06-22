@@ -97,6 +97,13 @@ class FinanceAuditorAgent(BaseAgent):
         return {
             "status": "ok",
             "response_mode": "analysis",
+            # Estrutura que o Composer de fato usou ("padrao" = Resumo
+            # executivo + achados; "analise_profunda" = diagnóstico em 5
+            # seções, SEM Resumo executivo por desenho — ver response_mode.py).
+            # Não confundir com "response_mode" acima, que é o roteamento da
+            # API (chat/analysis); o frontend usa este campo pra saber se
+            # deve completar um "## Resumo executivo" que faltou.
+            "composer_mode": final_state.get("response_mode") or "padrao",
             "persona": final_state.get("persona", ""),
             "plan": final_state.get("plan", []),
             "plan_rationale": final_state.get("plan_rationale", ""),

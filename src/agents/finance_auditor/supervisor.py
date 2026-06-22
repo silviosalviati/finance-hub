@@ -49,6 +49,7 @@ from src.agents.finance_auditor.supervisor_prompts import (
     PLANNER_PROMPT,
     REFLECT_PROMPT,
     get_date_block,
+    get_planner_date_block,
 )
 from src.agents.finance_auditor.supervisor_schemas import (
     CAPABILITY_METRIC_EXECUTE,
@@ -272,6 +273,13 @@ def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     if not state.get("guardrail_in_ok", True):
         return {"plan": [], "plan_rationale": "bloqueado por guardrail"}
 
+    # .replace(), não .format(): PLANNER_PROMPT documenta os args de cada
+    # capability com exemplos JSON literais ("args: {...}") — um .format()
+    # tentaria resolver cada um desses como placeholder e quebraria.
+    planner_system_prompt = PLANNER_PROMPT.replace(
+        "__DATE_BLOCK__", get_planner_date_block(date.today())
+    )
+
     request_text = state.get("request_text", "")
     dataset_hint = str(state.get("dataset_hint") or "").strip()
     human_content = request_text
@@ -299,7 +307,7 @@ def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
         result: PlanResponse = invoke_with_retry(
             structured_llm,
             [
-                SystemMessage(content=PLANNER_PROMPT),
+                SystemMessage(content=planner_system_prompt),
                 HumanMessage(content=human_content),
             ],
             max_attempts=2,

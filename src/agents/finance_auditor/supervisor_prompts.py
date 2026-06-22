@@ -10,6 +10,10 @@ _MESES_PT = (
 )
 
 
+def _format_date_extenso(today: date) -> str:
+    return f"{today.day} de {_MESES_PT[today.month - 1]} de {today.year}"
+
+
 def get_date_block(today: date) -> str:
     """Ancora a data atual no prompt do Composer.
 
@@ -18,7 +22,7 @@ def get_date_block(today: date) -> str:
     produziu resposta contraditória (descreveu um intervalo do passado
     errado E chamou de "futuro" dados que eram, na verdade, do mês atual).
     """
-    extenso = f"{today.day} de {_MESES_PT[today.month - 1]} de {today.year}"
+    extenso = _format_date_extenso(today)
     return (
         "CONTEXTO TEMPORAL:\n"
         f"Hoje é {extenso} ({today.isoformat()}). Ao mencionar QUALQUER "
@@ -33,11 +37,41 @@ def get_date_block(today: date) -> str:
     )
 
 
+def get_planner_date_block(today: date) -> str:
+    """Ancora a data atual no prompt do Planner.
+
+    Raiz de um bug real: `metric_execute` exige `date_start`/`date_end`
+    literais (YYYY-MM-DD) nos args — é o PLANNER, não o `text_to_sql`, quem
+    calcula essas datas a partir de "últimos N meses" etc. Sem essa âncora,
+    o Planner inventava uma data-base errada (ex.: anos no passado), o
+    `metric_execute` buscava o período errado, encontrava zero linhas, e o
+    Composer (mesmo já corrigido) só conseguia narrar fielmente a busca
+    errada que já tinha sido feita — corrigir só o Composer nunca bastava.
+    """
+    extenso = _format_date_extenso(today)
+    return (
+        "CONTEXTO TEMPORAL:\n"
+        f"Hoje é {extenso} ({today.isoformat()}). Use esta data como base \
+SEMPRE que precisar calcular um período relativo (\"últimos N meses/dias/\
+anos\", \"este ano\", \"ano passado\" etc.) — nunca assuma ou estime \"hoje\" \
+por conta própria. Isso vale especialmente para `metric_execute`: seus args \
+exigem `date_start`/`date_end` literais (YYYY-MM-DD) que VOCÊ calcula — um \
+erro aqui faz a busca inteira rodar no período errado, e nem o Composer \
+consegue corrigir depois (ele só narra fielmente o que foi buscado). Para \
+`text_to_sql`, ao contrário, NÃO calcule datas absolutas — passe a \
+referência relativa como o usuário disse (ex.: \"últimos 12 meses\") direto \
+no `natural_language`; a resolução fica a cargo do SQL gerado, que usa \
+CURRENT_DATE() do próprio BigQuery (mais confiável que qualquer cálculo seu)."
+    )
+
+
 PLANNER_PROMPT = """\
 Você é o Planejador do Finance Voice IA, um assistente analítico genérico de \
 dados sobre BigQuery. Sua tarefa é decompor a pergunta do usuário em uma \
 sequência mínima e ordenada de "steps", cada um invocando UMA das capabilities \
 listadas abaixo. Não invente capabilities. Não execute nada — apenas planeje.
+
+__DATE_BLOCK__
 
 CAPABILITIES DISPONÍVEIS:
 
@@ -137,6 +171,11 @@ gráfico/dashboard automático da REGRA #11 abaixo.
     "params": {"date_start": "YYYY-MM-DD", "date_end": "YYYY-MM-DD", "limit": 200}
   }
   Use quando `metric_lookup` encontrou uma métrica relevante.
+  **`date_start`/`date_end` são literais — VOCÊ calcula, ninguém corrige depois.** \
+Use a data de hoje do bloco CONTEXTO TEMPORAL acima como base pra qualquer \
+período relativo ("últimos 12 meses", "este ano"...). Errar aqui manda a \
+busca inteira pro período errado, e nem o Composer consegue corrigir depois \
+(ele só descreve fielmente o que foi de fato buscado).
 
 - `org_fact_save`: Persiste um fato organizacional/preferência para uso futuro.
   args: {"fact_text": "<frase curta>", "tags": "<csv opcional>", "scope": "user|global"}

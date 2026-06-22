@@ -330,8 +330,6 @@ def cap_bq_get_schema(args: dict[str, Any], context: dict[str, Any]) -> dict[str
     if not _TABLE_REF_PATTERN.match(table_ref):
         return _err("table_ref inválido. Use 'projeto.dataset.tabela'.")
 
-    # O projeto vem do próprio table_ref para evitar consultar/billar o projeto
-    # errado quando a tabela está em outro projeto que o usuário tem acesso.
     project_id = _resolve_project_for_table(table_ref, context.get("project_id"))
     if not project_id:
         return _err("Não foi possível determinar o projeto da tabela.")

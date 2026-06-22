@@ -4411,7 +4411,14 @@ function _faPrepareAnswerMarkdown(text, data = {}) {
 
   if (!prepared) return prepared;
 
-  if (!data.skipExecutiveSummary && !/##\s+resumo executivo/i.test(prepared)) {
+  // Só completa o cabeçalho que falta quando o texto já É um relatório
+  // estruturado (tem outras seções "##", ex. "Principais achados"). Uma
+  // resposta de "não encontrei dados" do Composer é prosa de propósito (ver
+  // REGRAS ANTI-META-RESPOSTA em supervisor_prompts.py) — sem seção "##"
+  // nenhuma. Forçar "## Resumo executivo" nela maquiava de bem-sucedida uma
+  // resposta que na verdade só está explicando uma falha.
+  const hasAnySection = /^##\s+/m.test(prepared);
+  if (hasAnySection && !data.skipExecutiveSummary && !/##\s+resumo executivo/i.test(prepared)) {
     prepared = `## Resumo executivo\n\n${prepared}`;
   }
 

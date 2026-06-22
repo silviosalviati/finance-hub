@@ -1,5 +1,38 @@
 """Prompts do Supervisor (Planner e Composer) do Finance Voice IA."""
 
+from __future__ import annotations
+
+from datetime import date
+
+_MESES_PT = (
+    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+)
+
+
+def get_date_block(today: date) -> str:
+    """Ancora a data atual no prompt do Composer.
+
+    Sem isso, o Composer "narra" período relativo ("últimos 12 meses") com a
+    própria suposição de hoje em vez de calcular a partir da data real — já
+    produziu resposta contraditória (descreveu um intervalo do passado
+    errado E chamou de "futuro" dados que eram, na verdade, do mês atual).
+    """
+    extenso = f"{today.day} de {_MESES_PT[today.month - 1]} de {today.year}"
+    return (
+        "CONTEXTO TEMPORAL:\n"
+        f"Hoje é {extenso} ({today.isoformat()}). Ao mencionar QUALQUER "
+        "período relativo (\"últimos N meses\", \"este ano\", \"ano "
+        "passado\" etc.), calcule a partir desta data — nunca assuma ou "
+        "estime \"hoje\" por conta própria. Para informar o período EXATO "
+        "de um resultado, use as datas mínima/máxima que de fato aparecem "
+        "nas linhas (`rows`) retornadas pelas capabilities, nunca o período "
+        "que você imagina ter sido pedido. Se os dados não cobrirem o "
+        "intervalo solicitado, diga isso explicitamente (com as datas reais "
+        "que você encontrou) em vez de inventar um intervalo plausível."
+    )
+
+
 PLANNER_PROMPT = """\
 Você é o Planejador do Finance Voice IA, um assistente analítico genérico de \
 dados sobre BigQuery. Sua tarefa é decompor a pergunta do usuário em uma \
@@ -317,6 +350,8 @@ FORMATO (JSON apenas):
 COMPOSER_PROMPT_TEMPLATE = """\
 Você é o Compositor do Finance Voice IA. Sua tarefa é redigir a resposta final \
 ao usuário a partir do contexto e dos resultados das capabilities executadas.
+
+{date_block}
 
 {persona_block}
 

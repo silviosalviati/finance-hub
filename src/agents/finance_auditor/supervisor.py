@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import date
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -47,6 +48,7 @@ from src.agents.finance_auditor.supervisor_prompts import (
     COMPOSER_PROMPT_TEMPLATE,
     PLANNER_PROMPT,
     REFLECT_PROMPT,
+    get_date_block,
 )
 from src.agents.finance_auditor.supervisor_schemas import (
     CAPABILITY_METRIC_EXECUTE,
@@ -640,7 +642,10 @@ _TECH_LEAK_PATTERN = re.compile(
 )
 
 _FAILURE_FALLBACK_ANSWER = (
-    "## Resumo executivo\n\n"
+    # Sem heading "## Resumo executivo": é só uma explicação de falha, e o
+    # próprio prompt do Composer instrui a NUNCA rotular isso como resumo
+    # executivo (ver REGRAS ANTI-META-RESPOSTA) — esse fallback determinístico
+    # tinha o mesmo heading que a regra proíbe, então o violava por padrão.
     "Tentei responder à sua pergunta, mas não consegui concluir a análise "
     "com os dados disponíveis agora.\n\n"
     "Para tentar de novo com mais precisão, me diga o período exato que "
@@ -667,8 +672,9 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     persona = state.get("persona") or PERSONA_GERAL
     persona_block = get_persona_prompt(persona)
     mode_block = get_response_mode_prompt(state.get("response_mode") or RESPONSE_MODE_PADRAO)
+    date_block = get_date_block(date.today())
     system_prompt = COMPOSER_PROMPT_TEMPLATE.format(
-        persona_block=persona_block, mode_block=mode_block
+        date_block=date_block, persona_block=persona_block, mode_block=mode_block
     )
 
     tool_results = state.get("tool_results") or []

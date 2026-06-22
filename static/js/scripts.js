@@ -5242,14 +5242,15 @@ function _faUnlockScroll() {
   if (area) area.style.overflowY = "";
 }
 
-// Ancora a mensagem (pergunta) no topo da área visível, com rolagem suave
-// (em vez de um salto instantâneo) para reforçar a impressão de scroll
-// automático — e não acompanha mais o rodapé a partir daí: a resposta
-// cresce abaixo dela sem puxar a tela; em respostas longas, o usuário rola
-// manualmente (mesmo padrão do Claude/ChatGPT). Chamada só depois que TODO
-// o conteúdo síncrono desta rodada (pergunta + "pensando") já está no DOM,
-// para o alvo da rolagem não ficar defasado por mudanças de layout no meio
-// da animação.
+// Ancora a mensagem (pergunta) no topo da área visível. Instantâneo, não
+// animado: um scroll "smooth" depende de animação do navegador rodando
+// junto com _faLockScroll() (overflow:hidden) — essa combinação não é
+// padronizada entre engines/versões de navegador, e foi descartada depois
+// de relatos repetidos de que a rolagem "nem sempre" chegava no topo (não
+// reproduzia em Chromium headless, mas o salto instantâneo elimina a
+// dependência de timing de animação por completo, então não tem mais como
+// dar errado por isso). Garante espaço de sobra via _faEnsureScrollSpacer()
+// — chamada só nos pontos em que a resposta final ainda não chegou.
 function _faScrollMessageToTop(el) {
   const area = document.getElementById("fa-messages");
   if (!area || !el) return;
@@ -5259,7 +5260,7 @@ function _faScrollMessageToTop(el) {
   // #fa-messages — usar direto jogava a rolagem pra um ponto sem relação
   // com a posição real da mensagem dentro da área rolável.
   const delta = el.getBoundingClientRect().top - area.getBoundingClientRect().top;
-  area.scrollTo({ top: Math.max(0, area.scrollTop + delta - 12), behavior: "smooth" });
+  area.scrollTop = Math.max(0, area.scrollTop + delta - 12);
 }
 
 // _faScrollMessageToTop (chamada lá no início, antes da resposta chegar) só
@@ -5270,11 +5271,9 @@ function _faScrollMessageToTop(el) {
 // pergunta fixada no topo. Resposta longa (tabela, gráfico) preenche
 // sozinha e mascarava o problema, daí o "nem sempre" do comportamento.
 // Chamada por último, JÁ SEM espaçador (depois de _faCollapseScrollSpacer):
-// o melhor scroll possível com o conteúdo real, sem o espaçador ser
-// removido depois e desfazer o que acabou de ser ajustado. Instantâneo (sem
-// "smooth"): é uma correção de posição, não um efeito visual — animado,
-// corria o risco de _faCollapseScrollSpacer() ler scrollTop no meio da
-// animação (valor ainda não assentado) e encolher o espaçador errado.
+// o melhor scroll possível com o conteúdo real, SEM tocar no espaçador de
+// novo (diferente de _faScrollMessageToTop) — chamar _faEnsureScrollSpacer
+// aqui desfaria o encolhimento que _faCollapseScrollSpacer() acabou de calcular.
 function _faScrollMessageToTopFinal(el) {
   const area = document.getElementById("fa-messages");
   if (!area || !el) return;

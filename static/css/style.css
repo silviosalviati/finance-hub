@@ -4109,14 +4109,59 @@ pre {
   background: var(--bg);
 }
 
-.fa-messages {
+/* Wrapper assume o flex:1 que .fa-messages tinha antes — ela passa a
+   preencher esse espaço via position:absolute (inset:0), liberando o
+   wrapper como contexto de posicionamento pro botão "ir para o fim"
+   flutuar sempre visível, sem rolar junto com o conteúdo. */
+.fa-messages-wrap {
+  position: relative;
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+}
+
+.fa-messages {
+  position: absolute;
+  inset: 0;
   overflow-y: auto;
   padding: 20px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: 0;
+}
+
+.fa-jump-bottom {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--white);
+  border: 1px solid var(--border2);
+  color: var(--porto-primary);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  z-index: 5;
+  opacity: 0;
+  transform: translateX(-50%) translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease, background 0.15s, border-color 0.15s;
+}
+
+.fa-jump-bottom:not([hidden]) {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.fa-jump-bottom:hover {
+  background: var(--porto);
+  border-color: var(--porto);
+  color: #fff;
 }
 
 /* ── Message bubbles ── */

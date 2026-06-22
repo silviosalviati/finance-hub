@@ -5025,6 +5025,11 @@ function initFAInputListener() {
     messagesArea.addEventListener("touchmove", _faPauseStickToBottom, { passive: true });
   }
 
+  const jumpBottomBtn = document.getElementById("fa-jump-bottom");
+  if (jumpBottomBtn) {
+    jumpBottomBtn.addEventListener("click", _faJumpToBottomNow);
+  }
+
   // Delegação global do botão "copiar" do SQL — sem inline JS, sem injeção.
   // closest("button") em vez de checar o target direto: chips de sugestão
   // têm um <span> interno (truncamento do texto) que recebe o clique antes
@@ -5275,6 +5280,7 @@ function _faRealContentScrollHeight() {
 // nosso, não por ação do usuário).
 function _faPauseStickToBottom() {
   _faStickToBottom = false;
+  _faUpdateJumpToBottomButton();
 }
 
 // "scroll" só REATIVA o acompanhamento (quando o usuário volta perto do fim
@@ -5286,6 +5292,7 @@ function _faMaybeResumeStickToBottom() {
   const distance = _faRealContentScrollHeight() - area.scrollTop - area.clientHeight;
   if (distance < 24) {
     _faStickToBottom = true;
+    _faUpdateJumpToBottomButton();
   }
 }
 
@@ -5294,10 +5301,34 @@ function _faMaybeResumeStickToBottom() {
 // ficar visível, nunca mais que isso (acompanha o crescimento, não "salta
 // pro fim").
 function _faFollowGrowingAnswer() {
-  if (!_faStickToBottom) return;
   const area = document.getElementById("fa-messages");
   if (!area) return;
-  area.scrollTop = Math.max(0, _faRealContentScrollHeight() - area.clientHeight);
+  if (_faStickToBottom) {
+    area.scrollTop = Math.max(0, _faRealContentScrollHeight() - area.clientHeight);
+  }
+  // Mesmo sem seguir (usuário rolou pra longe), o conteúdo continua
+  // crescendo a cada tick — reavalia se já passou a ter overflow real, pro
+  // botão "ir para o fim" aparecer no momento certo, não só em scroll manual.
+  _faUpdateJumpToBottomButton();
+}
+
+// Botão flutuante "ir para o fim" (mesmo padrão Claude/ChatGPT): aparece só
+// quando o usuário rolou pra longe do conteúdo que está chegando/já chegou
+// E existe de fato conteúdo abaixo da área visível pra valer a pena mostrar
+// — sem essa segunda checagem, um gesto de roda numa conversa curta (sem
+// overflow real) mostraria um botão sem destino útil.
+function _faUpdateJumpToBottomButton() {
+  const btn = document.getElementById("fa-jump-bottom");
+  const area = document.getElementById("fa-messages");
+  if (!btn || !area) return;
+  const hasOverflow = _faRealContentScrollHeight() > area.clientHeight + 24;
+  btn.hidden = _faStickToBottom || !hasOverflow;
+}
+
+function _faJumpToBottomNow() {
+  _faStickToBottom = true;
+  _faFollowGrowingAnswer();
+  _faUpdateJumpToBottomButton();
 }
 
 // Enquanto o bot está "pensando"/avaliando a resposta, ninguém deve poder
@@ -6073,6 +6104,7 @@ async function sendFAMessage() {
   // Nova pergunta = nova intenção de acompanhar a resposta, mesmo que o
   // usuário tenha parado de seguir a resposta anterior rolando manualmente.
   _faStickToBottom = true;
+  _faUpdateJumpToBottomButton();
 
   const userMsgId = appendFAUserMessage(text);
   appendFAThinking();
@@ -6134,7 +6166,17 @@ async function sendFAMessage() {
     appendFAErrorMessage(prettifyErrorMessage(e.message));
   } finally {
     _faCollapseScrollSpacer();
-    _faScrollMessageToTopFinal(document.getElementById(userMsgId));
+    // Reconfirma a pergunta no topo só quando a resposta NÃO precisou de
+    // acompanhamento de scroll (curta, cabe numa tela) — é o cenário do bug
+    // original (espaçador encolhendo e puxando o scroll de volta). Resposta
+    // longa que o auto-follow já levou pro fim (_faStickToBottom ainda true
+    // + overflow real) NÃO deve ser jogada de volta pro topo aqui — isso
+    // desfaria o "seguir o crescimento" bem na hora em que ele mais importa.
+    const _faMsgsArea = document.getElementById("fa-messages");
+    const _faHasOverflow = _faMsgsArea && _faRealContentScrollHeight() > _faMsgsArea.clientHeight + 24;
+    if (_faStickToBottom && !_faHasOverflow) {
+      _faScrollMessageToTopFinal(document.getElementById(userMsgId));
+    }
     faIsLoading = false;
     setFAInteractionLock(false);
     setFASendButtonState({

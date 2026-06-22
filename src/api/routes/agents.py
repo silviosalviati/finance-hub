@@ -614,10 +614,14 @@ async def query_build_suggestions(
     try:
         llm = _get_shared_llm()
         structured_llm = llm.with_structured_output(SuggestionsResponse)
-        result: SuggestionsResponse = await invoke_with_retry_async(structured_llm, [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ])
+        result: SuggestionsResponse = await invoke_with_retry_async(
+            structured_llm,
+            [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt),
+            ],
+            label="table_suggestions",
+        )
         suggestions = result.suggestions if result else []
 
         known_tables, known_columns = _extract_known_schema_tokens(tables)
@@ -680,6 +684,18 @@ _GERENCIA_SUGGESTIONS_SYSTEM_PROMPT = (
     "1-2. Diretor: visao estrategica — impacto no resultado, metas, risco do negocio. "
     "3-4. Gerente: visao tatica — comparacoes entre periodos, segmentacoes, tendencias. "
     "5-6. Coordenador: visao operacional — o que fazer, prazos, prioridades, casos especificos. "
+    "CADA PERGUNTA PRECISA SER ESPECIFICA A ESTA AREA, NUNCA GENERICA: cite, em "
+    "linguagem de negocio (nunca o nome tecnico da tabela/coluna), um conceito ou "
+    "relacao que SO EXISTE neste schema — um tipo de registro, uma relacao entre "
+    "duas tabelas, uma dimensao de tempo/categoria que de fato aparece nas colunas "
+    "fornecidas. Uma pergunta que serviria pra qualquer area do negocio (financeira, "
+    "vendas, RH...) sem mudar uma palavra esta errada — refaca ate amarrar num "
+    "elemento real deste schema. "
+    "Errado (generico, serve pra qualquer area): \"Qual o impacto dos principais "
+    "indicadores no resultado do periodo?\" "
+    "Certo (especifico — exemplo pra um schema de cobranca com tabelas de "
+    "parcelas e clientes): \"Quais faixas de atraso da carteira concentram mais "
+    "valor em aberto?\" "
     "REGRAS OBRIGATORIAS DE CONFIABILIDADE: "
     "(1) Use somente tabelas e colunas que existam no schema fornecido. "
     "(2) Nao invente nomes de campos, codigos, categorias ou valores literais especificos. "
@@ -703,18 +719,27 @@ def _fallback_gerencia_suggestions(tables: list[dict[str, Any]]) -> list[str]:
             "Quais casos desta area precisam de acao prioritaria agora?",
             "Quais sao os principais indicadores disponiveis nesta area?",
         ]
-    first = tables[0]
-    cols = [c.get("name") for c in (first.get("columns") or []) if c.get("name")]
-    table_label = first.get("table_id") or "esta base"
-    c1 = cols[0] if len(cols) > 0 else "id"
-    c2 = cols[1] if len(cols) > 1 else c1
+    def _table_and_cols(idx: int) -> tuple[str, str, str]:
+        table = tables[idx % len(tables)]
+        cols = [c.get("name") for c in (table.get("columns") or []) if c.get("name")]
+        label = table.get("table_id") or "esta base"
+        c1 = cols[0] if len(cols) > 0 else "id"
+        c2 = cols[1] if len(cols) > 1 else c1
+        return label, c1, c2
+
+    # Usa uma tabela diferente por papel quando houver mais de uma — sem
+    # isso as 6 perguntas deste fallback (só dispara se a LLM falhar) saem
+    # todas amarradas na mesma tabela, parecendo ainda mais repetitivas.
+    t0, _, _ = _table_and_cols(0)
+    t1, c1_1, c1_2 = _table_and_cols(1)
+    t2, _, _ = _table_and_cols(2)
     return [
-        f"Qual o impacto de {table_label} no resultado geral do periodo?",
-        f"Existe algum risco relevante refletido em {table_label}?",
-        f"Como {c1} se compara entre os periodos mais recentes em {table_label}?",
-        f"Como {c1} se relaciona com {c2} em {table_label}?",
-        f"Quais casos em {table_label} precisam de acao prioritaria agora?",
-        f"Quais registros de {table_label} preciso revisar hoje?",
+        f"Qual o impacto de {t0} no resultado geral do periodo?",
+        f"Existe algum risco relevante refletido em {t0}?",
+        f"Como {c1_1} se compara entre os periodos mais recentes em {t1}?",
+        f"Como {c1_1} se relaciona com {c1_2} em {t1}?",
+        f"Quais casos em {t2} precisam de acao prioritaria agora?",
+        f"Quais registros de {t2} preciso revisar hoje?",
     ]
 
 
@@ -741,6 +766,7 @@ async def _generate_gerencia_suggestions(tables: list[dict[str, Any]]) -> list[s
                 SystemMessage(content=_GERENCIA_SUGGESTIONS_SYSTEM_PROMPT),
                 HumanMessage(content=user_prompt),
             ],
+            label="gerencia_suggestions",
         )
         suggestions = result.suggestions if result else []
     except Exception:

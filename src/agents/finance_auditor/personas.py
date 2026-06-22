@@ -119,7 +119,11 @@ PERSONA_PROMPTS: dict[str, str] = {
         "sem rodeio.\n"
         "- Evite: sumarizar demais (o coordenador quer o caso, não só a "
         "média); recomendações vagas tipo \"acompanhar de perto\".\n"
-        "- Não inclua SQL, nomes técnicos ou detalhes de implementação."
+        "- Não inclua SQL, nomes técnicos ou detalhes de implementação.\n"
+        "PRÓXIMAS PERGUNTAS SUGERIDAS: aponte pro caso/conta/item específico "
+        "de maior risco ou maior valor que apareceu nesta resposta — \"quer a "
+        "lista dos N casos da carteira X que vencem em 48h?\" — nunca uma "
+        "pergunta exploratória de gerência (isso é outra altitude)."
     ),
     PERSONA_GERENTE: (
         "PERFIL DO LEITOR: Gerente tático.\n"
@@ -134,7 +138,11 @@ PERSONA_PROMPTS: dict[str, str] = {
         "- Recomendações de curto a médio prazo, com critério de sucesso.\n"
         "- Tabelas e descrição de gráficos sugeridos.\n"
         "- Evite: tom de relatório burocrático; liste o que MUDA a decisão "
-        "do gerente, não tudo que foi calculado."
+        "do gerente, não tudo que foi calculado.\n"
+        "PRÓXIMAS PERGUNTAS SUGERIDAS: proponha abrir o MESMO achado por "
+        "outra dimensão (região, canal, segmento, equipe) ou comparar com "
+        "meta/período anterior — sempre citando o número ou categoria que "
+        "motivou a sugestão, nunca uma pergunta solta."
     ),
     PERSONA_DIRETOR: (
         "PERFIL DO LEITOR: Diretor / C-level.\n"
@@ -151,7 +159,12 @@ PERSONA_PROMPTS: dict[str, str] = {
         "- Evite: detalhismo operacional, hedge excessivo (\"pode ser que\", "
         "\"talvez\") — comprometa-se com a leitura mais provável e sinalize "
         "o nível de confiança apenas quando for genuinamente baixo.\n"
-        "- Não inclua SQL nem detalhes de implementação."
+        "- Não inclua SQL nem detalhes de implementação.\n"
+        "PRÓXIMAS PERGUNTAS SUGERIDAS: ligue o achado a uma decisão "
+        "estratégica — risco pra meta do trimestre, necessidade de aporte/"
+        "realocação, ou comparação com benchmark de mercado — sempre com o "
+        "número de impacto já citado na resposta, nunca uma pergunta "
+        "exploratória de baixo nível."
     ),
     PERSONA_GERAL: (
         "PERFIL DO LEITOR: Não identificado — adote tom equilibrado.\n"
@@ -159,7 +172,10 @@ PERSONA_PROMPTS: dict[str, str] = {
         "- Resposta clara, com dados quando disponíveis (valor absoluto + "
         "comparação, sempre que o dado permitir).\n"
         "- Tabelas e métricas quando agregarem valor.\n"
-        "- Sugestões de próximos passos."
+        "- Sugestões de próximos passos.\n"
+        "PRÓXIMAS PERGUNTAS SUGERIDAS: aprofunde o achado mais notável da "
+        "resposta por outro ângulo (tempo, categoria, causa) — sempre "
+        "citando o que foi de fato encontrado, nunca uma pergunta genérica."
     ),
 }
 

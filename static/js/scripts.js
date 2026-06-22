@@ -4846,14 +4846,19 @@ async function _faTypeMarkdownInto(container, sourceText, options = {}) {
     return;
   }
 
+  // Enriquecimento (cards de seção, chips de número, tabela humanizada...)
+  // roda em TODO tick, não só no final — cada tick já reconstrói o HTML do
+  // zero a partir do markdown revelado até aquele ponto (innerHTML inteiro
+  // é substituído), então reaplicar o enriquecimento nessa base nova é
+  // idempotente, sem acúmulo entre ticks. Sem isso, o relatório aparecia
+  // "cru" enquanto digitava e só virava a versão formatada de uma vez no
+  // fim — salto visível que não existe nos produtos de referência.
   let extractedSuggestions;
   await _faRevealText(prepared, (revealed, isFinal) => {
-    if (!isFinal) {
-      container.innerHTML = `<div class="fa-report fa-report--typing">${_faMdToHtml(revealed)}</div>`;
-      return;
-    }
-    container.innerHTML = `<div class="fa-report">${_faMdToHtml(revealed)}</div>`;
+    const cls = isFinal ? "fa-report" : "fa-report fa-report--typing";
+    container.innerHTML = `<div class="${cls}">${_faMdToHtml(revealed)}</div>`;
     extractedSuggestions = _faEnhanceReportDom(container, persona);
+    _faFollowGrowingAnswer();
   });
 
   return extractedSuggestions;
@@ -5008,6 +5013,9 @@ function initFAInputListener() {
   const messagesArea = document.getElementById("fa-messages");
   if (messagesArea) {
     messagesArea.addEventListener("scroll", _faClampScrollBelowSpacer, { passive: true });
+    messagesArea.addEventListener("scroll", _faMaybeResumeStickToBottom, { passive: true });
+    messagesArea.addEventListener("wheel", _faPauseStickToBottom, { passive: true });
+    messagesArea.addEventListener("touchmove", _faPauseStickToBottom, { passive: true });
   }
 
   // Delegação global do botão "copiar" do SQL — sem inline JS, sem injeção.
@@ -5231,6 +5239,58 @@ function _faClampScrollBelowSpacer() {
   if (maxScrollTop > 0 && area.scrollTop > maxScrollTop) {
     area.scrollTop = maxScrollTop;
   }
+}
+
+// Acompanha o crescimento da resposta durante a "digitação" — sem isso,
+// uma resposta mais alta que a tela cresce abaixo da área visível e quem
+// está lendo perde de vista o texto sendo gerado até rolar manualmente (só
+// percebe quando já acabou). Claude/ChatGPT seguem o streaming por padrão e
+// só param de seguir se o usuário rolar de propósito — é esse comportamento
+// que replicamos, não um scroll fixo que ignora o que está crescendo.
+let _faStickToBottom = true;
+
+// Desconta o espaçador (reserva de rolagem, não conteúdo real) do fim da
+// área rolável — sem isso "perto do fim" nunca seria verdade enquanto ele
+// existir (ver _faEnsureScrollSpacer).
+function _faRealContentScrollHeight() {
+  const area = document.getElementById("fa-messages");
+  if (!area) return 0;
+  const spacer = document.getElementById("fa-scroll-spacer");
+  const spacerHeight = spacer ? spacer.getBoundingClientRect().height : 0;
+  return area.scrollHeight - spacerHeight;
+}
+
+// Gesto manual (roda do mouse/toque) é o único sinal confiável de "o
+// usuário tomou o controle" — ao contrário do evento "scroll", que também
+// dispara pra rolagem PROGRAMÁTICA nossa (_faFollowGrowingAnswer,
+// _faScrollMessageToTop...) e daria falso positivo de "usuário saiu" logo
+// depois de fixarmos a pergunta no topo (longe do fim, mas por desenho
+// nosso, não por ação do usuário).
+function _faPauseStickToBottom() {
+  _faStickToBottom = false;
+}
+
+// "scroll" só REATIVA o acompanhamento (quando o usuário volta perto do fim
+// de propósito) — nunca desativa; quem desativa é o gesto manual acima.
+function _faMaybeResumeStickToBottom() {
+  if (_faStickToBottom) return;
+  const area = document.getElementById("fa-messages");
+  if (!area) return;
+  const distance = _faRealContentScrollHeight() - area.scrollTop - area.clientHeight;
+  if (distance < 24) {
+    _faStickToBottom = true;
+  }
+}
+
+// Chamada a cada novo trecho revelado da resposta (ver _faTypeMarkdownInto)
+// — empurra a visão só o suficiente pra borda de baixo do conteúdo real
+// ficar visível, nunca mais que isso (acompanha o crescimento, não "salta
+// pro fim").
+function _faFollowGrowingAnswer() {
+  if (!_faStickToBottom) return;
+  const area = document.getElementById("fa-messages");
+  if (!area) return;
+  area.scrollTop = Math.max(0, _faRealContentScrollHeight() - area.clientHeight);
 }
 
 // Enquanto o bot está "pensando"/avaliando a resposta, ninguém deve poder
@@ -5534,6 +5594,10 @@ async function appendFABotMessage(data) {
     if (artSlot) {
       artSlot.innerHTML = artifactsHtml;
       _faExecuteInlineScripts(artSlot);
+      // Tabelas/gráficos chegam depois do texto e também alteram a altura —
+      // sem isso, quem está seguindo o crescimento perde justamente a parte
+      // com o gráfico, que via de regra é o que a pergunta pediu.
+      _faFollowGrowingAnswer();
     }
   }
 
@@ -5998,6 +6062,10 @@ async function sendFAMessage() {
   setFAInteractionLock(true);
   setFASendButtonState({ disabled: true, loading: true });
   _faRenderQuickSuggestions([]);
+
+  // Nova pergunta = nova intenção de acompanhar a resposta, mesmo que o
+  // usuário tenha parado de seguir a resposta anterior rolando manualmente.
+  _faStickToBottom = true;
 
   const userMsgId = appendFAUserMessage(text);
   appendFAThinking();

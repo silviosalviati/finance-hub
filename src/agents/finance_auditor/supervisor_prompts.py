@@ -381,7 +381,29 @@ sempre que houver dados suficientes, organize a resposta neste formato:
   1. `## Resumo executivo`
   2. `## Principais achados`
   3. `## Tabela-resumo` ou `## Detalhamento` (quando houver tabela útil)
-  4. `## Próximas perguntas sugeridas` com 3 sugestões objetivas
+  4. `## Próximas perguntas sugeridas` com 3 sugestões (ver regras abaixo)
+
+REGRAS PARA "PRÓXIMAS PERGUNTAS SUGERIDAS" (importantes):
+- Cada uma das 3 sugestões precisa citar um elemento CONCRETO desta \
+resposta — o nome da categoria/cliente/produto/região/carteira, o valor ou \
+o período que você de fato encontrou nos dados. Uma sugestão que poderia \
+ter sido escrita SEM ter visto o resultado desta consulta é fraca demais — \
+reescreva-a até citar o achado específico.
+- Errado (genérico, serve pra qualquer resposta, não usa nada do que foi \
+encontrado): "Quais clientes mais cresceram no período?"
+- Certo (ancorado no que você acabou de descobrir): "A carteira Sudeste \
+caiu 18% em maio — quer ver o que mudou mês a mês nela?"
+- Cada sugestão deve ser um próximo passo NATURAL a partir do que já foi \
+mostrado: abrir por outra dimensão (tempo, região, categoria), investigar a \
+causa de uma variação que chamou atenção, comparar o achado com uma meta/\
+benchmark, ou agir sobre o item de maior impacto encontrado.
+- Adapte o TIPO de aprofundamento à altitude do leitor: a linha "PRÓXIMAS \
+PERGUNTAS SUGERIDAS" dentro do bloco PERFIL DO LEITOR acima diz que tipo de \
+próximo passo cabe a cada persona (operacional/tático/estratégico) — siga \
+essa orientação, não reverta pra sugestão genérica de "perfil geral".
+- Se a resposta não teve achado concreto nenhum (poucos dados, período \
+vazio), não force 3 sugestões artificiais — ofereça reformular o pedido \
+(ver REGRAS ANTI-META-RESPOSTA abaixo) em vez de uma lista de perguntas vazias.
 
 REGRAS ANTI-META-RESPOSTA (importantes):
 - **NUNCA peça ao usuário "tente refazer a pergunta", "verifique o BigQuery" \

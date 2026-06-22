@@ -464,13 +464,35 @@ def _has_answer(tool_results: list[dict[str, Any]]) -> bool:
     )
 
 
+def _has_suspicious_zero_row_date_query(tool_results: list[dict[str, Any]]) -> bool:
+    """True se um `metric_execute` com `date_start`/`date_end` calculado \
+voltou ok=True mas sem nenhuma linha — sinal de período mal calculado (ver \
+REFLECT_PROMPT), não de ausência real de dado.
+
+    Sem este gate, `ok=True` bastava pro early-return de `node_reflect` \
+pular a reflexão inteira — a instrução do prompt sobre isso nunca chegava \
+a ser avaliada, porque o LLM do Reflect nem era chamado nesse cenário.
+    """
+    for r in tool_results:
+        if r.get("capability") != CAPABILITY_METRIC_EXECUTE or not r.get("ok"):
+            continue
+        payload = r.get("payload") or {}
+        if isinstance(payload, dict) and payload.get("params_used") and not payload.get("row_count"):
+            return True
+    return False
+
+
 def node_reflect(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     tool_results = state.get("tool_results") or []
     iteration = int(state.get("iteration") or 0)
 
     any_failed = any(not r.get("ok") for r in tool_results)
     has_answer = _has_answer(tool_results)
-    needs_retry = any_failed or not has_answer
+    needs_retry = (
+        any_failed
+        or not has_answer
+        or _has_suspicious_zero_row_date_query(tool_results)
+    )
 
     # Sem motivo para refletir, ou já atingimos o teto de iterações.
     if not needs_retry or iteration >= _MAX_ITERATIONS:
@@ -491,17 +513,14 @@ def node_reflect(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
             }
         }
 
-    summary = json.dumps(
-        [
-            {
-                "step_index": r.get("step_index"),
-                "capability": r.get("capability"),
-                "ok": r.get("ok"),
-                "error": r.get("error"),
-            }
-            for r in tool_results
-        ],
-        ensure_ascii=False,
+    # _summarize_tool_results_for_llm (não o resumo enxuto de antes, só
+    # step_index/capability/ok/error): o Reflect precisa ver o `payload`
+    # (params_used, row_count) pra avaliar o critério novo sobre
+    # metric_execute com data calculada errada — sem isso a instrução do
+    # prompt não tem como ser seguida, o dado não estava nem disponível.
+    summary = _summarize_tool_results_for_llm(tool_results)
+    reflect_system_prompt = REFLECT_PROMPT.replace(
+        "__DATE_BLOCK__", get_date_block(date.today())
     )
     user_content = (
         f"Pergunta original:\n{state.get('request_text', '')}\n\n"
@@ -513,7 +532,7 @@ def node_reflect(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
         verdict: ReflectVerdict = invoke_with_retry(
             structured_llm,
             [
-                SystemMessage(content=REFLECT_PROMPT),
+                SystemMessage(content=reflect_system_prompt),
                 HumanMessage(content=user_content),
             ],
             max_attempts=2,

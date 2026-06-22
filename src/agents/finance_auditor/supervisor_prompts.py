@@ -346,10 +346,19 @@ REFLECT_PROMPT = """\
 Você é o crítico interno do Finance Voice IA. Avalie se os resultados \
 abaixo são suficientes para responder à pergunta original do usuário.
 
+__DATE_BLOCK__
+
 Critérios de invalidade (qualquer um basta):
 - Steps que erraram (não-ok) em capabilities críticas (text_to_sql, bq_query, \
 metric_execute) — desde que sejam recuperáveis (ex.: faltou descobrir dataset \
 ou schema antes).
+- **`metric_execute` (ou outro step com `date_start`/`date_end` calculado) \
+voltou OK mas com zero linhas**: confira se o período calculado faz sentido \
+frente à data de hoje informada acima — um pedido de "últimos N meses/dias/\
+anos" cujo `date_start`/`date_end` caiu em anos no passado (ou no futuro) é \
+sinal de cálculo errado, não de ausência real de dados. Isso É recuperável: \
+sugira o MESMO step de novo, com `date_start`/`date_end` recalculados a \
+partir da data de hoje.
 - Resposta dependente de dados que não foram coletados.
 - Tabela/dataset não encontrado e ainda não tentamos descobrir/recuperar.
 - **Plano incompleto**: nenhum step "produtor de resposta" executou \

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import time
 from pathlib import Path
@@ -10,6 +11,8 @@ from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.shared.config import get_runtime_config
+
+_logger = logging.getLogger(__name__)
 
 
 def _ensure_google_adc_env() -> None:
@@ -65,16 +68,35 @@ def invoke_with_retry(
     messages: list,
     max_attempts: int = 3,
     base_delay: float = 2.0,
+    label: str = "",
 ) -> Any:
-    """Retry síncrono — usar apenas em contextos síncronos (nós LangGraph em thread executor)."""
+    """Retry síncrono — usar apenas em contextos síncronos (nós LangGraph em thread executor).
+
+    `label` identifica o chamador (ex.: "planner", "composer", "text_to_sql")
+    nos logs de tempo — sem isso não há como saber, em produção, qual etapa
+    do pipeline está realmente pesando no tempo de resposta (ver PRD em
+    docs/plans/2026-06-21-tempo-resposta-prd.md).
+    """
     last_exc: BaseException = RuntimeError("Nenhuma tentativa realizada")
+    started_at = time.perf_counter()
     for attempt in range(max_attempts):
         try:
-            return llm.invoke(messages)
+            result = llm.invoke(messages)
+            elapsed_ms = (time.perf_counter() - started_at) * 1000
+            _logger.info(
+                "[llm_timing] label=%s ms=%.0f attempts=%d",
+                label or "unlabeled", elapsed_ms, attempt + 1,
+            )
+            return result
         except Exception as exc:
             last_exc = exc
             if attempt < max_attempts - 1:
                 time.sleep(base_delay * (2 ** attempt))
+    elapsed_ms = (time.perf_counter() - started_at) * 1000
+    _logger.info(
+        "[llm_timing] label=%s ms=%.0f attempts=%d status=failed",
+        label or "unlabeled", elapsed_ms, max_attempts,
+    )
     raise last_exc
 
 
@@ -83,14 +105,30 @@ async def invoke_with_retry_async(
     messages: list,
     max_attempts: int = 3,
     base_delay: float = 2.0,
+    label: str = "",
 ) -> Any:
-    """Retry assíncrono — não bloqueia o event loop do FastAPI."""
+    """Retry assíncrono — não bloqueia o event loop do FastAPI.
+
+    Ver docstring de `invoke_with_retry` sobre `label`.
+    """
     last_exc: BaseException = RuntimeError("Nenhuma tentativa realizada")
+    started_at = time.perf_counter()
     for attempt in range(max_attempts):
         try:
-            return await llm.ainvoke(messages)
+            result = await llm.ainvoke(messages)
+            elapsed_ms = (time.perf_counter() - started_at) * 1000
+            _logger.info(
+                "[llm_timing] label=%s ms=%.0f attempts=%d",
+                label or "unlabeled", elapsed_ms, attempt + 1,
+            )
+            return result
         except Exception as exc:
             last_exc = exc
             if attempt < max_attempts - 1:
                 await asyncio.sleep(base_delay * (2 ** attempt))
+    elapsed_ms = (time.perf_counter() - started_at) * 1000
+    _logger.info(
+        "[llm_timing] label=%s ms=%.0f attempts=%d status=failed",
+        label or "unlabeled", elapsed_ms, max_attempts,
+    )
     raise last_exc

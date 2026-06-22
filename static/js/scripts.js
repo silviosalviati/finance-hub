@@ -4156,7 +4156,11 @@ let faLearningHandle = null;
 let faInputListenerBound = false;
 let faMsgCounter = 0;
 const FA_TYPING_BASE_DELAY_MS = 16;
-const FA_TYPING_MIN_DURATION_MS = 850;
+// Era 850ms — espera artificial pura, somada DEPOIS que a resposta real já
+// chegou inteira (ver docs/plans/2026-06-21-tempo-resposta-prd.md, item P0).
+// Ainda dá tempo de perceber o efeito de digitação sem fazer o usuário
+// esperar à toa por algo que já está pronto.
+const FA_TYPING_MIN_DURATION_MS = 300;
 
 function _faWait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -4798,8 +4802,11 @@ async function _faRevealText(text, renderChunk) {
 
   const wordCount = tokens.length;
   // Duração total cresce de forma sub-linear com o tamanho do texto: trechos
-  // curtos "digitam" rápido, longos não demoram uma eternidade.
-  const targetDurationMs = Math.min(6500, Math.max(900, 160 * Math.pow(wordCount, 0.55)));
+  // curtos "digitam" rápido, longos não demoram uma eternidade. Teto baixado
+  // de 6.500ms pra 1.800ms — respostas longas chegavam a levar 6,5s extras
+  // de animação sintética depois que o conteúdo real já estava pronto
+  // (ver docs/plans/2026-06-21-tempo-resposta-prd.md, item P0).
+  const targetDurationMs = Math.min(1800, Math.max(300, 70 * Math.pow(wordCount, 0.55)));
   const desiredTickMs = 70;
   const wordsPerTick = Math.max(1, Math.round(wordCount / (targetDurationMs / desiredTickMs)));
   const ticks = Math.ceil(wordCount / wordsPerTick);

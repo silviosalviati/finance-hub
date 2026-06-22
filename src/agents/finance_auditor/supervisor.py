@@ -303,6 +303,7 @@ def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
                 HumanMessage(content=human_content),
             ],
             max_attempts=2,
+            label="planner",
         )
     except Exception as exc:  # noqa: BLE001
         return {
@@ -508,6 +509,7 @@ def node_reflect(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
                 HumanMessage(content=user_content),
             ],
             max_attempts=2,
+            label="reflect",
         )
     except Exception as exc:  # noqa: BLE001
         return {
@@ -694,6 +696,7 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
             llm,
             [SystemMessage(content=system_prompt), HumanMessage(content=user_content)],
             max_attempts=2,
+            label="composer",
         )
         text = str(getattr(response, "content", response) or "").strip()
         if text:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -40,6 +41,14 @@ def _portal_html_path() -> Path:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Sem isso, todo _logger.info(...) do projeto (incluindo o "[llm_timing]"
+    # usado pra medir tempo de resposta por etapa — ver docs/plans/
+    # 2026-06-21-tempo-resposta-prd.md) é descartado em silêncio: o nível
+    # padrão da root logger é WARNING, e nada no projeto configurava isso.
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     init_db()
     configure_tracing()
     _validate_startup_config()

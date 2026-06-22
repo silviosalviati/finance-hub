@@ -388,6 +388,7 @@ async def _build_rag_chat_answer(query: str, profile: dict[str, Any], relevant_t
                     )
                 ),
             ],
+            label="chat_fallback",
         )
         text = _llm_text(response).strip()
         if text:

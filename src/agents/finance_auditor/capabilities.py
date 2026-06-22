@@ -555,6 +555,7 @@ def _pick_relevant_tables(
                 )),
             ],
             max_attempts=2,
+            label="pick_relevant_tables",
         )
         ids = {tid.strip() for tid in (result.table_ids or []) if tid}
         if ids:
@@ -745,6 +746,7 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
             structured_llm,
             [SystemMessage(content=_TEXT_TO_SQL_PROMPT), HumanMessage(content=user_msg)],
             max_attempts=2,
+            label="text_to_sql",
         )
         if result and getattr(result, "sql", None):
             sql = str(result.sql).strip().strip("`").strip()
@@ -755,6 +757,7 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
                 llm,
                 [SystemMessage(content=_TEXT_TO_SQL_PROMPT), HumanMessage(content=user_msg)],
                 max_attempts=1,
+                label="text_to_sql_fallback",
             )
             sql = _extract_sql_from_llm_text(_llm_text(response))
         except Exception as exc2:  # noqa: BLE001

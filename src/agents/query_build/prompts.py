@@ -14,6 +14,10 @@ FORMATO DE RESPOSTA:
   "warnings": ["Alerta técnico relevante para o consumidor da query."]
 }
 
+__DATE_BLOCK__
+
+Para período relativo ("últimos N meses", "este ano" etc.), NÃO calcule datas absolutas você mesmo — use CURRENT_DATE() e DATE_SUB/DATE_TRUNC direto na SQL gerada, que resolve com a data real de execução no BigQuery (mais confiável que qualquer cálculo seu).
+
 PILARES OBRIGATÓRIOS:
 
 1. Performance — Single Scan

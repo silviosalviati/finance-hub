@@ -28,6 +28,10 @@ class QueryBuildState(BaseModel):
 	# que não passa no dry-run) — limite de 1, separado do contador de
 	# qualidade abaixo (cada um tem seu próprio teto no grafo).
 	repair_attempts: int = 0
+	# True quando o `error` atual é o tipo que regenerar a SQL pode corrigir
+	# (schema/sintaxe) — False para bloqueio de RBAC ou SQL insegura, que
+	# voltar pro generate_sql não resolveria.
+	repairable_error: bool = False
 
 	dry_run_generated: Optional[DryRunResult] = None
 
@@ -42,3 +46,7 @@ class QueryBuildState(BaseModel):
 	sample_rows: list[dict[str, Any]] = Field(default_factory=list)
 	sample_error: Optional[str] = None
 	error: Optional[str] = None
+	# Categoria do erro ("rbac" | "schema" | "sql_safety" | "bigquery_syntax" |
+	# "budget" | "llm_api") — usada por _friendlify_error() pra traduzir o
+	# erro técnico em mensagem simples sem depender de casar texto.
+	error_category: str = ""

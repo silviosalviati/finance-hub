@@ -2,21 +2,31 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import date
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.types import interrupt
 
 from src.agents.query_build.prompts import (
 	QUERY_BUILD_REVIEWER_PROMPT,
 	QUERY_BUILD_SYSTEM_PROMPT,
 )
 from src.agents.query_build.state import QueryBuildState
+from src.shared.config import get_runtime_config
+from src.shared.guardrails import rbac
+from src.shared.guardrails.audit import record as record_audit_entry
+from src.shared.guardrails.sql_safety import assert_select_only
+from src.shared.guardrails.temporal import get_date_block
 from src.shared.tools.bigquery import (
 	fetch_query_sample,
 	dry_run_query,
 	get_dataset_tables_schema,
 )
+from src.shared.tools.llm import invoke_with_retry
+
+_DEFAULT_QUERY_BUDGET_BYTES = 5 * 1024 ** 3
 
 SQL_FENCE_PATTERN = r"```sql\s*([\s\S]+?)\s*```"
 TABLE_REF_PATTERN = r"`?([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)`?"
@@ -31,9 +41,64 @@ DOLLAR_PARAM_PATTERN = r"\$\{\s*([^{}\s]+)\s*\}"
 INVALID_STRING_AGG_PATTERN = (
 	r"\b(AVG|SUM|MIN|MAX)\s*\(\s*CAST\s*\(\s*(.*?)\s+AS\s+STRING\s*\)\s*\)"
 )
+SELECT_STAR_PATTERN = r"select\s+\*"
+ORDER_BY_ORDINAL_PATTERN = r"order\s+by\s+\d+(?:\s*,\s*\d+)*\b"
+INLINE_COMMENT_PATTERN = r"--[^\n]*|/\*.*?\*/"
+
+_QUALITY_JUDGE_SYSTEM_PROMPT = """\
+Você é um Revisor Sênior de SQL BigQuery. Avalie a query fornecida contra 2 critérios objetivos.
+
+Responda SOMENTE em JSON válido, sem markdown, sem texto adicional.
+
+FORMATO DE RESPOSTA:
+{
+  "single_scan_ok": true,
+  "single_scan_reason": "Resumo objetivo (1 frase).",
+  "fields_coherent_ok": true,
+  "fields_coherent_reason": "Resumo objetivo (1 frase)."
+}
+
+CRITÉRIOS (seja conservador — marque false somente quando o problema for claro e objetivo):
+- single_scan_ok: false APENAS se a query usa JOINs/CTEs/self-joins evitáveis com agregação condicional numa única leitura da tabela principal.
+- fields_coherent_ok: false APENAS se os campos selecionados claramente não respondem à pergunta original do usuário (campo errado ou ausente para algo essencial pedido).
+"""
+
+
+def check_access(state: QueryBuildState) -> dict[str, Any]:
+	"""RBAC antes de qualquer chamada de LLM — sem isso, gastaríamos uma
+	geração de SQL inteira (custo de LLM) só pra descobrir depois que o
+	usuário nem pode acessar o dataset pedido.
+	"""
+	if not state.dataset_hint:
+		return {}
+
+	allowed, reason = rbac.check_dataset(state.user, state.dataset_hint)
+	if allowed:
+		return {}
+
+	return {
+		"error": (
+			f"Você não tem permissão para acessar o dataset '{state.dataset_hint}'. "
+			"Escolha outro dataset ou solicite acesso."
+		),
+		"error_category": "rbac",
+		"warnings": [f"Bloqueado por RBAC: {reason}"] if reason else [],
+	}
 
 
 def generate_sql_from_request(state: QueryBuildState, llm: BaseChatModel) -> dict[str, Any]:
+	# Reentrada após erro recuperável (validate_sql/dry_run_generated) com
+	# repair_attempts < 1 — ver _guard_repairable em graph.py.
+	is_repair = bool(state.error)
+	previous_error = state.error if is_repair else None
+	repair_attempts = state.repair_attempts + 1 if is_repair else state.repair_attempts
+
+	# Reentrada por decisao humana "melhorar" apos score < 80 (await_quality_approval).
+	is_quality_retry = not is_repair and state.human_decision == "melhorar"
+	quality_retry_count = (
+		state.quality_retry_count + 1 if is_quality_retry else state.quality_retry_count
+	)
+
 	dataset_tables: list[str] = []
 	dataset_table_columns: dict[str, list[str]] = {}
 	dataset_context = ""
@@ -76,6 +141,21 @@ def generate_sql_from_request(state: QueryBuildState, llm: BaseChatModel) -> dic
 		except Exception as exc:
 			dataset_warning = f"Nao foi possivel carregar tabelas reais do dataset: {exc}"
 
+	if is_repair:
+		repair_block = (
+			f"\nTENTATIVA ANTERIOR FALHOU: {previous_error}\n"
+			"Corrija especificamente esse problema na nova versao da SQL.\n"
+		)
+	elif is_quality_retry:
+		issues_text = "; ".join(state.quality_issues) or "qualidade insuficiente nos pilares obrigatorios"
+		repair_block = (
+			f"\nA VERSAO ANTERIOR TEVE NOTA DE QUALIDADE {state.quality_score}/100, abaixo do minimo aceitavel. "
+			f"Problemas identificados: {issues_text}. "
+			"Gere uma nova versao que corrija esses pontos especificamente, mantendo a mesma intencao de negocio.\n"
+		)
+	else:
+		repair_block = ""
+
 	user_prompt = f"""
 Solicitacao do usuario:
 {state.request_text}
@@ -87,7 +167,7 @@ Dataset hint (opcional):
 {state.dataset_hint or '(nao informado)'}
 
 {dataset_context or 'Catalogo de tabelas indisponivel para esta solicitacao.'}
-
+{repair_block}
 Regra obrigatoria:
 - Use apenas tabelas reais listadas no catalogo acima.
 - Nao invente nome de tabela.
@@ -95,12 +175,17 @@ Regra obrigatoria:
 - Em colunas equivalentes com tipos diferentes (ex.: STRING vs INT64), use CAST explicito para compatibilizar.
 """
 
+	system_prompt = QUERY_BUILD_SYSTEM_PROMPT.replace("__DATE_BLOCK__", get_date_block(date.today()))
+
 	try:
-		response = llm.invoke(
+		response = invoke_with_retry(
+			llm,
 			[
-				SystemMessage(content=QUERY_BUILD_SYSTEM_PROMPT),
+				SystemMessage(content=system_prompt),
 				HumanMessage(content=user_prompt),
-			]
+			],
+			max_attempts=2,
+			label="query_build_generate",
 		)
 		raw = _extract_message_content(response)
 		parsed = _parse_json_response(raw)
@@ -109,7 +194,11 @@ Regra obrigatoria:
 		if not sql:
 			return {
 				"error": "A LLM nao retornou SQL valido para a solicitacao.",
+				"error_category": "llm_api",
 				"warnings": ["Tente detalhar tabelas, campos e periodo esperado."],
+				"repairable_error": False,
+				"repair_attempts": repair_attempts,
+				"quality_retry_count": quality_retry_count,
 			}
 
 		generated_sql = _extract_sql(sql)
@@ -133,6 +222,7 @@ Regra obrigatoria:
 						"A SQL gerada referenciou tabela(s) fora do dataset validado: "
 						+ ", ".join(invalid_refs)
 					),
+					"error_category": "schema",
 					"warnings": warnings
 					+ [
 						"Refine a pergunta citando os nomes das tabelas disponiveis no dataset.",
@@ -141,6 +231,9 @@ Regra obrigatoria:
 					"dataset_tables": dataset_tables,
 					"dataset_table_columns": dataset_table_columns,
 					"dataset_tables_context": dataset_context,
+					"repairable_error": False,
+					"repair_attempts": repair_attempts,
+					"quality_retry_count": quality_retry_count,
 				}
 
 		return {
@@ -151,14 +244,23 @@ Regra obrigatoria:
 			"dataset_tables": dataset_tables,
 			"dataset_table_columns": dataset_table_columns,
 			"dataset_tables_context": dataset_context,
+			"error": None,
+			"error_category": "",
+			"repairable_error": False,
+			"repair_attempts": repair_attempts,
+			"quality_retry_count": quality_retry_count,
 		}
 	except Exception as exc:
 		return {
 			"error": f"Falha ao gerar SQL: {exc}",
+			"error_category": "llm_api",
 			"warnings": ["Verifique se a solicitacao possui contexto suficiente."],
 			"dataset_tables": dataset_tables,
 			"dataset_table_columns": dataset_table_columns,
 			"dataset_tables_context": dataset_context,
+			"repairable_error": False,
+			"repair_attempts": repair_attempts,
+			"quality_retry_count": quality_retry_count,
 		}
 
 
@@ -178,6 +280,28 @@ def dry_run_generated_sql(state: QueryBuildState) -> dict[str, Any]:
 				"A SQL gerada nao passou na validacao tecnica do BigQuery (dry-run). "
 				"Ajuste a solicitacao para remover ambiguidades de filtros e campos."
 			),
+			"error_category": "bigquery_syntax",
+			"repairable_error": True,
+		}
+
+	budget_bytes = int(
+		get_runtime_config("QUERY_BUILD_BUDGET_BYTES", str(_DEFAULT_QUERY_BUDGET_BYTES))
+	)
+	if result.bytes_processed and result.bytes_processed > budget_bytes:
+		gb_estimated = result.bytes_processed / (1024 ** 3)
+		gb_budget = budget_bytes / (1024 ** 3)
+		warnings.append(
+			f"Consulta excederia o orcamento de bytes: {gb_estimated:.1f} GB estimado, limite {gb_budget:.1f} GB."
+		)
+		return {
+			"dry_run_generated": result,
+			"warnings": warnings,
+			"error": (
+				f"Essa consulta processaria aproximadamente {gb_estimated:.1f} GB, acima do limite de "
+				f"{gb_budget:.1f} GB configurado. Tente reduzir o periodo ou adicionar filtros mais especificos."
+			),
+			"error_category": "budget",
+			"repairable_error": False,
 		}
 
 	return {
@@ -186,9 +310,126 @@ def dry_run_generated_sql(state: QueryBuildState) -> dict[str, Any]:
 	}
 
 
+def _deterministic_quality_checks(sql: str) -> tuple[int, list[str]]:
+	"""Checagens objetivas (regex) contra os 5 PILARES OBRIGATÓRIOS — a parte
+	que não exige julgamento (isso fica para a chamada de LLM em score_query).
+	"""
+	score = 100
+	issues: list[str] = []
+
+	stripped = re.sub(r"'[^']*'", "''", sql)
+	stripped = re.sub(r'"[^"]*"', '""', stripped)
+
+	if re.search(INLINE_COMMENT_PATTERN, stripped, flags=re.DOTALL):
+		score -= 5
+		issues.append("Contem comentarios inline na SQL final (Pilar 5 - Interface).")
+
+	no_comments = re.sub(INLINE_COMMENT_PATTERN, "", stripped, flags=re.DOTALL)
+
+	if re.search(SELECT_STAR_PATTERN, no_comments, flags=re.IGNORECASE):
+		score -= 15
+		issues.append("Usa SELECT * em vez de listar colunas explicitamente (Pilar 5 - Interface).")
+
+	if re.search(ORDER_BY_ORDINAL_PATTERN, no_comments, flags=re.IGNORECASE):
+		score -= 10
+		issues.append("ORDER BY por posicao ordinal em vez de alias explicito (Pilar 5 - Interface).")
+
+	division_count = no_comments.count("/")
+	nullif_count = len(re.findall(r"nullif\s*\(", no_comments, flags=re.IGNORECASE))
+	if division_count > nullif_count:
+		score -= min(30, 10 * (division_count - nullif_count))
+		issues.append("Divisao sem NULLIF para evitar erro de divisao por zero (Pilar 3 - Estabilidade).")
+
+	return max(0, score), issues
+
+
+def score_query(state: QueryBuildState, llm: BaseChatModel) -> dict[str, Any]:
+	"""Nota 0-100 de boas praticas contra os 5 PILARES OBRIGATORIOS do
+	QUERY_BUILD_SYSTEM_PROMPT — hibrido regra (objetiva) + LLM (julgamento).
+	"""
+	if state.error or not state.generated_sql:
+		return {}
+
+	score, issues = _deterministic_quality_checks(state.generated_sql)
+
+	judge_prompt = f"""
+SQL gerada:
+{state.generated_sql}
+
+Pergunta original do usuario:
+{state.request_text}
+"""
+
+	try:
+		response = invoke_with_retry(
+			llm,
+			[
+				SystemMessage(content=_QUALITY_JUDGE_SYSTEM_PROMPT),
+				HumanMessage(content=judge_prompt),
+			],
+			max_attempts=2,
+			label="query_build_score",
+		)
+		raw = _extract_message_content(response)
+		judged = _parse_json_response(raw)
+
+		if judged.get("single_scan_ok") is False:
+			score -= 20
+			reason = str(judged.get("single_scan_reason") or "Estrutura nao parece single-scan.")
+			issues.append(f"Possivelmente nao single-scan: {reason} (Pilar 1 - Performance).")
+
+		if judged.get("fields_coherent_ok") is False:
+			score -= 20
+			reason = str(judged.get("fields_coherent_reason") or "Campos podem nao corresponder a pergunta.")
+			issues.append(f"Campos podem nao corresponder a pergunta: {reason} (Pilar 2 - Semantica).")
+	except Exception as exc:
+		issues.append(f"Avaliacao por LLM indisponivel; nota baseada apenas em checagens automaticas ({exc}).")
+
+	return {
+		"quality_score": max(0, min(100, score)),
+		"quality_issues": issues,
+	}
+
+
+def await_quality_approval(state: QueryBuildState) -> dict[str, Any]:
+	"""HITL nativo do LangGraph — interrupt() pausa de verdade o grafo até
+	`QueryBuildAgent.resume()` ser chamado com a decisao humana.
+	"""
+	min_score = int(get_runtime_config("QUERY_BUILD_MIN_QUALITY_SCORE", "80"))
+	if state.quality_score >= min_score:
+		return {"human_decision": "skip"}
+
+	if state.quality_retry_count >= 2:
+		warnings = list(state.warnings)
+		warnings.append(
+			f"Nao foi possivel elevar a nota de qualidade acima de {min_score} apos 2 tentativas de melhoria; "
+			f"seguindo com a melhor versao obtida (nota atual: {state.quality_score})."
+		)
+		return {"human_decision": "skip", "warnings": warnings}
+
+	decision = interrupt({
+		"message": f"A consulta gerada tem nota {state.quality_score}/100. Deseja seguir assim ou melhorar?",
+		"score": state.quality_score,
+		"issues": state.quality_issues,
+	})
+	return {"human_decision": decision}
+
+
 def validate_generated_sql_consistency(state: QueryBuildState) -> dict[str, Any]:
 	if state.error or not state.generated_sql:
 		return {}
+
+	safety_error = assert_select_only(state.generated_sql)
+	if safety_error:
+		warnings = list(state.warnings)
+		warnings.append(f"SQL bloqueada por seguranca: {safety_error}")
+		return {
+			"warnings": warnings,
+			"error": safety_error,
+			"error_category": "sql_safety",
+			"sample_error": "Amostra bloqueada: SQL reprovada na checagem de seguranca.",
+			"repairable_error": False,
+		}
 
 	template_params = _find_template_placeholders(state.generated_sql)
 	if template_params:
@@ -213,7 +454,9 @@ def validate_generated_sql_consistency(state: QueryBuildState) -> dict[str, Any]
 				+ "). "
 				"Para garantir execucao consistente, informe valores literais (ex.: datas e limites) na solicitacao."
 			),
+			"error_category": "schema",
 			"sample_error": "Amostra bloqueada: SQL com placeholder de template sem valor.",
+			"repairable_error": True,
 		}
 
 	named_params = _find_named_parameters(state.generated_sql)
@@ -239,7 +482,9 @@ def validate_generated_sql_consistency(state: QueryBuildState) -> dict[str, Any]
 				+ "). "
 				"Para garantir consistencia de execucao, informe o valor literal do filtro na solicitacao."
 			),
+			"error_category": "schema",
 			"sample_error": "Amostra bloqueada: SQL com parametro sem valor.",
+			"repairable_error": True,
 		}
 
 	invalid_columns = _find_invalid_column_references(
@@ -262,7 +507,9 @@ def validate_generated_sql_consistency(state: QueryBuildState) -> dict[str, Any]
 			+ ", ".join(invalid_columns)
 			+ ". Revise a solicitacao com nomes de campos reais do dataset."
 		),
+		"error_category": "schema",
 		"sample_error": "Amostra bloqueada: SQL com coluna inexistente no schema.",
+		"repairable_error": True,
 	}
 
 
@@ -286,11 +533,14 @@ Regras obrigatorias:
 """
 
 	try:
-		response = llm.invoke(
+		response = invoke_with_retry(
+			llm,
 			[
 				SystemMessage(content=QUERY_BUILD_REVIEWER_PROMPT),
 				HumanMessage(content=review_prompt),
-			]
+			],
+			max_attempts=2,
+			label="query_build_review",
 		)
 		reviewed_raw = _extract_message_content(response)
 		reviewed_sql = _extract_sql(reviewed_raw)
@@ -353,6 +603,39 @@ def fetch_generated_sample(state: QueryBuildState) -> dict[str, Any]:
 		"sample_rows": sample.get("rows") or [],
 		"sample_error": sample.get("error"),
 	}
+
+
+def record_audit(state: QueryBuildState) -> dict[str, Any]:
+	"""Fan-in final — roda sempre, sucesso ou erro, pra auditoria nunca
+	depender de o pipeline ter chegado inteiro até o fim.
+
+	Reaproveita a mesma `finance_audit_log` do Finance Auditor: o Query
+	Builder não tem o conceito de "plano com vários steps" daquele agente,
+	então representa a si mesmo como um plano de 1 step só.
+	"""
+	dry = state.dry_run_generated
+	tool_results = [{
+		"ok": bool(state.generated_sql) and not state.error,
+		"payload": {
+			"bytes_processed": dry.bytes_processed if dry and not dry.error else 0,
+			"estimated_cost_usd": dry.estimated_cost_usd if dry and not dry.error else 0,
+		},
+	}]
+	plan = [{
+		"capability": "query_build_generate_sql",
+		"sql": state.generated_sql or "",
+		"quality_score": state.quality_score,
+		"quality_issues": state.quality_issues,
+		"error_category": state.error_category,
+	}]
+	record_audit_entry({
+		"user_id": str((state.user or {}).get("username") or (state.user or {}).get("user_id") or ""),
+		"request_text": state.request_text,
+		"plan": plan,
+		"tool_results": tool_results,
+		"error": state.error or "",
+	})
+	return {}
 
 
 def _extract_message_content(response: Any) -> str:

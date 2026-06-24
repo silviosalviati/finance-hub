@@ -37,6 +37,13 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     "LANGCHAIN_PROJECT": ("finance-hub", "Nome do projeto no LangSmith"),
     # Query Analyzer
     "QA_MAX_ITERATIONS": ("2", "Número máximo de iterações de otimização do Query Analyzer"),
+    # Query Builder
+    "QUERY_BUILD_BUDGET_BYTES": (
+        "5368709120", "Budget máximo (bytes) por query gerada pelo Query Builder — 5 GiB"
+    ),
+    "QUERY_BUILD_MIN_QUALITY_SCORE": (
+        "80", "Nota mínima (0-100) de boas práticas antes de pedir aprovação humana"
+    ),
     # Finance Voice IA — governança (Fase 3)
     "FINANCE_AUDITOR_PII_MODE": (
         "mask", "Modo do PII Guard: mask | block | off"

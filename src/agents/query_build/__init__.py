@@ -16,6 +16,46 @@ from src.shared.tools.llm import create_llm
 
 _LOG = logging.getLogger(__name__)
 
+# Mensagens em português simples por categoria — o público do Query Builder
+# não é necessariamente técnico. O erro técnico original nunca é descartado:
+# fica intacto em finance_audit_log, gravado pelo nó record_audit antes
+# deste agente sequer formatar a resposta.
+_FRIENDLY_ERRORS: dict[str, str] = {
+    "rbac": (
+        "Você não tem permissão para acessar esse dataset. "
+        "Peça liberação de acesso ou escolha outro conjunto de dados."
+    ),
+    "schema": (
+        "Não foi possível montar a consulta com as tabelas e colunas disponíveis. "
+        "Tente detalhar melhor quais dados você precisa (campos, período, tabela)."
+    ),
+    "sql_safety": (
+        "Essa solicitação tentaria alterar ou apagar dados, o que não é permitido aqui — "
+        "esta ferramenta só consulta dados (leitura)."
+    ),
+    "bigquery_syntax": (
+        "A consulta gerada não passou na validação técnica do banco de dados. "
+        "Tente reformular o pedido com mais detalhes (período, filtros, tabela)."
+    ),
+    "budget": (
+        "Essa consulta processaria um volume de dados muito grande. "
+        "Tente um período mais curto ou filtros mais específicos."
+    ),
+    "llm_api": (
+        "Não foi possível gerar a consulta agora. "
+        "Tente novamente em alguns instantes ou detalhe melhor o que você precisa."
+    ),
+}
+_FRIENDLY_ERROR_DEFAULT = (
+    "Não foi possível concluir a solicitação. Tente reformular o pedido ou tente novamente em instantes."
+)
+
+
+def _friendlify_error(raw_error: str | None, category: str) -> str:
+    if not raw_error:
+        return _FRIENDLY_ERROR_DEFAULT
+    return _FRIENDLY_ERRORS.get(category, _FRIENDLY_ERROR_DEFAULT)
+
 # Mesmo registro de tipos customizados que o query_analyzer já precisa —
 # QueryBuildState também carrega um Pydantic customizado (DryRunResult), que
 # o MemorySaver não precisaria serializar, mas o registro é defensivo e
@@ -193,7 +233,8 @@ class QueryBuildAgent(BaseAgent):
 	def _format_result(self, final_event: dict[str, Any]) -> dict[str, Any]:
 		dry = final_event.get("dry_run_generated")
 		warnings = final_event.get("warnings") or []
-		has_error = bool(final_event.get("error") or (dry and dry.error))
+		raw_error = final_event.get("error")
+		has_error = bool(raw_error or (dry and dry.error))
 
 		return {
 			"request_text": final_event.get("request_text"),
@@ -214,7 +255,10 @@ class QueryBuildAgent(BaseAgent):
 				"error": final_event.get("sample_error"),
 			},
 			"status": "ok" if final_event.get("generated_sql") and not has_error else "error",
-			"error": final_event.get("error"),
+			"error": (
+				_friendlify_error(raw_error, final_event.get("error_category") or "")
+				if raw_error else None
+			),
 		}
 
 	def runtime_info(self) -> dict[str, str]:

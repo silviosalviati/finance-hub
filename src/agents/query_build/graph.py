@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import Literal
+from typing import Any, Literal
 
 from langchain_core.language_models import BaseChatModel
 from langgraph.graph import END, START, StateGraph
@@ -21,7 +21,7 @@ def _guard(state: QueryBuildState) -> Literal["continue", "__end__"]:
     return END if state.error else "continue"
 
 
-def build_graph(llm: BaseChatModel):
+def build_graph(llm: BaseChatModel, checkpointer: Any = None):
     workflow = StateGraph(QueryBuildState)
 
     workflow.add_node("generate_sql", partial(generate_sql_from_request, llm=llm))
@@ -57,4 +57,4 @@ def build_graph(llm: BaseChatModel):
 
     workflow.add_edge("sample_generated", END)
 
-    return workflow.compile()
+    return workflow.compile(checkpointer=checkpointer)

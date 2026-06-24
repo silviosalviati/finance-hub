@@ -537,6 +537,10 @@ async def analyze_by_agent(
         analyze_kwargs: dict = {"query": query, "project_id": project_id, "dataset_hint": req.dataset_hint}
         if agent_id == "query_analyzer" and req.thread_id:
             analyze_kwargs["thread_id"] = req.thread_id
+        if agent_id == "query_build":
+            analyze_kwargs["user"] = session
+            if req.thread_id:
+                analyze_kwargs["thread_id"] = req.thread_id
         # Mesmo motivo do finance_auditor acima: síncrono e potencialmente
         # lento (LLM/BigQuery), roda fora do event loop.
         result = await asyncio.to_thread(agent.analyze, **analyze_kwargs)
@@ -957,6 +961,38 @@ async def resume_query_analyzer(
         raise HTTPException(
             status_code=500,
             detail="Erro interno ao retomar a análise. Tente novamente em instantes.",
+        )
+
+
+@router.post("/api/agents/query_build/resume")
+async def resume_query_build(
+    req: ResumeAnalyzerRequest,
+    session: dict[str, Any] = Depends(get_current_user),
+):
+    """Retoma o pipeline do Query Builder após decisão humana sobre o score de qualidade.
+
+    Envie `decision: "seguir"` para aceitar a SQL como está, ou
+    `decision: "melhorar"` para voltar ao nó de construção com o score e os
+    problemas identificados como contexto de correção.
+    """
+    registry = get_registry()
+    try:
+        agent = registry.get("query_build")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    try:
+        result = agent.resume(thread_id=req.thread_id, human_decision=req.decision)
+        checkpointer = get_checkpointer()
+        checkpointer.save(f"{session['token']}-query_build", result)
+        return result
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        logging.error("Erro no resume do query_build: %s\n%s", exc, traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail="Erro interno ao retomar a geração de SQL. Tente novamente em instantes.",
         )
 
 

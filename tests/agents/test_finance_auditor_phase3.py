@@ -21,7 +21,7 @@ import pytest
 
 class TestPIIGuard:
     def test_scan_detecta_cpf_email_cnpj(self):
-        from src.agents.finance_auditor.pii_guard import scan
+        from src.shared.guardrails.pii_guard import scan
 
         text = "Cliente Jose, CPF 123.456.789-09, email a@b.com, CNPJ 12.345.678/0001-90"
         counts = scan(text)
@@ -30,7 +30,7 @@ class TestPIIGuard:
         assert counts.get("cnpj") == 1
 
     def test_scrub_text_mascara_mantendo_4_finais(self):
-        from src.agents.finance_auditor.pii_guard import scrub_text
+        from src.shared.guardrails.pii_guard import scrub_text
 
         out, counts = scrub_text("CPF 123.456.789-09")
         assert counts.get("cpf") == 1
@@ -38,7 +38,7 @@ class TestPIIGuard:
         assert "***" in out and out.endswith("]")
 
     def test_apply_guard_off_passthrough(self):
-        from src.agents.finance_auditor import pii_guard
+        from src.shared.guardrails import pii_guard
 
         with patch.object(pii_guard, "_resolve_mode", return_value="off"):
             out = pii_guard.apply_guard("CPF 123.456.789-09", [{"type": "sql", "sql": "x"}])
@@ -48,7 +48,7 @@ class TestPIIGuard:
         assert out["blocked"] is False
 
     def test_apply_guard_mask_scrub_artifacts(self):
-        from src.agents.finance_auditor import pii_guard
+        from src.shared.guardrails import pii_guard
 
         artifacts = [
             {"type": "table", "title": "x", "columns": ["email"],
@@ -66,7 +66,7 @@ class TestPIIGuard:
         assert out["blocked"] is False
 
     def test_apply_guard_block_bloqueia_resposta_quando_ha_pii(self):
-        from src.agents.finance_auditor import pii_guard
+        from src.shared.guardrails import pii_guard
 
         with patch.object(pii_guard, "_resolve_mode", return_value="block"):
             out = pii_guard.apply_guard("CPF 111.222.333-44 do cliente", [])
@@ -83,7 +83,7 @@ class TestPIIGuard:
 
 class TestRBAC:
     def test_admin_sempre_passa(self):
-        from src.agents.finance_auditor import rbac
+        from src.shared.guardrails import rbac
 
         ok, _ = rbac.check_dataset({"is_admin": True}, "qualquer_dataset")
         assert ok is True
@@ -91,7 +91,7 @@ class TestRBAC:
         assert ok is True
 
     def test_sem_acl_libera_quando_nao_strict(self):
-        from src.agents.finance_auditor import rbac
+        from src.shared.guardrails import rbac
 
         with patch.object(rbac, "_resolve_acl", return_value=None), \
              patch.object(rbac, "_strict_mode", return_value=False):
@@ -99,7 +99,7 @@ class TestRBAC:
         assert ok is True
 
     def test_sem_acl_bloqueia_quando_strict(self):
-        from src.agents.finance_auditor import rbac
+        from src.shared.guardrails import rbac
 
         with patch.object(rbac, "_resolve_acl", return_value=None), \
              patch.object(rbac, "_strict_mode", return_value=True):
@@ -108,7 +108,7 @@ class TestRBAC:
         assert "strict" in reason.lower()
 
     def test_allowlist_e_denylist(self):
-        from src.agents.finance_auditor import rbac
+        from src.shared.guardrails import rbac
 
         acl = {
             "allowed_datasets": ["ecommerce_saude", "logistica_*"],
@@ -126,7 +126,7 @@ class TestRBAC:
             assert ok is False and "allowlist" in reason.lower()
 
     def test_slug_normaliza_acentos(self):
-        from src.agents.finance_auditor.rbac import _slug
+        from src.shared.guardrails.rbac import _slug
 
         assert _slug("Logística Vendas") == "logistica_vendas"
 
@@ -257,7 +257,7 @@ class TestSemanticLayer:
 
 class TestAudit:
     def test_summarize_costs(self):
-        from src.agents.finance_auditor.audit import summarize_costs
+        from src.shared.guardrails.audit import summarize_costs
 
         results = [
             {"payload": {"bytes_processed": 1024, "estimated_cost_usd": 0.001}},

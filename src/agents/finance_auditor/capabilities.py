@@ -27,7 +27,9 @@ from typing import Any, Callable
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.agents.finance_auditor import catalog_index, forecast as forecast_mod
-from src.agents.finance_auditor import multimodal, org_memory, rbac, semantic_layer
+from src.agents.finance_auditor import multimodal, org_memory, semantic_layer
+from src.shared.guardrails import rbac
+from src.shared.guardrails.sql_safety import assert_select_only
 from src.agents.finance_auditor.supervisor_schemas import (
     CAPABILITY_ATTACHMENT_ANALYZE,
     CAPABILITY_BQ_GET_SCHEMA,
@@ -59,10 +61,6 @@ from src.shared.tools.llm import invoke_with_retry
 # Budget máximo (bytes) por bq_query / text_to_sql. Default 5 GiB.
 _DEFAULT_BQ_QUERY_BUDGET_BYTES = 5 * 1024 ** 3
 _DEFAULT_BQ_QUERY_MAX_ROWS = 200
-_SQL_FORBIDDEN_PATTERN = re.compile(
-    r"\b(INSERT|UPDATE|DELETE|MERGE|DROP|TRUNCATE|CREATE|ALTER|GRANT|REVOKE)\b",
-    re.IGNORECASE,
-)
 _SQL_FENCE_PATTERN = re.compile(r"```(?:sql)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 _TABLE_REF_PATTERN = re.compile(r"^[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+$")
 
@@ -375,12 +373,9 @@ def _validate_and_run_sql(
     user: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     sql = (sql or "").strip().rstrip(";")
-    if not sql:
-        return _err("sql vazio.")
-    if _SQL_FORBIDDEN_PATTERN.search(sql):
-        return _err("Apenas queries de leitura (SELECT/WITH) são permitidas.")
-    if not re.match(r"^\s*(SELECT|WITH)\b", sql, flags=re.IGNORECASE):
-        return _err("Apenas queries iniciando com SELECT ou WITH são permitidas.")
+    safety_error = assert_select_only(sql)
+    if safety_error:
+        return _err(safety_error)
     if not project_id:
         return _err("project_id ausente para executar query.")
     if _looks_trivial_sql(sql):

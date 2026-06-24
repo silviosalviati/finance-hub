@@ -29,9 +29,9 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
-from src.agents.finance_auditor import audit as audit_log
-from src.agents.finance_auditor import pii_guard
 from src.agents.finance_auditor.capabilities import execute_capability
+from src.shared.guardrails import audit as audit_log
+from src.shared.guardrails import pii_guard
 from src.agents.finance_auditor.personas import (
     PERSONA_GERAL,
     VALID_PERSONAS,
@@ -48,9 +48,8 @@ from src.agents.finance_auditor.supervisor_prompts import (
     COMPOSER_PROMPT_TEMPLATE,
     PLANNER_PROMPT,
     REFLECT_PROMPT,
-    get_date_block,
-    get_planner_date_block,
 )
+from src.shared.guardrails.temporal import get_date_block, get_planner_date_block
 from src.agents.finance_auditor.supervisor_schemas import (
     CAPABILITY_METRIC_EXECUTE,
     CAPABILITY_METRIC_LOOKUP,

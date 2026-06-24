@@ -14,8 +14,8 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from src.agents.finance_auditor import rbac as finance_rbac
 from src.agents.finance_auditor.capabilities import resolve_dataset_by_gerencia
+from src.shared.guardrails import rbac as finance_rbac
 from src.api.dependencies import get_checkpointer, get_current_user, get_registry
 from src.shared.config import get_runtime_config
 from src.shared.tools.bigquery import (

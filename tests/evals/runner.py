@@ -284,7 +284,7 @@ def run_case(case: dict[str, Any]) -> RunResult:
              patch("src.shared.tools.llm.create_llm",
                    side_effect=lambda *a, **kw: scripted_llm), \
              patch.object(cap_mod, "get_runtime_config", side_effect=fake_runtime_cfg), \
-             patch("src.agents.finance_auditor.pii_guard.get_runtime_config",
+             patch("src.shared.guardrails.pii_guard.get_runtime_config",
                    side_effect=fake_runtime_cfg), \
              patch("src.shared.config.get_runtime_config",
                    side_effect=fake_runtime_cfg), \

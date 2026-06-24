@@ -16,6 +16,7 @@ const qaDatasetValidationState = {
 };
 let qbDatasetValidationTimer = null;
 let qbIsLoading = false;
+let _qbHitlThreadId = null;
 let dbIsLoading = false;
 let auditIsLoading = false;
 let auditMarkdownCache = "";
@@ -1122,7 +1123,15 @@ async function runQueryBuild() {
 
     const data = await res.json();
     setQBProgress("Finalizando apresentação...", 100);
-    renderQB(data);
+
+    if (data.status === "awaiting_approval") {
+      showQBHitlPanel(data);
+    } else if (data.status === "error") {
+      showQBError(prettifyErrorMessage(data.error || "Erro ao gerar query"));
+      if (qbEmpty) qbEmpty.style.display = "flex";
+    } else {
+      renderQB(data);
+    }
   } catch (e) {
     showQBError(prettifyErrorMessage(e.message));
 
@@ -3067,8 +3076,10 @@ function copyTextWithFallback(text) {
 function renderQB(data) {
   const empty = document.getElementById("qb-empty");
   const tabsArea = document.getElementById("qb-tabs-area");
+  const hitlPanel = document.getElementById("qb-hitl-panel");
 
   if (empty) empty.style.display = "none";
+  if (hitlPanel) hitlPanel.style.display = "none";
   if (tabsArea) tabsArea.style.display = "block";
 
   const builtSql = document.getElementById("qb-built-sql");
@@ -3107,9 +3118,10 @@ function renderQB(data) {
   const sampleRows = Array.isArray(sample.rows) ? sample.rows : [];
   const sampleError = sample.error;
 
-  // Query Build sempre apresenta a melhor construcao de query com pontuacao maxima.
-  const score = 100;
-  const grade = "A";
+  const score = typeof data.quality_score === "number" ? data.quality_score : 100;
+  const grade =
+    score >= 90 ? "A" : score >= 75 ? "B" : score >= 60 ? "C" : score >= 40 ? "D" : "F";
+  const qualityIssues = Array.isArray(data.quality_issues) ? data.quality_issues : [];
 
   if (gradeBlock) gradeBlock.className = "grade-block gb-" + grade;
   if (gradeLtr) gradeLtr.textContent = grade;
@@ -3136,8 +3148,11 @@ function renderQB(data) {
     if (qbOptBytes) qbOptBytes.textContent = fmtBytes(dry.bytes_processed);
     if (qbOptCost) qbOptCost.textContent = fmtUSD(dry.estimated_cost_usd);
   }
-  if (qbAntiCount) qbAntiCount.textContent = "A (100/100)";
-  if (qbAntiSub) qbAntiSub.textContent = "Melhor construcao aplicada";
+  if (qbAntiCount) qbAntiCount.textContent = `${grade} (${score}/100)`;
+  if (qbAntiSub)
+    qbAntiSub.textContent = qualityIssues.length
+      ? `${qualityIssues.length} ponto(s) de atenção identificado(s)`
+      : "Nenhum ponto de atenção identificado";
 
   if (qbSavSec) qbSavSec.style.display = "block";
   if (qbSavBig) qbSavBig.textContent = `${score}%`;
@@ -3191,6 +3206,7 @@ function renderQB(data) {
   if (builtTab) builtTab.classList.add("has-data");
 
   const recommendations = [
+    ...qualityIssues,
     "No BigQuery, mantenha filtros de data/particao no inicio para reduzir bytes lidos e slots consumidos.",
     "Selecione apenas colunas necessarias e evite SELECT * para reduzir custo computacional.",
     "Materialize a query em tabela resumida antes do Power BI quando o volume for alto.",
@@ -3265,6 +3281,114 @@ function showQBError(message) {
 
   box.textContent = "⚠ " + message;
   box.style.display = "block";
+}
+
+function showQBHitlPanel(data) {
+  _qbHitlThreadId = data.thread_id;
+
+  const panel = document.getElementById("qb-hitl-panel");
+  const empty = document.getElementById("qb-empty");
+  const tabsArea = document.getElementById("qb-tabs-area");
+  const subtitle = document.getElementById("qb-hitl-subtitle");
+  const container = document.getElementById("qb-hitl-issues");
+  const improveBtn = document.getElementById("qb-hitl-improve");
+  const acceptBtn = document.getElementById("qb-hitl-accept");
+  const processing = document.getElementById("qb-hitl-processing");
+
+  if (improveBtn) improveBtn.disabled = false;
+  if (acceptBtn) acceptBtn.disabled = false;
+  if (processing) processing.style.display = "none";
+
+  if (empty) empty.style.display = "none";
+  if (tabsArea) tabsArea.style.display = "none";
+  if (panel) panel.style.display = "flex";
+
+  if (subtitle) {
+    subtitle.textContent = `A consulta gerada tem nota ${data.quality_score ?? "—"}/100`;
+  }
+
+  if (container) {
+    const issues = Array.isArray(data.quality_issues) ? data.quality_issues : [];
+    container.innerHTML = issues.length
+      ? issues
+          .map(
+            (issue) => `
+        <div class="ap-card sev-medium">
+          <div class="ap-top">
+            <span class="ap-chip chip-medium">QUALIDADE</span>
+          </div>
+          <div class="ap-desc">${issue}</div>
+        </div>
+      `,
+          )
+          .join("")
+      : '<div class="diff-empty">Nenhum problema específico detalhado.</div>';
+  }
+}
+
+async function resumeQB(decision) {
+  if (!_qbHitlThreadId) {
+    showQBError("Sessão de geração de SQL expirou. Por favor, inicie uma nova solicitação.");
+    return;
+  }
+
+  const improveBtn = document.getElementById("qb-hitl-improve");
+  const acceptBtn = document.getElementById("qb-hitl-accept");
+  const processing = document.getElementById("qb-hitl-processing");
+  const procTitle = document.getElementById("qb-hitl-proc-title");
+  const procDesc = document.getElementById("qb-hitl-proc-desc");
+  const hitlPanel = document.getElementById("qb-hitl-panel");
+
+  if (improveBtn) improveBtn.disabled = true;
+  if (acceptBtn) acceptBtn.disabled = true;
+
+  if (procTitle) procTitle.textContent = decision === "melhorar" ? "Melhorando query..." : "Aplicando decisão...";
+  if (procDesc) procDesc.textContent = decision === "melhorar"
+    ? "Voltando ao construtor de SQL para corrigir os problemas identificados"
+    : "Seguindo com a SQL gerada para a amostra de dados";
+
+  if (hitlPanel) { hitlPanel.scrollTop = 0; hitlPanel.style.overflowY = "hidden"; }
+  if (processing) processing.style.display = "flex";
+
+  setQBLoading(true);
+  setQBProgress(decision === "melhorar" ? "Melhorando query..." : "Aplicando decisão...", 50);
+
+  try {
+    const res = await fetch("/api/agents/query_build/resume", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ thread_id: _qbHitlThreadId, decision }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.detail || "Erro ao retomar geração de SQL");
+
+    if (hitlPanel) { hitlPanel.style.display = "none"; hitlPanel.style.overflowY = ""; }
+    if (processing) processing.style.display = "none";
+    _qbHitlThreadId = null;
+
+    setQBProgress("Finalizando apresentação...", 100);
+
+    if (data.status === "awaiting_approval") {
+      showQBHitlPanel(data);
+    } else if (data.status === "error") {
+      showQBError(prettifyErrorMessage(data.error || "Erro ao gerar query"));
+    } else {
+      renderQB(data);
+    }
+  } catch (e) {
+    if (processing) processing.style.display = "none";
+    if (hitlPanel) hitlPanel.style.overflowY = "";
+    if (improveBtn) improveBtn.disabled = false;
+    if (acceptBtn) acceptBtn.disabled = false;
+    showQBError(prettifyErrorMessage(e.message));
+  } finally {
+    setTimeout(() => {
+      hideQBProgress();
+      setQBLoading(false);
+    }, 350);
+  }
 }
 
 function copyQBSQL() {

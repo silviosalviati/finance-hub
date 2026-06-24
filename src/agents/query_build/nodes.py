@@ -206,6 +206,23 @@ Regra obrigatoria:
 		warnings = _safe_list(parsed.get("warnings"))
 		assumptions = _safe_list(parsed.get("assumptions"))
 
+		if assert_select_only(generated_sql):
+			# A LLM devolveu algo no campo "sql" (ex.: comentario explicando
+			# que nao conseguiu gerar a query) sem ser uma SELECT/WITH real —
+			# trata como "nao gerou SQL", nao como bloqueio de seguranca.
+			return {
+				"error": "A LLM nao retornou SQL valido para a solicitacao.",
+				"error_category": "llm_api",
+				"warnings": warnings + ["Tente detalhar tabelas, campos e periodo esperado."],
+				"assumptions": assumptions,
+				"dataset_tables": dataset_tables,
+				"dataset_table_columns": dataset_table_columns,
+				"dataset_tables_context": dataset_context,
+				"repairable_error": False,
+				"repair_attempts": repair_attempts,
+				"quality_retry_count": quality_retry_count,
+			}
+
 		if had_numeric_cast_fix:
 			warnings.append(
 				"SQL ajustada automaticamente: agregacao numerica com CAST(... AS STRING) foi convertida para SAFE_CAST numerico."

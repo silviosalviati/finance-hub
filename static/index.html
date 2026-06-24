@@ -1380,6 +1380,85 @@
                   </div>
                   <div id="qb-suggestions-list" class="qb-sugg-list"></div>
                 </div>
+                <!-- HITL: nota de qualidade abaixo do mínimo, aguardando decisão -->
+                <div id="qb-hitl-panel" class="hitl-panel" style="position:relative; display:none">
+
+                  <div class="hitl-header">
+                    <div class="hitl-header-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                      </svg>
+                    </div>
+                    <div class="hitl-header-content">
+                      <div class="hitl-title">Nota de qualidade abaixo do mínimo</div>
+                      <div class="hitl-subtitle" id="qb-hitl-subtitle">A consulta gerada tem nota —/100</div>
+                    </div>
+                    <div class="hitl-header-badge">AGUARDANDO DECISÃO</div>
+                  </div>
+
+                  <div class="hitl-body">
+                    <p class="hitl-desc">A SQL gerada não atingiu a nota mínima de boas práticas. Revise os pontos abaixo e escolha como prosseguir.</p>
+
+                    <div>
+                      <div class="hitl-section-label">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        Problemas identificados
+                      </div>
+                      <div id="qb-hitl-issues" class="ap-list"></div>
+                    </div>
+
+                    <div class="hitl-divider"></div>
+
+                    <div>
+                      <div class="hitl-section-label">Como deseja prosseguir?</div>
+                      <div class="hitl-actions">
+
+                        <button id="qb-hitl-improve" onclick="resumeQB('melhorar')" class="hitl-action-btn hitl-action-primary">
+                          <div class="hitl-action-icon hitl-icon-primary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                            </svg>
+                          </div>
+                          <div class="hitl-action-content">
+                            <div class="hitl-action-title">Melhorar query</div>
+                            <div class="hitl-action-desc">Volta ao construtor de SQL para corrigir os problemas identificados</div>
+                          </div>
+                          <svg class="hitl-action-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                          </svg>
+                        </button>
+
+                        <button id="qb-hitl-accept" onclick="resumeQB('seguir')" class="hitl-action-btn hitl-action-secondary">
+                          <div class="hitl-action-icon hitl-icon-secondary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                          </div>
+                          <div class="hitl-action-content">
+                            <div class="hitl-action-title">Seguir assim</div>
+                            <div class="hitl-action-desc">Aceita a SQL gerada e segue para a amostra de dados</div>
+                          </div>
+                          <svg class="hitl-action-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                          </svg>
+                        </button>
+
+                      </div>
+                    </div>
+                  </div>
+
+                  <div id="qb-hitl-processing" class="hitl-processing" style="display:none">
+                    <div class="hitl-proc-spinner"></div>
+                    <div class="hitl-proc-title" id="qb-hitl-proc-title">Processando...</div>
+                    <div class="hitl-proc-desc" id="qb-hitl-proc-desc">Aguarde enquanto o agente trabalha</div>
+                  </div>
+
+                </div>
+
                 <div class="qa-empty" id="qb-empty" style="height: 100%">
                   <div class="qa-empty-ico">
                     <svg

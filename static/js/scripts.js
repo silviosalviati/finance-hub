@@ -853,7 +853,9 @@ function navTo(view) {
       }
     } else if (currentUser?.gerencia) {
       _setQBGerenciaMode(true);
-      _autoResolveQBGerencia();
+      if (qbDatasetValidationState.status !== "valid") {
+        _autoResolveQBGerencia();
+      }
     } else {
       _setQBGerenciaMode(false);
       if (!document.getElementById("qb-project")?.options.length ||
@@ -886,10 +888,120 @@ function _setQBGerenciaMode(on) {
   if (datasetField) datasetField.style.display = on ? "none" : "flex";
 }
 
+// Mesmos componentes visuais do Finance Voice (fa-msg/fa-bubble--thinking/
+// fa-suggestion-chip) — reaproveitados aqui pra dar a mesma "dinâmica" de
+// bolha de progresso + chips de sugestão ao entrar no Query Builder por
+// gerência, em vez de inventar um padrão novo só pra essa tela.
+function _qbGerenciaPhaseText(phase, label) {
+  const safeLabel = label ? _escapeHtml(label) : "";
+  switch (phase) {
+    case "catalog":
+      return "Lendo tabelas, colunas e descrições";
+    case "suggestions":
+      return "Preparando sugestões de perguntas";
+    default:
+      return `Estou aprendendo o produto de dados${safeLabel ? ` de ${safeLabel}` : ""}, aguarde`;
+  }
+}
+
+function _qbShowGerenciaLearning(label) {
+  const container = document.getElementById("qb-gerencia-learning");
+  const empty = document.getElementById("qb-empty");
+  const tabsArea = document.getElementById("qb-tabs-area");
+  if (!container) return null;
+
+  if (empty) empty.style.display = "none";
+  if (tabsArea) tabsArea.style.display = "none";
+  container.style.display = "block";
+  container.innerHTML = `
+    <div class="fa-msg fa-msg-bot">
+      <div class="fa-msg-avatar">FV</div>
+      <div class="fa-msg-main">
+        <div class="fa-bubble fa-bubble--thinking" id="qb-ger-thinking">
+          <div class="fa-thinking-body" role="status" aria-live="polite">
+            <div class="fa-thinking-phase" id="qb-ger-phase">
+              ${_qbGerenciaPhaseText(null, label)}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>
+            </div>
+            <div class="fa-thinking-track"></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  return {
+    setPhase(phase) {
+      const phaseEl = document.getElementById("qb-ger-phase");
+      if (!phaseEl) return;
+      phaseEl.innerHTML = `${_qbGerenciaPhaseText(phase, label)}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>`;
+    },
+  };
+}
+
+function _qbShowGerenciaReady(label, suggestions) {
+  const container = document.getElementById("qb-gerencia-learning");
+  if (!container) return;
+
+  const list = (Array.isArray(suggestions) ? suggestions : [])
+    .map((s) => String(s || "").trim())
+    .filter(Boolean)
+    .slice(0, 6);
+
+  const chipHtml = (text) =>
+    `<button type="button" class="fa-suggestion-chip" data-text="${_escapeHtml(text)}" data-followup="${_escapeHtml(text)}" onclick="_selectQBSuggestion(this)">` +
+    `<span class="fa-suggestion-chip-text">${_escapeHtml(text)}</span></button>`;
+
+  const visible = list.slice(0, 4);
+  const extra = list.slice(4);
+  const extraHtml = extra.length
+    ? `<span class="fa-suggestions-extra" id="qb-ger-suggestions-extra" hidden>${extra.map(chipHtml).join("")}</span>` +
+      `<button type="button" class="fa-suggestions-toggle" id="qb-ger-suggestions-toggle" aria-expanded="false">Mostrar mais</button>`
+    : "";
+
+  container.innerHTML = `
+    <div class="fa-msg fa-msg-bot">
+      <div class="fa-msg-avatar">FV</div>
+      <div class="fa-msg-main">
+        <div class="fa-bubble fa-bubble--bot">
+          <div class="fa-bubble-body">Estou pronto para te ajudar com perguntas sobre ${_escapeHtml(label)}.</div>
+        </div>
+      </div>
+    </div>
+    ${
+      list.length
+        ? `<div class="fa-quick-suggestions" style="border-top:none;margin-top:10px">
+             <span class="fa-suggestions-icon" aria-hidden="true">${_faIcon("sparkle", 13)}</span>
+             ${visible.map(chipHtml).join("")}
+             ${extraHtml}
+           </div>`
+        : ""
+    }`;
+
+  const toggle = document.getElementById("qb-ger-suggestions-toggle");
+  if (toggle) {
+    toggle.addEventListener("click", () => {
+      const extraEl = document.getElementById("qb-ger-suggestions-extra");
+      if (!extraEl) return;
+      const expanded = toggle.getAttribute("aria-expanded") === "true";
+      extraEl.hidden = expanded;
+      toggle.setAttribute("aria-expanded", String(!expanded));
+      toggle.textContent = expanded ? "Mostrar mais" : "Mostrar menos";
+    });
+  }
+}
+
+function _qbHideGerenciaLearning() {
+  const container = document.getElementById("qb-gerencia-learning");
+  const empty = document.getElementById("qb-empty");
+  if (container) container.style.display = "none";
+  if (empty) empty.style.display = "flex";
+}
+
 async function _autoResolveQBGerencia() {
   const badge = document.getElementById("qb-gerencia-badge");
-  if (badge) badge.textContent = `Gerência: ${currentUser.gerencia} (resolvendo...)`;
+  if (badge) badge.textContent = `Gerência: ${currentUser.gerencia}`;
   showQBError("");
+
+  const phaseHandle = _qbShowGerenciaLearning(currentUser.gerencia);
 
   try {
     const res = await fetch("/api/agents/query_build/resolve-gerencia", {
@@ -907,7 +1019,7 @@ async function _autoResolveQBGerencia() {
 
     if (!data.valid) {
       qbDatasetValidationState.status = "invalid";
-      if (badge) badge.textContent = `Gerência: ${currentUser.gerencia}`;
+      _qbHideGerenciaLearning();
       showQBError(data.message || "Não foi possível resolver a gerência.");
       syncQBGenerateButtonState();
       return;
@@ -934,10 +1046,22 @@ async function _autoResolveQBGerencia() {
 
     if (badge) badge.textContent = `Gerência: ${data.gerencia}`;
     syncQBGenerateButtonState();
-    _loadQBSuggestions(data.project_id, data.dataset_id, "");
+
+    phaseHandle?.setPhase("suggestions");
+    const res2 = await fetch("/api/agents/query_build/suggestions", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        project_id: data.project_id,
+        dataset_hint: data.dataset_id,
+        table_id: "",
+      }),
+    });
+    const sugData = await res2.json();
+    _qbShowGerenciaReady(data.gerencia, sugData.suggestions);
   } catch (e) {
     qbDatasetValidationState.status = "invalid";
-    if (badge) badge.textContent = `Gerência: ${currentUser.gerencia}`;
+    _qbHideGerenciaLearning();
     showQBError(prettifyErrorMessage(e.message));
     syncQBGenerateButtonState();
   }
@@ -3156,9 +3280,11 @@ function renderQB(data) {
   const empty = document.getElementById("qb-empty");
   const tabsArea = document.getElementById("qb-tabs-area");
   const hitlPanel = document.getElementById("qb-hitl-panel");
+  const gerenciaLearning = document.getElementById("qb-gerencia-learning");
 
   if (empty) empty.style.display = "none";
   if (hitlPanel) hitlPanel.style.display = "none";
+  if (gerenciaLearning) gerenciaLearning.style.display = "none";
   if (tabsArea) tabsArea.style.display = "block";
 
   const builtSql = document.getElementById("qb-built-sql");
@@ -3389,6 +3515,7 @@ function showQBHitlPanel(data) {
 
   if (empty) empty.style.display = "none";
   if (tabsArea) tabsArea.style.display = "none";
+  document.getElementById("qb-gerencia-learning")?.style.setProperty("display", "none");
   if (panel) panel.style.display = "flex";
 
   if (subtitle) {

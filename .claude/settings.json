@@ -7,7 +7,9 @@
       "Bash(curl -s -m 5 http://localhost:8000/static/index.html)",
       "Bash(curl -s -m 5 http://localhost:8000/health)",
       "Read(//tmp/**)",
-      "Read(//d/tmp/**)"
+      "Read(//d/tmp/**)",
+      "Bash(curl -s -X POST http://localhost:8000/api/agents/query_build/resolve-gerencia -H 'Content-Type: application/json' -H 'Authorization: Bearer __TRACKED_VAR__' -d '{\"gerencia\": \"cobranca\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/api/agents/query_build/suggestions -H 'Content-Type: application/json' -H 'Authorization: Bearer __TRACKED_VAR__' -d '{\"project_id\": \"silviosalviati\", \"dataset_hint\": \"DOM_FINANCEIRO_COBRANCA\", \"table_id\": \"\"}')"
     ]
   }
 }

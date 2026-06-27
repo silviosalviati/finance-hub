@@ -1216,14 +1216,19 @@
               <div class="qa-form">
                 <div class="qlabel">Configuração</div>
 
-                <div class="qfield">
+                <div class="qfield" id="qb-gerencia-badge-wrap" style="display:none">
+                  <label>Gerência</label>
+                  <div class="qb-gerencia-badge" id="qb-gerencia-badge">—</div>
+                </div>
+
+                <div class="qfield" id="qb-project-field">
                   <label for="qb-project">Project ID — GCP</label>
                   <select id="qb-project" onchange="qbOnProjectChange()">
                     <option value="">Carregando projetos...</option>
                   </select>
                 </div>
 
-                <div class="qfield">
+                <div class="qfield" id="qb-dataset-field">
                   <label for="qb-dataset">
                     Dataset
                     <span
@@ -1556,33 +1561,33 @@
 
                       <div class="tiles" id="qb-tiles" style="display: none">
                         <div class="tile">
-                          <div class="tile-lbl">Bytes estimados</div>
+                          <div class="tile-lbl">Custo estimado</div>
                           <div
                             class="tile-val"
-                            id="qb-borig"
-                            style="color: var(--rose)"
+                            id="qb-cost-est"
+                            style="color: var(--porto)"
                           >
                             —
                           </div>
-                          <div class="tile-sub" id="qb-corig">—</div>
+                          <div class="tile-sub">USD por execução</div>
                         </div>
 
                         <div class="tile">
-                          <div class="tile-lbl">Bytes validados</div>
+                          <div class="tile-lbl">Bytes processados</div>
                           <div
                             class="tile-val"
-                            id="qb-bopt"
-                            style="color: var(--emerald)"
+                            id="qb-bytes-proc"
+                            style="color: var(--ink2)"
                           >
                             —
                           </div>
-                          <div class="tile-sub" id="qb-copt">—</div>
+                          <div class="tile-sub" id="qb-bytes-proc-sub">—</div>
                         </div>
 
                         <div class="tile">
-                          <div class="tile-lbl">Nível de qualidade</div>
-                          <div class="tile-val tv-A" id="qb-sav">—</div>
-                          <div class="tile-sub" id="qb-savusd">—</div>
+                          <div class="tile-lbl">Nível de custo</div>
+                          <div class="tile-val" id="qb-cost-tier-badge">—</div>
+                          <div class="tile-sub" id="qb-cost-tier-sub">—</div>
                         </div>
                       </div>
 
@@ -2673,6 +2678,12 @@ runbook_operacional</pre
             <div class="modal-field">
               <label id="modal-pass-label">Senha</label>
               <input type="password" id="modal-password" placeholder="Mínimo 4 caracteres" autocomplete="new-password" />
+            </div>
+            <div class="modal-field">
+              <label>Gerência</label>
+              <select id="modal-gerencia">
+                <option value="">(nenhuma)</option>
+              </select>
             </div>
             <div class="modal-field modal-field-check">
               <label>

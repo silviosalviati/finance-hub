@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(python -c ' *)",
+      "Bash(curl -s -m 3 http://localhost:8000/health)"
+    ]
+  }
+}

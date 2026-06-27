@@ -739,6 +739,7 @@ async function doLogin() {
       username: data.username,
       name: data.name,
       is_admin: !!data.is_admin,
+      gerencia: data.gerencia || "",
     };
 
     setUserUI(data.name, data.username);
@@ -844,9 +845,21 @@ function navTo(view) {
     initFASuggestions();
   } else if (view === "qb") {
     document.getElementById("nav-qb")?.classList.add("active");
-    if (!document.getElementById("qb-project")?.options.length ||
-        document.getElementById("qb-project")?.options[0]?.value === "") {
-      _loadProjectsIntoSelect("qb-project");
+    if (currentUser?.is_admin) {
+      _setQBGerenciaMode(false);
+      if (!document.getElementById("qb-project")?.options.length ||
+          document.getElementById("qb-project")?.options[0]?.value === "") {
+        _loadProjectsIntoSelect("qb-project");
+      }
+    } else if (currentUser?.gerencia) {
+      _setQBGerenciaMode(true);
+      _autoResolveQBGerencia();
+    } else {
+      _setQBGerenciaMode(false);
+      if (!document.getElementById("qb-project")?.options.length ||
+          document.getElementById("qb-project")?.options[0]?.value === "") {
+        _loadProjectsIntoSelect("qb-project");
+      }
     }
   } else if (view === "er") {
     document.getElementById("nav-er")?.classList.add("active");
@@ -861,6 +874,71 @@ function navTo(view) {
   } else if (view === "admin-config") {
     document.getElementById("nav-admin-config")?.classList.add("active");
     adminLoadConfig();
+  }
+}
+
+function _setQBGerenciaMode(on) {
+  const badgeWrap = document.getElementById("qb-gerencia-badge-wrap");
+  const projectField = document.getElementById("qb-project-field");
+  const datasetField = document.getElementById("qb-dataset-field");
+  if (badgeWrap) badgeWrap.style.display = on ? "flex" : "none";
+  if (projectField) projectField.style.display = on ? "none" : "flex";
+  if (datasetField) datasetField.style.display = on ? "none" : "flex";
+}
+
+async function _autoResolveQBGerencia() {
+  const badge = document.getElementById("qb-gerencia-badge");
+  if (badge) badge.textContent = `Gerência: ${currentUser.gerencia} (resolvendo...)`;
+  showQBError("");
+
+  try {
+    const res = await fetch("/api/agents/query_build/resolve-gerencia", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ gerencia: currentUser.gerencia }),
+    });
+
+    if (res.status === 401) {
+      doLogout();
+      return;
+    }
+
+    const data = await res.json();
+
+    if (!data.valid) {
+      qbDatasetValidationState.status = "invalid";
+      if (badge) badge.textContent = `Gerência: ${currentUser.gerencia}`;
+      showQBError(data.message || "Não foi possível resolver a gerência.");
+      syncQBGenerateButtonState();
+      return;
+    }
+
+    const projectSel = document.getElementById("qb-project");
+    const datasetSel = document.getElementById("qb-dataset");
+    if (projectSel) {
+      if (![...projectSel.options].some((o) => o.value === data.project_id)) {
+        projectSel.add(new Option(data.project_id, data.project_id));
+      }
+      projectSel.value = data.project_id;
+    }
+    if (datasetSel) {
+      if (![...datasetSel.options].some((o) => o.value === data.dataset_id)) {
+        datasetSel.add(new Option(data.dataset_id, data.dataset_id));
+      }
+      datasetSel.value = data.dataset_id;
+    }
+
+    qbDatasetValidationState.status = "valid";
+    qbDatasetValidationState.datasetHint = data.dataset_id;
+    qbDatasetValidationState.projectId = data.project_id;
+
+    if (badge) badge.textContent = `Gerência: ${data.gerencia}`;
+    syncQBGenerateButtonState();
+  } catch (e) {
+    qbDatasetValidationState.status = "invalid";
+    if (badge) badge.textContent = `Gerência: ${currentUser.gerencia}`;
+    showQBError(prettifyErrorMessage(e.message));
+    syncQBGenerateButtonState();
   }
 }
 
@@ -3098,12 +3176,11 @@ function renderQB(data) {
   const recsTab = document.getElementById("qb-tab-recs");
   const optTab = document.getElementById("qb-tab-optimized");
   const qbTiles = document.getElementById("qb-tiles");
-  const qbOrigBytes = document.getElementById("qb-borig");
-  const qbOrigCost = document.getElementById("qb-corig");
-  const qbOptBytes = document.getElementById("qb-bopt");
-  const qbOptCost = document.getElementById("qb-copt");
-  const qbAntiCount = document.getElementById("qb-sav");
-  const qbAntiSub = document.getElementById("qb-savusd");
+  const qbCostEst = document.getElementById("qb-cost-est");
+  const qbBytesProc = document.getElementById("qb-bytes-proc");
+  const qbBytesProcSub = document.getElementById("qb-bytes-proc-sub");
+  const qbCostTierBadge = document.getElementById("qb-cost-tier-badge");
+  const qbCostTierSub = document.getElementById("qb-cost-tier-sub");
   const qbSavSec = document.getElementById("qb-sav-sec");
   const qbSavBig = document.getElementById("qb-sav-big");
   const qbSavFill = document.getElementById("qb-sav-fill");
@@ -3123,6 +3200,13 @@ function renderQB(data) {
     score >= 90 ? "A" : score >= 75 ? "B" : score >= 60 ? "C" : score >= 40 ? "D" : "F";
   const qualityIssues = Array.isArray(data.quality_issues) ? data.quality_issues : [];
 
+  const costTierMap = {
+    baixo: { emoji: "🟢", label: "Baixo" },
+    moderado: { emoji: "🟡", label: "Moderado" },
+    alto: { emoji: "🔴", label: "Alto" },
+  };
+  const tierInfo = costTierMap[data.cost_tier] || null;
+
   if (gradeBlock) gradeBlock.className = "grade-block gb-" + grade;
   if (gradeLtr) gradeLtr.textContent = grade;
   if (scoreBig) scoreBig.textContent = score;
@@ -3134,25 +3218,28 @@ function renderQB(data) {
   }
 
   if (summary) {
-    summary.textContent =
-      data.explanation ||
-      "Query construida com foco em performance e melhor aproveitamento de slots no BigQuery.";
+    if (dry.bytes_processed != null) {
+      const tierLabel = tierInfo ? tierInfo.label.toLowerCase() : "indefinido";
+      summary.textContent = `Esta consulta deve processar ${fmtBytes(dry.bytes_processed)} (≈ ${fmtUSD(dry.estimated_cost_usd)}) — custo ${tierLabel}.`;
+    } else {
+      summary.textContent =
+        data.explanation ||
+        "Query construida com foco em performance e melhor aproveitamento de slots no BigQuery.";
+    }
   }
 
   if (qbTiles) {
     const hasDry =
       dry.bytes_processed != null || dry.estimated_cost_usd != null;
     qbTiles.style.display = hasDry ? "grid" : "none";
-    if (qbOrigBytes) qbOrigBytes.textContent = fmtBytes(dry.bytes_processed);
-    if (qbOrigCost) qbOrigCost.textContent = fmtUSD(dry.estimated_cost_usd);
-    if (qbOptBytes) qbOptBytes.textContent = fmtBytes(dry.bytes_processed);
-    if (qbOptCost) qbOptCost.textContent = fmtUSD(dry.estimated_cost_usd);
+    if (qbCostEst) qbCostEst.textContent = fmtUSD(dry.estimated_cost_usd);
+    if (qbBytesProc) qbBytesProc.textContent = fmtBytes(dry.bytes_processed);
+    if (qbBytesProcSub) qbBytesProcSub.textContent = "processados nesta execução";
+    if (qbCostTierBadge)
+      qbCostTierBadge.textContent = tierInfo ? `${tierInfo.emoji} ${tierInfo.label}` : "—";
+    if (qbCostTierSub)
+      qbCostTierSub.textContent = tierInfo ? "faixa de custo desta consulta" : "—";
   }
-  if (qbAntiCount) qbAntiCount.textContent = `${grade} (${score}/100)`;
-  if (qbAntiSub)
-    qbAntiSub.textContent = qualityIssues.length
-      ? `${qualityIssues.length} ponto(s) de atenção identificado(s)`
-      : "Nenhum ponto de atenção identificado";
 
   if (qbSavSec) qbSavSec.style.display = "block";
   if (qbSavBig) qbSavBig.textContent = `${score}%`;
@@ -7673,6 +7760,22 @@ async function adminLoadUsers() {
   }
 }
 
+async function _loadGerenciasIntoSelect(selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">(nenhuma)</option>';
+  try {
+    const res = await fetch("/admin/gerencias", { headers: authHeaders() });
+    if (!res.ok) return;
+    const gerencias = await res.json();
+    for (const g of gerencias) {
+      sel.add(new Option(g, g));
+    }
+  } catch (_) {
+    // degrade silenciosamente — fica só com "(nenhuma)"
+  }
+}
+
 async function adminOpenUserModal(username = null) {
   _adminEditingUsername = username;
   const title = document.getElementById("admin-modal-title");
@@ -7686,6 +7789,9 @@ async function adminOpenUserModal(username = null) {
   document.getElementById("modal-is-admin").checked = false;
   document.getElementById("modal-username").disabled = false;
 
+  await _loadGerenciasIntoSelect("modal-gerencia");
+  document.getElementById("modal-gerencia").value = "";
+
   if (username) {
     if (title) title.textContent = "Editar Usuário";
     if (passLabel) passLabel.textContent = "Nova senha (deixe em branco para não alterar)";
@@ -7698,6 +7804,7 @@ async function adminOpenUserModal(username = null) {
         document.getElementById("modal-username").disabled = true;
         document.getElementById("modal-name").value = u.name;
         document.getElementById("modal-is-admin").checked = !!u.is_admin;
+        document.getElementById("modal-gerencia").value = u.gerencia || "";
       }
     } catch (_) {}
   } else {
@@ -7719,6 +7826,7 @@ async function adminSaveUser() {
   const name = document.getElementById("modal-name").value.trim();
   const password = document.getElementById("modal-password").value;
   const is_admin = document.getElementById("modal-is-admin").checked;
+  const gerencia = document.getElementById("modal-gerencia").value;
   const errEl = document.getElementById("admin-modal-error");
   const saveBtn = document.getElementById("admin-modal-save");
 
@@ -7738,7 +7846,7 @@ async function adminSaveUser() {
   try {
     let res;
     if (_adminEditingUsername) {
-      const body = { name, is_admin };
+      const body = { name, is_admin, gerencia };
       if (password) body.password = password;
       res = await fetch(`/admin/users/${_adminEditingUsername}`, {
         method: "PUT",
@@ -7749,7 +7857,7 @@ async function adminSaveUser() {
       res = await fetch("/admin/users", {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ username, name, password, is_admin }),
+        body: JSON.stringify({ username, name, password, is_admin, gerencia }),
       });
     }
 

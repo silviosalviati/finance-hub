@@ -101,6 +101,7 @@ def generate_sql_from_request(state: QueryBuildState, llm: BaseChatModel) -> dic
 
 	dataset_tables: list[str] = []
 	dataset_table_columns: dict[str, list[str]] = {}
+	dataset_table_meta: dict[str, dict[str, Any]] = {}
 	dataset_context = ""
 	dataset_warning: str | None = None
 
@@ -109,6 +110,7 @@ def generate_sql_from_request(state: QueryBuildState, llm: BaseChatModel) -> dic
 			schema = get_dataset_tables_schema(state.project_id, state.dataset_hint)
 			dataset_tables = [item["full_name"] for item in schema.get("tables", [])]
 			dataset_table_columns = _build_table_columns_map(schema.get("tables", []))
+			dataset_table_meta = _build_table_meta_map(schema.get("tables", []))
 
 			if dataset_tables:
 				lines = [
@@ -217,6 +219,7 @@ Regra obrigatoria:
 				"assumptions": assumptions,
 				"dataset_tables": dataset_tables,
 				"dataset_table_columns": dataset_table_columns,
+				"dataset_table_meta": dataset_table_meta,
 				"dataset_tables_context": dataset_context,
 				"repairable_error": False,
 				"repair_attempts": repair_attempts,
@@ -247,6 +250,7 @@ Regra obrigatoria:
 					"assumptions": assumptions,
 					"dataset_tables": dataset_tables,
 					"dataset_table_columns": dataset_table_columns,
+					"dataset_table_meta": dataset_table_meta,
 					"dataset_tables_context": dataset_context,
 					"repairable_error": False,
 					"repair_attempts": repair_attempts,
@@ -260,6 +264,7 @@ Regra obrigatoria:
 			"warnings": warnings,
 			"dataset_tables": dataset_tables,
 			"dataset_table_columns": dataset_table_columns,
+			"dataset_table_meta": dataset_table_meta,
 			"dataset_tables_context": dataset_context,
 			"error": None,
 			"error_category": "",
@@ -274,6 +279,7 @@ Regra obrigatoria:
 			"warnings": ["Verifique se a solicitacao possui contexto suficiente."],
 			"dataset_tables": dataset_tables,
 			"dataset_table_columns": dataset_table_columns,
+			"dataset_table_meta": dataset_table_meta,
 			"dataset_tables_context": dataset_context,
 			"repairable_error": False,
 			"repair_attempts": repair_attempts,
@@ -321,13 +327,43 @@ def dry_run_generated_sql(state: QueryBuildState) -> dict[str, Any]:
 			"repairable_error": False,
 		}
 
+	cost_tier = ""
+	if result.bytes_processed and budget_bytes:
+		pct = result.bytes_processed / budget_bytes
+		cost_tier = "baixo" if pct < 0.20 else "moderado" if pct < 0.70 else "alto"
+
 	return {
 		"dry_run_generated": result,
 		"warnings": warnings,
+		"cost_tier": cost_tier,
 	}
 
 
-def _deterministic_quality_checks(sql: str) -> tuple[int, list[str]]:
+def _extract_where_clause(sql: str) -> str:
+	match = re.search(
+		r"\bWHERE\b(.*?)(?:\bGROUP\s+BY\b|\bORDER\s+BY\b|\bLIMIT\b|\bQUALIFY\b|$)",
+		sql,
+		flags=re.IGNORECASE | re.DOTALL,
+	)
+	return match.group(1) if match else ""
+
+
+def _extract_referenced_tables(sql: str, table_meta: dict[str, dict[str, Any]]) -> list[tuple[str, str]]:
+	"""Retorna [(full_name, alias_ou_vazio), ...] das tabelas referenciadas que
+	têm metadados conhecidos (ignora tabelas fora do catálogo validado).
+	"""
+	found: list[tuple[str, str]] = []
+	for table_ref, alias in re.findall(TABLE_ALIAS_PATTERN, sql, flags=re.IGNORECASE):
+		full_name = table_ref.lower()
+		if full_name in table_meta:
+			found.append((full_name, alias or ""))
+	return found
+
+
+def _deterministic_quality_checks(
+	sql: str,
+	table_meta: dict[str, dict[str, Any]] | None = None,
+) -> tuple[int, list[str]]:
 	"""Checagens objetivas (regex) contra os 5 PILARES OBRIGATÓRIOS — a parte
 	que não exige julgamento (isso fica para a chamada de LLM em score_query).
 	"""
@@ -357,6 +393,37 @@ def _deterministic_quality_checks(sql: str) -> tuple[int, list[str]]:
 		score -= min(30, 10 * (division_count - nullif_count))
 		issues.append("Divisao sem NULLIF para evitar erro de divisao por zero (Pilar 3 - Estabilidade).")
 
+	if table_meta:
+		where_clause = _extract_where_clause(no_comments)
+		for full_name, alias in _extract_referenced_tables(no_comments, table_meta):
+			meta = table_meta.get(full_name, {})
+			partition_field = str(meta.get("partition_field") or "")
+			clustering_fields = list(meta.get("clustering_fields") or [])
+
+			if partition_field:
+				qualified = rf"\b{re.escape(alias)}\.{re.escape(partition_field)}\b" if alias else ""
+				bare = rf"\b{re.escape(partition_field)}\b"
+				pattern = rf"{qualified}|{bare}" if qualified else bare
+				if not re.search(pattern, where_clause, flags=re.IGNORECASE):
+					score -= 20
+					issues.append(
+						f"Tabela {full_name} tem coluna de particao '{partition_field}' mas a SQL nao "
+						"filtra por ela no WHERE - risco de varredura completa (Pilar 1 - Performance)."
+					)
+
+			if clustering_fields:
+				rest_of_query = no_comments[no_comments.upper().find("WHERE"):] if "WHERE" in no_comments.upper() else no_comments
+				hits_clustering = any(
+					re.search(rf"\b{re.escape(cf)}\b", rest_of_query, flags=re.IGNORECASE)
+					for cf in clustering_fields
+				)
+				if not hits_clustering:
+					score -= 5
+					issues.append(
+						f"Tabela {full_name} tem colunas de clustering ({', '.join(clustering_fields)}) "
+						"nao utilizadas em WHERE/ORDER BY - oportunidade de eficiencia (Pilar 1 - Performance)."
+					)
+
 	return max(0, score), issues
 
 
@@ -367,7 +434,7 @@ def score_query(state: QueryBuildState, llm: BaseChatModel) -> dict[str, Any]:
 	if state.error or not state.generated_sql:
 		return {}
 
-	score, issues = _deterministic_quality_checks(state.generated_sql)
+	score, issues = _deterministic_quality_checks(state.generated_sql, state.dataset_table_meta)
 
 	judge_prompt = f"""
 SQL gerada:
@@ -751,6 +818,19 @@ def _build_table_columns_map(tables: list[dict[str, Any]]) -> dict[str, list[str
 				cols.append(name)
 		columns_map[full_name.lower()] = cols
 	return columns_map
+
+
+def _build_table_meta_map(tables: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+	meta_map: dict[str, dict[str, Any]] = {}
+	for item in tables:
+		full_name = str(item.get("full_name") or "").strip()
+		if not full_name:
+			continue
+		meta_map[full_name.lower()] = {
+			"partition_field": str(item.get("partition_field") or "").strip(),
+			"clustering_fields": list(item.get("clustering_fields") or []),
+		}
+	return meta_map
 
 
 def _find_invalid_column_references(

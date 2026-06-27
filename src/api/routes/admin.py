@@ -15,7 +15,7 @@ from src.core.database import (
     set_config_value,
     update_user,
 )
-from src.shared.config import invalidate_config_cache
+from src.shared.config import get_runtime_config, invalidate_config_cache
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -25,12 +25,14 @@ class CreateUserRequest(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     password: str = Field(min_length=4, max_length=256)
     is_admin: bool = False
+    gerencia: str = Field(default="", max_length=200)
 
 
 class UpdateUserRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     password: str | None = Field(default=None, min_length=4, max_length=256)
     is_admin: bool | None = None
+    gerencia: str | None = Field(default=None, max_length=200)
 
 
 class UpdateConfigRequest(BaseModel):
@@ -42,6 +44,16 @@ async def admin_list_users(
     _admin: dict[str, Any] = Depends(get_admin_user),
 ) -> list[dict[str, Any]]:
     return list_users()
+
+
+@router.get("/gerencias")
+async def admin_list_gerencias(
+    _admin: dict[str, Any] = Depends(get_admin_user),
+) -> list[str]:
+    from src.agents.finance_auditor.capabilities import list_all_gerencias
+
+    project_id = get_runtime_config("FINANCE_AUDITOR_DEFAULT_PROJECT", "silviosalviati")
+    return list_all_gerencias(project_id)
 
 
 @router.post("/users", status_code=201)
@@ -56,6 +68,7 @@ async def admin_create_user(
         password=req.password,
         name=req.name,
         is_admin=req.is_admin,
+        gerencia=req.gerencia,
     )
 
 
@@ -72,6 +85,7 @@ async def admin_update_user(
         name=req.name,
         password=req.password,
         is_admin=req.is_admin,
+        gerencia=req.gerencia,
     )
     if not updated:
         raise HTTPException(status_code=500, detail="Falha ao atualizar usuário.")

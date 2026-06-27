@@ -56,7 +56,9 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-def create_session(username: str, name: str, is_admin: bool = False) -> dict[str, Any]:
+def create_session(
+    username: str, name: str, is_admin: bool = False, gerencia: str = ""
+) -> dict[str, Any]:
     now = _utcnow()
     # Faxina oportunista: nenhum cron dedicado, então aproveita o login de
     # alguém para descartar sessões vencidas em vez de deixá-las acumular.
@@ -65,13 +67,14 @@ def create_session(username: str, name: str, is_admin: bool = False) -> dict[str
     token = str(uuid.uuid4())
     expires = now + timedelta(hours=int(get_runtime_config("SESSION_TTL_HOURS", "8")))
     login_at = now.isoformat()
-    create_session_row(token, username, name, is_admin, expires.isoformat(), login_at)
+    create_session_row(token, username, name, is_admin, expires.isoformat(), login_at, gerencia)
 
     return {
         "token": token,
         "username": username,
         "name": name,
         "is_admin": is_admin,
+        "gerencia": gerencia,
         "expires": expires,
         "login_at": login_at,
     }
@@ -100,6 +103,7 @@ def get_current_user(authorization: str = Header(default=None)) -> dict[str, Any
         "username": row["username"],
         "name": row["name"],
         "is_admin": bool(row["is_admin"]),
+        "gerencia": row.get("gerencia", ""),
         "expires": expires,
         "login_at": row["login_at"],
     }
@@ -143,6 +147,7 @@ def load_users() -> dict[str, dict[str, str]]:
             "password": _get_user(u["username"])["password_hash"],
             "name": u["name"],
             "is_admin": str(u["is_admin"]),
+            "gerencia": u.get("gerencia", ""),
         }
         for u in db_users
     }

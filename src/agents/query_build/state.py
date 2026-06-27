@@ -13,6 +13,8 @@ class QueryBuildState(BaseModel):
 	dataset_hint: Optional[str] = None
 	dataset_tables: list[str] = Field(default_factory=list)
 	dataset_table_columns: dict[str, list[str]] = Field(default_factory=dict)
+	# {"projeto.dataset.tabela": {"partition_field": str, "clustering_fields": list[str]}}
+	dataset_table_meta: dict[str, dict[str, Any]] = Field(default_factory=dict)
 	dataset_tables_context: str = ""
 
 	# Sessão do usuário (RBAC + auditoria) — sem isso check_access/record_audit
@@ -34,6 +36,9 @@ class QueryBuildState(BaseModel):
 	repairable_error: bool = False
 
 	dry_run_generated: Optional[DryRunResult] = None
+	# Faixa de custo informativa ("baixo" | "moderado" | "alto") — não afeta
+	# quality_score, só alimenta o badge visual do resultado.
+	cost_tier: str = ""
 
 	# Score de boas práticas (0-100) contra os 5 PILARES OBRIGATÓRIOS do
 	# QUERY_BUILD_SYSTEM_PROMPT — e o HITL que decide o que fazer quando < 80.

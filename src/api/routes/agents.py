@@ -50,6 +50,11 @@ class ValidateDatasetRequest(BaseModel):
     dataset_hint: str = Field(..., min_length=1, max_length=256)
 
 
+class ResolveGerenciaRequest(BaseModel):
+    gerencia: str = Field(..., min_length=1, max_length=200)
+    project_id: str | None = None
+
+
 class ValidateAnalyzerContextRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=32_000)
     project_id: str | None = None
@@ -908,6 +913,35 @@ async def validate_query_build_dataset(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/api/agents/query_build/resolve-gerencia")
+async def resolve_query_build_gerencia(
+    req: ResolveGerenciaRequest,
+    session: dict[str, Any] = Depends(get_current_user),
+):
+    """Resolve o dataset da gerência do usuário pra abrir o Query Builder
+    sem precisar passar pelo Schema Explorer. RBAC aqui é só pra não mostrar
+    um badge "pronto" enganoso — `check_access` no grafo continua sendo a
+    autoridade real no momento de gerar a SQL.
+    """
+    project_id = (req.project_id or "").strip() or get_runtime_config(
+        "FINANCE_AUDITOR_DEFAULT_PROJECT", "silviosalviati"
+    )
+    match = resolve_dataset_by_gerencia(project_id, req.gerencia.strip())
+    if not match:
+        return {"valid": False, "message": "Não encontramos uma base de dados para esta gerência."}
+
+    allowed, reason = finance_rbac.check_dataset(session, match["dataset_id"])
+    if not allowed:
+        return {"valid": False, "message": f"Acesso negado a esta área: {reason}"}
+
+    return {
+        "valid": True,
+        "project_id": project_id,
+        "dataset_id": match["dataset_id"],
+        "gerencia": match["gerencia"],
+    }
 
 
 @router.post("/api/agents/query_analyzer/validate-query-context")

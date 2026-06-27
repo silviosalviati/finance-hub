@@ -100,6 +100,7 @@ def init_db() -> None:
                 password_hash TEXT NOT NULL,
                 name TEXT NOT NULL,
                 is_admin INTEGER NOT NULL DEFAULT 0,
+                gerencia TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -195,6 +196,7 @@ def init_db() -> None:
                 username TEXT NOT NULL,
                 name TEXT NOT NULL,
                 is_admin INTEGER NOT NULL DEFAULT 0,
+                gerencia TEXT NOT NULL DEFAULT '',
                 expires_at TEXT NOT NULL,
                 login_at TEXT NOT NULL
             );
@@ -205,6 +207,18 @@ def init_db() -> None:
         _seed_if_empty(conn)
         _ensure_config_keys(conn)
         _migrate_finance_metrics_columns(conn)
+        _migrate_user_columns(conn)
+
+
+def _migrate_user_columns(conn: sqlite3.Connection) -> None:
+    """Adiciona a coluna gerencia em users/sessions quando ausente (bancos antigos)."""
+    user_cols = {r[1] for r in conn.execute("PRAGMA table_info(users)")}
+    if "gerencia" not in user_cols:
+        conn.execute("ALTER TABLE users ADD COLUMN gerencia TEXT NOT NULL DEFAULT ''")
+
+    session_cols = {r[1] for r in conn.execute("PRAGMA table_info(sessions)")}
+    if "gerencia" not in session_cols:
+        conn.execute("ALTER TABLE sessions ADD COLUMN gerencia TEXT NOT NULL DEFAULT ''")
 
 
 def _migrate_finance_metrics_columns(conn: sqlite3.Connection) -> None:
@@ -281,20 +295,26 @@ def _looks_like_bcrypt(value: str) -> bool:
 # ── Sessions CRUD ────────────────────────────────────────────────────────────
 
 def create_session_row(
-    token: str, username: str, name: str, is_admin: bool, expires_at: str, login_at: str
+    token: str,
+    username: str,
+    name: str,
+    is_admin: bool,
+    expires_at: str,
+    login_at: str,
+    gerencia: str = "",
 ) -> None:
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO sessions (token, username, name, is_admin, expires_at, login_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (token, username, name, 1 if is_admin else 0, expires_at, login_at),
+            "INSERT INTO sessions (token, username, name, is_admin, gerencia, expires_at, login_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (token, username, name, 1 if is_admin else 0, gerencia, expires_at, login_at),
         )
 
 
 def get_session_row(token: str) -> dict[str, Any] | None:
     with get_db() as conn:
         row = conn.execute(
-            "SELECT token, username, name, is_admin, expires_at, login_at"
+            "SELECT token, username, name, is_admin, gerencia, expires_at, login_at"
             " FROM sessions WHERE token = ?",
             (token,),
         ).fetchone()
@@ -322,7 +342,7 @@ def count_sessions() -> int:
 def list_users() -> list[dict[str, Any]]:
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT id, username, name, is_admin, created_at, updated_at FROM users ORDER BY id"
+            "SELECT id, username, name, is_admin, gerencia, created_at, updated_at FROM users ORDER BY id"
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -330,23 +350,25 @@ def list_users() -> list[dict[str, Any]]:
 def get_user(username: str) -> dict[str, Any] | None:
     with get_db() as conn:
         row = conn.execute(
-            "SELECT id, username, password_hash, name, is_admin, created_at, updated_at"
+            "SELECT id, username, password_hash, name, is_admin, gerencia, created_at, updated_at"
             " FROM users WHERE username = ?",
             (username,),
         ).fetchone()
     return dict(row) if row else None
 
 
-def create_user(username: str, password: str, name: str, is_admin: bool) -> dict[str, Any]:
+def create_user(
+    username: str, password: str, name: str, is_admin: bool, gerencia: str = ""
+) -> dict[str, Any]:
     now = _utcnow()
     password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO users (username, password_hash, name, is_admin, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (username, password_hash, name, 1 if is_admin else 0, now, now),
+            "INSERT INTO users (username, password_hash, name, is_admin, gerencia, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (username, password_hash, name, 1 if is_admin else 0, gerencia, now, now),
         )
-    return {"username": username, "name": name, "is_admin": is_admin}
+    return {"username": username, "name": name, "is_admin": is_admin, "gerencia": gerencia}
 
 
 def update_user(
@@ -355,6 +377,7 @@ def update_user(
     name: str | None = None,
     password: str | None = None,
     is_admin: bool | None = None,
+    gerencia: str | None = None,
 ) -> bool:
     now = _utcnow()
     sets: list[str] = ["updated_at = ?"]
@@ -369,6 +392,9 @@ def update_user(
     if is_admin is not None:
         sets.append("is_admin = ?")
         params.append(1 if is_admin else 0)
+    if gerencia is not None:
+        sets.append("gerencia = ?")
+        params.append(gerencia)
 
     params.append(username)
     with get_db() as conn:

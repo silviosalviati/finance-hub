@@ -239,6 +239,28 @@ def resolve_dataset_by_gerencia(project_id: str, gerencia_hint: str) -> dict[str
     }
 
 
+def list_all_gerencias(project_id: str) -> list[str]:
+    """Lista todos os valores distintos de gerência (rótulo do BigQuery) —
+    usado para popular o dropdown de cadastro de usuário no painel admin.
+
+    Reaproveita a mesma extração de `value_to_dataset` de
+    `resolve_dataset_by_gerencia`, sem o fuzzy-pick final (aqui queremos o
+    catálogo inteiro, não um único match).
+    """
+    label_key = get_runtime_config("FINANCE_AUDITOR_GERENCIA_LABEL_KEY", "gerencia")
+    try:
+        datasets = list_datasets_with_labels(project_id)
+    except Exception:  # noqa: BLE001
+        return []
+
+    values: set[str] = set()
+    for ds in datasets:
+        value = str((ds.get("labels") or {}).get(label_key) or "").strip()
+        if value:
+            values.add(value)
+    return sorted(values)
+
+
 def cap_bq_list_tables(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     project_id = (context.get("project_id") or "").strip()
     dataset_hint = (

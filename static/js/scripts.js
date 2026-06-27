@@ -7734,7 +7734,7 @@ let _adminEditingUsername = null;
 async function adminLoadUsers() {
   const tbody = document.getElementById("admin-users-tbody");
   if (!tbody) return;
-  tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;color:var(--ink3)'>Carregando...</td></tr>";
+  tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;color:var(--ink3)'>Carregando...</td></tr>";
 
   try {
     const res = await fetch("/admin/users", { headers: authHeaders() });
@@ -7746,6 +7746,7 @@ async function adminLoadUsers() {
         <td><code>${u.username}</code></td>
         <td>${u.name}</td>
         <td><span class="admin-badge ${u.is_admin ? 'badge-admin' : 'badge-user'}">${u.is_admin ? 'Admin' : 'Usuário'}</span></td>
+        <td style="font-size:11px;color:var(--ink3)">${u.gerencia || '—'}</td>
         <td style="font-size:11px;color:var(--ink3)">${u.created_at ? u.created_at.slice(0, 10) : '—'}</td>
         <td class="admin-actions">
           <button class="btn-table-edit" onclick="adminOpenUserModal('${u.username}')">Editar</button>
@@ -7754,9 +7755,9 @@ async function adminLoadUsers() {
             : ''}
         </td>
       </tr>
-    `).join("") || "<tr><td colspan='5' style='text-align:center'>Nenhum usuário cadastrado.</td></tr>";
+    `).join("") || "<tr><td colspan='6' style='text-align:center'>Nenhum usuário cadastrado.</td></tr>";
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan='5' style='color:#c0392b'>${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan='6' style='color:#c0392b'>${e.message}</td></tr>`;
   }
 }
 

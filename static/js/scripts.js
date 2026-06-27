@@ -934,6 +934,7 @@ async function _autoResolveQBGerencia() {
 
     if (badge) badge.textContent = `Gerência: ${data.gerencia}`;
     syncQBGenerateButtonState();
+    _loadQBSuggestions(data.project_id, data.dataset_id, "");
   } catch (e) {
     qbDatasetValidationState.status = "invalid";
     if (badge) badge.textContent = `Gerência: ${currentUser.gerencia}`;

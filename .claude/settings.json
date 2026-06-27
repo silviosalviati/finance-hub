@@ -4,7 +4,10 @@
       "Bash(.venv/Scripts/python.exe -c ' *)",
       "Bash(python -c ' *)",
       "Bash(curl -s -m 3 http://localhost:8000/health)",
-      "Bash(curl -s -m 5 http://localhost:8000/static/index.html)"
+      "Bash(curl -s -m 5 http://localhost:8000/static/index.html)",
+      "Bash(curl -s -m 5 http://localhost:8000/health)",
+      "Read(//tmp/**)",
+      "Read(//d/tmp/**)"
     ]
   }
 }

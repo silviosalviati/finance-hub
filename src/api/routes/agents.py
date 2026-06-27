@@ -63,7 +63,10 @@ class ValidateAnalyzerContextRequest(BaseModel):
 class SuggestionsRequest(BaseModel):
     project_id: str = Field(..., min_length=1, max_length=256)
     dataset_hint: str = Field(..., min_length=1, max_length=256)
-    table_id: str = Field(..., min_length=1, max_length=256)
+    # Vazio = sugestoes pro dataset inteiro (fluxo de entrada por gerencia,
+    # sem tabela especifica escolhida); preenchido = sugestoes focadas
+    # nessa tabela (fluxo do Schema Explorer).
+    table_id: str = Field(default="", max_length=256)
 
 
 class GerenciaRequest(BaseModel):
@@ -574,8 +577,22 @@ async def query_build_suggestions(
     dataset_hint = req.dataset_hint.strip()
     table_id = req.table_id.strip()
 
-    if not project_id or not dataset_hint or not table_id:
-        raise HTTPException(status_code=400, detail="project_id, dataset_hint e table_id sao obrigatorios.")
+    if not project_id or not dataset_hint:
+        raise HTTPException(status_code=400, detail="project_id e dataset_hint sao obrigatorios.")
+
+    if not table_id:
+        # Sem tabela especifica (fluxo de entrada por gerencia) — sugestoes
+        # pro dataset inteiro, mesmo mecanismo ja usado pelo Finance Auditor
+        # (_generate_gerencia_suggestions: fallback deterministico + filtro
+        # contra campos inventados).
+        try:
+            schema = _get_cached_dataset_catalog(project_id, dataset_hint)
+            tables = schema.get("tables", [])
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Erro ao carregar metadata: {exc}")
+
+        suggestions = await _generate_gerencia_suggestions(tables)
+        return {"suggestions": suggestions}
 
     try:
         metadata = get_dataset_tables_metadata(project_id, dataset_hint)

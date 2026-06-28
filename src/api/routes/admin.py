@@ -76,10 +76,15 @@ async def admin_create_user(
 async def admin_update_user(
     username: str,
     req: UpdateUserRequest,
-    _admin: dict[str, Any] = Depends(get_admin_user),
+    admin: dict[str, Any] = Depends(get_admin_user),
 ) -> dict[str, Any]:
     if not get_user(username):
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    if username == admin["username"] and req.is_admin is False:
+        raise HTTPException(
+            status_code=400,
+            detail="Não é possível remover seu próprio acesso de administrador.",
+        )
     updated = update_user(
         username,
         name=req.name,

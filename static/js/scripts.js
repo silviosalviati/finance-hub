@@ -846,22 +846,14 @@ function navTo(view) {
     initFASuggestions();
   } else if (view === "qb") {
     document.getElementById("nav-qb")?.classList.add("active");
-    if (currentUser?.is_admin) {
-      _setQBGerenciaMode(false);
-      if (!document.getElementById("qb-project")?.options.length ||
-          document.getElementById("qb-project")?.options[0]?.value === "") {
-        _loadProjectsIntoSelect("qb-project");
-      }
-    } else if (currentUser?.gerencia) {
-      _setQBGerenciaMode(true);
-      if (qbDatasetValidationState.status !== "valid") {
-        _autoResolveQBGerencia();
-      }
-    } else {
-      _setQBGerenciaMode(false);
-      if (!document.getElementById("qb-project")?.options.length ||
-          document.getElementById("qb-project")?.options[0]?.value === "") {
-        _loadProjectsIntoSelect("qb-project");
+    if (!_qbPickerResolved && qbDatasetValidationState.status !== "valid") {
+      if (currentUser?.is_admin) {
+        _qbShowGerenciaPicker(_QB_GERENCIA_TOPICS);
+      } else if (currentUser?.gerencia) {
+        const topic = _qbFindGerenciaTopic(currentUser.gerencia);
+        _qbShowGerenciaPicker([topic || _QB_GERENCIA_TOPICS[_QB_GERENCIA_TOPICS.length - 1]]);
+      } else {
+        _qbShowGerenciaPicker([_QB_GERENCIA_TOPICS[_QB_GERENCIA_TOPICS.length - 1]]);
       }
     }
   } else if (view === "er") {
@@ -896,6 +888,114 @@ function _setQBGerenciaMode(on) {
 // centralizado no mesmo estilo de qb-empty, em vez do balão de chat do
 // Finance Voice (avatar "FV" não fazia sentido aqui: quem fala é o QB).
 const _QB_ICON_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--porto)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
+
+// Mesmas gerências/ícones do seletor do Finance Voice (initFASuggestions)
+// — lista fixa, reaproveitada aqui para o ponto de entrada do QB ter o
+// mesmo layout e dinâmica (cartão com ícone, clique inicia o fluxo).
+const _QB_GERENCIA_TOPICS = [
+  {
+    label: "Contas a pagar",
+    gerencia: "contas_a_pagar",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M7 8h10"></path><path d="M7 12h10"></path><path d="M7 16h6"></path></svg>`,
+  },
+  {
+    label: "Contas a receber",
+    gerencia: "contas_receber",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M3 10h18"></path><path d="M8 14h3"></path><path d="M15 14h1"></path></svg>`,
+  },
+  {
+    label: "Experiência do cliente",
+    gerencia: "experiencia_cliente",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-4.35-9-8.13C1.24 10.3 2.26 6.5 5.8 5.37c2.03-.65 4.18.03 5.2 1.64 1.02-1.61 3.17-2.29 5.2-1.64 3.54 1.13 4.56 4.93 2.8 7.5C18.5 16.65 12 21 12 21z"></path></svg>`,
+  },
+  {
+    label: "Cobrança",
+    gerencia: "cobranca",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>`,
+  },
+  {
+    label: "Fluxo de Caixa",
+    gerencia: "fluxo_caixa",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-7"></path><path d="M14 8h6v6"></path></svg>`,
+  },
+  {
+    label: "Outros Assuntos Financeiro",
+    gerencia: "",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`,
+  },
+];
+
+let _qbPickerResolved = false;
+
+function _qbFindGerenciaTopic(gerencia) {
+  const key = String(gerencia || "").trim().toLowerCase();
+  if (!key) return null;
+  return _QB_GERENCIA_TOPICS.find((t) => t.gerencia === key) || null;
+}
+
+function _qbShowGerenciaPicker(topics) {
+  const picker = document.getElementById("qb-gerencia-picker");
+  const titleEl = document.getElementById("qb-gerencia-picker-title");
+  const hintEl = document.getElementById("qb-gerencia-picker-hint");
+  const list = document.getElementById("qb-gerencia-picker-list");
+  if (!picker || !list) return;
+
+  // Mesma estrutura de duas colunas do Finance Voice (fa-sidebar + área
+  // principal) — os cartões entram na coluna de configuração, no lugar dos
+  // campos de projeto/dataset, e o painel da direita segue com o estado
+  // ocioso normal (sem duplicar mensagem de boas-vindas).
+  _setQBGerenciaMode(true);
+
+  // Pré-carrega projetos em segundo plano — se o usuário escolher "Outros
+  // Assuntos Financeiro", o seletor manual já aparece com a lista pronta.
+  if (!document.getElementById("qb-project")?.options.length ||
+      document.getElementById("qb-project")?.options[0]?.value === "") {
+    _loadProjectsIntoSelect("qb-project");
+  }
+
+  const single = topics.length === 1 ? topics[0] : null;
+  if (titleEl) {
+    if (!single) {
+      titleEl.textContent = "Sobre qual área você quer criar consultas?";
+    } else if (single.gerencia) {
+      titleEl.textContent = `Pronto para criar consultas sobre ${_qbCapitalize(single.label)}`;
+    } else {
+      titleEl.textContent = "Vamos configurar sua consulta";
+    }
+  }
+  if (hintEl) {
+    if (!single) {
+      hintEl.textContent = "Escolha uma área para o QB já preparar sugestões de consulta.";
+    } else if (single.gerencia) {
+      hintEl.textContent = "Confirme abaixo para o QB preparar sugestões de consulta.";
+    } else {
+      hintEl.textContent = "Confirme abaixo para escolher o projeto e o dataset manualmente.";
+    }
+  }
+
+  picker.style.display = "block";
+  list.innerHTML = "";
+  topics.forEach((topic) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "fa-topic-card";
+    btn.setAttribute("aria-label", topic.label);
+    btn.innerHTML = `
+      <span class="fa-topic-icon" aria-hidden="true">${topic.icon}</span>
+      <span class="fa-topic-label">${topic.label}</span>
+    `;
+    btn.onclick = () => {
+      _qbPickerResolved = true;
+      picker.style.display = "none";
+      if (topic.gerencia) {
+        _resolveQBGerencia(topic.gerencia);
+      } else {
+        _setQBGerenciaMode(false);
+      }
+    };
+    list.appendChild(btn);
+  });
+}
 
 function _qbCapitalize(text) {
   const t = String(text || "").trim();
@@ -1002,20 +1102,20 @@ function _qbHideGerenciaLearning() {
   if (empty) empty.style.display = "flex";
 }
 
-async function _autoResolveQBGerencia() {
+async function _resolveQBGerencia(gerencia) {
   showQBError("");
   // Trava o botão já de partida — fica destravado só depois que o dataset
   // resolver E houver texto na solicitação (escolhido ou digitado).
   const btn = document.getElementById("qb-btn");
   if (btn) btn.disabled = true;
 
-  const phaseHandle = _qbShowGerenciaLearning(currentUser.gerencia);
+  const phaseHandle = _qbShowGerenciaLearning(gerencia);
 
   try {
     const res = await fetch("/api/agents/query_build/resolve-gerencia", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ gerencia: currentUser.gerencia }),
+      body: JSON.stringify({ gerencia }),
     });
 
     if (res.status === 401) {

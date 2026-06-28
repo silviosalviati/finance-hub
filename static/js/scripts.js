@@ -787,20 +787,17 @@ async function doLogout() {
     // silencioso por design
   }
 
-  token = null;
-  currentUser = null;
-
-  const userEl = document.getElementById("inp-user");
-  const passEl = document.getElementById("inp-pass");
-
-  if (userEl) userEl.value = "";
-  if (passEl) passEl.value = "";
-
   // Limpar dados persistentes
   localStorage.clear();
 
-  showScreen("screen-login");
-  document.getElementById("inp-user")?.focus();
+  // Recarrega a página em vez de só trocar de tela — cada agente acumula
+  // estado em variáveis de módulo (qbDatasetValidationState, _qbPickerResolved,
+  // qaDatasetValidationState, etc.) que não eram resetadas no logout, então o
+  // próximo usuário a logar no mesmo navegador via SPA herdava a sessão
+  // (dataset resolvido, SQL gerada, gerência) do usuário anterior. Recarregar
+  // reexecuta os scripts do zero e elimina essa classe inteira de vazamento
+  // de estado entre sessões, sem precisar resetar cada variável manualmente.
+  window.location.reload();
 }
 
 // ─────────────────────────────────────

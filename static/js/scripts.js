@@ -967,7 +967,7 @@ function _qbShowGerenciaPicker(topics) {
     if (!single) {
       hintEl.textContent = "Escolha uma área para o QB já preparar sugestões de consulta.";
     } else if (single.gerencia) {
-      hintEl.textContent = "Confirme abaixo para o QB preparar sugestões de consulta.";
+      hintEl.textContent = `Confirme abaixo para o QB preparar sugestões de consulta sobre ${_qbCapitalize(single.label)}.`;
     } else {
       hintEl.textContent = "Confirme abaixo para escolher o projeto e o dataset manualmente.";
     }

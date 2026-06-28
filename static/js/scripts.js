@@ -880,10 +880,13 @@ function navTo(view) {
 }
 
 function _setQBGerenciaMode(on) {
-  const badgeWrap = document.getElementById("qb-gerencia-badge-wrap");
+  const configLabel = document.getElementById("qb-config-label");
   const projectField = document.getElementById("qb-project-field");
   const datasetField = document.getElementById("qb-dataset-field");
-  if (badgeWrap) badgeWrap.style.display = on ? "flex" : "none";
+  // Usuário já tem a gerência fixada (mostrada na mensagem do QB e no
+  // perfil, no canto inferior esquerdo) — repetir aqui é redundante, então
+  // some a seção "Configuração" inteira, não só os campos de projeto/dataset.
+  if (configLabel) configLabel.style.display = on ? "none" : "block";
   if (projectField) projectField.style.display = on ? "none" : "flex";
   if (datasetField) datasetField.style.display = on ? "none" : "flex";
 }
@@ -999,8 +1002,6 @@ function _qbHideGerenciaLearning() {
 }
 
 async function _autoResolveQBGerencia() {
-  const badge = document.getElementById("qb-gerencia-badge");
-  if (badge) badge.textContent = `Gerência: ${currentUser.gerencia}`;
   showQBError("");
 
   const phaseHandle = _qbShowGerenciaLearning(currentUser.gerencia);
@@ -1046,7 +1047,6 @@ async function _autoResolveQBGerencia() {
     qbDatasetValidationState.datasetHint = data.dataset_id;
     qbDatasetValidationState.projectId = data.project_id;
 
-    if (badge) badge.textContent = `Gerência: ${data.gerencia}`;
     syncQBGenerateButtonState();
 
     phaseHandle?.setPhase("suggestions");

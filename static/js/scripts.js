@@ -888,19 +888,24 @@ function _setQBGerenciaMode(on) {
   if (datasetField) datasetField.style.display = on ? "none" : "flex";
 }
 
-// Mesmos componentes visuais do Finance Voice (fa-msg/fa-bubble--thinking/
-// fa-suggestion-chip) — reaproveitados aqui pra dar a mesma "dinâmica" de
-// bolha de progresso + chips de sugestão ao entrar no Query Builder por
-// gerência, em vez de inventar um padrão novo só pra essa tela.
-function _qbGerenciaPhaseText(phase, label) {
-  const safeLabel = label ? _escapeHtml(label) : "";
+// Identidade visual própria do Query Builder (QB) — ícone <> e cartão
+// centralizado no mesmo estilo de qb-empty, em vez do balão de chat do
+// Finance Voice (avatar "FV" não fazia sentido aqui: quem fala é o QB).
+const _QB_ICON_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--porto)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
+
+function _qbCapitalize(text) {
+  const t = String(text || "").trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+}
+
+function _qbGerenciaPhaseText(phase) {
   switch (phase) {
     case "catalog":
       return "Lendo tabelas, colunas e descrições";
     case "suggestions":
       return "Preparando sugestões de perguntas";
     default:
-      return `Estou aprendendo o produto de dados${safeLabel ? ` de ${safeLabel}` : ""}, aguarde`;
+      return "Carregando o contexto da sua gerência";
   }
 }
 
@@ -914,25 +919,19 @@ function _qbShowGerenciaLearning(label) {
   if (tabsArea) tabsArea.style.display = "none";
   container.style.display = "block";
   container.innerHTML = `
-    <div class="fa-msg fa-msg-bot">
-      <div class="fa-msg-avatar">FV</div>
-      <div class="fa-msg-main">
-        <div class="fa-bubble fa-bubble--thinking" id="qb-ger-thinking">
-          <div class="fa-thinking-body" role="status" aria-live="polite">
-            <div class="fa-thinking-phase" id="qb-ger-phase">
-              ${_qbGerenciaPhaseText(null, label)}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>
-            </div>
-            <div class="fa-thinking-track"></div>
-          </div>
-        </div>
-      </div>
+    <div class="qa-empty" style="height: 100%">
+      <div class="qa-empty-ico">${_QB_ICON_SVG}</div>
+      <h3 id="qb-ger-phase">
+        ${_qbGerenciaPhaseText(null)}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>
+      </h3>
+      <p>Preparando o QB para ${label ? _escapeHtml(_qbCapitalize(label)) : "sua gerência"}.</p>
     </div>`;
 
   return {
     setPhase(phase) {
       const phaseEl = document.getElementById("qb-ger-phase");
       if (!phaseEl) return;
-      phaseEl.innerHTML = `${_qbGerenciaPhaseText(phase, label)}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>`;
+      phaseEl.innerHTML = `${_qbGerenciaPhaseText(phase)}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>`;
     },
   };
 }
@@ -957,21 +956,24 @@ function _qbShowGerenciaReady(label, suggestions) {
       `<button type="button" class="fa-suggestions-toggle" id="qb-ger-suggestions-toggle" aria-expanded="false">Mostrar mais</button>`
     : "";
 
+  const niceLabel = _escapeHtml(_qbCapitalize(label));
+
   container.innerHTML = `
-    <div class="fa-msg fa-msg-bot">
-      <div class="fa-msg-avatar">FV</div>
-      <div class="fa-msg-main">
-        <div class="fa-bubble fa-bubble--bot">
-          <div class="fa-bubble-body">Estou pronto para te ajudar com perguntas sobre ${_escapeHtml(label)}.</div>
-        </div>
-      </div>
+    <div class="qa-empty" style="height: auto; padding: 56px 24px 28px">
+      <div class="qa-empty-ico">${_QB_ICON_SVG}</div>
+      <h3>Estou pronto para criar consultas sobre ${niceLabel}.</h3>
+      <p style="max-width: 360px">Escolha uma sugestão abaixo ou descreva sua necessidade no campo ao lado.</p>
     </div>
     ${
       list.length
-        ? `<div class="fa-quick-suggestions" style="border-top:none;margin-top:10px">
-             <span class="fa-suggestions-icon" aria-hidden="true">${_faIcon("sparkle", 13)}</span>
-             ${visible.map(chipHtml).join("")}
-             ${extraHtml}
+        ? `<div style="padding: 0 24px 32px; text-align: center">
+             <div class="qb-sugg-strip-title" style="justify-content: center; margin-bottom: 10px">
+               ${_faIcon("sparkle", 11)} SUGESTÕES PARA ${niceLabel.toUpperCase()}
+             </div>
+             <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center">
+               ${visible.map(chipHtml).join("")}
+               ${extraHtml}
+             </div>
            </div>`
         : ""
     }`;

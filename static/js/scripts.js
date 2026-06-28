@@ -965,9 +965,9 @@ function _qbShowGerenciaPicker(topics) {
   }
   if (hintEl) {
     if (!single) {
-      hintEl.textContent = "Escolha uma área para o QB já preparar sugestões de consulta.";
+      hintEl.textContent = "Escolha uma área abaixo e o QB já prepara sugestões de consulta para você.";
     } else if (single.gerencia) {
-      hintEl.textContent = `Confirme abaixo para o QB preparar sugestões de consulta sobre ${_qbCapitalize(single.label)}.`;
+      hintEl.textContent = `Confirme abaixo e o QB prepara sugestões de consulta sobre ${_qbCapitalize(single.label)} para você.`;
     } else {
       hintEl.textContent = "Confirme abaixo para escolher o projeto e o dataset manualmente.";
     }

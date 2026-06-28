@@ -39,6 +39,11 @@ class QueryBuildState(BaseModel):
 	# Faixa de custo informativa ("baixo" | "moderado" | "alto") — não afeta
 	# quality_score, só alimenta o badge visual do resultado.
 	cost_tier: str = ""
+	# % do tamanho total das tabelas referenciadas que a consulta de fato leu
+	# (bytes_processed ÷ soma de num_bytes) — métrica independente de escala,
+	# ao contrário do custo em USD (que é ~0 em datasets pequenos). None
+	# quando não há tamanho de tabela conhecido pra calcular a razão.
+	table_scan_pct: Optional[float] = None
 
 	# Score de boas práticas (0-100) contra os 5 PILARES OBRIGATÓRIOS do
 	# QUERY_BUILD_SYSTEM_PROMPT — e o HITL que decide o que fazer quando < 80.

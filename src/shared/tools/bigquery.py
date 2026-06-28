@@ -388,11 +388,13 @@ def get_dataset_tables_schema(
         columns: list[dict[str, str]] = []
         partition_field = ""
         clustering_fields: list[str] = []
+        num_bytes = 0
 
         try:
             table = client.get_table(table_ref)
             partition_field = (table.time_partitioning.field if table.time_partitioning else "") or ""
             clustering_fields = list(table.clustering_fields or [])
+            num_bytes = table.num_bytes or 0
 
             for field in table.schema[:max_columns]:
                 columns.append(
@@ -407,6 +409,7 @@ def get_dataset_tables_schema(
             columns = []
             partition_field = ""
             clustering_fields = []
+            num_bytes = 0
 
         tables_info.append(
             {
@@ -414,6 +417,7 @@ def get_dataset_tables_schema(
                 "full_name": table_ref,
                 "partition_field": partition_field,
                 "clustering_fields": clustering_fields,
+                "num_bytes": num_bytes,
                 "columns": columns,
             }
         )

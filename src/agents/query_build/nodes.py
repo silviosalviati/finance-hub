@@ -332,10 +332,19 @@ def dry_run_generated_sql(state: QueryBuildState) -> dict[str, Any]:
 		pct = result.bytes_processed / budget_bytes
 		cost_tier = "baixo" if pct < 0.20 else "moderado" if pct < 0.70 else "alto"
 
+	total_table_bytes = sum(
+		state.dataset_table_meta.get(table.lower(), {}).get("num_bytes", 0)
+		for table in result.referenced_tables
+	)
+	table_scan_pct = (
+		result.bytes_processed / total_table_bytes if total_table_bytes else None
+	)
+
 	return {
 		"dry_run_generated": result,
 		"warnings": warnings,
 		"cost_tier": cost_tier,
+		"table_scan_pct": table_scan_pct,
 	}
 
 
@@ -829,6 +838,7 @@ def _build_table_meta_map(tables: list[dict[str, Any]]) -> dict[str, dict[str, A
 		meta_map[full_name.lower()] = {
 			"partition_field": str(item.get("partition_field") or "").strip(),
 			"clustering_fields": list(item.get("clustering_fields") or []),
+			"num_bytes": int(item.get("num_bytes") or 0),
 		}
 	return meta_map
 

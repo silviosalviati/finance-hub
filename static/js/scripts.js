@@ -849,11 +849,13 @@ function navTo(view) {
     if (!_qbPickerResolved && qbDatasetValidationState.status !== "valid") {
       if (currentUser?.is_admin) {
         _qbShowGerenciaPicker(_QB_GERENCIA_TOPICS);
-      } else if (currentUser?.gerencia) {
-        const topic = _qbFindGerenciaTopic(currentUser.gerencia);
-        _qbShowGerenciaPicker([topic || _QB_GERENCIA_TOPICS[_QB_GERENCIA_TOPICS.length - 1]]);
       } else {
-        _qbShowGerenciaPicker([_QB_GERENCIA_TOPICS[_QB_GERENCIA_TOPICS.length - 1]]);
+        const topic = _qbFindGerenciaTopic(currentUser?.gerencia);
+        if (topic) {
+          _qbShowGerenciaPicker([topic]);
+        } else {
+          _qbShowNoGerenciaGuidance();
+        }
       }
     }
   } else if (view === "er") {
@@ -918,11 +920,6 @@ const _QB_GERENCIA_TOPICS = [
     gerencia: "fluxo_caixa",
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-7"></path><path d="M14 8h6v6"></path></svg>`,
   },
-  {
-    label: "Outros Assuntos Financeiro",
-    gerencia: "",
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`,
-  },
 ];
 
 let _qbPickerResolved = false;
@@ -955,22 +952,14 @@ function _qbShowGerenciaPicker(topics) {
 
   const single = topics.length === 1 ? topics[0] : null;
   if (titleEl) {
-    if (!single) {
-      titleEl.textContent = "Sobre qual área você quer criar consultas?";
-    } else if (single.gerencia) {
-      titleEl.textContent = `Pronto para criar consultas sobre ${_qbCapitalize(single.label)}`;
-    } else {
-      titleEl.textContent = "Vamos configurar sua consulta";
-    }
+    titleEl.textContent = single
+      ? `Pronto para criar consultas sobre ${_qbCapitalize(single.label)}`
+      : "Sobre qual área você quer criar consultas?";
   }
   if (hintEl) {
-    if (!single) {
-      hintEl.textContent = "Escolha uma área abaixo e o QB já prepara sugestões de consulta para você.";
-    } else if (single.gerencia) {
-      hintEl.textContent = `Confirme abaixo e o QB prepara sugestões de consulta sobre ${_qbCapitalize(single.label)} para você.`;
-    } else {
-      hintEl.textContent = "Confirme abaixo para escolher o projeto e o dataset manualmente.";
-    }
+    hintEl.textContent = single
+      ? `Confirme abaixo e o QB prepara sugestões de consulta sobre ${_qbCapitalize(single.label)} para você.`
+      : "Escolha uma área abaixo e o QB já prepara sugestões de consulta para você.";
   }
 
   picker.style.display = "block";
@@ -987,14 +976,43 @@ function _qbShowGerenciaPicker(topics) {
     btn.onclick = () => {
       _qbPickerResolved = true;
       picker.style.display = "none";
-      if (topic.gerencia) {
-        _resolveQBGerencia(topic.gerencia);
-      } else {
-        _setQBGerenciaMode(false);
-      }
+      _resolveQBGerencia(topic.gerencia);
     };
     list.appendChild(btn);
   });
+}
+
+// Usuário sem gerência cadastrada (ou gerência fora da lista fixa) e sem
+// vir do Explorador de Esquema — não há mais seletor manual de projeto/
+// dataset dentro do QB, então a única saída é apontar para o Explorador,
+// que já preenche tudo automaticamente ao abrir uma tabela (neoGoQB).
+function _qbShowNoGerenciaGuidance() {
+  const picker = document.getElementById("qb-gerencia-picker");
+  const titleEl = document.getElementById("qb-gerencia-picker-title");
+  const hintEl = document.getElementById("qb-gerencia-picker-hint");
+  const list = document.getElementById("qb-gerencia-picker-list");
+  const requestField = document.getElementById("qb-request-field");
+  const btn = document.getElementById("qb-btn");
+  if (!picker || !list) return;
+
+  _setQBGerenciaMode(true);
+  if (requestField) requestField.style.display = "none";
+  if (btn) btn.style.display = "none";
+
+  if (titleEl) titleEl.textContent = "Nenhuma área associada ao seu perfil";
+  if (hintEl) {
+    hintEl.textContent =
+      "Abra o Explorador de Esquema, escolha uma tabela e gere a consulta a partir dela.";
+  }
+
+  picker.style.display = "block";
+  list.innerHTML = `
+    <button type="button" class="fa-topic-card" onclick="navTo('er')">
+      <span class="fa-topic-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      </span>
+      <span class="fa-topic-label">Abrir Explorador de Esquema</span>
+    </button>`;
 }
 
 function _qbCapitalize(text) {
@@ -7709,7 +7727,17 @@ function neoGoQB(dsRef, tableId) {
   const project = parts[0] || "";
   const dataset = parts[1] || "";
 
+  // Vem do Explorador de Esquema com projeto/dataset/tabela já definidos —
+  // pula o seletor de gerência e a tela de Configuração por completo
+  // (nunca mais aparecem no QB) e garante que solicitação/botão, que a
+  // orientação de "sem gerência" pode ter escondido, voltem a aparecer.
+  _qbPickerResolved = true;
+  document.getElementById("qb-gerencia-picker")?.style.setProperty("display", "none");
+  document.getElementById("qb-request-field")?.style.removeProperty("display");
+  document.getElementById("qb-btn")?.style.removeProperty("display");
+
   navTo("qb");
+  _setQBGerenciaMode(true);
 
   if (project) {
     const pi = document.getElementById("qb-project");

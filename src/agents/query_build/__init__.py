@@ -245,6 +245,7 @@ class QueryBuildAgent(BaseAgent):
 			"quality_score": final_event.get("quality_score"),
 			"quality_issues": final_event.get("quality_issues") or [],
 			"cost_tier": final_event.get("cost_tier") or "",
+			"table_scan_pct": final_event.get("table_scan_pct"),
 			"dry_run": {
 				"bytes_processed": dry.bytes_processed if dry else None,
 				"estimated_cost_usd": dry.estimated_cost_usd if dry else None,

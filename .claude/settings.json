@@ -11,7 +11,8 @@
       "Bash(curl -s -X POST http://localhost:8000/api/agents/query_build/resolve-gerencia -H 'Content-Type: application/json' -H 'Authorization: Bearer __TRACKED_VAR__' -d '{\"gerencia\": \"cobranca\"}')",
       "Bash(curl -s -X POST http://localhost:8000/api/agents/query_build/suggestions -H 'Content-Type: application/json' -H 'Authorization: Bearer __TRACKED_VAR__' -d '{\"project_id\": \"silviosalviati\", \"dataset_hint\": \"DOM_FINANCEIRO_COBRANCA\", \"table_id\": \"\"}')",
       "Bash(powershell -Command \"Get-Process python -ErrorAction SilentlyContinue | Select-Object Id,StartTime,Path\")",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "Bash(python -m pytest tests/api/test_api_routes.py -q -k \"query_build or qb\")"
     ]
   }
 }

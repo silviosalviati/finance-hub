@@ -69,6 +69,12 @@ function fmtUSD(v) {
   return v == null ? "—" : "USD " + Number(v).toFixed(4);
 }
 
+function fmtPct(v) {
+  if (v == null) return "—";
+  const pct = Number(v) * 100;
+  return (pct < 0.1 && pct > 0 ? "<0.1" : pct.toFixed(1)) + "%";
+}
+
 function authHeaders() {
   return {
     "Content-Type": "application/json",
@@ -3472,7 +3478,9 @@ function renderQB(data) {
   if (summary) {
     if (dry.bytes_processed != null) {
       const tierLabel = tierInfo ? tierInfo.label.toLowerCase() : "indefinido";
-      summary.textContent = `Esta consulta deve processar ${fmtBytes(dry.bytes_processed)} (≈ ${fmtUSD(dry.estimated_cost_usd)}) — custo ${tierLabel}.`;
+      const scanPart =
+        data.table_scan_pct != null ? `, ${fmtPct(data.table_scan_pct)} da tabela` : "";
+      summary.textContent = `Esta consulta deve processar ${fmtBytes(dry.bytes_processed)}${scanPart} — custo ${tierLabel}.`;
     } else {
       summary.textContent =
         data.explanation ||
@@ -3484,7 +3492,7 @@ function renderQB(data) {
     const hasDry =
       dry.bytes_processed != null || dry.estimated_cost_usd != null;
     qbTiles.style.display = hasDry ? "grid" : "none";
-    if (qbCostEst) qbCostEst.textContent = fmtUSD(dry.estimated_cost_usd);
+    if (qbCostEst) qbCostEst.textContent = fmtPct(data.table_scan_pct);
     if (qbBytesProc) qbBytesProc.textContent = fmtBytes(dry.bytes_processed);
     if (qbBytesProcSub) qbBytesProcSub.textContent = "processados nesta execução";
     if (qbCostTierBadge)
@@ -3571,6 +3579,7 @@ function renderQB(data) {
     } else {
       dryRun.innerHTML = `
         <div class="rec-item">Bytes processados: <strong style="margin-left:6px">${fmtBytes(dry.bytes_processed)}</strong></div>
+        <div class="rec-item">Dados escaneados: <strong style="margin-left:6px">${fmtPct(data.table_scan_pct)} da tabela</strong></div>
         <div class="rec-item">Custo estimado: <strong style="margin-left:6px">${fmtUSD(dry.estimated_cost_usd)}</strong></div>
       `;
     }

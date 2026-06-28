@@ -458,6 +458,7 @@ function syncQBGenerateButtonState() {
   const btn = document.getElementById("qb-btn");
   const dataset = document.getElementById("qb-dataset")?.value.trim() || "";
   const projectId = document.getElementById("qb-project")?.value.trim() || "";
+  const requestText = document.getElementById("qb-request")?.value.trim() || "";
 
   if (!btn) return;
 
@@ -469,7 +470,7 @@ function syncQBGenerateButtonState() {
       qbDatasetValidationState.projectId !== projectId;
   }
 
-  btn.disabled = qbIsLoading || blockedByDataset;
+  btn.disabled = qbIsLoading || blockedByDataset || !requestText;
 }
 
 function setQBDatasetValidationStatus(kind, payload = {}) {
@@ -1003,6 +1004,10 @@ function _qbHideGerenciaLearning() {
 
 async function _autoResolveQBGerencia() {
   showQBError("");
+  // Trava o botão já de partida — fica destravado só depois que o dataset
+  // resolver E houver texto na solicitação (escolhido ou digitado).
+  const btn = document.getElementById("qb-btn");
+  if (btn) btn.disabled = true;
 
   const phaseHandle = _qbShowGerenciaLearning(currentUser.gerencia);
 
@@ -4311,6 +4316,10 @@ document.getElementById("qb-request")?.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.key === "Enter") {
     runQueryBuild();
   }
+});
+
+document.getElementById("qb-request")?.addEventListener("input", () => {
+  syncQBGenerateButtonState();
 });
 
 document.getElementById("db-request")?.addEventListener("keydown", (e) => {

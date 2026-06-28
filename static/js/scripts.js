@@ -967,7 +967,7 @@ function _qbShowGerenciaReady(label, suggestions) {
     ${
       list.length
         ? `<div style="padding: 0 24px 32px; text-align: center">
-             <div class="qb-sugg-strip-title" style="justify-content: center; margin-bottom: 10px">
+             <div class="qb-sugg-strip-title" style="justify-content: center; margin-bottom: 10px; color: var(--porto-primary)">
                ${_faIcon("sparkle", 11)} SUGESTÕES PARA ${niceLabel.toUpperCase()}
              </div>
              <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center">

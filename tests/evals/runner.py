@@ -217,7 +217,7 @@ def _make_bq_stubs(bq_cfg: dict[str, Any]) -> dict[str, Any]:
         return fake_dry
 
     def fake_execute_query_rows(sql: str, project_id: str | None, **kw: Any):
-        return rows
+        return rows, bytes_processed
 
     return {
         "_list_project_datasets": fake_list_project_datasets,

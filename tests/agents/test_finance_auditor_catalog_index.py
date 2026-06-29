@@ -192,7 +192,7 @@ class TestSyncGoldMetricCatalog:
 
         with patch.object(catalog_index, "list_datasets_with_labels", return_value=fake_datasets), \
              patch.object(catalog_index, "list_table_ids", side_effect=fake_list_table_ids), \
-             patch.object(catalog_index, "execute_query_rows", return_value=fake_rows) as mock_query, \
+             patch.object(catalog_index, "execute_query_rows", return_value=(fake_rows, 0)) as mock_query, \
              patch.object(catalog_index, "upsert_finance_metric") as mock_upsert:
             result = catalog_index.sync_gold_metric_catalog("proj")
 
@@ -232,7 +232,7 @@ class TestSyncGoldMetricCatalog:
 
         with patch.object(catalog_index, "list_datasets_with_labels", return_value=fake_datasets), \
              patch.object(catalog_index, "list_table_ids", side_effect=fake_list_table_ids), \
-             patch.object(catalog_index, "execute_query_rows", return_value=[]), \
+             patch.object(catalog_index, "execute_query_rows", return_value=([], 0)), \
              patch.object(catalog_index, "upsert_finance_metric"):
             result = catalog_index.sync_gold_metric_catalog("proj")
 
@@ -339,7 +339,7 @@ class TestTextToSqlCatalogRagPath:
              patch.object(capabilities.rbac, "check_dataset", return_value=(True, "")), \
              patch.object(capabilities, "get_table_schema", return_value="schema"), \
              patch.object(capabilities, "dry_run_query", return_value=fake_dry), \
-             patch.object(capabilities, "execute_query_rows", return_value=[{"x": 1}]), \
+             patch.object(capabilities, "execute_query_rows", return_value=([{"x": 1}], 0)), \
              patch.object(capabilities, "get_runtime_config", return_value=str(5 * 1024 ** 3)):
             out = capabilities.cap_text_to_sql(
                 {"natural_language": "contas a receber"},

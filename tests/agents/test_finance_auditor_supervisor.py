@@ -217,7 +217,7 @@ class TestCapabilitiesGuardrails:
         fake_dry = MagicMock(error=None, bytes_processed=1024, estimated_cost_usd=0.0001)
 
         with patch.object(capabilities, "dry_run_query", return_value=fake_dry), \
-             patch.object(capabilities, "execute_query_rows", return_value=[{"c": 1}, {"c": 2}]), \
+             patch.object(capabilities, "execute_query_rows", return_value=([{"c": 1}, {"c": 2}], 0)), \
              patch.object(capabilities, "get_runtime_config", return_value=str(5 * 1024 ** 3)):
             out = capabilities.cap_bq_query(
                 {"sql": "SELECT c FROM t", "max_rows": 10}, {"project_id": "p"}
@@ -454,7 +454,7 @@ class TestTextToSql:
 
         with patch.object(capabilities, "get_table_schema", return_value="schema"), \
              patch.object(capabilities, "dry_run_query", return_value=fake_dry), \
-             patch.object(capabilities, "execute_query_rows", return_value=[{"n": 42}]), \
+             patch.object(capabilities, "execute_query_rows", return_value=([{"n": 42}], 0)), \
              patch.object(capabilities, "get_runtime_config", return_value=str(5 * 1024 ** 3)):
             out = capabilities.cap_text_to_sql(
                 {"natural_language": "quantas linhas?", "table_refs": ["p.d.t"]},
@@ -535,7 +535,7 @@ class TestTextToSql:
              patch.object(capabilities, "get_table_schema", return_value="schema"), \
              patch.object(capabilities.rbac, "check_dataset", return_value=(True, "")), \
              patch.object(capabilities, "dry_run_query", return_value=fake_dry), \
-             patch.object(capabilities, "execute_query_rows", return_value=[{"id_cliente": 1}]), \
+             patch.object(capabilities, "execute_query_rows", return_value=([{"id_cliente": 1}], 0)), \
              patch.object(capabilities, "get_runtime_config", return_value=str(5 * 1024 ** 3)):
             out = capabilities.cap_text_to_sql(
                 {
@@ -585,7 +585,7 @@ class TestTextToSql:
              patch.object(capabilities, "get_table_schema", return_value="schema"), \
              patch.object(capabilities.rbac, "check_dataset", return_value=(True, "")), \
              patch.object(capabilities, "dry_run_query", return_value=fake_dry), \
-             patch.object(capabilities, "execute_query_rows", return_value=[{"id_cliente": "X"}]), \
+             patch.object(capabilities, "execute_query_rows", return_value=([{"id_cliente": "X"}], 0)), \
              patch.object(capabilities, "get_runtime_config", return_value=str(5 * 1024 ** 3)):
             out = capabilities.cap_text_to_sql(
                 {"natural_language": "quem é o maior cliente?",

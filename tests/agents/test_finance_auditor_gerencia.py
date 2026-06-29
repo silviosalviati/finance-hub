@@ -145,7 +145,7 @@ class TestTextToSqlDatasetHintFallback:
         ), patch.object(capabilities, "get_table_schema", return_value="schema"), \
              patch.object(capabilities.rbac, "check_dataset", return_value=(True, "")), \
              patch.object(capabilities, "dry_run_query", return_value=fake_dry), \
-             patch.object(capabilities, "execute_query_rows", return_value=[{"id_cliente": "1"}]), \
+             patch.object(capabilities, "execute_query_rows", return_value=([{"id_cliente": "1"}], 0)), \
              patch.object(capabilities, "get_runtime_config", return_value=str(5 * 1024 ** 3)):
             out = capabilities.cap_text_to_sql(
                 {"natural_language": "quais sao os clientes?"},

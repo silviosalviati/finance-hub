@@ -354,7 +354,7 @@ class TestCapMetricExecute:
              patch.object(capabilities.semantic_layer, "resolve_metric", return_value=metric), \
              patch.object(capabilities.rbac, "check_dataset", return_value=(True, "")), \
              patch.object(capabilities, "dry_run_query", return_value=fake_dry), \
-             patch.object(capabilities, "execute_query_rows", return_value=[{"n": 1}]), \
+             patch.object(capabilities, "execute_query_rows", return_value=([{"n": 1}], 0)), \
              patch.object(capabilities, "get_runtime_config", return_value=str(5 * 1024 ** 3)):
             out = capabilities.cap_metric_execute(
                 {"key": "vendas", "params": {"date_start": "2026-01-01", "limit": 10}},
@@ -408,7 +408,7 @@ class TestCapMetricExecute:
              patch.object(capabilities.rbac, "check_dataset", return_value=(True, "")), \
              patch.object(capabilities, "get_table_column_types", return_value=fake_columns) as mock_cols, \
              patch.object(capabilities, "dry_run_query", return_value=fake_dry), \
-             patch.object(capabilities, "execute_query_rows", return_value=[{"data_referencia": "2026-01-01", "valor": 0.05}]), \
+             patch.object(capabilities, "execute_query_rows", return_value=([{"data_referencia": "2026-01-01", "valor": 0.05}], 0)), \
              patch.object(capabilities, "get_runtime_config", return_value=str(5 * 1024 ** 3)):
             out = capabilities.cap_metric_execute(
                 {"key": "p.d.taxa_inadimplencia", "params": {"date_start": "2026-01-01", "date_end": "2026-01-31"}},
@@ -439,7 +439,7 @@ class TestCapMetricExecute:
              patch.object(capabilities.rbac, "check_dataset", return_value=(True, "")), \
              patch.object(capabilities, "get_table_column_types", return_value={"ID_CLIENTE": "STRING"}), \
              patch.object(capabilities, "dry_run_query", return_value=fake_dry), \
-             patch.object(capabilities, "execute_query_rows", return_value=[{"valor": 42}]), \
+             patch.object(capabilities, "execute_query_rows", return_value=([{"valor": 42}], 0)), \
              patch.object(capabilities, "get_runtime_config", return_value=str(5 * 1024 ** 3)):
             out = capabilities.cap_metric_execute({"key": "p.d.metrica"}, {"project_id": "p", "user": {}})
 

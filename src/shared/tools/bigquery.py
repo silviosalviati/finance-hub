@@ -36,6 +36,23 @@ def _get_base_credentials(credentials_path: str):
     return service_account.Credentials.from_service_account_file(credentials_path)
 
 
+def get_credentials_project_id() -> str:
+    """Project ID embutido no arquivo de credenciais do service account.
+
+    Toda credencial de service account já carrega o projeto-dono no próprio
+    JSON — usar isso como fallback de `GCP_PROJECT_ID`/`VERTEXAI_PROJECT`
+    evita cravar no código um nome de projeto fixo que só existe no
+    ambiente onde foi escrito (não existe ao subir pra outro ambiente/conta
+    GCP). Nunca levanta: indisponibilidade de credenciais aqui não deve
+    impedir o resto da config de carregar.
+    """
+    try:
+        credentials = _get_base_credentials(_get_credentials_path())
+        return str(getattr(credentials, "project_id", "") or "")
+    except Exception:
+        return ""
+
+
 def _resolve_credentials_path(credentials_path: str | None) -> str:
     configured = (credentials_path or "").strip() or _DEFAULT_CREDENTIALS_PATH
     candidate = Path(configured).expanduser()

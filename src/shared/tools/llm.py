@@ -10,7 +10,7 @@ from typing import Any
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from src.shared.config import get_runtime_config
+from src.shared.config import get_runtime_config, get_vertexai_project
 
 _logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def create_llm(temperature: float | None = None) -> BaseChatModel:
         return ChatGoogleGenerativeAI(
             model=get_runtime_config("VERTEXAI_MODEL", "gemini-2.5-flash"),
             vertexai=True,
-            project=get_runtime_config("VERTEXAI_PROJECT", "silviosalviati"),
+            project=get_vertexai_project(),
             location=get_runtime_config("VERTEXAI_LOCATION", "us-central1"),
             temperature=t,
             max_tokens=int(get_runtime_config("VERTEXAI_MAX_OUTPUT_TOKENS", "8192")),

@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from src.agents.finance_auditor.capabilities import resolve_dataset_by_gerencia
 from src.shared.guardrails import rbac as finance_rbac
 from src.api.dependencies import get_checkpointer, get_current_user, get_registry
-from src.shared.config import get_runtime_config
+from src.shared.config import get_default_gcp_project, get_runtime_config
 from src.shared.tools.bigquery import (
     get_dataset_tables_metadata,
     get_dataset_tables_schema,
@@ -476,7 +476,10 @@ async def analyze_by_agent(
     if agent_id == "query_analyzer":
         _qa_rate_limit_check(session["token"])
     if agent_id == "finance_auditor" and not project_id:
-        project_id = get_runtime_config("FINANCE_AUDITOR_DEFAULT_PROJECT", "silviosalviati")
+        project_id = (
+            get_runtime_config("FINANCE_AUDITOR_DEFAULT_PROJECT", "").strip()
+            or get_default_gcp_project()
+        )
 
     registry = get_registry()
     try:
@@ -865,8 +868,10 @@ async def _gerencia_stream(req: GerenciaRequest, session: dict[str, Any]):
     refletir o progresso real em vez de advinhar com um timer.
     """
     gerencia = req.gerencia.strip()
-    project_id = (req.project_id or "").strip() or get_runtime_config(
-        "FINANCE_AUDITOR_DEFAULT_PROJECT", "silviosalviati"
+    project_id = (
+        (req.project_id or "").strip()
+        or get_runtime_config("FINANCE_AUDITOR_DEFAULT_PROJECT", "").strip()
+        or get_default_gcp_project()
     )
 
     match = resolve_dataset_by_gerencia(project_id, gerencia)
@@ -966,8 +971,10 @@ async def resolve_query_build_gerencia(
     um badge "pronto" enganoso — `check_access` no grafo continua sendo a
     autoridade real no momento de gerar a SQL.
     """
-    project_id = (req.project_id or "").strip() or get_runtime_config(
-        "FINANCE_AUDITOR_DEFAULT_PROJECT", "silviosalviati"
+    project_id = (
+        (req.project_id or "").strip()
+        or get_runtime_config("FINANCE_AUDITOR_DEFAULT_PROJECT", "").strip()
+        or get_default_gcp_project()
     )
     match = resolve_dataset_by_gerencia(project_id, req.gerencia.strip())
     if not match:

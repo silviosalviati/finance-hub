@@ -31,7 +31,7 @@ from src.core.database import (
     upsert_catalog_entry,
     upsert_finance_metric,
 )
-from src.shared.config import get_runtime_config
+from src.shared.config import get_runtime_config, get_vertexai_project
 from src.shared.tools.bigquery import (
     execute_query_rows,
     get_dataset_tables_schema,
@@ -71,7 +71,7 @@ def _get_embeddings() -> Any:
         _ensure_google_adc_env()
         _embeddings_singleton = GoogleGenerativeAIEmbeddings(
             model=get_runtime_config("FINANCE_AUDITOR_EMBEDDING_MODEL", _DEFAULT_EMBEDDING_MODEL),
-            project=get_runtime_config("VERTEXAI_PROJECT", "silviosalviati"),
+            project=get_vertexai_project(),
             location=get_runtime_config("VERTEXAI_LOCATION", "us-central1"),
             vertexai=True,
         )

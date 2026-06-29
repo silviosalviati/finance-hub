@@ -16,7 +16,7 @@ _DB_PATH = Path(".sixth") / "app.db"
 _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     # LLM / Vertex AI
     "LLM_PROVIDER": ("vertexai", "Provedor LLM (vertexai)"),
-    "VERTEXAI_PROJECT": ("silviosalviati", "Projeto Vertex AI"),
+    "VERTEXAI_PROJECT": ("", "Projeto Vertex AI (vazio = descobre a partir das credenciais)"),
     "VERTEXAI_LOCATION": ("us-central1", "Região Vertex AI"),
     "VERTEXAI_MODEL": ("gemini-2.5-flash", "Modelo Vertex AI / Gemini"),
     "VERTEXAI_MAX_OUTPUT_TOKENS": ("8192", "Máximo de tokens de saída do LLM"),
@@ -24,7 +24,7 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     "VERTEXAI_TEMPERATURE": ("0.05", "Temperatura analítica do LLM — análise e otimização (0.0 – 1.0)"),
     "VERTEXAI_TEMPERATURE_CREATIVE": ("0.3", "Temperatura criativa do LLM — relatórios e temas (0.0 – 1.0)"),
     # GCP / BigQuery
-    "GCP_PROJECT_ID": ("silviosalviati", "IDs de projetos GCP permitidos (separados por vírgula)"),
+    "GCP_PROJECT_ID": ("", "IDs de projetos GCP permitidos, separados por vírgula (vazio = descobre a partir das credenciais)"),
     "GOOGLE_APPLICATION_CREDENTIALS": (
         "secrets/credentials.json",
         "Caminho do arquivo de credenciais GCP (relativo à raiz do projeto)",

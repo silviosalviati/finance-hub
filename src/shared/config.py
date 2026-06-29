@@ -46,7 +46,6 @@ def invalidate_config_cache(key: str | None = None) -> None:
 
 LLM_PROVIDER = _from_db("LLM_PROVIDER", "vertexai")
 
-VERTEXAI_PROJECT = _from_db("VERTEXAI_PROJECT", "silviosalviati")
 VERTEXAI_LOCATION = _from_db("VERTEXAI_LOCATION", "us-central1")
 VERTEXAI_MODEL = _from_db("VERTEXAI_MODEL", "gemini-2.5-flash")
 VERTEXAI_MAX_OUTPUT_TOKENS = int(_from_db("VERTEXAI_MAX_OUTPUT_TOKENS", "8192"))
@@ -65,31 +64,42 @@ ALLOWED_ORIGINS = [
     if s.strip()
 ]
 
-GCP_PROJECT_ID = _from_db("GCP_PROJECT_ID", "silviosalviati")
 GCP_CREDENTIALS_PATH = _from_db(
     "GOOGLE_APPLICATION_CREDENTIALS",
     str(Path("secrets") / "credentials.json"),
 )
 
-FINANCE_AUDITOR_TABLE_REF = _from_db(
-    "FINANCE_AUDITOR_TABLE_REF",
-    "silviosalviati.ds_inteligencia_analitica.analitica_analise_ia",
-)
-FINANCE_AUDITOR_DEFAULT_PROJECT = _from_db(
-    "FINANCE_AUDITOR_DEFAULT_PROJECT",
-    "silviosalviati",
-)
 
 def get_gcp_project_ids() -> list[str]:
-    """Retorna lista de project IDs GCP configurados (campo separado por vírgula no DB)."""
-    raw = get_runtime_config("GCP_PROJECT_ID", "silviosalviati")
-    return [p.strip() for p in raw.split(",") if p.strip()]
+    """Retorna lista de project IDs GCP configurados (campo separado por
+    vírgula no DB). Sem config explícita, descobre o projeto a partir das
+    credenciais do service account em vez de assumir um nome fixo — o nome
+    de um projeto real de um ambiente não existe necessariamente em outro
+    (ex.: indo de dev para produção)."""
+    raw = get_runtime_config("GCP_PROJECT_ID", "")
+    projects = [p.strip() for p in raw.split(",") if p.strip()]
+    if projects:
+        return projects
+    from src.shared.tools.bigquery import get_credentials_project_id
+    fallback = get_credentials_project_id()
+    return [fallback] if fallback else []
 
 
 def get_default_gcp_project() -> str:
     """Retorna o primeiro project ID configurado como padrão."""
     projects = get_gcp_project_ids()
     return projects[0] if projects else ""
+
+
+def get_vertexai_project() -> str:
+    """Projeto de billing do Vertex AI. Sem config explícita, usa o mesmo
+    fallback via credenciais de `get_gcp_project_ids` — o projeto Vertex AI
+    quase sempre é o mesmo dono da credencial usada pra autenticar."""
+    configured = get_runtime_config("VERTEXAI_PROJECT", "").strip()
+    if configured:
+        return configured
+    from src.shared.tools.bigquery import get_credentials_project_id
+    return get_credentials_project_id()
 
 
 BQ_COST_PER_TB_USD = float(_from_db("BQ_COST_PER_TB_USD", "5.0"))
@@ -132,8 +142,11 @@ def validate_runtime_config() -> list[str]:
         )
 
     if provider == "vertexai":
-        if not get_runtime_config("VERTEXAI_PROJECT"):
-            errors.append("VERTEXAI_PROJECT nao configurado.")
+        if not get_vertexai_project():
+            errors.append(
+                "VERTEXAI_PROJECT nao configurado e nao foi possivel "
+                "descobrir a partir das credenciais."
+            )
         if not get_runtime_config("VERTEXAI_LOCATION"):
             errors.append("VERTEXAI_LOCATION nao configurado.")
         if not get_runtime_config("VERTEXAI_MODEL"):
@@ -155,9 +168,11 @@ def validate_runtime_config() -> list[str]:
     if not get_runtime_config("ALLOWED_ORIGINS"):
         errors.append("ALLOWED_ORIGINS nao pode ficar vazio.")
 
-    gcp_project = get_runtime_config("GCP_PROJECT_ID")
-    if not gcp_project or not get_gcp_project_ids():
-        errors.append("GCP_PROJECT_ID nao configurado.")
+    if not get_gcp_project_ids():
+        errors.append(
+            "GCP_PROJECT_ID nao configurado e nao foi possivel descobrir "
+            "a partir das credenciais."
+        )
 
     credentials_path = get_runtime_config(
         "GOOGLE_APPLICATION_CREDENTIALS",
@@ -188,13 +203,13 @@ def print_runtime_summary() -> None:
     provider = get_runtime_config("LLM_PROVIDER", "vertexai")
     print(f"LLM_PROVIDER: {provider}")
     if provider == "vertexai":
-        print(f"VERTEXAI_PROJECT:            {get_runtime_config('VERTEXAI_PROJECT')}")
+        print(f"VERTEXAI_PROJECT:            {get_vertexai_project()} (config ou credenciais)")
         print(f"VERTEXAI_LOCATION:           {get_runtime_config('VERTEXAI_LOCATION')}")
         print(f"VERTEXAI_MODEL:              {get_runtime_config('VERTEXAI_MODEL')}")
         print(f"VERTEXAI_MAX_OUTPUT_TOKENS:  {get_runtime_config('VERTEXAI_MAX_OUTPUT_TOKENS')}")
         print(f"VERTEXAI_MAX_RETRIES:        {get_runtime_config('VERTEXAI_MAX_RETRIES')}")
         print(f"VERTEXAI_TEMPERATURE:        {get_runtime_config('VERTEXAI_TEMPERATURE')}")
-    print(f"GCP_PROJECT_ID:              {get_runtime_config('GCP_PROJECT_ID')}")
+    print(f"GCP_PROJECT_ID:              {', '.join(get_gcp_project_ids())} (config ou credenciais)")
     print(f"GOOGLE_APPLICATION_CREDENTIALS: {get_runtime_config('GOOGLE_APPLICATION_CREDENTIALS')}")
     print(f"SESSION_TTL_HOURS:           {get_runtime_config('SESSION_TTL_HOURS')}")
     print(f"ALLOWED_ORIGINS:             {get_runtime_config('ALLOWED_ORIGINS')}")

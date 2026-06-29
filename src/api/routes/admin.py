@@ -15,7 +15,7 @@ from src.core.database import (
     set_config_value,
     update_user,
 )
-from src.shared.config import get_runtime_config, invalidate_config_cache
+from src.shared.config import get_default_gcp_project, get_runtime_config, invalidate_config_cache
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -52,7 +52,10 @@ async def admin_list_gerencias(
 ) -> list[str]:
     from src.agents.finance_auditor.capabilities import list_all_gerencias
 
-    project_id = get_runtime_config("FINANCE_AUDITOR_DEFAULT_PROJECT", "silviosalviati")
+    project_id = (
+        get_runtime_config("FINANCE_AUDITOR_DEFAULT_PROJECT", "").strip()
+        or get_default_gcp_project()
+    )
     return list_all_gerencias(project_id)
 
 

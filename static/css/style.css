@@ -2824,14 +2824,6 @@ textarea {
   gap: 8px;
 }
 
-/* Chips de sugestão reaproveitam .fa-quick-suggestions/.fa-suggestion-chip
-   do Finance Voice — sem borda/padding própria aqui, já que a qb-input-dock
-   inteira já cuida do espaçamento e da borda superior. */
-.qb-input-dock .fa-quick-suggestions {
-  border-top: none;
-  padding: 0;
-}
-
 #qb-request {
   flex: 1;
   resize: none;

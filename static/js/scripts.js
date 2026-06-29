@@ -3693,14 +3693,10 @@ function switchQBTab(name) {
 
 function setQBLoading(on) {
   const btn = document.getElementById("qb-btn");
-  const spinner = document.getElementById("qb-spinner");
-  const text = document.getElementById("qb-btn-text");
 
   qbIsLoading = on;
   syncQBGenerateButtonState();
-  if (spinner) spinner.style.display = on ? "block" : "none";
-  if (text)
-    text.textContent = on ? "Gerando SQL..." : "Gerar SQL com Query Builder";
+  btn?.classList.toggle("is-loading", !!on);
 }
 
 function showQBError(message) {

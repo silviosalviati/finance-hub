@@ -1299,62 +1299,10 @@
                   </div>
                 </div>
 
-                <div class="qfield" id="qb-request-field">
-                  <label for="qb-request"
-                    >Solicitação em linguagem natural</label
-                  >
-                  <textarea
-                    id="qb-request"
-                    placeholder="Ex: Quero as 20 maiores vendas dos últimos 30 dias por região, com ticket médio e crescimento vs mês anterior."
-                  ></textarea>
-                  <p class="qhint">
-                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                      <circle
-                        cx="6"
-                        cy="6"
-                        r="5"
-                        stroke="currentColor"
-                        stroke-width="1.2"
-                      />
-                      <path
-                        d="M6 5.5v3M6 4h.01"
-                        stroke="currentColor"
-                        stroke-width="1.2"
-                        stroke-linecap="round"
-                      />
-                    </svg>
-                    Ctrl+Enter para gerar SQL
-                  </p>
-                </div>
-                <div id="qb-error" class="qa-error" role="alert"></div>
-
-                <button
-                  class="btn-analyze"
-                  id="qb-btn"
-                  onclick="runQueryBuild()"
-                >
-                  <div class="spinner" id="qb-spinner"></div>
-                  <span id="qb-btn-text">Gerar SQL com Query Builder</span>
-                </button>
-
-                <div id="qb-progress" class="qa-progress" style="display: none">
-                  <div class="qa-progress-head">
-                    <span class="qa-progress-title">Processando análise</span>
-                    <span class="qa-progress-step" id="qb-progress-step"
-                      >Preparando...</span
-                    >
-                  </div>
-                  <div class="qa-progress-track">
-                    <div
-                      class="qa-progress-fill"
-                      id="qb-progress-fill"
-                      style="width: 8%"
-                    ></div>
-                  </div>
-                </div>
               </div>
 
               <div class="qa-results-wrap">
+                <div class="qb-content-area">
                 <!-- ── Insights strip ── -->
                 <div
                   id="qb-suggestions-block"
@@ -1773,6 +1721,83 @@
                       </div>
                     </div>
                   </div>
+                </div>
+                </div>
+
+                <div class="qb-input-dock">
+                  <div
+                    id="qb-progress"
+                    class="qa-progress"
+                    style="display: none"
+                  >
+                    <div class="qa-progress-head">
+                      <span class="qa-progress-title">Processando análise</span>
+                      <span class="qa-progress-step" id="qb-progress-step"
+                        >Preparando...</span
+                      >
+                    </div>
+                    <div class="qa-progress-track">
+                      <div
+                        class="qa-progress-fill"
+                        id="qb-progress-fill"
+                        style="width: 8%"
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div id="qb-error" class="qa-error" role="alert"></div>
+
+                  <div class="qb-input-row" id="qb-request-field">
+                    <textarea
+                      id="qb-request"
+                      rows="1"
+                      placeholder="Ex: Quero as 20 maiores vendas dos últimos 30 dias por região, com ticket médio e crescimento vs mês anterior."
+                      oninput="autoResizeFAInput(this)"
+                    ></textarea>
+                    <button
+                      class="fa-send-btn"
+                      id="qb-btn"
+                      onclick="runQueryBuild()"
+                      type="button"
+                      aria-label="Gerar SQL com Query Builder"
+                    >
+                      <span class="fa-send-spinner" aria-hidden="true"></span>
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <polyline points="16 18 22 12 16 6" />
+                        <polyline points="8 6 2 12 8 18" />
+                      </svg>
+                      <span class="fa-send-label">Gerar SQL</span>
+                      <span class="fa-send-label fa-send-label-loading"
+                        >Gerando...</span
+                      >
+                    </button>
+                  </div>
+
+                  <p class="qhint qb-input-hint">
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                      <circle
+                        cx="6"
+                        cy="6"
+                        r="5"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                      />
+                      <path
+                        d="M6 5.5v3M6 4h.01"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                    Ctrl+Enter para gerar SQL
+                  </p>
                 </div>
               </div>
             </div>

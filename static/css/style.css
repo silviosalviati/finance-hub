@@ -2250,11 +2250,6 @@ textarea {
   line-height: 1.75;
 }
 
-#qb-request {
-  min-height: 190px;
-  max-height: 300px;
-}
-
 .qfield input:focus,
 .qfield textarea:focus,
 .qfield select:focus {
@@ -2935,6 +2930,63 @@ textarea {
   flex-direction: column;
   overflow: hidden;
   background: linear-gradient(180deg, #f7faff 0%, #f3f7fc 100%);
+}
+
+/* Conteúdo de resultado (insights/HITL/empty/tabs) cede o espaço de baixo
+   pro qb-input-dock — sem esse flex:1+min-height:0, os filhos com
+   height:100% (qb-empty, qb-tabs-area) ignorariam o dock e vazariam por
+   baixo dele. */
+.qb-content-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Campo de pergunta do Query Builder, no mesmo espírito da barra de chat
+   do Finance Voice (fa-input-bar): fica ancorado embaixo da coluna de
+   resultados em vez de dividir espaço com os cartões de área à esquerda. */
+.qb-input-dock {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 20px 16px;
+  background: var(--white);
+  border-top: 1px solid var(--border);
+}
+
+.qb-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+#qb-request {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 44px;
+  max-height: 160px;
+  background: var(--bg);
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s;
+  overflow-y: auto;
+}
+
+#qb-request:focus {
+  border-color: var(--porto);
+  background: var(--white);
+}
+
+.qb-input-hint {
+  margin-top: 0;
 }
 
 .qa-empty {

@@ -66,7 +66,13 @@ function copyToClipboard(event) {
 }
 
 function fmtUSD(v) {
-  return v == null ? "—" : "USD " + Number(v).toFixed(4);
+  if (v == null) return "—";
+  const n = Number(v);
+  // A maioria das consultas processa MB, não TB — a $5/TB o custo real cai
+  // abaixo da 4ª casa decimal e "toFixed(4)" mostraria sempre "0.0000",
+  // parecendo grátis/quebrado mesmo quando o valor está correto.
+  if (n > 0 && n < 0.0001) return "< USD 0.0001";
+  return "USD " + n.toFixed(4);
 }
 
 function fmtPct(v) {
@@ -961,8 +967,8 @@ function _qbShowGerenciaPicker(topics) {
   }
   if (hintEl) {
     hintEl.textContent = single
-      ? `Confirme abaixo e o QB prepara sugestões de consulta sobre ${_qbCapitalize(single.label)} para você.`
-      : "Escolha uma área abaixo e o QB já prepara sugestões de consulta para você.";
+      ? `Confirme abaixo e o Query Builder prepara sugestões de consulta sobre ${_qbCapitalize(single.label)} para você.`
+      : "Escolha uma área abaixo e o Query Builder já prepara sugestões de consulta para você.";
   }
 
   picker.style.display = "block";
@@ -1049,7 +1055,7 @@ function _qbShowGerenciaLearning(label) {
       <h3 id="qb-ger-phase">
         ${_qbGerenciaPhaseText(null)}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>
       </h3>
-      <p>Preparando o QB para ${label ? _escapeHtml(_qbCapitalize(label)) : "sua gerência"}.</p>
+      <p>Preparando o Query Builder para ${label ? _escapeHtml(_qbCapitalize(label)) : "sua gerência"}.</p>
     </div>`;
 
   return {
@@ -3833,9 +3839,7 @@ function renderQA(d) {
     document.getElementById("q-sav").textContent =
       pct > 0 ? `↓ ${pct}%` : "N/A";
     document.getElementById("q-savusd").textContent =
-      d.cost_saved_usd != null
-        ? `USD ${Number(d.cost_saved_usd).toFixed(4)}`
-        : "—";
+      d.cost_saved_usd != null ? fmtUSD(d.cost_saved_usd) : "—";
 
     // Alterna entre tile "Economia" e tile "Slots/Compute"
     if (qSavTile) qSavTile.style.display = showSlotsTile ? "none" : "";

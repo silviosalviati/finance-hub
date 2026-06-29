@@ -202,7 +202,7 @@ def sync_gold_metric_catalog(project_id: str) -> dict[str, Any]:
         with_catalog += 1
         table_ref = f"{project_id}.{dataset_id}.{_GOLD_METRIC_CATALOG_TABLE}"
         try:
-            rows = execute_query_rows(f"SELECT * FROM `{table_ref}`", project_id, max_rows=500)
+            rows, _ = execute_query_rows(f"SELECT * FROM `{table_ref}`", project_id, max_rows=500)
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{table_ref}: falha ao ler ({exc})")
             continue

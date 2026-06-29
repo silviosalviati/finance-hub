@@ -50,6 +50,7 @@ from src.agents.finance_auditor.supervisor_schemas import (
 from src.shared.config import get_runtime_config
 from src.shared.tools.bigquery import (
     dry_run_query,
+    estimate_cost_usd,
     execute_query_rows,
     get_dataset_tables_metadata,
     get_table_column_types,
@@ -428,17 +429,21 @@ def _validate_and_run_sql(
         )
 
     try:
-        rows = execute_query_rows(sql, project_id, max_rows=max_rows)
+        rows, real_bytes_billed = execute_query_rows(sql, project_id, max_rows=max_rows)
     except Exception as exc:  # noqa: BLE001
         return _err(f"Falha na execução: {exc}")
 
+    # Custo real pós-execução, não a estimativa do dry-run: a execução real
+    # roda com cache do BigQuery habilitado, então uma repetição da mesma
+    # pergunta pode sair gratuita (real_bytes_billed=0) mesmo o dry-run tendo
+    # estimado um scan "frio" maior.
     columns = list(rows[0].keys()) if rows else []
     return _ok(
         payload={
             "sql": sql,
             "row_count": len(rows),
-            "bytes_processed": dry.bytes_processed,
-            "estimated_cost_usd": dry.estimated_cost_usd,
+            "bytes_processed": real_bytes_billed,
+            "estimated_cost_usd": estimate_cost_usd(real_bytes_billed),
             "columns": columns,
             "rows": rows,
         },

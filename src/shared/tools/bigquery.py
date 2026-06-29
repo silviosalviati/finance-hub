@@ -453,6 +453,17 @@ def _extract_referenced_tables(job) -> list[str]:
     ]
 
 
+def estimate_cost_usd(bytes_billed: int) -> float:
+    """Converte bytes faturados em USD pelo preço on-demand configurado.
+
+    BigQuery fatura em TiB (2^40 bytes), não TB decimal — ver
+    https://cloud.google.com/bigquery/pricing#analysis_pricing_models.
+    """
+    tib_processed = (bytes_billed or 0) / (1024**4)
+    bq_cost_per_tib = float(get_runtime_config("BQ_COST_PER_TB_USD", "6.25"))
+    return round(tib_processed * bq_cost_per_tib, 6)
+
+
 def dry_run_query(
     query: str,
     project_id: str | None,
@@ -460,6 +471,10 @@ def dry_run_query(
 ) -> DryRunResult:
     try:
         client = _get_client(project_id)
+        # use_query_cache=False é proposital aqui (diferente de execute_query_rows):
+        # o dry-run serve para orçar/comparar custo de SQL antes de rodar (gate de
+        # budget, Query Analyzer original-vs-otimizada), então precisa estimar o
+        # scan "frio" — um cache hit deixaria a estimativa artificialmente em zero.
         job_config = bigquery.QueryJobConfig(
             dry_run=True,
             use_query_cache=False,
@@ -474,9 +489,7 @@ def dry_run_query(
 
         bytes_processed = job.total_bytes_processed or 0
         bytes_billed = job.total_bytes_billed or bytes_processed
-        tb_processed = bytes_billed / (1024**4)
-        bq_cost_per_tb = float(get_runtime_config("BQ_COST_PER_TB_USD", "5.0"))
-        estimated_cost = round(tb_processed * bq_cost_per_tb, 6)
+        estimated_cost = estimate_cost_usd(bytes_billed)
 
         referenced_tables = _extract_referenced_tables(job)
 
@@ -513,7 +526,6 @@ def fetch_query_sample(
         client = _get_client(project_id)
         bytes_warning = int(get_runtime_config("BYTES_WARNING_THRESHOLD", str(10 * 1024**3)))
         job_config = bigquery.QueryJobConfig(
-            use_query_cache=False,
             maximum_bytes_billed=bytes_warning,
         )
         job = client.query(sample_query, job_config=job_config)
@@ -607,11 +619,17 @@ def execute_query_rows(
     query: str,
     project_id: str | None,
     max_rows: int = 1000,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], int]:
     """Executa uma query BigQuery e retorna as linhas como lista de dicionários.
 
     Diferente de :func:`fetch_query_sample`, não envolve a query em um
     subselect, sendo adequado para queries de agregação e contagem.
+
+    Cache de resultado do BigQuery fica habilitado (padrão da API) — uma
+    repetição exata da mesma query dentro de ~24h sai gratuita
+    (`total_bytes_billed=0`), então o caller deve usar o `bytes_billed`
+    retornado (via `estimate_cost_usd`) em vez de uma estimativa prévia de
+    dry-run, que força `use_query_cache=False` e não reflete cache hits.
 
     Args:
         query: SQL completo a ser executado.
@@ -619,17 +637,18 @@ def execute_query_rows(
         max_rows: Limite de linhas retornadas (padrão: 1000).
 
     Returns:
-        Lista de dicionários {coluna: valor} com até *max_rows* linhas.
+        Tupla (linhas, bytes_billed) — bytes_billed é 0 em cache hit.
 
     Raises:
         RuntimeError: Se a execução no BigQuery falhar.
     """
     try:
         client = _get_client(project_id)
-        job_config = bigquery.QueryJobConfig(use_query_cache=False)
-        job = client.query(query, job_config=job_config)
+        job = client.query(query)
         result = job.result(max_results=max_rows)
-        return [_json_safe_row(dict(row.items())) for row in result]
+        rows = [_json_safe_row(dict(row.items())) for row in result]
+        bytes_billed = job.total_bytes_billed or 0
+        return rows, bytes_billed
     except GoogleCloudError as exc:
         raise RuntimeError(f"Falha na execução da query BigQuery: {exc}") from exc
     except Exception as exc:

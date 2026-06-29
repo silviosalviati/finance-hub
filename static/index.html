@@ -1223,7 +1223,7 @@
                     border-bottom: 1px solid var(--border);
                   "
                 >
-                  <div class="fa-sidebar-head">
+                  <div class="fa-sidebar-head" id="qb-gerencia-picker-head">
                     <span class="fa-sidebar-eyebrow">Início rápido</span>
                     <h3 class="fa-sidebar-title" id="qb-gerencia-picker-title">
                       Sobre qual área você quer criar consultas?
@@ -1233,6 +1233,22 @@
                     </p>
                   </div>
                   <div class="fa-suggestions" id="qb-gerencia-picker-list"></div>
+
+                  <div class="qb-area-pill" id="qb-area-pill" style="display: none">
+                    <span class="qb-area-pill-icon" id="qb-area-pill-icon"></span>
+                    <span class="qb-area-pill-label" id="qb-area-pill-label"></span>
+                    <button
+                      type="button"
+                      class="qb-area-pill-change"
+                      id="qb-area-pill-change"
+                      onclick="_qbReopenGerenciaPicker()"
+                    >
+                      Trocar área
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
                 <div class="qlabel" id="qb-config-label">Configuração</div>

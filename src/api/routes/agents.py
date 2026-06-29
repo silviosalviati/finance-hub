@@ -534,6 +534,7 @@ async def analyze_by_agent(
                     query=effective_query,
                     project_id=project_id,
                     dataset_hint=req.dataset_hint or profile.get("pinned_dataset_ref"),
+                    conversation_context=_build_conversation_context(turns),
                     user_profile=profile,
                     user=session,
                     attachments=req.attachments or [],

@@ -282,6 +282,17 @@ def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     request_text = state.get("request_text", "")
     dataset_hint = str(state.get("dataset_hint") or "").strip()
     human_content = request_text
+    conversation_context = str(state.get("conversation_context") or "").strip()
+    if conversation_context:
+        human_content += (
+            "\n\n"
+            "[CONTEXTO DA CONVERSA: turno(s) recente(s) desta sessão, use para "
+            "resolver referências como \"isso\"/\"esse achado\"/\"essa carteira\" "
+            "na pergunta atual. Se a pergunta só pede uma opinião/recomendação "
+            "sobre o que já foi apresentado nesse contexto — sem precisar de dado "
+            "novo — planeje `chat_answer` em vez de uma nova consulta.]\n"
+            f"{conversation_context}"
+        )
     if dataset_hint:
         human_content += (
             "\n\n"
@@ -708,10 +719,19 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     tool_results = state.get("tool_results") or []
     warnings = state.get("warnings") or []
     answer_succeeded = _has_answer(tool_results)
+    conversation_context = str(state.get("conversation_context") or "").strip()
 
     user_content = (
         f"Pergunta original do usuário:\n{state.get('request_text', '')}\n\n"
-        f"Resultados das capabilities (JSON):\n{_summarize_tool_results_for_llm(tool_results)}\n\n"
+        + (
+            f"Contexto da conversa (turno(s) anterior(es) desta sessão — use para "
+            f"resolver referências e, se a capability escolhida foi `chat_answer` "
+            f"sem dado novo, basear a recomendação no que já foi apresentado):\n"
+            f"{conversation_context}\n\n"
+            if conversation_context
+            else ""
+        )
+        + f"Resultados das capabilities (JSON):\n{_summarize_tool_results_for_llm(tool_results)}\n\n"
         f"Avisos (warnings): {json.dumps(warnings, ensure_ascii=False)}\n\n"
         f"Persona detectada: {persona}\n\n"
         "Redija a resposta final em Markdown."

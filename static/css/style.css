@@ -2164,6 +2164,14 @@ textarea {
   background: linear-gradient(180deg, #f6f9ff 0%, #f1f5fb 100%);
 }
 
+/* Query Builder reaproveita o qa-form como coluna de contexto, mas no
+   mesmo espírito do fa-sidebar do Finance Voice — mesma largura (304px),
+   já que as duas colunas cumprem o mesmo papel (escolher área/contexto
+   antes de interagir). */
+#view-qb .qa-body {
+  grid-template-columns: 304px 1fr;
+}
+
 .qa-form {
   background: var(--white);
   border-right: 1px solid var(--border);

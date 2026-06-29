@@ -3097,8 +3097,8 @@ function generateDocumentHtml(data, context) {
     .footer {
       margin-top: 24px; padding-top: 14px;
       border-top: 1px solid #d4e2f4;
-      display: flex; justify-content: space-between; align-items: center;
-      font-size: 11px; color: #8a9ab5; flex-wrap: wrap; gap: 6px;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      font-size: 11px; color: #8a9ab5; flex-wrap: wrap; gap: 6px; text-align: center;
     }
     .footer-brand { display: flex; align-items: center; gap: 6px; font-weight: 600; }
 

@@ -941,9 +941,11 @@ function _qbFindGerenciaTopic(gerencia) {
 
 function _qbShowGerenciaPicker(topics) {
   const picker = document.getElementById("qb-gerencia-picker");
+  const headEl = document.getElementById("qb-gerencia-picker-head");
   const titleEl = document.getElementById("qb-gerencia-picker-title");
   const hintEl = document.getElementById("qb-gerencia-picker-hint");
   const list = document.getElementById("qb-gerencia-picker-list");
+  const pillEl = document.getElementById("qb-area-pill");
   if (!picker || !list) return;
 
   // Mesma estrutura de duas colunas do Finance Voice (fa-sidebar + área
@@ -951,6 +953,14 @@ function _qbShowGerenciaPicker(topics) {
   // campos de projeto/dataset, e o painel da direita segue com o estado
   // ocioso normal (sem duplicar mensagem de boas-vindas).
   _setQBGerenciaMode(true);
+
+  // Modo seleção: cabeçalho + grade de cartões visíveis, pill de área
+  // resolvida escondida — usado tanto na entrada inicial quanto ao reabrir
+  // via "Trocar área" (_qbReopenGerenciaPicker).
+  if (headEl) headEl.style.display = "";
+  list.style.display = "";
+  list.classList.add("fa-topic-grid");
+  if (pillEl) pillEl.style.display = "none";
 
   // Pré-carrega projetos em segundo plano — se o usuário escolher "Outros
   // Assuntos Financeiro", o seletor manual já aparece com a lista pronta.
@@ -984,11 +994,52 @@ function _qbShowGerenciaPicker(topics) {
     `;
     btn.onclick = () => {
       _qbPickerResolved = true;
-      picker.style.display = "none";
+      // Trava os cartões durante a resolução assíncrona (evita clique
+      // duplo numa área diferente enquanto a primeira ainda carrega). Some
+      // só depois que _resolveQBGerencia confirmar sucesso (vira o pill via
+      // _qbShowAreaPill) — se a resolução falhar, a grade continua visível
+      // (já destravada) pra tentar de novo, em vez de deixar a tela sem
+      // nenhuma opção.
+      setFAInteractionLock(true);
       _resolveQBGerencia(topic.gerencia);
     };
     list.appendChild(btn);
   });
+}
+
+// Troca a grade de seleção por um resumo compacto de uma linha, depois que
+// _resolveQBGerencia confirma a área escolhida — em vez da opção
+// simplesmente desaparecer (estado anterior), o usuário vê qual área está
+// ativa e tem uma ação explícita pra trocar.
+function _qbShowAreaPill(topic) {
+  const headEl = document.getElementById("qb-gerencia-picker-head");
+  const listEl = document.getElementById("qb-gerencia-picker-list");
+  const pillEl = document.getElementById("qb-area-pill");
+  const iconEl = document.getElementById("qb-area-pill-icon");
+  const labelEl = document.getElementById("qb-area-pill-label");
+  const changeBtn = document.getElementById("qb-area-pill-change");
+  if (!pillEl) return;
+
+  if (headEl) headEl.style.display = "none";
+  if (listEl) listEl.style.display = "none";
+  if (iconEl) iconEl.innerHTML = topic?.icon || _QB_ICON_SVG;
+  if (labelEl) labelEl.textContent = topic ? _qbCapitalize(topic.label) : "Sua área";
+  // Usuário não-admin está fixo na própria gerência (RBAC) — não há outra
+  // área pra trocar, então a ação só aparece pra admin.
+  if (changeBtn) changeBtn.style.display = currentUser?.is_admin ? "" : "none";
+  pillEl.style.display = "flex";
+}
+
+// Reabre a grade de seleção a partir do pill ("Trocar área") — só admin vê
+// o botão que chama isto, já que é o único perfil com mais de uma área
+// disponível.
+function _qbReopenGerenciaPicker() {
+  // Dataset resolvido pra área anterior não vale mais até a nova escolha
+  // confirmar — sem isso o botão "Gerar SQL" ficaria habilitado apontando
+  // pro dataset errado enquanto o usuário ainda está escolhendo.
+  qbDatasetValidationState.status = "idle";
+  syncQBGenerateButtonState();
+  _qbShowGerenciaPicker(_QB_GERENCIA_TOPICS);
 }
 
 // Usuário sem gerência cadastrada (ou gerência fora da lista fixa) e sem
@@ -1136,6 +1187,7 @@ async function _resolveQBGerencia(gerencia) {
   const btn = document.getElementById("qb-btn");
   if (btn) btn.disabled = true;
 
+  const topic = _qbFindGerenciaTopic(gerencia);
   const phaseHandle = _qbShowGerenciaLearning(gerencia);
 
   try {
@@ -1157,6 +1209,7 @@ async function _resolveQBGerencia(gerencia) {
       _qbHideGerenciaLearning();
       showQBError(data.message || "Não foi possível resolver a gerência.");
       syncQBGenerateButtonState();
+      setFAInteractionLock(false);
       return;
     }
 
@@ -1180,6 +1233,8 @@ async function _resolveQBGerencia(gerencia) {
     qbDatasetValidationState.projectId = data.project_id;
 
     syncQBGenerateButtonState();
+    _qbShowAreaPill(topic);
+    setFAInteractionLock(false);
 
     phaseHandle?.setPhase("suggestions");
     const res2 = await fetch("/api/agents/query_build/suggestions", {

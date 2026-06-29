@@ -2582,17 +2582,6 @@ textarea {
   padding: 3px 8px;
 }
 
-.qb-sugg-strip-title {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #f59e0b;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 /* Faixa de chips de sugestão do Query Builder, dentro da qb-input-dock —
    reaproveita o texto de loading no mesmo estilo discreto da faixa antiga. */
 .qb-sugg-loading {

@@ -1144,59 +1144,20 @@ function _qbShowGerenciaLearning(label) {
   };
 }
 
-function _qbShowGerenciaReady(label, suggestions) {
+// As sugestões em si vivem só na faixa fixa perto do input (qb-suggestions-block,
+// igual ao fa-quick-suggestions do Finance Voice) — essa tela só dá as boas-vindas.
+function _qbShowGerenciaReady(label) {
   const container = document.getElementById("qb-gerencia-learning");
   if (!container) return;
-
-  const list = (Array.isArray(suggestions) ? suggestions : [])
-    .map((s) => String(s || "").trim())
-    .filter(Boolean)
-    .slice(0, 6);
-
-  const chipHtml = (text) =>
-    `<button type="button" class="fa-suggestion-chip" data-text="${_escapeHtml(text)}" data-followup="${_escapeHtml(text)}" onclick="_selectQBSuggestion(this)">` +
-    `<span class="fa-suggestion-chip-text">${_escapeHtml(text)}</span></button>`;
-
-  const visible = list.slice(0, 4);
-  const extra = list.slice(4);
-  const extraHtml = extra.length
-    ? `<span class="fa-suggestions-extra" id="qb-ger-suggestions-extra" hidden>${extra.map(chipHtml).join("")}</span>` +
-      `<button type="button" class="fa-suggestions-toggle" id="qb-ger-suggestions-toggle" aria-expanded="false">Mostrar mais</button>`
-    : "";
 
   const niceLabel = _escapeHtml(_qbCapitalize(label));
 
   container.innerHTML = `
-    <div class="qa-empty" style="height: auto; padding: 56px 24px 28px">
+    <div class="qa-empty" style="height: 100%">
       <div class="qa-empty-ico">${_QB_ICON_SVG}</div>
       <h3>Estou pronto para criar consultas sobre ${niceLabel}.</h3>
       <p style="max-width: 360px">Escolha uma sugestão abaixo ou descreva sua necessidade no campo ao lado.</p>
-    </div>
-    ${
-      list.length
-        ? `<div style="padding: 0 24px 32px; text-align: center">
-             <div class="qb-sugg-strip-title" style="justify-content: center; margin-bottom: 10px; color: var(--porto-primary)">
-               ${_faIcon("sparkle", 11)} SUGESTÕES PARA ${niceLabel.toUpperCase()}
-             </div>
-             <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center">
-               ${visible.map(chipHtml).join("")}
-               ${extraHtml}
-             </div>
-           </div>`
-        : ""
-    }`;
-
-  const toggle = document.getElementById("qb-ger-suggestions-toggle");
-  if (toggle) {
-    toggle.addEventListener("click", () => {
-      const extraEl = document.getElementById("qb-ger-suggestions-extra");
-      if (!extraEl) return;
-      const expanded = toggle.getAttribute("aria-expanded") === "true";
-      extraEl.hidden = expanded;
-      toggle.setAttribute("aria-expanded", String(!expanded));
-      toggle.textContent = expanded ? "Mostrar mais" : "Mostrar menos";
-    });
-  }
+    </div>`;
 }
 
 function _qbHideGerenciaLearning() {
@@ -1273,7 +1234,8 @@ async function _resolveQBGerencia(gerencia) {
       }),
     });
     const sugData = await res2.json();
-    _qbShowGerenciaReady(data.gerencia, sugData.suggestions);
+    _qbShowGerenciaReady(data.gerencia);
+    _renderQBSuggestionChips(sugData.suggestions);
   } catch (e) {
     qbDatasetValidationState.status = "invalid";
     _qbHideGerenciaLearning();

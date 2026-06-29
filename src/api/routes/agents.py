@@ -332,6 +332,29 @@ def _find_repeated_response(turns: list[dict[str, Any]], query_norm: str) -> dic
     return None
 
 
+def _build_conversation_context(turns: list[dict[str, Any]], max_turns: int = 2) -> str:
+    """Resumo compacto dos últimos turnos (pergunta + resposta já truncada a
+    800 chars na hora de salvar) para o Planner/Composer resolverem
+    referências como "esse achado"/"essa carteira" em perguntas de
+    seguimento — sem isso, o grafo do Supervisor roda 100% sem memória da
+    conversa (só o caminho de chat-fallback lia `turns`, e só quando a
+    heurística `_is_analytics_query` mandava pra lá, o que não é garantido:
+    qualquer pergunta com "qual"/"quanto"/etc. — comum em follow-ups — cai
+    no grafo completo, que nunca viu o histórico)."""
+    if not turns:
+        return ""
+    lines: list[str] = []
+    for turn in turns[-max_turns:]:
+        q = str(turn.get("query") or "").strip()
+        a = str(turn.get("answer_text") or "").strip()
+        if not q and not a:
+            continue
+        lines.append(f"Usuário perguntou: {q}")
+        if a:
+            lines.append(f"Você respondeu: {a}")
+    return "\n".join(lines)
+
+
 def _retrieve_relevant_turns(turns: list[dict[str, Any]], query: str, top_k: int = 4) -> list[dict[str, Any]]:
     query_tokens = _tokenize(query)
     if not query_tokens:

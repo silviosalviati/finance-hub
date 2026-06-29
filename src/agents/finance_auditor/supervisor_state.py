@@ -12,6 +12,7 @@ class SupervisorState(TypedDict, total=False):
     request_text: str
     project_id: str
     dataset_hint: str | None
+    conversation_context: str  # últimos turnos da sessão (query+resposta), p/ follow-ups
     user_profile: dict[str, Any]  # vindo da sessão de chat (profile)
     user_id: str                  # username/id do dono da sessão (RBAC + audit)
     user: dict[str, Any]          # sessão completa (passada às capabilities)

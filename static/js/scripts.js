@@ -1253,6 +1253,7 @@ async function _resolveQBGerencia(gerencia) {
     _qbHideGerenciaLearning();
     showQBError(prettifyErrorMessage(e.message));
     syncQBGenerateButtonState();
+    setFAInteractionLock(false);
   }
 }
 

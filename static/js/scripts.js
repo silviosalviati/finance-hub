@@ -3693,10 +3693,12 @@ function switchQBTab(name) {
 
 function setQBLoading(on) {
   const btn = document.getElementById("qb-btn");
+  const textarea = document.getElementById("qb-request");
 
   qbIsLoading = on;
   syncQBGenerateButtonState();
   btn?.classList.toggle("is-loading", !!on);
+  if (textarea) textarea.disabled = !!on;
 }
 
 function showQBError(message) {

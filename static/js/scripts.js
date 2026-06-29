@@ -20,7 +20,6 @@ let _qbHitlThreadId = null;
 let dbIsLoading = false;
 let auditIsLoading = false;
 let auditMarkdownCache = "";
-let _qbSuggCtx = null; // stores { projectId, datasetHint, tableId } for suggestion refresh
 const qbDatasetValidationState = {
   status: "idle",
   datasetHint: "",
@@ -5628,7 +5627,11 @@ function initFAInputListener() {
     const target = ev.target instanceof Element ? ev.target.closest("button") : null;
     if (!target) return;
 
-    const followup = target.getAttribute("data-followup");
+    // data-followup também aparece em chips fora do Finance Voice (QB
+    // reaproveita o estilo .fa-suggestion-chip) — sem esse closest, clicar
+    // numa sugestão do Query Builder também disparava sendFAMessage() em
+    // segundo plano contra o fa-input escondido.
+    const followup = target.closest("#fa-quick-suggestions") && target.getAttribute("data-followup");
     if (followup) {
       const inputEl = document.getElementById("fa-input");
       if (!inputEl || faIsLoading) return;
@@ -7899,17 +7902,10 @@ function _escapeHtml(value) {
 
 async function _loadQBSuggestions(projectId, datasetHint, tableId) {
   const block = document.getElementById("qb-suggestions-block");
-  const loadingEl = document.getElementById("qb-suggestions-loading");
-  const listEl = document.getElementById("qb-suggestions-list");
-  if (!block || !listEl) return;
+  if (!block) return;
 
-  // Persist context for refresh button
-  _qbSuggCtx = { projectId, datasetHint, tableId };
-
-  listEl.innerHTML = "";
-  block.style.display = "";
-  // sub-label removed — context stored in _qbSuggCtx for refresh only
-  if (loadingEl) loadingEl.style.display = "flex";
+  block.hidden = false;
+  block.innerHTML = `<span class="qb-sugg-loading">${_faIcon("sparkle", 13)}Gerando sugestões com IA<span class="fa-thinking-dots"><span></span><span></span><span></span></span></span>`;
 
   try {
     const res = await fetch("/api/agents/query_build/suggestions", {
@@ -7930,33 +7926,66 @@ async function _loadQBSuggestions(projectId, datasetHint, tableId) {
 
     const data = await res.json();
     const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
-
-    if (loadingEl) loadingEl.style.display = "none";
-
-    if (suggestions.length === 0) {
-      listEl.innerHTML =
-        '<p class="qb-sugg-empty">Nenhuma sugestao disponivel.</p>';
-      return;
-    }
-
-    listEl.innerHTML = suggestions
-      .map(
-        (s, idx) =>
-          `<a class="qb-sugg-item" href="#" onclick="_selectQBSuggestion(this);return false;" data-text="${_escapeHtml(s)}"><span class="qb-sugg-item-head"><span class="qb-sugg-item-star">&#9733;</span><span class="qb-sugg-item-num">${idx + 1}</span></span><span class="qb-sugg-item-text">${_escapeHtml(s)}</span></a>`,
-      )
-      .join("");
+    _renderQBSuggestionChips(suggestions);
   } catch (e) {
-    if (loadingEl) loadingEl.style.display = "none";
-    listEl.innerHTML =
-      '<p class="qb-sugg-empty">Erro ao carregar sugestoes.</p>';
+    block.hidden = true;
+    block.innerHTML = "";
   }
+}
+
+// Mesma barra de chips do Finance Voice (fa-quick-suggestions/fa-suggestion-chip)
+// — até 6 sugestões, as 4 primeiras visíveis e as 2 últimas atrás de "Mostrar mais".
+function _renderQBSuggestionChips(suggestions) {
+  const bar = document.getElementById("qb-suggestions-block");
+  if (!bar) return;
+
+  const list = (Array.isArray(suggestions) ? suggestions : [])
+    .map((s) => String(s || "").trim())
+    .filter(Boolean)
+    .slice(0, 6);
+
+  if (!list.length) {
+    bar.innerHTML = "";
+    bar.hidden = true;
+    return;
+  }
+
+  const chipHtml = (text) =>
+    `<button type="button" class="fa-suggestion-chip" data-text="${_escapeHtml(text)}" data-followup="${_escapeHtml(text)}" onclick="_selectQBSuggestion(this)">` +
+    `<span class="fa-suggestion-chip-text">${_escapeHtml(text)}</span></button>`;
+
+  const visible = list.slice(0, 4);
+  const extra = list.slice(4);
+  const extraHtml = extra.length
+    ? `<span class="fa-suggestions-extra" id="qb-suggestions-extra" hidden>${extra.map(chipHtml).join("")}</span>` +
+      `<button type="button" class="fa-suggestions-toggle" id="qb-suggestions-toggle" aria-expanded="false">Mostrar mais ${_faIcon("chevron-down", 11)}</button>`
+    : "";
+
+  bar.innerHTML =
+    `<span class="fa-suggestions-icon" aria-hidden="true">${_faIcon("sparkle", 13)}</span>` +
+    visible.map(chipHtml).join("") +
+    extraHtml;
+  bar.hidden = false;
+
+  const toggle = document.getElementById("qb-suggestions-toggle");
+  if (!toggle) return;
+  toggle.addEventListener("click", () => {
+    const extraEl = document.getElementById("qb-suggestions-extra");
+    if (!extraEl) return;
+    const expanded = toggle.getAttribute("aria-expanded") === "true";
+    extraEl.hidden = expanded;
+    toggle.setAttribute("aria-expanded", String(!expanded));
+    toggle.innerHTML = expanded
+      ? `Mostrar mais ${_faIcon("chevron-down", 11)}`
+      : `Mostrar menos ${_faIcon("chevron-up", 11)}`;
+  });
 }
 
 function _selectQBSuggestion(btn) {
   const text =
     btn.dataset.text ||
-    btn.querySelector(".qb-sugg-item-text")?.textContent.trim() ||
-    btn.textContent.replace(/^\d+\.?\s*/, "").trim();
+    btn.querySelector(".fa-suggestion-chip-text")?.textContent.trim() ||
+    btn.textContent.trim();
   const textarea = document.getElementById("qb-request");
   if (textarea) {
     textarea.value = text;
@@ -7967,18 +7996,6 @@ function _selectQBSuggestion(btn) {
   btn.setAttribute("aria-disabled", "true");
   if (typeof syncQBGenerateButtonState === "function")
     syncQBGenerateButtonState();
-}
-
-function _refreshQBSuggestions() {
-  if (!_qbSuggCtx) return;
-  // Re-enable all chips before reloading
-  document.querySelectorAll(".qb-sugg-item--selected").forEach((c) => {
-    c.classList.remove("qb-sugg-item--selected");
-    c.disabled = false;
-    c.removeAttribute("aria-disabled");
-  });
-  const { projectId, datasetHint, tableId } = _qbSuggCtx;
-  _loadQBSuggestions(projectId, datasetHint, tableId);
 }
 
 // ── Edge click tooltip ────────────────────────────────────────────────────

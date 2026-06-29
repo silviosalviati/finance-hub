@@ -5443,6 +5443,30 @@ function initFASuggestions() {
     },
   ];
 
+  // Mesmo molde de personalização do Query Builder (navTo("qb")): admin vê
+  // o texto genérico, usuário com gerência cadastrada vê o título/dica
+  // falando da própria área — mas, diferente do QB, o grid continua
+  // mostrando todas as áreas (Finance Voice é conversacional, não fica
+  // travado num único dataset).
+  const matchedTopic = !currentUser?.is_admin
+    ? topics.find(
+        (t) => t.gerencia && t.gerencia === String(currentUser?.gerencia || "").trim().toLowerCase()
+      )
+    : null;
+
+  const titleEl = document.getElementById("fa-suggestions-title");
+  const hintEl = document.getElementById("fa-suggestions-hint");
+  if (titleEl) {
+    titleEl.textContent = matchedTopic
+      ? `Pronto para gerar insights sobre ${_qbCapitalize(matchedTopic.label)}`
+      : "Sobre qual área você quer gerar insights?";
+  }
+  if (hintEl) {
+    hintEl.textContent = matchedTopic
+      ? `Toque em ${_qbCapitalize(matchedTopic.label)} abaixo para começar, ou explore outra área financeira.`
+      : "Escolha uma área abaixo e o Finance Voice já prepara os insights para você.";
+  }
+
   container.innerHTML = "";
   container.classList.add("fa-topic-grid");
   topics.forEach((topic) => {

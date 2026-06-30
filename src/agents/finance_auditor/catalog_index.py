@@ -19,7 +19,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import math
 import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
@@ -32,6 +31,7 @@ from src.core.database import (
     upsert_finance_metric,
 )
 from src.shared.config import get_runtime_config, get_vertexai_project
+from src.shared.tools.embeddings import cosine_similarity, get_embeddings
 from src.shared.tools.bigquery import (
     execute_query_rows,
     get_dataset_tables_schema,
@@ -49,33 +49,12 @@ _DEFAULT_EMBEDDING_MODEL = "text-embedding-005"
 # por todos os datasets do projeto em vez de assumir um dataset específico.
 _GOLD_METRIC_CATALOG_TABLE = "GOLD_METRIC_CATALOG"
 
-_embeddings_singleton: Any = None
-
-
-def _get_embeddings() -> Any:
-    """Cliente de embeddings — Vertex AI, mesmas credenciais já configuradas.
-
-    Desde `langchain-google-genai` 4.0.0, `GoogleGenerativeAIEmbeddings` passou
-    a suportar o backend Vertex AI (via ADC) além da Gemini Developer API —
-    `vertexai=True` + `project` usa as mesmas credenciais de service account
-    já configuradas, sem precisar de API key. Substitui a antiga
-    `VertexAIEmbeddings` (deprecada), mantendo o mesmo modelo e, portanto, a
-    mesma dimensionalidade dos embeddings já persistidos no catálogo.
-    """
-    global _embeddings_singleton
-    if _embeddings_singleton is None:
-        from langchain_google_genai import GoogleGenerativeAIEmbeddings
-
-        from src.shared.tools.llm import _ensure_google_adc_env
-
-        _ensure_google_adc_env()
-        _embeddings_singleton = GoogleGenerativeAIEmbeddings(
-            model=get_runtime_config("FINANCE_AUDITOR_EMBEDDING_MODEL", _DEFAULT_EMBEDDING_MODEL),
-            project=get_vertexai_project(),
-            location=get_runtime_config("VERTEXAI_LOCATION", "us-central1"),
-            vertexai=True,
-        )
-    return _embeddings_singleton
+# Compatibilidade: alias local para código ainda que referencie _get_embeddings
+# internamente (reindex_catalog, search_catalog). Singleton gerenciado em
+# src/shared/tools/embeddings para que org_memory e agentic_retrieval
+# compartilhem o mesmo cliente sem reinicializações.
+_get_embeddings = get_embeddings
+_cosine_similarity = cosine_similarity
 
 
 def _table_summary(dataset_id: str, table: dict[str, Any]) -> str:
@@ -245,17 +224,6 @@ def sync_gold_metric_catalog(project_id: str) -> dict[str, Any]:
         "synced": synced,
         "errors": errors,
     }
-
-
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    if len(a) != len(b):
-        return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(y * y for y in b))
-    if not norm_a or not norm_b:
-        return 0.0
-    return dot / (norm_a * norm_b)
 
 
 def search_catalog(project_id: str, query: str, top_k: int = 5) -> list[dict[str, Any]]:

@@ -28,6 +28,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.agents.finance_auditor import catalog_index, forecast as forecast_mod
 from src.agents.finance_auditor import multimodal, org_memory, semantic_layer
+from src.agents.finance_auditor.agentic_retrieval import adaptive_search_catalog
 from src.shared.guardrails import rbac
 from src.shared.guardrails.sql_safety import assert_select_only
 from src.agents.finance_auditor.supervisor_schemas import (
@@ -705,7 +706,7 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
     # tabelas certas por SIGNIFICADO no índice do catálogo, em vez de exigir
     # que o Planner já saiba (ou chute) o nome do dataset.
     elif not table_refs and not dataset_ref:
-        matches = catalog_index.search_catalog(project_id, natural_language, top_k=5)
+        matches = adaptive_search_catalog(project_id, natural_language, llm=llm, top_k=5)
         allowed_matches = []
         for m in matches:
             allowed, _reason = rbac.check_dataset(context.get("user"), m["dataset_id"])
@@ -1314,7 +1315,9 @@ def cap_catalog_search(args: dict[str, Any], context: dict[str, Any]) -> dict[st
     except (TypeError, ValueError):
         top_k = 5
 
-    matches = catalog_index.search_catalog(project_id, query, top_k=max(1, min(top_k, 20)))
+    matches = adaptive_search_catalog(
+        project_id, query, llm=context.get("llm"), top_k=max(1, min(top_k, 20))
+    )
     user = context.get("user")
     visible = [m for m in matches if rbac.check_dataset(user, m["dataset_id"])[0]]
 

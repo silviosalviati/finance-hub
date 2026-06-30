@@ -2172,6 +2172,11 @@ textarea {
   grid-template-columns: 304px 1fr;
 }
 
+#view-qb .qa-form {
+  border-right: none;
+  box-shadow: none;
+}
+
 .qa-form {
   background: var(--white);
   border-right: 1px solid var(--border);

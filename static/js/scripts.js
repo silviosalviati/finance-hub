@@ -204,30 +204,6 @@ function hideQAProgress() {
   step.textContent = "Preparando...";
 }
 
-function setQBProgress(stepText, pct) {
-  const progress = document.getElementById("qb-progress");
-  const step = document.getElementById("qb-progress-step");
-  const fill = document.getElementById("qb-progress-fill");
-
-  if (!progress || !step || !fill) return;
-
-  progress.style.display = "flex";
-  step.textContent = stepText;
-  fill.style.width = `${pct}%`;
-}
-
-function hideQBProgress() {
-  const progress = document.getElementById("qb-progress");
-  const fill = document.getElementById("qb-progress-fill");
-  const step = document.getElementById("qb-progress-step");
-
-  if (!progress || !fill || !step) return;
-
-  progress.style.display = "none";
-  fill.style.width = "8%";
-  step.textContent = "Preparando...";
-}
-
 // ── Painel central de geração SQL ──────────────────────────────────────────
 // Substitui a mini-barra no dock durante runQueryBuild(). Aparece no centro
 // da área de conteúdo — mesmo lugar onde o resultado vai surgir — com fase
@@ -3812,7 +3788,6 @@ async function resumeQB(decision) {
   if (processing) processing.style.display = "flex";
 
   setQBLoading(true);
-  setQBProgress(decision === "melhorar" ? "Melhorando query..." : "Aplicando decisão...", 50);
 
   try {
     const res = await fetch("/api/agents/query_build/resume", {
@@ -3829,8 +3804,6 @@ async function resumeQB(decision) {
     if (processing) processing.style.display = "none";
     _qbHitlThreadId = null;
 
-    setQBProgress("Finalizando apresentação...", 100);
-
     if (data.status === "awaiting_approval") {
       showQBHitlPanel(data);
     } else if (data.status === "error") {
@@ -3845,10 +3818,7 @@ async function resumeQB(decision) {
     if (acceptBtn) acceptBtn.disabled = false;
     showQBError(prettifyErrorMessage(e.message));
   } finally {
-    setTimeout(() => {
-      hideQBProgress();
-      setQBLoading(false);
-    }, 350);
+    setTimeout(() => setQBLoading(false), 350);
   }
 }
 

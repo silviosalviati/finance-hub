@@ -228,6 +228,83 @@ function hideQBProgress() {
   step.textContent = "Preparando...";
 }
 
+// ── Painel central de geração SQL ──────────────────────────────────────────
+// Substitui a mini-barra no dock durante runQueryBuild(). Aparece no centro
+// da área de conteúdo — mesmo lugar onde o resultado vai surgir — com fase
+// descritiva, subtexto e contador de tempo ao vivo.
+
+let _qbGenTimer = null;
+let _qbGenSeconds = 0;
+
+const _QB_GEN_PHASES = {
+  validating: { title: "Validando entrada",    sub: "Verificando esquema e dataset" },
+  generating: { title: "Gerando SQL com IA",   sub: "O LLM está interpretando sua solicitação" },
+  dryrun:     { title: "Executando dry-run",   sub: "Testando a query no BigQuery sem custo real" },
+  reviewing:  { title: "Revisando resultado",  sub: "Checando padrões e otimizações" },
+};
+
+function showQBGenerating() {
+  const container = document.getElementById("qb-generating");
+  const qbEmpty = document.getElementById("qb-empty");
+  const qbTabsArea = document.getElementById("qb-tabs-area");
+  const hitl = document.getElementById("qb-hitl-panel");
+  const learning = document.getElementById("qb-gerencia-learning");
+
+  if (qbEmpty) qbEmpty.style.display = "none";
+  if (qbTabsArea) qbTabsArea.style.display = "none";
+  if (hitl) hitl.style.display = "none";
+  if (learning) learning.style.display = "none";
+
+  if (!container) return;
+
+  _qbGenSeconds = 0;
+  const phase = _QB_GEN_PHASES.validating;
+
+  container.innerHTML = `
+    <div class="qa-empty" style="height: 100%">
+      <div class="qa-empty-ico">${_QB_ICON_SVG}</div>
+      <h3 id="qb-gen-phase">${phase.title}<span class="fa-thinking-dots"><span></span><span></span><span></span></span></h3>
+      <p class="qb-gen-sub" id="qb-gen-sub">${phase.sub}</p>
+      <span class="qb-gen-timer" id="qb-gen-timer">00:00</span>
+    </div>`;
+
+  container.style.display = "flex";
+  container.style.flexDirection = "column";
+  container.style.alignItems = "center";
+  container.style.justifyContent = "center";
+
+  if (_qbGenTimer) clearInterval(_qbGenTimer);
+  _qbGenTimer = setInterval(() => {
+    _qbGenSeconds++;
+    const mm = String(Math.floor(_qbGenSeconds / 60)).padStart(2, "0");
+    const ss = String(_qbGenSeconds % 60).padStart(2, "0");
+    const timerEl = document.getElementById("qb-gen-timer");
+    if (timerEl) timerEl.textContent = `${mm}:${ss}`;
+  }, 1000);
+}
+
+function setGeneratingPhase(phase) {
+  const info = _QB_GEN_PHASES[phase];
+  if (!info) return;
+  const phaseEl = document.getElementById("qb-gen-phase");
+  const subEl = document.getElementById("qb-gen-sub");
+  if (phaseEl) phaseEl.innerHTML = `${info.title}<span class="fa-thinking-dots"><span></span><span></span><span></span></span>`;
+  if (subEl) subEl.textContent = info.sub;
+}
+
+function hideQBGenerating() {
+  if (_qbGenTimer) {
+    clearInterval(_qbGenTimer);
+    _qbGenTimer = null;
+  }
+  const container = document.getElementById("qb-generating");
+  if (!container) return;
+  container.style.display = "none";
+  container.innerHTML = "";
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+
 function setDBProgress(stepText, pct) {
   const progress = document.getElementById("db-progress");
   const step = document.getElementById("db-progress-step");
@@ -1469,18 +1546,12 @@ async function runQueryBuild() {
 
   showQBError("");
   setQBLoading(true);
-  setQBProgress("Validando entrada...", 12);
-
-  if (qbEmpty) qbEmpty.style.display = "none";
-  if (qbTabsArea) qbTabsArea.style.display = "none";
+  showQBGenerating();
 
   try {
-    setTimeout(() => setQBProgress("Gerando SQL com LLM...", 36), 180);
-    setTimeout(
-      () => setQBProgress("Executando dry-run no BigQuery...", 62),
-      520,
-    );
-    setTimeout(() => setQBProgress("Consolidando resultado...", 84), 980);
+    setTimeout(() => setGeneratingPhase("generating"), 180);
+    setTimeout(() => setGeneratingPhase("dryrun"), 520);
+    setTimeout(() => setGeneratingPhase("reviewing"), 980);
 
     const res = await fetch("/api/agents/query_build/analyze", {
       method: "POST",
@@ -1503,7 +1574,7 @@ async function runQueryBuild() {
     }
 
     const data = await res.json();
-    setQBProgress("Finalizando apresentação...", 100);
+    hideQBGenerating();
 
     if (data.status === "awaiting_approval") {
       showQBHitlPanel(data);
@@ -1514,16 +1585,12 @@ async function runQueryBuild() {
       renderQB(data);
     }
   } catch (e) {
+    hideQBGenerating();
     showQBError(prettifyErrorMessage(e.message));
-
-    if (qbTabsArea && qbTabsArea.style.display === "none" && qbEmpty) {
-      qbEmpty.style.display = "flex";
-    }
+    if (qbEmpty) qbEmpty.style.display = "flex";
   } finally {
-    setTimeout(() => {
-      hideQBProgress();
-      setQBLoading(false);
-    }, 350);
+    hideQBGenerating();
+    setTimeout(() => setQBLoading(false), 350);
   }
 }
 

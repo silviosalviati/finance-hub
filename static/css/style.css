@@ -2794,6 +2794,22 @@ textarea {
   overflow: hidden;
 }
 
+/* Painel central de geração SQL — contador de tempo e subtexto de fase */
+.qb-gen-timer {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink3);
+  letter-spacing: 0.5px;
+}
+
+.qb-gen-sub {
+  font-size: 12px;
+  color: var(--ink2);
+  max-width: 320px;
+  text-align: center;
+  line-height: 1.5;
+}
+
 /* Campo de pergunta do Query Builder, no mesmo espírito da barra de chat
    do Finance Voice (fa-input-bar): fica ancorado embaixo da coluna de
    resultados em vez de dividir espaço com os cartões de área à esquerda. */

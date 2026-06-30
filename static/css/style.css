@@ -6859,6 +6859,62 @@ pre {
 .modal-field input:disabled { opacity: 0.6; cursor: not-allowed; }
 .modal-field-check label { flex-direction: row; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--ink); }
 .modal-field-check input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--porto-primary); }
+
+/* Seletor de gerência em pill-grid — melhor UX que <select> para 5-6 opções */
+.gerencia-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.gerencia-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-page);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink2);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gerencia-pill:hover {
+  border-color: var(--border2);
+  background: var(--white);
+  color: var(--ink);
+}
+.gerencia-pill.selected {
+  border-color: var(--porto-vivid);
+  background: var(--porto-sky);
+  color: var(--porto);
+  font-weight: 600;
+}
+.gerencia-pill.selected::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--porto-vivid);
+  flex-shrink: 0;
+}
+.gerencia-pill-none {
+  color: var(--ink3);
+}
+.gerencia-pill-none.selected {
+  border-color: var(--border2);
+  background: var(--bg);
+  color: var(--ink2);
+}
+.gerencia-pill-none.selected::before {
+  background: var(--ink3);
+}
+
 .modal-footer {
   display: flex;
   justify-content: flex-end;

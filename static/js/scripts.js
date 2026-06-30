@@ -8159,20 +8159,61 @@ async function adminLoadUsers() {
   }
 }
 
-async function _loadGerenciasIntoSelect(selectId) {
-  const sel = document.getElementById(selectId);
-  if (!sel) return;
-  sel.innerHTML = '<option value="">(nenhuma)</option>';
+// Opções conhecidas derivadas de _QB_GERENCIA_TOPICS (exclui o "Outros" manual
+// que não tem dataset fixo no backend). Backend pode adicionar mais via BigQuery labels.
+function _buildGerenciaOptions(backendVals = []) {
+  const options = [
+    { value: "", label: "(nenhuma)", none: true },
+    ..._QB_GERENCIA_TOPICS
+      .filter((t) => t.gerencia)
+      .map((t) => ({ value: t.gerencia, label: t.label })),
+  ];
+  for (const v of backendVals) {
+    if (v && !options.some((o) => o.value === v)) {
+      options.push({ value: v, label: _qbCapitalize(v.replace(/_/g, " ")) });
+    }
+  }
+  return options;
+}
+
+function _renderGerenciaPicker(options) {
+  const picker = document.getElementById("gerencia-picker");
+  if (!picker) return;
+  picker.innerHTML = options
+    .map(
+      (o) =>
+        `<button type="button" class="gerencia-pill${o.none ? " gerencia-pill-none" : ""}" data-value="${_escapeHtml(o.value)}">${_escapeHtml(o.label)}</button>`,
+    )
+    .join("");
+  picker.querySelectorAll(".gerencia-pill").forEach((pill) => {
+    pill.addEventListener("click", () => {
+      const val = pill.dataset.value;
+      const hidden = document.getElementById("modal-gerencia");
+      if (hidden) hidden.value = val;
+      _syncGerenciaPickerUI(val);
+    });
+  });
+}
+
+function _syncGerenciaPickerUI(value) {
+  const picker = document.getElementById("gerencia-picker");
+  if (!picker) return;
+  picker.querySelectorAll(".gerencia-pill").forEach((pill) => {
+    pill.classList.toggle("selected", pill.dataset.value === value);
+  });
+}
+
+async function _loadGerenciasIntoSelect() {
+  let backendVals = [];
   try {
     const res = await fetch("/admin/gerencias", { headers: authHeaders() });
-    if (!res.ok) return;
-    const gerencias = await res.json();
-    for (const g of gerencias) {
-      sel.add(new Option(g, g));
-    }
-  } catch (_) {
-    // degrade silenciosamente — fica só com "(nenhuma)"
-  }
+    if (res.ok) backendVals = await res.json();
+  } catch (_) {}
+
+  _renderGerenciaPicker(_buildGerenciaOptions(backendVals));
+  const hidden = document.getElementById("modal-gerencia");
+  if (hidden) hidden.value = "";
+  _syncGerenciaPickerUI("");
 }
 
 async function adminOpenUserModal(username = null) {
@@ -8188,8 +8229,7 @@ async function adminOpenUserModal(username = null) {
   document.getElementById("modal-is-admin").checked = false;
   document.getElementById("modal-username").disabled = false;
 
-  await _loadGerenciasIntoSelect("modal-gerencia");
-  document.getElementById("modal-gerencia").value = "";
+  await _loadGerenciasIntoSelect();
 
   if (username) {
     if (title) title.textContent = "Editar Usuário";
@@ -8203,7 +8243,9 @@ async function adminOpenUserModal(username = null) {
         document.getElementById("modal-username").disabled = true;
         document.getElementById("modal-name").value = u.name;
         document.getElementById("modal-is-admin").checked = !!u.is_admin;
-        document.getElementById("modal-gerencia").value = u.gerencia || "";
+        const gerVal = u.gerencia || "";
+        document.getElementById("modal-gerencia").value = gerVal;
+        _syncGerenciaPickerUI(gerVal);
       }
     } catch (_) {}
   } else {

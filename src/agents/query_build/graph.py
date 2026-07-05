@@ -9,6 +9,8 @@ from langgraph.graph import END, START, StateGraph
 from src.agents.query_build.nodes import (
     await_quality_approval,
     check_access,
+    node_guardrails_in,
+    node_guardrails_out,
     dry_run_generated_sql,
     fetch_generated_sample,
     generate_sql_from_request,
@@ -50,6 +52,7 @@ def build_graph(llm: BaseChatModel, checkpointer: Any = None):
     workflow = StateGraph(QueryBuildState)
 
     workflow.add_node("check_access", check_access)
+    workflow.add_node("guardrails_in", node_guardrails_in)
     workflow.add_node("generate_sql", partial(generate_sql_from_request, llm=llm))
     workflow.add_node("review_sql", partial(review_and_optimize_sql, llm=llm))
     workflow.add_node("validate_sql", validate_generated_sql_consistency)
@@ -57,6 +60,7 @@ def build_graph(llm: BaseChatModel, checkpointer: Any = None):
     workflow.add_node("score_query", partial(score_query, llm=llm))
     workflow.add_node("await_quality_approval", await_quality_approval)
     workflow.add_node("sample_generated", fetch_generated_sample)
+    workflow.add_node("guardrails_out", node_guardrails_out)
     workflow.add_node("record_audit", record_audit)
 
     workflow.add_edge(START, "check_access")
@@ -64,6 +68,13 @@ def build_graph(llm: BaseChatModel, checkpointer: Any = None):
     # Bloqueia antes de gastar qualquer chamada de LLM se o RBAC reprovar.
     workflow.add_conditional_edges(
         "check_access",
+        _guard,
+        {"continue": "guardrails_in", "record_audit": "record_audit"},
+    )
+
+    # Valida prompt injection antes de chamar LLM.
+    workflow.add_conditional_edges(
+        "guardrails_in",
         _guard,
         {"continue": "generate_sql", "record_audit": "record_audit"},
     )
@@ -111,7 +122,8 @@ def build_graph(llm: BaseChatModel, checkpointer: Any = None):
         {"sample_generated": "sample_generated", "generate_sql": "generate_sql"},
     )
 
-    workflow.add_edge("sample_generated", "record_audit")
+    workflow.add_edge("sample_generated", "guardrails_out")
+    workflow.add_edge("guardrails_out", "record_audit")
     workflow.add_edge("record_audit", END)
 
     return workflow.compile(checkpointer=checkpointer)

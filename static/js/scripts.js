@@ -981,16 +981,6 @@ const _QB_GERENCIA_TOPICS = [
     gerencia: "fluxo_caixa",
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-7"></path><path d="M14 8h6v6"></path></svg>`,
   },
-  {
-    // Sem dataset fixo pra resolver no backend — ao contrário das demais,
-    // o clique não chama _resolveQBGerencia, e sim _qbSelectManualGerencia
-    // (ver onclick em _qbShowGerenciaPicker), que reabre o seletor manual
-    // de projeto/dataset do formulário.
-    label: "Outros Assuntos Financeiro",
-    gerencia: null,
-    manual: true,
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`,
-  },
 ];
 
 let _qbPickerResolved = false;
@@ -1055,10 +1045,6 @@ function _qbShowGerenciaPicker(topics) {
       <span class="fa-topic-label">${topic.label}</span>
     `;
     btn.onclick = () => {
-      if (topic.manual) {
-        _qbSelectManualGerencia(topic);
-        return;
-      }
       _qbPickerResolved = true;
       // Trava os cartões durante a resolução assíncrona (evita clique
       // duplo numa área diferente enquanto a primeira ainda carrega). Some
@@ -1094,19 +1080,6 @@ function _qbShowAreaPill(topic) {
   // área pra trocar, então a ação só aparece pra admin.
   if (changeBtn) changeBtn.style.display = currentUser?.is_admin ? "" : "none";
   pillEl.style.display = "flex";
-}
-
-// "Outros Assuntos Financeiro" não tem gerência/dataset fixo pra resolver
-// no backend — em vez de chamar _resolveQBGerencia, revela o seletor manual
-// de projeto/dataset que já existe no formulário (escondido em modo
-// gerência) e vira o pill, igual às demais áreas.
-function _qbSelectManualGerencia(topic) {
-  _qbPickerResolved = true;
-  showQBError("");
-  qbDatasetValidationState.status = "idle";
-  _setQBGerenciaMode(false);
-  _qbShowAreaPill(topic);
-  syncQBGenerateButtonState();
 }
 
 // Reabre a grade de seleção a partir do pill ("Trocar área") — só admin vê
@@ -4534,35 +4507,6 @@ document.getElementById("db-request")?.addEventListener("keydown", (e) => {
     runDocumentBuild();
   }
 });
-
-// QB project/dataset selects — handlers defined after DOM is ready
-function qbOnProjectChange() {
-  const project = document.getElementById("qb-project")?.value.trim() || "";
-  qbDatasetValidationState.status = "idle";
-  setQBDatasetValidationStatus("idle");
-  syncQBGenerateButtonState();
-  _loadDatasetsIntoSelect(project, "qb-dataset").then(() => {
-    syncQBGenerateButtonState();
-  });
-}
-
-function qbOnDatasetChange() {
-  const datasetHint = document.getElementById("qb-dataset")?.value.trim() || "";
-  const projectId = document.getElementById("qb-project")?.value.trim() || "";
-  if (!datasetHint) {
-    qbDatasetValidationState.status = "idle";
-    setQBDatasetValidationStatus("idle");
-    syncQBGenerateButtonState();
-    return;
-  }
-  qbDatasetValidationState.status = "checking";
-  setQBDatasetValidationStatus("checking", {
-    title: "Validando dataset",
-    message: "Verificando metadados no BigQuery...",
-  });
-  clearTimeout(qbDatasetValidationTimer);
-  qbDatasetValidationTimer = setTimeout(() => validateQBDatasetHint(), 400);
-}
 
 // ─────────────────────────────────────
 // Init
@@ -8159,8 +8103,7 @@ async function adminLoadUsers() {
   }
 }
 
-// Opções conhecidas derivadas de _QB_GERENCIA_TOPICS (exclui o "Outros" manual
-// que não tem dataset fixo no backend). Backend pode adicionar mais via BigQuery labels.
+// Opções conhecidas derivadas de _QB_GERENCIA_TOPICS. Backend pode adicionar mais via BigQuery labels.
 function _buildGerenciaOptions(backendVals = []) {
   const options = [
     { value: "", label: "(nenhuma)", none: true },

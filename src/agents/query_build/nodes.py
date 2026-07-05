@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from datetime import date
 from typing import Any
 
@@ -17,6 +18,8 @@ from src.agents.query_build.state import QueryBuildState
 from src.shared.config import get_runtime_config
 from src.shared.guardrails import rbac
 from src.shared.guardrails.audit import record as record_audit_entry
+from src.shared.guardrails.injection import check_injection
+from src.shared.guardrails import pii_guard
 from src.shared.guardrails.sql_safety import assert_select_only
 from src.shared.guardrails.temporal import get_date_block
 from src.shared.tools.bigquery import (
@@ -25,6 +28,7 @@ from src.shared.tools.bigquery import (
 	get_dataset_tables_schema,
 )
 from src.shared.tools.llm import invoke_with_retry
+from src.shared.tools.schemas import DryRunResult
 
 _DEFAULT_QUERY_BUDGET_BYTES = 5 * 1024 ** 3
 
@@ -83,6 +87,23 @@ def check_access(state: QueryBuildState) -> dict[str, Any]:
 		),
 		"error_category": "rbac",
 		"warnings": [f"Bloqueado por RBAC: {reason}"] if reason else [],
+	}
+
+
+def node_guardrails_in(state: QueryBuildState) -> dict[str, Any]:
+	"""Validação de entrada: detecta padrões de prompt injection.
+
+	Executado logo após check_access (RBAC) e antes de gerar SQL — bloqueia
+	requisições suspeitas sem gastar crédito LLM, mesmo padrão que o Finance Auditor.
+	"""
+	safe, reason = check_injection(state.request_text)
+	if safe:
+		return {}
+
+	return {
+		"error": "Solicitação contém padrão suspeito ou não permitido.",
+		"error_category": "prompt_injection",
+		"warnings": [reason] if reason else [],
 	}
 
 
@@ -291,7 +312,39 @@ def dry_run_generated_sql(state: QueryBuildState) -> dict[str, Any]:
 	if state.error or not state.generated_sql:
 		return {}
 
-	result = dry_run_query(state.generated_sql, state.project_id)
+	# Executar dry_run com timeout de 20s — BigQuery pode ficar travado em full-scan.
+	try:
+		with ThreadPoolExecutor(max_workers=1) as executor:
+			future = executor.submit(dry_run_query, state.generated_sql, state.project_id)
+			result = future.result(timeout=20)
+	except TimeoutError:
+		return {
+			"error": "BigQuery dry-run excedeu o timeout de 20 segundos. A consulta pode ser muito custosa.",
+			"error_category": "bigquery_timeout",
+			"repairable_error": True,
+			"warnings": ["Operacao de validacao da SQL timeout — tente com filtros mais especificos."],
+		}
+	except Exception as exc:
+		# Outros erros (ex: executor.submit falha) — trata como erro normal.
+		result = DryRunResult(
+			error=f"Erro ao executar dry-run: {exc}",
+			bytes_processed=0,
+			bytes_billed=0,
+			estimated_cost_usd=0.0,
+			referenced_tables=[],
+		)
+
+	# B5: Verificar RBAC nas tabelas referenciadas (defensive mid-flow check).
+	if result.referenced_tables:
+		for table_ref in result.referenced_tables:
+			allowed, reason = rbac.check_dataset(state.user, table_ref)
+			if not allowed:
+				return {
+					"error": f"Acesso negado a {table_ref}: {reason}",
+					"error_category": "rbac",
+					"repairable_error": False,
+					"warnings": [f"RBAC bloqueou tabela referenciada: {table_ref}"],
+				}
 	warnings = list(state.warnings)
 
 	if result.error:
@@ -695,6 +748,36 @@ def fetch_generated_sample(state: QueryBuildState) -> dict[str, Any]:
 		"sample_columns": sample.get("columns") or [],
 		"sample_rows": sample.get("rows") or [],
 		"sample_error": sample.get("error"),
+	}
+
+
+def node_guardrails_out(state: QueryBuildState) -> dict[str, Any]:
+	"""Proteção de saída: mascara dados sensíveis (PII) antes de retornar.
+
+	Executado logo antes de record_audit — garante que informações sensíveis
+	não vazem em explanation/sample_rows. Padrão: MODE_MASK (redação de PII).
+	"""
+	if state.error:
+		# Em caso de erro, não há explicação/sample — pula o mascaramento.
+		return {}
+
+	# Aplicar pii_guard à explanation e sample_rows
+	explanation_masked = state.explanation or ""
+	sample_rows_masked = state.sample_rows or []
+
+	if explanation_masked:
+		explanation_masked, _ = pii_guard.scrub_text(explanation_masked)
+
+	if sample_rows_masked:
+		sample_rows_masked = [
+			{k: pii_guard.scrub_text(str(v))[0] if isinstance(v, str) else v
+			 for k, v in row.items()}
+			for row in sample_rows_masked
+		]
+
+	return {
+		"explanation": explanation_masked,
+		"sample_rows": sample_rows_masked,
 	}
 
 

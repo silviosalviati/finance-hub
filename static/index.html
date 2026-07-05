@@ -1250,11 +1250,11 @@
                   </div>
                 </div>
 
-                <div class="qlabel" id="qb-config-label">Configuração</div>
+                <div class="qlabel" id="qb-config-label" style="display: none">Configuração</div>
 
                 <div class="qfield" id="qb-project-field">
                   <label for="qb-project">Project ID — GCP</label>
-                  <select id="qb-project" onchange="qbOnProjectChange()">
+                  <select id="qb-project">
                     <option value="">Carregando projetos...</option>
                   </select>
                 </div>
@@ -1268,7 +1268,7 @@
                       style="margin-left:4px"
                     >●</span>
                   </label>
-                  <select id="qb-dataset" onchange="qbOnDatasetChange()" disabled>
+                  <select id="qb-dataset" disabled>
                     <option value="">Selecione um projeto primeiro</option>
                   </select>
                   <div

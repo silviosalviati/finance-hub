@@ -40,7 +40,13 @@ class FinanceAuditorAgent(BaseAgent):
             llm = _create_llm()
             t_creative = float(get_runtime_config("VERTEXAI_TEMPERATURE_CREATIVE", "0.3"))
             llm_creative = _create_llm(temperature=t_creative)
-            self._graph = build_supervisor_graph(llm=llm, llm_creative=llm_creative)
+            # Tiering de modelo (2.11): FINANCE_AUDITOR_LITE_MODEL vazio (default)
+            # = usa o mesmo `llm` de sempre, zero mudança de comportamento.
+            # Só ativa um modelo mais barato para tarefas simples (pick_relevant_tables,
+            # veredito do Reflect) quando configurado explicitamente no painel admin.
+            lite_model = get_runtime_config("FINANCE_AUDITOR_LITE_MODEL", "").strip()
+            llm_lite = _create_llm(model=lite_model) if lite_model else llm
+            self._graph = build_supervisor_graph(llm=llm, llm_creative=llm_creative, llm_lite=llm_lite)
         return self._graph
 
     def analyze(
@@ -63,6 +69,9 @@ class FinanceAuditorAgent(BaseAgent):
         # reconstruir consumo de tokens por nó (planner/reflect/composer/
         # capabilities), não só o agregado por modelo do callback abaixo.
         usage_log: list[dict[str, Any]] = []
+        # Cache turn-scoped de schema/catalog_search/pick_relevant_tables —
+        # ver docstring de SupervisorState.context_cache.
+        context_cache: dict[str, Any] = {}
         initial_state = {
             "request_text": query,
             "project_id": project_id,
@@ -73,6 +82,7 @@ class FinanceAuditorAgent(BaseAgent):
             "user": u,
             "attachments": list(attachments or []),
             "usage_log": usage_log,
+            "context_cache": context_cache,
         }
 
         final_state: dict[str, Any] | None = None

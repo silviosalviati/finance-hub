@@ -390,6 +390,7 @@ def node_router(
     state: SupervisorState,
     llm: BaseChatModel,
     llm_creative: BaseChatModel,
+    llm_lite: BaseChatModel | None = None,
 ) -> dict[str, Any]:
     plan = state.get("plan") or []
     base_context: dict[str, Any] = {
@@ -398,9 +399,11 @@ def node_router(
         "dataset_hint": state.get("dataset_hint"),
         "llm": llm,
         "llm_creative": llm_creative,
+        "llm_lite": llm_lite or llm,
         "user": state.get("user") or {},
         "attachments": state.get("attachments") or [],
         "usage_log": state.get("usage_log"),
+        "context_cache": state.get("context_cache"),
     }
 
     # Em re-execução (pós-reflect), preserva o que já foi executado.
@@ -827,14 +830,20 @@ def node_guardrails_out(state: SupervisorState) -> dict[str, Any]:
 def build_supervisor_graph(
     llm: BaseChatModel,
     llm_creative: BaseChatModel | None = None,
+    llm_lite: BaseChatModel | None = None,
 ) -> Any:
     """Compila o grafo Supervisor.
 
     Args:
         llm: LLM analítico (baixa temperatura) — Planner e text_to_sql.
         llm_creative: LLM criativo — Composer. Cai para `llm` quando omitido.
+        llm_lite: LLM mais barato/rápido para tarefas simples de classificação
+            — veredito do Reflect e `_pick_relevant_tables` (via `context["llm_lite"]`
+            no router). Cai para `llm` quando omitido (zero mudança de comportamento
+            se FINANCE_AUDITOR_LITE_MODEL não estiver configurado).
     """
     _composer_llm = llm_creative or llm
+    _lite_llm = llm_lite or llm
     workflow = StateGraph(SupervisorState)
 
     workflow.add_node("guardrails_in", node_guardrails_in)
@@ -843,9 +852,9 @@ def build_supervisor_graph(
     workflow.add_node("planner", lambda s: node_planner(s, llm=llm))
     workflow.add_node(
         "router",
-        lambda s: node_router(s, llm=llm, llm_creative=_composer_llm),
+        lambda s: node_router(s, llm=llm, llm_creative=_composer_llm, llm_lite=_lite_llm),
     )
-    workflow.add_node("reflect", lambda s: node_reflect(s, llm=llm))
+    workflow.add_node("reflect", lambda s: node_reflect(s, llm=_lite_llm))
     workflow.add_node("apply_reflect_plan", node_apply_reflect_plan)
     workflow.add_node("composer", lambda s: node_composer(s, llm=_composer_llm))
     workflow.add_node("audit", node_audit)

@@ -9,29 +9,25 @@
 
 Atualizado a cada item resolvido. Serve como checklist para portar manualmente para o GitLab da empresa (repo separado, sem remote/histórico compartilhado com este).
 
-| Data | Arquivo | Descrição | Item |
-|---|---|---|---|
-| 2026-07-09 | `src/core/database.py` | Default de `FINANCE_AUDITOR_RBAC_STRICT`: `"0"` → `"1"` | #1 (RBAC) |
-| 2026-07-09 | `src/shared/guardrails/rbac.py` | Fallback de `_strict_mode()` também vira `"1"` (fail-closed); docstring recomenda ACL `"*"` em vez de desligar o strict | #1 (RBAC) |
-| 2026-07-09 | `static/index.html` | Checkbox "Acesso total" no modal de usuário do admin; coluna "Acesso" na tabela | #1 (RBAC) |
-| 2026-07-09 | `static/js/scripts.js` | `adminLoadUsers`/`adminOpenUserModal`/`adminSaveUser` leem e gravam ACL `"*"` via `/admin/finance/acl/{user}` | #1 (RBAC) |
-| 2026-07-09 | `static/css/style.css` | Estilos `.badge-full-access` e `.modal-field-hint` | #1 (RBAC) |
-| 2026-07-09 | `src/shared/guardrails/pii_guard.py` | Guard passa a cobrir `spec.data.values` (gráficos) e `columns[].top[].value` (stats) além de `rows`/`sql`/`text`; contagem de PII em `rows` agora entra em `pii_counts` (não entrava antes); nova função `scrub_for_storage()` | 1.2 |
-| 2026-07-09 | `src/shared/guardrails/audit.py` | `record()` passa `request_text`/`plan`/`error` por `scrub_for_storage()` antes de persistir no `finance_audit_log` | 1.3 |
-| 2026-07-09 | `src/shared/guardrails/injection.py` | Substituídos os 5 substrings literais por ~19 regex com normalização de acentos (`unicodedata`); detecta variações que antes passavam (ex.: "esqueça as instruções") | 1.4 |
-| 2026-07-09 | `src/agents/finance_auditor/supervisor.py` | Removida a cópia hardcoded de `_INJECTION_MARKERS`; `node_guardrails_in` agora chama `injection.check_injection()` compartilhado | 1.4 |
-| 2026-07-09 | `src/api/routes/agents.py` | `GET /api/runtime-llm` e `GET /api/agents` agora exigem `Depends(get_current_user)` | 1.6 |
-| 2026-07-09 | `README.md` | Lista de endpoints atualizada: `/api/runtime-llm` movido de "Públicos" para "Protegidos por sessão" | 1.6 |
-| 2026-07-09 | `src/agents/finance_auditor/supervisor.py` | `_resolve_placeholders` (late-binding `${step_N.path}`) só resolve valores escalares — dict/list resolvido fica sem substituir em vez de virar `str({...})` cru no arg; resultado limitado a 4000 chars | 1.7 |
-| 2026-07-10 | `src/shared/tools/llm.py` | `invoke_with_retry`/`invoke_with_retry_async` ganham `usage_sink` — capturam tokens reais por chamada (via `get_usage_metadata_callback` escopado) e anexam rotulado por `label`; novo helper `summarize_usage_by_label()` | 2.12 |
-| 2026-07-10 | `src/core/database.py` | Coluna `token_usage_json` em `finance_audit_log` (+ migração `_migrate_audit_log_columns`); `append_finance_audit()` grava o campo | 2.12 |
-| 2026-07-10 | `src/agents/finance_auditor/supervisor_state.py` | Novo campo `usage_log: list[dict]` — lista mutável compartilhada, não reducer-merged | 2.12 |
-| 2026-07-10 | `src/agents/finance_auditor/supervisor.py` | `node_planner`/`node_reflect`/`node_composer` passam `usage_sink=state.get("usage_log")`; `node_router` propaga `usage_log` no `context` das capabilities; `node_audit` agrega por nó via `summarize_usage_by_label()` e grava no audit log | 2.12 |
-| 2026-07-10 | `src/agents/finance_auditor/capabilities.py` | `_pick_relevant_tables`, `cap_text_to_sql` (chamada principal + fallback) passam `usage_sink=context.get("usage_log")` | 2.12 |
-| 2026-07-10 | `src/shared/guardrails/audit.py` | `record()` inclui `token_usage` no entry persistido | 2.12 |
-| 2026-07-10 | `src/agents/finance_auditor/__init__.py` | `analyze()` cria e injeta `usage_log` no estado inicial; resposta ganha `token_usage.by_node` | 2.12 |
+| Arquivo | Funções |
+|---|---|
+| `README.md` | — |
+| `src/agents/finance_auditor/__init__.py` | `analyze`, `_get_graph` |
+| `src/agents/finance_auditor/capabilities.py` | `_get_cached_schema` 🆕, `_get_cached_catalog_search` 🆕, `_pick_relevant_tables`, `cap_text_to_sql`, `cap_bq_get_schema`, `cap_catalog_search`; 15 schemas Pydantic de args (`_BqGetSchemaArgs`, `_VizSpecArgs` etc.) 🆕, `_format_validation_error` 🆕, `execute_capability` |
+| `src/agents/finance_auditor/supervisor.py` | `node_guardrails_in`, `_resolve_placeholders`, `node_planner`, `node_reflect`, `node_composer`, `node_router`, `node_audit`, `build_supervisor_graph` |
+| `src/agents/finance_auditor/supervisor_state.py` | `SupervisorState` (campos `usage_log`, `context_cache`) |
+| `src/api/routes/agents.py` | `runtime_llm_info`, `list_agents` |
+| `src/core/database.py` | `_migrate_audit_log_columns` 🆕, `append_finance_audit`, `_CONFIG_DEFAULTS` |
+| `src/shared/guardrails/audit.py` | `record` |
+| `src/shared/guardrails/injection.py` | `_normalize` 🆕, `check_injection` |
+| `src/shared/guardrails/pii_guard.py` | `scrub_for_storage` 🆕, `_artifact_chart_values` 🆕, `_artifact_stats_top_values` 🆕, `apply_guard` |
+| `src/shared/guardrails/rbac.py` | `_strict_mode` |
+| `src/shared/tools/llm.py` | `_record_usage` 🆕, `summarize_usage_by_label` 🆕, `TokenBudgetExceeded` 🆕, `_check_token_budget` 🆕, `create_llm`, `invoke_with_retry`, `invoke_with_retry_async` |
+| `static/css/style.css` | `.badge-full-access`, `.modal-field-hint` |
+| `static/index.html` | — |
+| `static/js/scripts.js` | `_fetchAclMap` 🆕, `_aclHasFullAccess` 🆕, `adminLoadUsers`, `adminOpenUserModal`, `adminSaveUser` |
 
-**Nota de escopo (item 2.12):** `transform_query` (`agentic_retrieval.py`) e `describe_image_with_llm` (`multimodal.py`) não usam `invoke_with_retry` (chamada `llm.invoke()` direta) — ficam de fora do breakdown por nó por ora (achado 2.9, separado). O total capturado pelo callback externo em `analyze()` já inclui o uso deles; só não aparecem individualizados em `token_usage.by_node`.
+🆕 = função nova (as demais são funções existentes que foram alteradas).
 
 **Portar para o GitLab:** repositório separado sem remote compartilhado — replicar manualmente usando a tabela acima, ou pedir um `git diff` dos arquivos para aplicar com `git apply` se a base for igual.
 
@@ -42,22 +38,15 @@ Atualizado a cada item resolvido. Serve como checklist para portar manualmente p
 | Dimensão | Status |
 |---|---|
 | **Segurança** | ✅ Nenhum achado em aberto — tudo corrigido nesta auditoria (ver Changelog). |
-| **Produtividade/Performance** | ⚠️ 8 achados abertos (seção 2) — token usage já é persistido com breakdown por nó (ver Changelog). Maiores pendências: prompt do planner sem cache de contexto (~3,7k tokens estáticos reenviados em toda chamada) e ausência de streaming real de tokens. |
-| **Assertividade** | ⚠️ 3 achados abertos (seção 3). Principal: sem human-in-the-loop antes de rodar SQL gerado por LLM. |
-| **Boas práticas LangGraph** | ⚠️ 3 achados abertos (seção 4). Principais: grafo sem checkpointer nativo (perde resume/interrupt) e capabilities fora do padrão `bind_tools`/`ToolNode`. |
+| **Produtividade/Performance** | ⚠️ Pendências: prompt do planner sem cache de contexto (específico do Vertex), streaming real. |
+| **Assertividade** | ✅ Nenhum achado em aberto — tudo corrigido ou decidido (ver Changelog). |
+| **Boas práticas LangGraph** | ⚠️ Grafo sem checkpointer nativo (perde resume/interrupt) e capabilities fora do padrão `bind_tools`/`ToolNode`. |
 
 ---
 
 ## 1. Segurança
 
 Nenhum achado em aberto nesta rodada — todos implementados, ver Changelog no topo do arquivo.
-
-### 🟢 Verificado como não-problema (para não reabrir como "achado novo")
-- `assert_select_only` (SQL guard) está corretamente integrado em todos os pontos que executam SQL gerado por LLM no Finance Auditor (`capabilities.py:400`, `alerting.py:24,101`). Único ponto sem o guard é `catalog_index.py:184`, mas ali o SQL é um template fixo (`SELECT * FROM {table_ref}`) com `table_ref` vindo do catálogo real do BigQuery, não de texto do usuário/LLM — não é injetável.
-- Sessão: senha com bcrypt em 100% dos caminhos de escrita; token de sessão é opaco (UUID) e validado contra a base a cada request — não há como forjar/escalar via manipulação de token.
-- Admin bootstrap gera senha aleatória forte se `ADMIN_DEFAULT_PASSWORD` não for setado — não há credencial fraca hardcoded.
-- CORS: `allow_credentials=False`, auth via Bearer token (não cookie) — configuração de `ALLOWED_ORIGINS` aberta não implica roubo de sessão.
-- `.sixth/app.db` não é servido por nenhuma rota web — acesso é só a nível de filesystem.
 
 ---
 
@@ -73,24 +62,6 @@ Nenhum achado em aberto nesta rodada — todos implementados, ver Changelog no t
 **2.7 — Prompt do planner sem cache de contexto: ~3,7k tokens estáticos reenviados em toda chamada**
 `PLANNER_PROMPT` (`supervisor_prompts.py:7-281`) tem 14.653 caracteres (~3.700 tokens) — embute o catálogo completo das 14 capabilities com args e exemplos, mesmo quando o plano final usa só 1-2 delas. Esse bloco é praticamente idêntico entre chamadas (só a data muda, `supervisor.py:283-285`), mas é reenviado e retokenizado do zero em toda invocação do planner, inclusive para follow-ups triviais ("obrigado", "e no mês passado?"). Não há uso de Vertex AI Context Caching em lugar nenhum do projeto (`grep` por `cached_content`/`context_cach`/`CachedContent`/`cache_control`/`prompt_caching` em `src/` não encontra nada). Essa é a maior alavanca de economia disponível: um turno típico já gasta ~4,5k tokens só de entrada no planner.
 
-**2.8 — Contexto de schema recalculado e duplicado entre capabilities e retries**
-`cap_text_to_sql` busca schema via `get_table_schema()` sem cache (`capabilities.py:742-747`) — chamada viva ao BigQuery toda vez. Se o Planner também agenda um step `bq_get_schema` explícito pro mesmo `table_ref` (padrão documentado no próprio prompt, `supervisor_prompts.py:26-28`), o schema é buscado e serializado no contexto do LLM **duas vezes** no mesmo turno. Em um retry disparado pelo Reflect, `text_to_sql` reconstrói o schema do zero em vez de reaproveitar o que já foi buscado na tentativa anterior (`_attach_retry_feedback`, `supervisor.py:590-621`, só reanexa o SQL/erro anterior, não o schema já obtido).
-
-**2.9 — Chamadas LLM auxiliares descartadas sem cache, uma delas fora do padrão de retry**
-`_pick_relevant_tables` (`capabilities.py:544-606`) é uma chamada LLM separada — até 80 tabelas × 20 colunas em JSON — cujo resultado nunca é cacheado/reaproveitado dentro do turno. `cap_catalog_search` e o branch RAG de `cap_text_to_sql` chamam `adaptive_search_catalog()` de forma independente; se o Planner agendar `catalog_search` E `text_to_sql` sem `dataset_ref` (algo que o próprio prompt desaconselha mas não impede, `supervisor_prompts.py:265-270`), a mesma busca por embedding roda duas vezes. `transform_query` (`agentic_retrieval.py:62`) faz uma chamada `llm.invoke()` direta, sem passar por `invoke_with_retry` — fora do padrão de retry/observabilidade do resto do agente.
-
-**2.10 — `conversation_context` montado uma vez, mas pago duas vezes**
-A mesma string (~400-600 tokens, 2 turnos anteriores truncados a 800 chars cada, `agents.py:335-355,558`) é embutida separadamente no prompt do planner (`supervisor.py:290-299`) e do composer (`supervisor.py:727-736`) — como são duas chamadas de API distintas, o mesmo texto é pago (tokenizado e cobrado) duas vezes por turno.
-
-**2.11 — Um único modelo para tudo, sem tiering por complexidade**
-`gemini-2.5-flash` (`llm.py:36-63`) é usado sem variação para planner, reflect, composer, `text_to_sql`, `_pick_relevant_tables` e descrição de imagem — só a temperatura varia (0.05 analítico vs 0.3 criativo pro composer). Tarefas simples de classificação (`_pick_relevant_tables`, o veredito curto do Reflect) rodam no mesmo modelo que gera SQL ou o relatório final, sem opção de usar algo mais barato/rápido onde a tarefa é trivial.
-
-**2.13 — Sem budget/circuit-breaker de tokens por requisição**
-BigQuery tem `FINANCE_AUDITOR_QUERY_BUDGET_BYTES` como teto (`capabilities.py:393-455`), mas não existe nada equivalente para tokens/custo de LLM. Um turno worst-case (plano de 6 passos, modo análise profunda, um retry do Reflect que dobra o volume de `tool_results` no composer) pode passar de 20-30k tokens de entrada sem nenhum limite, alerta ou corte. Isso é ao mesmo tempo um risco de custo e uma superfície de abuso — nada impede um usuário de repetir deliberadamente o pior caso.
-
-**2.14 — Retry reenvia o prompt inteiro, sem redução**
-`invoke_with_retry` (`llm.py:66-100`) reenvia a mensagem completa e idêntica a cada tentativa — nenhuma redução de contexto entre tentativas. Uma falha transitória em `text_to_sql` pode custar até 3 chamadas completas (`max_attempts=2` + 1 fallback, `capabilities.py:766-787`), cada uma carregando o `schemas_text` inteiro.
-
 ---
 
 ## 3. Assertividade (qualidade e confiabilidade das respostas)
@@ -101,17 +72,6 @@ BigQuery tem `FINANCE_AUDITOR_QUERY_BUDGET_BYTES` como teto (`capabilities.py:39
 - **`_normalize_plan_steps`** (`supervisor.py:233-268`) corrige preventivamente um erro comum do planner (chamar `metric_execute` sem `key`) antes mesmo de executar.
 - **Retry com feedback de erro anexado**: quando `text_to_sql` falha, o erro/SQL tentado é anexado de volta ao prompt via `_attach_retry_feedback` (`supervisor.py:585-616`) para a próxima tentativa — não é um retry cego.
 - **Erro de capability nunca vira exceção não tratada**: `execute_capability` (`capabilities.py:1698-1704`) retorna erro estruturado mesmo se o planner alucinar um nome de capability inexistente.
-
-### 🟠 Achado de risco
-
-**3.1 — Ausência de human-in-the-loop antes de executar SQL gerado por LLM**
-O Finance Auditor **não tem nenhum ponto de pausa** — o SQL gerado por `text_to_sql` é validado só por regras automáticas (`assert_select_only` + RBAC + budget de bytes), nunca por um humano, antes de rodar contra o BigQuery de produção. Para um agente que lida com dados financeiros, isso é uma lacuna de controle, mesmo com os guards automáticos funcionando bem.
-
-**3.2 — Guard temporal é só instrução de prompt, não verificação de código**
-`get_planner_date_block`/`get_date_block` (`src/shared/guardrails/temporal.py`) são texto injetado nos prompts do Planner/Reflect/Composer (`supervisor.py:278-280,532-534,714-717`) — não há checagem de código de que o LLM realmente usou a data fornecida em vez de uma data alucinada/desatualizada do seu treinamento.
-
-**3.3 — Args do plano são `dict[str, Any]` livre, sem schema validado antes da execução**
-`PlanStep.args` (`supervisor_schemas.py:47`) não tem um schema por capability — cada `cap_*` valida seus próprios args defensivamente em runtime. Funciona (erros viram `_err(...)` estruturado), mas significa que não há uma camada central que garanta "os args batem com o que a capability espera" antes de sequer tentar executar.
 
 ---
 
@@ -124,7 +84,7 @@ O Finance Auditor **não tem nenhum ponto de pausa** — o SQL gerado por `text_
 ### 🟠 Divergências da idiomática LangGraph (dívida arquitetural)
 
 **4.1 — Grafo compilado sem checkpointer nativo**
-`build_supervisor_graph(...).compile()` (`supervisor.py:856`) não recebe `checkpointer=`. Persistência é reimplementada à mão (`FileCheckpointer`, JSON por chave em disco) só na camada de API, salvando a *resposta final* e o *histórico de chat* — não um snapshot do estado do grafo. Consequência prática: **não há resume real de execução parcial** (se o processo cair no meio de um plano de 6 passos, tudo se perde) e **não há suporte a interrupt/HITL nativo** (item 3.1).
+`build_supervisor_graph(...).compile()` (`supervisor.py:856`) não recebe `checkpointer=`. Persistência é reimplementada à mão (`FileCheckpointer`, JSON por chave em disco) só na camada de API, salvando a *resposta final* e o *histórico de chat* — não um snapshot do estado do grafo. Consequência prática: **não há resume real de execução parcial** (se o processo cair no meio de um plano de 6 passos, tudo se perde) e **não há suporte a interrupt nativo** para eventuais gates condicionais futuros (ex.: pausa só em queries de risco, como o `query_build` já faz via score de qualidade).
 
 **4.2 — Capabilities não são tools LangChain (`bind_tools`/`ToolNode`)**
 `CAPABILITY_REGISTRY` (`capabilities.py:1679-1695`) é um dicionário nome→função, dirigido por um plano gerado via structured output — não pelo mecanismo nativo de tool-calling do LangChain (o LLM nunca vê um schema JSON de tool, só uma descrição em texto livre no prompt, `supervisor_prompts.py:15-273`). Essa é uma escolha de arquitetura deliberada (plan-and-execute com DAG e paralelismo interno via `ThreadPoolExecutor`, em vez de ReAct passo-a-passo) e **não é "errada"** — mas diverge do padrão que o próprio ecossistema LangGraph documenta como recomendado, perdendo validação automática de schema de tool-call e compatibilidade com tooling que espera `tool_calls` nativos (ex.: tracing de tool-use no LangSmith fica menos estruturado).
@@ -140,24 +100,18 @@ Ordenada por uma lógica de **medir → cachear → limitar → deduplicar → t
 
 **Nota de portabilidade (2026-07-09):** este projeto local usa Vertex AI (`SUPPORTED_LLM_PROVIDERS = {"vertexai"}`, `config.py:125`) como único provider. A versão da empresa no GitLab usa um **gateway próprio multi-LLM** (Meta, Google e Anthropic). A maioria dos itens abaixo é independente de provider (lógica de aplicação/LangGraph). Exceções marcadas com ⚠️:
 - **Item 1** é uma API específica do Vertex/Gemini (`cachedContents`) — implementado aqui como está, mas precisa ser reavaliado contra o que o gateway da empresa realmente expõe (Anthropic tem `cache_control`, um gateway proprietário pode ou não repassar cache de contexto) antes de portar.
-- **Item 5** fica **mais forte** na empresa, não mais fraco — com 3 fornecedores no mesmo gateway dá pra fazer tiering cross-vendor (ex.: modelo pequeno da Meta/Google pra classificação, Claude/Gemini Pro só pra SQL/relatório).
-- **Itens 8 e 9** devem funcionar sem mudança se o gateway seguir convenção OpenAI-compatible para streaming/tool-calling (comum em gateways multi-provider), mas vale confirmar na hora de portar.
+- **Itens 3 e 4** devem funcionar sem mudança se o gateway seguir convenção OpenAI-compatible para streaming/tool-calling (comum em gateways multi-provider), mas vale confirmar na hora de portar.
 
 | # | Item | Dimensão | Esforço | Por quê primeiro/depois |
 |---|---|---|---|---|
 | 1 | ⚠️ Ativar Vertex AI Context Caching no prompt do planner (2.7) | Produtividade / Custo | Médio | Maior alavanca de economia isolada localmente — ~3,7k tokens estáticos reenviados em toda chamada. Específico do Vertex, ver nota de portabilidade. Agora dá pra medir o ganho real via `token_usage.by_node.planner` |
-| 2 | Adicionar budget/circuit-breaker de tokens por requisição, espelhando o `FINANCE_AUDITOR_QUERY_BUDGET_BYTES` do BigQuery (2.13) | Segurança / Custo | Médio | Fecha risco de custo descontrolado e superfície de abuso |
-| 3 | Eliminar redundância de contexto: schema duplicado (`bq_get_schema` + `text_to_sql`), `conversation_context` duplicado (planner + composer), cache de `_pick_relevant_tables`/`catalog_search` dentro do turno (2.8, 2.9, 2.10) | Produtividade / Custo | Médio | Vários ganhos pequenos e independentes, seguros de implementar juntos |
-| 4 | Reduzir amplificação de custo em retry — reaproveitar contexto já buscado (schema, tabelas escolhidas) em vez de reconstruir do zero a cada tentativa (2.14) | Produtividade / Custo | Baixo-Médio | Resolve naturalmente junto do item 3 |
-| 5 | Model tiering para chamadas auxiliares simples (`_pick_relevant_tables`, veredito do Reflect) — usar um modelo mais barato/rápido (2.11) | Produtividade / Custo | Médio | Agora dá pra usar `token_usage.by_node` (já implementado) pra decidir se compensa. Mais forte ainda na empresa (multi-vendor) |
-| 6 | Compilar o grafo do Finance Auditor com `checkpointer=` nativo do LangGraph (4.1) | Boas práticas | Alto | Pré-requisito técnico para o item 7; também habilita resume real de execução parcial |
-| 7 | Adicionar HITL (approve/skip) antes de rodar SQL gerado por LLM no Finance Auditor (3.1, 4.1) | Assertividade / Arquitetura | Alto | Maior mudança estrutural da lista, mas fecha a maior lacuna de controle humano — depende do item 6 |
-| 8 | ⚠️ Avaliar streaming real (token-a-token) para o Finance Auditor (2.6) | Produtividade / UX | Médio-Alto | Não é bug, é expectativa de mercado para chat com LLM. Ver nota de portabilidade |
-| 9 | ⚠️ Migrar capabilities para `bind_tools`/`ToolNode` nativo, ou documentar deliberadamente por que o dispatcher próprio foi escolhido (4.2) | Boas práticas | Alto | Mudança arquitetural grande; só vale se os itens 6-7 (checkpointer + HITL) forem adiante primeiro. Ver nota de portabilidade |
-| 10 | Adicionar reducers (`Annotated[...]`) nos campos de lista do `SupervisorState` mesmo sem paralelismo de nós hoje, como blindagem futura (4.3) | Boas práticas | Baixo-Médio | Baixo risco imediato, mas barato de corrigir agora vs. caro de depurar depois |
+| 2 | Compilar o grafo do Finance Auditor com `checkpointer=` nativo do LangGraph (4.1) | Boas práticas | Alto | Habilita resume real de execução parcial e alinha com os agentes irmãos (query_build/query_analyzer já usam) |
+| 3 | ⚠️ Avaliar streaming real (token-a-token) para o Finance Auditor (2.6) | Produtividade / UX | Médio-Alto | Não é bug, é expectativa de mercado para chat com LLM. Ver nota de portabilidade |
+| 4 | ⚠️ Migrar capabilities para `bind_tools`/`ToolNode` nativo, ou documentar deliberadamente por que o dispatcher próprio foi escolhido (4.2) | Boas práticas | Alto | Mudança arquitetural grande, mas independente dos outros itens — pode ser feita a qualquer momento. Ver nota de portabilidade |
+| 5 | Adicionar reducers (`Annotated[...]`) nos campos de lista do `SupervisorState` mesmo sem paralelismo de nós hoje, como blindagem futura (4.3) | Boas práticas | Baixo-Médio | Baixo risco imediato, mas barato de corrigir agora vs. caro de depurar depois |
 
 ---
 
 ## Nota final
 
-Este documento é atualizado conforme itens da lista são implementados: cada correção aplicada sai da análise/priorização e vira uma entrada no "Changelog de implementação" no topo do arquivo, com os arquivos alterados. A lista priorizada atual reflete só o que ainda está em aberto — o item 1 original desta rodada (persistir `token_usage` por nó) já foi implementado e verificado (suíte completa + teste manual ponta a ponta gravando e lendo do banco). A decisão de quais atacar em seguida, e em que sprint, continua com o usuário.
+Este documento é atualizado conforme itens da lista são implementados: cada correção aplicada sai da análise/priorização e vira uma entrada no "Changelog de implementação" no topo do arquivo, com os arquivos alterados. A lista priorizada atual reflete só o que ainda está genuinamente em aberto — itens já implementados ou com decisão final tomada (fix ou não-fix) saem do corpo do relatório. A decisão de quais atacar em seguida, e em que sprint, continua com o usuário.

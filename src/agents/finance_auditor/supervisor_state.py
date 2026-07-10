@@ -51,6 +51,16 @@ class SupervisorState(TypedDict, total=False):
     # mutado ao longo de toda a execução do grafo, sem precisar de reducer.
     usage_log: list[dict[str, Any]]
 
+    # Cache mutável compartilhado, escopado à requisição (não persiste entre
+    # requisições, não é reducer-merged — mesmo princípio de `usage_log`).
+    # Evita refazer schema/catalog_search/pick_relevant_tables do zero
+    # quando duas capabilities pedem a mesma coisa no mesmo turno, ou quando
+    # um retry do Reflect executa `text_to_sql` de novo para os mesmos
+    # table_refs. Chaves namespaced por prefixo: "schema:{table_ref}",
+    # "catalog_search:{project_id}:{query}:{top_k}",
+    # "pick_tables:{dataset_project}.{dataset_id}:{natural_language}".
+    context_cache: dict[str, Any]
+
     # --- Fase 4 ---
     attachments: list[dict[str, Any]]   # anexos enviados (CSV/imagem)
     iteration: int                       # nº de execuções do router (1-based)

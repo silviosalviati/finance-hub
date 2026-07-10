@@ -25,6 +25,7 @@ import unicodedata
 from typing import Any, Callable
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from src.agents.finance_auditor import catalog_index, forecast as forecast_mod
 from src.agents.finance_auditor import multimodal, org_memory, semantic_layer
@@ -85,6 +86,43 @@ def _get_budget_bytes() -> int:
 
 def _llm_text(response: Any) -> str:
     return str(getattr(response, "content", response) or "")
+
+
+def _get_cached_catalog_search(
+    context: dict[str, Any], project_id: str, query: str, top_k: int
+) -> list[dict[str, Any]]:
+    """Reaproveita `adaptive_search_catalog` via `context["context_cache"]`
+    quando a mesma busca (mesma query/projeto/top_k) já rodou neste turno —
+    `cap_catalog_search` e o branch RAG de `cap_text_to_sql` chamam a mesma
+    busca por embedding de forma independente; sem cache, um plano que
+    agenda os dois para a mesma pergunta paga a busca (e o possível
+    `transform_query` de reescrita) duas vezes."""
+    cache = context.get("context_cache")
+    key = f"catalog_search:{project_id}:{query}:{top_k}"
+    if cache is not None and key in cache:
+        return cache[key]
+    matches = adaptive_search_catalog(project_id, query, llm=context.get("llm"), top_k=top_k)
+    if cache is not None:
+        cache[key] = matches
+    return matches
+
+
+def _get_cached_schema(
+    context: dict[str, Any], table_ref: str, project_id: str, max_columns: int = 50
+) -> str:
+    """Busca o schema de `table_ref`, reaproveitando o cache turn-scoped em
+    `context["context_cache"]` quando disponível — evita buscar/serializar o
+    mesmo schema duas vezes no mesmo turno (ex.: um step `bq_get_schema`
+    seguido de `text_to_sql` para a mesma tabela) ou refazer em cada retry
+    do Reflect para o mesmo `text_to_sql`."""
+    cache = context.get("context_cache")
+    key = f"schema:{table_ref}:{max_columns}"
+    if cache is not None and key in cache:
+        return cache[key]
+    schema_text = get_table_schema(table_ref, project_id, max_columns=max_columns)
+    if cache is not None:
+        cache[key] = schema_text
+    return schema_text
 
 
 def _resolve_project_for_table(table_ref: str, context_project: str | None) -> str:
@@ -362,7 +400,7 @@ def cap_bq_get_schema(args: dict[str, Any], context: dict[str, Any]) -> dict[str
         return _err(f"RBAC: {reason}")
 
     try:
-        schema_text = get_table_schema(table_ref, project_id, max_columns=50)
+        schema_text = _get_cached_schema(context, table_ref, project_id, max_columns=50)
     except Exception as exc:  # noqa: BLE001
         return _err(f"Falha ao obter schema: {exc}")
 
@@ -692,10 +730,20 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
         if not all_tables:
             return _err(f"Dataset {dataset_project}.{dataset_id} não tem tabelas.")
 
-        picked = _pick_relevant_tables(
-            natural_language, all_tables, llm, max_pick=5,
-            usage_sink=context.get("usage_log"),
-        )
+        # Reaproveita a escolha de tabelas se o mesmo dataset+pergunta já
+        # rodou neste turno (ex.: retry do Reflect no mesmo text_to_sql) —
+        # sem isso, cada tentativa paga de novo a chamada LLM de seleção.
+        pick_cache = context.get("context_cache")
+        pick_key = f"pick_tables:{dataset_project}.{dataset_id}:{natural_language}:5"
+        if pick_cache is not None and pick_key in pick_cache:
+            picked = pick_cache[pick_key]
+        else:
+            picked = _pick_relevant_tables(
+                natural_language, all_tables, context.get("llm_lite") or llm, max_pick=5,
+                usage_sink=context.get("usage_log"),
+            )
+            if pick_cache is not None:
+                pick_cache[pick_key] = picked
         if not picked:
             return _err("Não foi possível identificar tabelas relevantes para a pergunta.")
         table_refs = [
@@ -711,7 +759,7 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
     # tabelas certas por SIGNIFICADO no índice do catálogo, em vez de exigir
     # que o Planner já saiba (ou chute) o nome do dataset.
     elif not table_refs and not dataset_ref:
-        matches = adaptive_search_catalog(project_id, natural_language, llm=llm, top_k=5)
+        matches = _get_cached_catalog_search(context, project_id, natural_language, top_k=5)
         allowed_matches = []
         for m in matches:
             allowed, _reason = rbac.check_dataset(context.get("user"), m["dataset_id"])
@@ -746,7 +794,7 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
     schemas: list[str] = []
     for ref in table_refs[:8]:
         try:
-            schemas.append(get_table_schema(ref, _resolve_project_for_table(ref, project_id), max_columns=50))
+            schemas.append(_get_cached_schema(context, ref, _resolve_project_for_table(ref, project_id), max_columns=50))
         except Exception as exc:  # noqa: BLE001
             schemas.append(f"[Falha ao obter schema de {ref}: {exc}]")
     schemas_text = "\n\n".join(schemas) or "(sem schemas)"
@@ -1322,8 +1370,8 @@ def cap_catalog_search(args: dict[str, Any], context: dict[str, Any]) -> dict[st
     except (TypeError, ValueError):
         top_k = 5
 
-    matches = adaptive_search_catalog(
-        project_id, query, llm=context.get("llm"), top_k=max(1, min(top_k, 20))
+    matches = _get_cached_catalog_search(
+        context, project_id, query, top_k=max(1, min(top_k, 20))
     )
     user = context.get("user")
     visible = [m for m in matches if rbac.check_dataset(user, m["dataset_id"])[0]]
@@ -1680,6 +1728,136 @@ def cap_chat_answer(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
 
 
 # ---------------------------------------------------------------------------
+# Schemas de args por capability (validação central antes de executar)
+# ---------------------------------------------------------------------------
+#
+# Cada capability já valida seus próprios args defensivamente em runtime
+# (retorna `_err(...)` estruturado — nunca propaga exceção crua). Esses
+# schemas não substituem isso: dão uma camada ANTES, que garante o shape
+# geral do plano (campo obrigatório ausente, tipo errado) com uma mensagem
+# padronizada, e documentam em código o contrato que hoje só existe em texto
+# livre dentro do PLANNER_PROMPT. `extra="ignore"` de propósito — um campo a
+# mais que o Planner mande não deve derrubar o step; só falta/tipo errado
+# num campo que a capability realmente usa deve.
+
+class _ArgsBase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+
+class _BqListDatasetsArgs(_ArgsBase):
+    project_id: str | None = None
+
+
+class _BqListTablesArgs(_ArgsBase):
+    dataset_hint: str | None = None
+
+
+class _BqGetSchemaArgs(_ArgsBase):
+    table_ref: str = Field(..., min_length=1)
+
+
+class _BqQueryArgs(_ArgsBase):
+    sql: str = Field(..., min_length=1)
+    max_rows: int | None = None
+
+
+class _TextToSqlArgs(_ArgsBase):
+    natural_language: str | None = None
+    previous_sql: str | None = None
+    previous_error: str | None = None
+    table_refs: list[str] | None = None
+    dataset_ref: str | None = None
+    row_limit: int | None = None
+
+
+class _StatsDescribeArgs(_ArgsBase):
+    rows: list[dict[str, Any]] | None = None
+    source_step_index: int | None = None
+    columns: list[str] | None = None
+
+
+class _VizSpecArgs(_ArgsBase):
+    rows: list[dict[str, Any]] | None = None
+    source_step_index: int | None = None
+    x: str = Field(..., min_length=1)
+    y: str = Field(..., min_length=1)
+    color: str | None = None
+    title: str | None = None
+    chart_type: str | None = None
+
+
+class _CatalogSearchArgs(_ArgsBase):
+    query: str | None = None
+    top_k: int | None = None
+
+
+class _MetricLookupArgs(_ArgsBase):
+    query: str | None = None
+    top_k: int | None = None
+    official_only: bool | None = None
+
+
+class _MetricExecuteArgs(_ArgsBase):
+    key: str = Field(..., min_length=1)
+    params: dict[str, Any] | None = None
+
+
+class _OrgFactSaveArgs(_ArgsBase):
+    fact_text: str = Field(..., min_length=1)
+    tags: str | None = None
+    scope: str | None = None
+
+
+class _OrgFactRecallArgs(_ArgsBase):
+    query: str | None = None
+    top_k: int | None = None
+
+
+class _ForecastSimpleArgs(_ArgsBase):
+    rows: list[dict[str, Any]] | None = None
+    source_step_index: int | None = None
+    value_column: str = Field(..., min_length=1)
+    time_column: str | None = None
+    horizon: int | None = None
+
+
+class _AttachmentAnalyzeArgs(_ArgsBase):
+    attachment_index: int | None = None
+    prompt: str | None = None
+
+
+class _ChatAnswerArgs(_ArgsBase):
+    pass
+
+
+_ARG_SCHEMAS: dict[str, type[_ArgsBase]] = {
+    CAPABILITY_BQ_LIST_DATASETS: _BqListDatasetsArgs,
+    CAPABILITY_BQ_LIST_TABLES: _BqListTablesArgs,
+    CAPABILITY_BQ_GET_SCHEMA: _BqGetSchemaArgs,
+    CAPABILITY_BQ_QUERY: _BqQueryArgs,
+    CAPABILITY_TEXT_TO_SQL: _TextToSqlArgs,
+    CAPABILITY_STATS_DESCRIBE: _StatsDescribeArgs,
+    CAPABILITY_VIZ_SPEC: _VizSpecArgs,
+    CAPABILITY_CATALOG_SEARCH: _CatalogSearchArgs,
+    CAPABILITY_METRIC_LOOKUP: _MetricLookupArgs,
+    CAPABILITY_METRIC_EXECUTE: _MetricExecuteArgs,
+    CAPABILITY_ORG_FACT_SAVE: _OrgFactSaveArgs,
+    CAPABILITY_ORG_FACT_RECALL: _OrgFactRecallArgs,
+    CAPABILITY_FORECAST_SIMPLE: _ForecastSimpleArgs,
+    CAPABILITY_ATTACHMENT_ANALYZE: _AttachmentAnalyzeArgs,
+    CAPABILITY_CHAT_ANSWER: _ChatAnswerArgs,
+}
+
+
+def _format_validation_error(exc: ValidationError) -> str:
+    parts = []
+    for e in exc.errors():
+        field = ".".join(str(p) for p in e["loc"]) or "?"
+        parts.append(f"{field}: {e['msg']}")
+    return "; ".join(parts)
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -1708,7 +1886,14 @@ def execute_capability(
     fn = CAPABILITY_REGISTRY.get(capability)
     if fn is None:
         return _err(f"Capability desconhecida: {capability}")
-    return fn(args or {}, context or {})
+    args = args or {}
+    schema = _ARG_SCHEMAS.get(capability)
+    if schema is not None:
+        try:
+            schema.model_validate(args)
+        except ValidationError as exc:
+            return _err(f"Args inválidos para '{capability}': {_format_validation_error(exc)}")
+    return fn(args, context or {})
 
 
 __all__ = [

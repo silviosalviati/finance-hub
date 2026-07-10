@@ -23,6 +23,12 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     "VERTEXAI_MAX_RETRIES": ("1", "Tentativas de retry do Vertex AI SDK"),
     "VERTEXAI_TEMPERATURE": ("0.05", "Temperatura analítica do LLM — análise e otimização (0.0 – 1.0)"),
     "VERTEXAI_TEMPERATURE_CREATIVE": ("0.3", "Temperatura criativa do LLM — relatórios e temas (0.0 – 1.0)"),
+    "FINANCE_AUDITOR_LITE_MODEL": (
+        "",
+        "Modelo mais barato/rápido para tarefas simples do Finance Auditor "
+        "(seleção de tabelas, veredito do Reflect) — vazio = usa o mesmo "
+        "modelo de tudo (VERTEXAI_MODEL), sem tiering. Ex.: gemini-2.5-flash-lite",
+    ),
     # GCP / BigQuery
     "GCP_PROJECT_ID": ("", "IDs de projetos GCP permitidos, separados por vírgula (vazio = descobre a partir das credenciais)"),
     "GOOGLE_APPLICATION_CREDENTIALS": (
@@ -53,6 +59,9 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     ),
     "FINANCE_AUDITOR_QUERY_BUDGET_BYTES": (
         "5368709120", "Budget máximo (bytes) por query — 5 GiB"
+    ),
+    "FINANCE_AUDITOR_TOKEN_BUDGET": (
+        "80000", "Budget máximo de tokens de LLM (entrada+saída) por requisição — corta chamadas adicionais além disso"
     ),
     "FINANCE_AUDITOR_DEFAULT_DATASET": (
         "", "Dataset padrão para bq_list_tables quando não informado"

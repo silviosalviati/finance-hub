@@ -34,13 +34,17 @@ def _ensure_google_adc_env() -> None:
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(candidate)
 
 
-def create_llm(temperature: float | None = None) -> BaseChatModel:
-    """Cria um LLM com temperatura opcional.
+def create_llm(temperature: float | None = None, model: str | None = None) -> BaseChatModel:
+    """Cria um LLM com temperatura/modelo opcionais.
 
     Args:
         temperature: Sobrescreve VERTEXAI_TEMPERATURE do DB quando informado.
                      Use None para temperatura analítica padrão (baixa, precisa).
                      Passe VERTEXAI_TEMPERATURE_CREATIVE para tarefas criativas.
+        model: Sobrescreve VERTEXAI_MODEL do DB quando informado — usado para
+               tiering de modelo (ex.: um modelo mais barato/rápido para
+               classificação simples como `_pick_relevant_tables` ou o
+               veredito do Reflect, ver FINANCE_AUDITOR_LITE_MODEL).
     """
     provider = get_runtime_config("LLM_PROVIDER", "vertexai")
     if provider == "vertexai":
@@ -48,8 +52,9 @@ def create_llm(temperature: float | None = None) -> BaseChatModel:
         t = temperature if temperature is not None else float(
             get_runtime_config("VERTEXAI_TEMPERATURE", "0.05")
         )
+        m = model if model is not None else get_runtime_config("VERTEXAI_MODEL", "gemini-2.5-flash")
         return ChatGoogleGenerativeAI(
-            model=get_runtime_config("VERTEXAI_MODEL", "gemini-2.5-flash"),
+            model=m,
             vertexai=True,
             project=get_vertexai_project(),
             location=get_runtime_config("VERTEXAI_LOCATION", "us-central1"),
@@ -86,6 +91,36 @@ def _record_usage(
             "output_tokens": int(usage.get("output_tokens") or 0),
             "total_tokens": int(usage.get("total_tokens") or 0),
         })
+
+
+class TokenBudgetExceeded(RuntimeError):
+    """Levantado quando o orçamento de tokens da requisição já foi
+    consumido — distinto de falhas genéricas de LLM (timeout, erro de API)
+    para permitir tratamento/log específico rio-acima, se necessário."""
+
+
+def _current_token_total(usage_sink: list[dict[str, Any]] | None) -> int:
+    return sum(int(e.get("total_tokens") or 0) for e in (usage_sink or []))
+
+
+def _check_token_budget(usage_sink: list[dict[str, Any]] | None, label: str) -> None:
+    """Circuit-breaker de custo: se o total de tokens já gastos nesta
+    requisição (todas as chamadas LLM do turno até aqui, não só desta
+    função) já atinge o budget configurado, corta ANTES de gastar mais —
+    nenhuma chamada nova é feita. Espelha `FINANCE_AUDITOR_QUERY_BUDGET_BYTES`
+    (BigQuery), que até então era o único budget existente no agente.
+    """
+    if usage_sink is None:
+        return
+    budget = int(get_runtime_config("FINANCE_AUDITOR_TOKEN_BUDGET", "80000") or "80000")
+    if budget <= 0:
+        return  # 0/negativo desliga o teto — decisão explícita do operador
+    spent = _current_token_total(usage_sink)
+    if spent >= budget:
+        raise TokenBudgetExceeded(
+            f"Orçamento de tokens da requisição excedido ({spent}/{budget}) "
+            f"antes de '{label or 'unlabeled'}' — chamada bloqueada."
+        )
 
 
 def summarize_usage_by_label(usage_log: list[dict[str, Any]] | None) -> dict[str, dict[str, int]]:
@@ -125,7 +160,11 @@ def invoke_with_retry(
     (via callback de provider — funciona mesmo com structured output, que
     devolve o objeto já parseado sem `.usage_metadata` acessível). Permite
     reconstruir consumo de tokens por nó, não só o agregado por modelo.
+    Também serve de circuit-breaker: se o orçamento da requisição (soma de
+    `usage_sink`) já foi atingido, levanta `TokenBudgetExceeded` sem gastar
+    mais tokens.
     """
+    _check_token_budget(usage_sink, label)
     last_exc: BaseException = RuntimeError("Nenhuma tentativa realizada")
     started_at = time.perf_counter()
     for attempt in range(max_attempts):
@@ -161,8 +200,9 @@ async def invoke_with_retry_async(
 ) -> Any:
     """Retry assíncrono — não bloqueia o event loop do FastAPI.
 
-    Ver docstring de `invoke_with_retry` sobre `label`/`usage_sink`.
+    Ver docstring de `invoke_with_retry` sobre `label`/`usage_sink`/budget.
     """
+    _check_token_budget(usage_sink, label)
     last_exc: BaseException = RuntimeError("Nenhuma tentativa realizada")
     started_at = time.perf_counter()
     for attempt in range(max_attempts):

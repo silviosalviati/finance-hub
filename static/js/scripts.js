@@ -6625,7 +6625,6 @@ function _escFA(str) {
 async function sendFAMessage() {
   const input = document.getElementById("fa-input");
   const text = input?.value.trim() || "";
-  const projectId = "silviosalviati";
 
   if (!text || faIsLoading) return;
 
@@ -6656,7 +6655,7 @@ async function sendFAMessage() {
       headers: authHeaders(),
       body: JSON.stringify({
         query: text,
-        project_id: projectId,
+        project_id: null,
         dataset_hint: null,
       }),
     });

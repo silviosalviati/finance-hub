@@ -306,7 +306,7 @@ class TestCapCatalogSearch:
             {"dataset_id": "ecommerce_saude", "table_id": "clientes", "full_name": "p.ecommerce_saude.clientes", "score": 0.9},
             {"dataset_id": "negado", "table_id": "x", "full_name": "p.negado.x", "score": 0.8},
         ]
-        with patch.object(capabilities.catalog_index, "search_catalog", return_value=matches), \
+        with patch.object(capabilities, "adaptive_search_catalog", return_value=matches), \
              patch.object(capabilities.rbac, "check_dataset", side_effect=lambda user, ds: (ds != "negado", "")):
             out = capabilities.cap_catalog_search({"query": "clientes"}, {"project_id": "p"})
 
@@ -335,7 +335,7 @@ class TestTextToSqlCatalogRagPath:
 
         fake_dry = MagicMock(error=None, bytes_processed=10, estimated_cost_usd=0.0)
 
-        with patch.object(capabilities.catalog_index, "search_catalog", return_value=matches), \
+        with patch.object(capabilities, "adaptive_search_catalog", return_value=matches), \
              patch.object(capabilities.rbac, "check_dataset", return_value=(True, "")), \
              patch.object(capabilities, "get_table_schema", return_value="schema"), \
              patch.object(capabilities, "dry_run_query", return_value=fake_dry), \

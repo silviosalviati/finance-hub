@@ -106,7 +106,7 @@ class TestResponseModeResolverNode:
 
 class TestPlannerResponseModeContext:
     @staticmethod
-    def _fake_invoke(_llm, messages, max_attempts=2):
+    def _fake_invoke(_llm, messages, *args, **kwargs):
         from src.agents.finance_auditor.supervisor_schemas import PlanResponse, PlanStep
 
         TestPlannerResponseModeContext._captured = messages
@@ -173,7 +173,7 @@ class TestPlannerResponseModeContext:
 
 class TestComposerModeBlock:
     @staticmethod
-    def _fake_invoke(_llm, messages, max_attempts=2):
+    def _fake_invoke(_llm, messages, *args, **kwargs):
         TestComposerModeBlock._captured = messages
         response = MagicMock()
         response.content = "resposta final"

@@ -248,9 +248,9 @@ def run_case(case: dict[str, Any]) -> RunResult:
     """
     from src.agents.finance_auditor import (
         FinanceAuditorAgent,
-        audit as audit_mod,
         capabilities as cap_mod,
     )
+    from src.shared.guardrails import audit as audit_mod
 
     script = case.get("script") or {}
     bq_cfg = case.get("bq") or {}

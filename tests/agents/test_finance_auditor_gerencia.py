@@ -185,7 +185,7 @@ class TestTextToSqlDatasetHintFallback:
 
 class TestPlannerDatasetHintContext:
     @staticmethod
-    def _fake_invoke(_llm, messages, max_attempts=2):
+    def _fake_invoke(_llm, messages, *args, **kwargs):
         from src.agents.finance_auditor.supervisor_schemas import PlanResponse, PlanStep
 
         TestPlannerDatasetHintContext._captured = messages

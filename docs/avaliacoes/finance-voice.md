@@ -23,6 +23,15 @@ Atualizado a cada item resolvido. Serve como checklist para portar manualmente p
 | 2026-07-09 | `src/api/routes/agents.py` | `GET /api/runtime-llm` e `GET /api/agents` agora exigem `Depends(get_current_user)` | 1.6 |
 | 2026-07-09 | `README.md` | Lista de endpoints atualizada: `/api/runtime-llm` movido de "Públicos" para "Protegidos por sessão" | 1.6 |
 | 2026-07-09 | `src/agents/finance_auditor/supervisor.py` | `_resolve_placeholders` (late-binding `${step_N.path}`) só resolve valores escalares — dict/list resolvido fica sem substituir em vez de virar `str({...})` cru no arg; resultado limitado a 4000 chars | 1.7 |
+| 2026-07-10 | `src/shared/tools/llm.py` | `invoke_with_retry`/`invoke_with_retry_async` ganham `usage_sink` — capturam tokens reais por chamada (via `get_usage_metadata_callback` escopado) e anexam rotulado por `label`; novo helper `summarize_usage_by_label()` | 2.12 |
+| 2026-07-10 | `src/core/database.py` | Coluna `token_usage_json` em `finance_audit_log` (+ migração `_migrate_audit_log_columns`); `append_finance_audit()` grava o campo | 2.12 |
+| 2026-07-10 | `src/agents/finance_auditor/supervisor_state.py` | Novo campo `usage_log: list[dict]` — lista mutável compartilhada, não reducer-merged | 2.12 |
+| 2026-07-10 | `src/agents/finance_auditor/supervisor.py` | `node_planner`/`node_reflect`/`node_composer` passam `usage_sink=state.get("usage_log")`; `node_router` propaga `usage_log` no `context` das capabilities; `node_audit` agrega por nó via `summarize_usage_by_label()` e grava no audit log | 2.12 |
+| 2026-07-10 | `src/agents/finance_auditor/capabilities.py` | `_pick_relevant_tables`, `cap_text_to_sql` (chamada principal + fallback) passam `usage_sink=context.get("usage_log")` | 2.12 |
+| 2026-07-10 | `src/shared/guardrails/audit.py` | `record()` inclui `token_usage` no entry persistido | 2.12 |
+| 2026-07-10 | `src/agents/finance_auditor/__init__.py` | `analyze()` cria e injeta `usage_log` no estado inicial; resposta ganha `token_usage.by_node` | 2.12 |
+
+**Nota de escopo (item 2.12):** `transform_query` (`agentic_retrieval.py`) e `describe_image_with_llm` (`multimodal.py`) não usam `invoke_with_retry` (chamada `llm.invoke()` direta) — ficam de fora do breakdown por nó por ora (achado 2.9, separado). O total capturado pelo callback externo em `analyze()` já inclui o uso deles; só não aparecem individualizados em `token_usage.by_node`.
 
 **Portar para o GitLab:** repositório separado sem remote compartilhado — replicar manualmente usando a tabela acima, ou pedir um `git diff` dos arquivos para aplicar com `git apply` se a base for igual.
 
@@ -33,7 +42,7 @@ Atualizado a cada item resolvido. Serve como checklist para portar manualmente p
 | Dimensão | Status |
 |---|---|
 | **Segurança** | ✅ Nenhum achado em aberto — tudo corrigido nesta auditoria (ver Changelog). |
-| **Produtividade/Performance** | ⚠️ 9 achados abertos (seção 2), todos de eficiência de tokens/custo de LLM. Maiores: prompt do planner sem cache de contexto (~3,7k tokens estáticos reenviados em toda chamada) e ausência de streaming real de tokens. |
+| **Produtividade/Performance** | ⚠️ 8 achados abertos (seção 2) — token usage já é persistido com breakdown por nó (ver Changelog). Maiores pendências: prompt do planner sem cache de contexto (~3,7k tokens estáticos reenviados em toda chamada) e ausência de streaming real de tokens. |
 | **Assertividade** | ⚠️ 3 achados abertos (seção 3). Principal: sem human-in-the-loop antes de rodar SQL gerado por LLM. |
 | **Boas práticas LangGraph** | ⚠️ 3 achados abertos (seção 4). Principais: grafo sem checkpointer nativo (perde resume/interrupt) e capabilities fora do padrão `bind_tools`/`ToolNode`. |
 
@@ -75,9 +84,6 @@ A mesma string (~400-600 tokens, 2 turnos anteriores truncados a 800 chars cada,
 
 **2.11 — Um único modelo para tudo, sem tiering por complexidade**
 `gemini-2.5-flash` (`llm.py:36-63`) é usado sem variação para planner, reflect, composer, `text_to_sql`, `_pick_relevant_tables` e descrição de imagem — só a temperatura varia (0.05 analítico vs 0.3 criativo pro composer). Tarefas simples de classificação (`_pick_relevant_tables`, o veredito curto do Reflect) rodam no mesmo modelo que gera SQL ou o relatório final, sem opção de usar algo mais barato/rápido onde a tarefa é trivial.
-
-**2.12 — Token usage capturado mas nunca persistido — sem visibilidade de custo real**
-`get_usage_metadata_callback` (`finance_auditor/__init__.py:76-137`) captura de fato `input_tokens`/`output_tokens`/`total_tokens` reais de cada chamada LLM do turno e devolve o total agregado pro frontend (`scripts.js:6203`). Mas isso nunca é: (a) quebrado por nó (planner vs. composer vs. text_to_sql não são distinguíveis no agregado), nem (b) persistido em lugar nenhum — `audit.record()` (`audit.py:36-58`) só grava bytes/custo de **BigQuery**, nunca tokens de LLM. Hoje é impossível olhar o histórico e responder "o que está consumindo mais tokens em produção".
 
 **2.13 — Sem budget/circuit-breaker de tokens por requisição**
 BigQuery tem `FINANCE_AUDITOR_QUERY_BUDGET_BYTES` como teto (`capabilities.py:393-455`), mas não existe nada equivalente para tokens/custo de LLM. Um turno worst-case (plano de 6 passos, modo análise profunda, um retry do Reflect que dobra o volume de `tool_results` no composer) pode passar de 20-30k tokens de entrada sem nenhum limite, alerta ou corte. Isso é ao mesmo tempo um risco de custo e uma superfície de abuso — nada impede um usuário de repetir deliberadamente o pior caso.
@@ -133,26 +139,25 @@ O Finance Auditor **não tem nenhum ponto de pausa** — o SQL gerado por `text_
 Ordenada por uma lógica de **medir → cachear → limitar → deduplicar → tiering → arquitetura**: primeiro os itens que dão visibilidade de custo e fecham o maior ralo de tokens (baratos, altíssimo retorno), depois os itens estruturais que já estavam na lista anterior.
 
 **Nota de portabilidade (2026-07-09):** este projeto local usa Vertex AI (`SUPPORTED_LLM_PROVIDERS = {"vertexai"}`, `config.py:125`) como único provider. A versão da empresa no GitLab usa um **gateway próprio multi-LLM** (Meta, Google e Anthropic). A maioria dos itens abaixo é independente de provider (lógica de aplicação/LangGraph). Exceções marcadas com ⚠️:
-- **Item 2** é uma API específica do Vertex/Gemini (`cachedContents`) — implementado aqui como está, mas precisa ser reavaliado contra o que o gateway da empresa realmente expõe (Anthropic tem `cache_control`, um gateway proprietário pode ou não repassar cache de contexto) antes de portar.
-- **Item 6** fica **mais forte** na empresa, não mais fraco — com 3 fornecedores no mesmo gateway dá pra fazer tiering cross-vendor (ex.: modelo pequeno da Meta/Google pra classificação, Claude/Gemini Pro só pra SQL/relatório).
-- **Itens 9 e 10** devem funcionar sem mudança se o gateway seguir convenção OpenAI-compatible para streaming/tool-calling (comum em gateways multi-provider), mas vale confirmar na hora de portar.
+- **Item 1** é uma API específica do Vertex/Gemini (`cachedContents`) — implementado aqui como está, mas precisa ser reavaliado contra o que o gateway da empresa realmente expõe (Anthropic tem `cache_control`, um gateway proprietário pode ou não repassar cache de contexto) antes de portar.
+- **Item 5** fica **mais forte** na empresa, não mais fraco — com 3 fornecedores no mesmo gateway dá pra fazer tiering cross-vendor (ex.: modelo pequeno da Meta/Google pra classificação, Claude/Gemini Pro só pra SQL/relatório).
+- **Itens 8 e 9** devem funcionar sem mudança se o gateway seguir convenção OpenAI-compatible para streaming/tool-calling (comum em gateways multi-provider), mas vale confirmar na hora de portar.
 
 | # | Item | Dimensão | Esforço | Por quê primeiro/depois |
 |---|---|---|---|---|
-| 1 | Persistir `token_usage` no audit log com breakdown por nó (planner/reflect/composer/capabilities) (2.12) | Produtividade / Custo | Baixo | Pré-requisito barato pra medir qualquer otimização seguinte — sem isso, tudo abaixo é chute |
-| 2 | ⚠️ Ativar Vertex AI Context Caching no prompt do planner (2.7) | Produtividade / Custo | Médio | Maior alavanca de economia isolada localmente — ~3,7k tokens estáticos reenviados em toda chamada. Específico do Vertex, ver nota de portabilidade |
-| 3 | Adicionar budget/circuit-breaker de tokens por requisição, espelhando o `FINANCE_AUDITOR_QUERY_BUDGET_BYTES` do BigQuery (2.13) | Segurança / Custo | Médio | Fecha risco de custo descontrolado e superfície de abuso |
-| 4 | Eliminar redundância de contexto: schema duplicado (`bq_get_schema` + `text_to_sql`), `conversation_context` duplicado (planner + composer), cache de `_pick_relevant_tables`/`catalog_search` dentro do turno (2.8, 2.9, 2.10) | Produtividade / Custo | Médio | Vários ganhos pequenos e independentes, seguros de implementar juntos |
-| 5 | Reduzir amplificação de custo em retry — reaproveitar contexto já buscado (schema, tabelas escolhidas) em vez de reconstruir do zero a cada tentativa (2.14) | Produtividade / Custo | Baixo-Médio | Resolve naturalmente junto do item 4 |
-| 6 | Model tiering para chamadas auxiliares simples (`_pick_relevant_tables`, veredito do Reflect) — usar um modelo mais barato/rápido (2.11) | Produtividade / Custo | Médio | Só compensa com dado real do item 1 mostrando o quanto essas chamadas pesam hoje. Mais forte ainda na empresa (multi-vendor) |
-| 7 | Compilar o grafo do Finance Auditor com `checkpointer=` nativo do LangGraph (4.1) | Boas práticas | Alto | Pré-requisito técnico para o item 8; também habilita resume real de execução parcial |
-| 8 | Adicionar HITL (approve/skip) antes de rodar SQL gerado por LLM no Finance Auditor (3.1, 4.1) | Assertividade / Arquitetura | Alto | Maior mudança estrutural da lista, mas fecha a maior lacuna de controle humano — depende do item 7 |
-| 9 | ⚠️ Avaliar streaming real (token-a-token) para o Finance Auditor (2.6) | Produtividade / UX | Médio-Alto | Não é bug, é expectativa de mercado para chat com LLM. Ver nota de portabilidade |
-| 10 | ⚠️ Migrar capabilities para `bind_tools`/`ToolNode` nativo, ou documentar deliberadamente por que o dispatcher próprio foi escolhido (4.2) | Boas práticas | Alto | Mudança arquitetural grande; só vale se os itens 7-8 (checkpointer + HITL) forem adiante primeiro. Ver nota de portabilidade |
-| 11 | Adicionar reducers (`Annotated[...]`) nos campos de lista do `SupervisorState` mesmo sem paralelismo de nós hoje, como blindagem futura (4.3) | Boas práticas | Baixo-Médio | Baixo risco imediato, mas barato de corrigir agora vs. caro de depurar depois |
+| 1 | ⚠️ Ativar Vertex AI Context Caching no prompt do planner (2.7) | Produtividade / Custo | Médio | Maior alavanca de economia isolada localmente — ~3,7k tokens estáticos reenviados em toda chamada. Específico do Vertex, ver nota de portabilidade. Agora dá pra medir o ganho real via `token_usage.by_node.planner` |
+| 2 | Adicionar budget/circuit-breaker de tokens por requisição, espelhando o `FINANCE_AUDITOR_QUERY_BUDGET_BYTES` do BigQuery (2.13) | Segurança / Custo | Médio | Fecha risco de custo descontrolado e superfície de abuso |
+| 3 | Eliminar redundância de contexto: schema duplicado (`bq_get_schema` + `text_to_sql`), `conversation_context` duplicado (planner + composer), cache de `_pick_relevant_tables`/`catalog_search` dentro do turno (2.8, 2.9, 2.10) | Produtividade / Custo | Médio | Vários ganhos pequenos e independentes, seguros de implementar juntos |
+| 4 | Reduzir amplificação de custo em retry — reaproveitar contexto já buscado (schema, tabelas escolhidas) em vez de reconstruir do zero a cada tentativa (2.14) | Produtividade / Custo | Baixo-Médio | Resolve naturalmente junto do item 3 |
+| 5 | Model tiering para chamadas auxiliares simples (`_pick_relevant_tables`, veredito do Reflect) — usar um modelo mais barato/rápido (2.11) | Produtividade / Custo | Médio | Agora dá pra usar `token_usage.by_node` (já implementado) pra decidir se compensa. Mais forte ainda na empresa (multi-vendor) |
+| 6 | Compilar o grafo do Finance Auditor com `checkpointer=` nativo do LangGraph (4.1) | Boas práticas | Alto | Pré-requisito técnico para o item 7; também habilita resume real de execução parcial |
+| 7 | Adicionar HITL (approve/skip) antes de rodar SQL gerado por LLM no Finance Auditor (3.1, 4.1) | Assertividade / Arquitetura | Alto | Maior mudança estrutural da lista, mas fecha a maior lacuna de controle humano — depende do item 6 |
+| 8 | ⚠️ Avaliar streaming real (token-a-token) para o Finance Auditor (2.6) | Produtividade / UX | Médio-Alto | Não é bug, é expectativa de mercado para chat com LLM. Ver nota de portabilidade |
+| 9 | ⚠️ Migrar capabilities para `bind_tools`/`ToolNode` nativo, ou documentar deliberadamente por que o dispatcher próprio foi escolhido (4.2) | Boas práticas | Alto | Mudança arquitetural grande; só vale se os itens 6-7 (checkpointer + HITL) forem adiante primeiro. Ver nota de portabilidade |
+| 10 | Adicionar reducers (`Annotated[...]`) nos campos de lista do `SupervisorState` mesmo sem paralelismo de nós hoje, como blindagem futura (4.3) | Boas práticas | Baixo-Médio | Baixo risco imediato, mas barato de corrigir agora vs. caro de depurar depois |
 
 ---
 
 ## Nota final
 
-Este documento é atualizado conforme itens da lista são implementados: cada correção aplicada sai da análise/priorização e vira uma entrada no "Changelog de implementação" no topo do arquivo, com os arquivos alterados. A lista priorizada atual reflete só o que ainda está em aberto. Nenhuma implementação foi feita nesta rodada — é só análise e priorização, incluindo a nova dimensão de eficiência de tokens/custo. A decisão de quais atacar e em que sprint continua com o usuário.
+Este documento é atualizado conforme itens da lista são implementados: cada correção aplicada sai da análise/priorização e vira uma entrada no "Changelog de implementação" no topo do arquivo, com os arquivos alterados. A lista priorizada atual reflete só o que ainda está em aberto — o item 1 original desta rodada (persistir `token_usage` por nó) já foi implementado e verificado (suíte completa + teste manual ponta a ponta gravando e lendo do banco). A decisão de quais atacar em seguida, e em que sprint, continua com o usuário.

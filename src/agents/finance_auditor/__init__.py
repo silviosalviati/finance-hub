@@ -18,6 +18,7 @@ from src.agents.finance_auditor.supervisor import build_supervisor_graph
 from src.core.base_agent import BaseAgent
 from src.shared.config import get_runtime_config
 from src.shared.tools.llm import create_llm as _create_llm
+from src.shared.tools.llm import summarize_usage_by_label
 
 
 class FinanceAuditorAgent(BaseAgent):
@@ -56,6 +57,12 @@ class FinanceAuditorAgent(BaseAgent):
         graph = self._get_graph()
 
         u = user or {}
+        # Lista mutável passada por referência — cada invoke_with_retry(...,
+        # usage_sink=...) dentro do grafo faz append nela (ver
+        # SupervisorState.usage_log). Populada ao fim da execução, permite
+        # reconstruir consumo de tokens por nó (planner/reflect/composer/
+        # capabilities), não só o agregado por modelo do callback abaixo.
+        usage_log: list[dict[str, Any]] = []
         initial_state = {
             "request_text": query,
             "project_id": project_id,
@@ -65,6 +72,7 @@ class FinanceAuditorAgent(BaseAgent):
             "user_id": str(u.get("username") or u.get("user_id") or ""),
             "user": u,
             "attachments": list(attachments or []),
+            "usage_log": usage_log,
         }
 
         final_state: dict[str, Any] | None = None
@@ -77,6 +85,7 @@ class FinanceAuditorAgent(BaseAgent):
             for event in graph.stream(initial_state, stream_mode="values"):
                 final_state = event
             token_usage = self._summarize_token_usage(usage_cb.usage_metadata)
+            token_usage["by_node"] = summarize_usage_by_label(usage_log)
 
         if not final_state:
             return {

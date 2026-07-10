@@ -169,7 +169,8 @@ def init_db() -> None:
                 steps_ok INTEGER NOT NULL DEFAULT 0,
                 bytes_processed INTEGER NOT NULL DEFAULT 0,
                 estimated_cost_usd REAL NOT NULL DEFAULT 0,
-                error TEXT NOT NULL DEFAULT ''
+                error TEXT NOT NULL DEFAULT '',
+                token_usage_json TEXT NOT NULL DEFAULT '{}'
             );
             CREATE INDEX IF NOT EXISTS idx_finance_audit_log_user_ts
                 ON finance_audit_log (user_id, ts DESC);
@@ -208,6 +209,16 @@ def init_db() -> None:
         _ensure_config_keys(conn)
         _migrate_finance_metrics_columns(conn)
         _migrate_user_columns(conn)
+        _migrate_audit_log_columns(conn)
+
+
+def _migrate_audit_log_columns(conn: sqlite3.Connection) -> None:
+    """Adiciona a coluna token_usage_json em finance_audit_log quando ausente (bancos antigos)."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(finance_audit_log)")}
+    if "token_usage_json" not in cols:
+        conn.execute(
+            "ALTER TABLE finance_audit_log ADD COLUMN token_usage_json TEXT NOT NULL DEFAULT '{}'"
+        )
 
 
 def _migrate_user_columns(conn: sqlite3.Connection) -> None:
@@ -764,8 +775,8 @@ def append_finance_audit(entry: dict[str, Any]) -> int:
         cur = conn.execute(
             "INSERT INTO finance_audit_log"
             " (ts, user_id, persona, request_text, plan_json, steps_total, steps_ok,"
-            "  bytes_processed, estimated_cost_usd, error)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "  bytes_processed, estimated_cost_usd, error, token_usage_json)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 now,
                 str(entry.get("user_id") or ""),
@@ -777,6 +788,7 @@ def append_finance_audit(entry: dict[str, Any]) -> int:
                 int(entry.get("bytes_processed") or 0),
                 float(entry.get("estimated_cost_usd") or 0.0),
                 str(entry.get("error") or "")[:1000],
+                json.dumps(entry.get("token_usage") or {}, ensure_ascii=False)[:4000],
             ),
         )
         return int(cur.lastrowid or 0)

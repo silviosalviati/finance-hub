@@ -60,7 +60,7 @@ from src.agents.finance_auditor.supervisor_schemas import (
     ReflectVerdict,
 )
 from src.agents.finance_auditor.supervisor_state import SupervisorState
-from src.shared.tools.llm import invoke_with_retry
+from src.shared.tools.llm import invoke_with_retry, summarize_usage_by_label
 
 _MAX_PLAN_STEPS = 6
 _MAX_ITERATIONS = 2  # router pode rodar até 2x (1 plano original + 1 retry pós-reflect)
@@ -327,6 +327,7 @@ def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
             ],
             max_attempts=2,
             label="planner",
+            usage_sink=state.get("usage_log"),
         )
     except Exception as exc:  # noqa: BLE001
         return {
@@ -399,6 +400,7 @@ def node_router(
         "llm_creative": llm_creative,
         "user": state.get("user") or {},
         "attachments": state.get("attachments") or [],
+        "usage_log": state.get("usage_log"),
     }
 
     # Em re-execução (pós-reflect), preserva o que já foi executado.
@@ -552,6 +554,7 @@ def node_reflect(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
             ],
             max_attempts=2,
             label="reflect",
+            usage_sink=state.get("usage_log"),
         )
     except Exception as exc:  # noqa: BLE001
         return {
@@ -748,6 +751,7 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
             [SystemMessage(content=system_prompt), HumanMessage(content=user_content)],
             max_attempts=2,
             label="composer",
+            usage_sink=state.get("usage_log"),
         )
         text = str(getattr(response, "content", response) or "").strip()
         if text:
@@ -768,6 +772,10 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def node_audit(state: SupervisorState) -> dict[str, Any]:
+    # Todos os nós que chamam LLM (planner, router→capabilities, reflect,
+    # composer) já rodaram antes de "audit" no grafo (composer → audit →
+    # guardrails_out) — usage_log já está completo neste ponto.
+    token_usage_by_node = summarize_usage_by_label(state.get("usage_log"))
     audit_id = audit_log.record({
         "user_id": state.get("user_id") or "",
         "persona": state.get("persona") or "",
@@ -775,6 +783,7 @@ def node_audit(state: SupervisorState) -> dict[str, Any]:
         "plan": state.get("plan") or [],
         "tool_results": state.get("tool_results") or [],
         "error": state.get("error") or "",
+        "token_usage": token_usage_by_node,
     })
     if audit_id is None:
         return {}

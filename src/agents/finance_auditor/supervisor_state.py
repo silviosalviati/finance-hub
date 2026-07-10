@@ -42,6 +42,15 @@ class SupervisorState(TypedDict, total=False):
     pii: dict[str, Any]         # {mode, pii_counts, blocked}
     audit_id: int               # id da entrada gravada em finance_audit_log
 
+    # --- Observabilidade de custo ---
+    # Lista mutável compartilhada (não é reducer-merged) — cada chamada LLM
+    # via invoke_with_retry(usage_sink=...) faz append de {label, model,
+    # input_tokens, output_tokens, total_tokens}. Criada em
+    # FinanceAuditorAgent.analyze() e passada por referência via initial_state;
+    # como nenhum node "retorna" essa chave, o objeto original persiste
+    # mutado ao longo de toda a execução do grafo, sem precisar de reducer.
+    usage_log: list[dict[str, Any]]
+
     # --- Fase 4 ---
     attachments: list[dict[str, Any]]   # anexos enviados (CSV/imagem)
     iteration: int                       # nº de execuções do router (1-based)

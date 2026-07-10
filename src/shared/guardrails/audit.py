@@ -58,6 +58,7 @@ def record(state: dict[str, Any]) -> int | None:
             "bytes_processed": costs["bytes_processed"],
             "estimated_cost_usd": costs["estimated_cost_usd"],
             "error": pii_guard.scrub_for_storage(str(state.get("error") or "")),
+            "token_usage": state.get("token_usage") or {},
         }
         return append_finance_audit(entry)
     except Exception:  # noqa: BLE001

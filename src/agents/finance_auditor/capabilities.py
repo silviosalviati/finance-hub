@@ -546,6 +546,7 @@ def _pick_relevant_tables(
     tables: list[dict[str, Any]],
     llm: Any,
     max_pick: int = 5,
+    usage_sink: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Filtra `tables` pelas mais relevantes à pergunta. Fallback: heurística textual."""
     if not tables:
@@ -579,6 +580,7 @@ def _pick_relevant_tables(
             ],
             max_attempts=2,
             label="pick_relevant_tables",
+            usage_sink=usage_sink,
         )
         ids = {tid.strip() for tid in (result.table_ids or []) if tid}
         if ids:
@@ -690,7 +692,10 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
         if not all_tables:
             return _err(f"Dataset {dataset_project}.{dataset_id} não tem tabelas.")
 
-        picked = _pick_relevant_tables(natural_language, all_tables, llm, max_pick=5)
+        picked = _pick_relevant_tables(
+            natural_language, all_tables, llm, max_pick=5,
+            usage_sink=context.get("usage_log"),
+        )
         if not picked:
             return _err("Não foi possível identificar tabelas relevantes para a pergunta.")
         table_refs = [
@@ -770,6 +775,7 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
             [SystemMessage(content=_TEXT_TO_SQL_PROMPT), HumanMessage(content=user_msg)],
             max_attempts=2,
             label="text_to_sql",
+            usage_sink=context.get("usage_log"),
         )
         if result and getattr(result, "sql", None):
             sql = str(result.sql).strip().strip("`").strip()
@@ -781,6 +787,7 @@ def cap_text_to_sql(args: dict[str, Any], context: dict[str, Any]) -> dict[str, 
                 [SystemMessage(content=_TEXT_TO_SQL_PROMPT), HumanMessage(content=user_msg)],
                 max_attempts=1,
                 label="text_to_sql_fallback",
+                usage_sink=context.get("usage_log"),
             )
             sql = _extract_sql_from_llm_text(_llm_text(response))
         except Exception as exc2:  # noqa: BLE001

@@ -10,15 +10,44 @@ pelo Planner conforme a pergunta do usuário.
 
 from __future__ import annotations
 
+import sqlite3
+import uuid
+from pathlib import Path
 from typing import Any
 
 from langchain_core.callbacks.usage import get_usage_metadata_callback
+from langgraph.checkpoint.sqlite import SqliteSaver
 
 from src.agents.finance_auditor.supervisor import build_supervisor_graph
 from src.core.base_agent import BaseAgent
 from src.shared.config import get_runtime_config
 from src.shared.tools.llm import create_llm as _create_llm
 from src.shared.tools.llm import summarize_usage_by_label
+
+
+def _make_checkpointer() -> SqliteSaver:
+    """Checkpointer nativo do LangGraph, persistido em disco.
+
+    `SqliteSaver`, não `MemorySaver` (diferente de query_build/query_analyzer)
+    — `SupervisorState` é 100% JSON-safe (sem objetos Pydantic customizados
+    como os irmãos carregam), então dá pra ter persistência real: se o
+    processo cair no meio de um plano de vários passos, o snapshot de estado
+    sobrevive ao restart (`MemorySaver` se perderia junto com o processo,
+    resolvendo o problema só pela metade). Thread-safe via lock interno do
+    `SqliteSaver` — seguro sob `asyncio.to_thread` com múltiplas requisições
+    concorrentes.
+    """
+    db_path = Path(".sixth") / "finance_auditor_checkpoints.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path), check_same_thread=False)
+    checkpointer = SqliteSaver(conn)
+    checkpointer.setup()
+    return checkpointer
+
+
+# Singleton — sobrevive entre chamadas analyze() do mesmo processo, mesmo
+# padrão de query_build/query_analyzer.
+_CHECKPOINTER = _make_checkpointer()
 
 
 class FinanceAuditorAgent(BaseAgent):
@@ -46,7 +75,9 @@ class FinanceAuditorAgent(BaseAgent):
             # veredito do Reflect) quando configurado explicitamente no painel admin.
             lite_model = get_runtime_config("FINANCE_AUDITOR_LITE_MODEL", "").strip()
             llm_lite = _create_llm(model=lite_model) if lite_model else llm
-            self._graph = build_supervisor_graph(llm=llm, llm_creative=llm_creative, llm_lite=llm_lite)
+            self._graph = build_supervisor_graph(
+                llm=llm, llm_creative=llm_creative, llm_lite=llm_lite, checkpointer=_CHECKPOINTER
+            )
         return self._graph
 
     def analyze(
@@ -58,9 +89,17 @@ class FinanceAuditorAgent(BaseAgent):
         user_profile: dict[str, Any] | None = None,
         user: dict[str, Any] | None = None,
         attachments: list[dict[str, Any]] | None = None,
+        thread_id: str | None = None,
     ) -> dict[str, Any]:
-        """Executa o grafo Supervisor e devolve um dict compatível com o frontend."""
+        """Executa o grafo Supervisor e devolve um dict compatível com o frontend.
+
+        `thread_id` identifica a execução para o checkpointer nativo do
+        LangGraph — gerado automaticamente quando omitido (não há resume()
+        exposto ainda; o checkpointer por ora só garante que o snapshot de
+        estado sobrevive a um crash do processo no meio de um plano)."""
         graph = self._get_graph()
+        tid = thread_id or str(uuid.uuid4())
+        config = {"configurable": {"thread_id": tid}}
 
         u = user or {}
         # Lista mutável passada por referência — cada invoke_with_retry(...,
@@ -92,7 +131,7 @@ class FinanceAuditorAgent(BaseAgent):
         # output, pois opera no nível de callback do provider, não no
         # objeto já parseado.
         with get_usage_metadata_callback() as usage_cb:
-            for event in graph.stream(initial_state, stream_mode="values"):
+            for event in graph.stream(initial_state, config=config, stream_mode="values"):
                 final_state = event
             token_usage = self._summarize_token_usage(usage_cb.usage_metadata)
             token_usage["by_node"] = summarize_usage_by_label(usage_log)

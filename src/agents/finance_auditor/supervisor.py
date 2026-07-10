@@ -831,6 +831,7 @@ def build_supervisor_graph(
     llm: BaseChatModel,
     llm_creative: BaseChatModel | None = None,
     llm_lite: BaseChatModel | None = None,
+    checkpointer: Any = None,
 ) -> Any:
     """Compila o grafo Supervisor.
 
@@ -841,6 +842,11 @@ def build_supervisor_graph(
             — veredito do Reflect e `_pick_relevant_tables` (via `context["llm_lite"]`
             no router). Cai para `llm` quando omitido (zero mudança de comportamento
             se FINANCE_AUDITOR_LITE_MODEL não estiver configurado).
+        checkpointer: checkpointer nativo do LangGraph (ex.: `SqliteSaver`) —
+            habilita snapshot de estado a cada nó, mesmo padrão de
+            query_build/query_analyzer. Sem isso (`None`), o grafo roda como
+            antes, sem persistência nativa — usado só em testes que não
+            precisam desse comportamento.
     """
     _composer_llm = llm_creative or llm
     _lite_llm = llm_lite or llm
@@ -876,4 +882,4 @@ def build_supervisor_graph(
     workflow.add_edge("audit", "guardrails_out")
     workflow.add_edge("guardrails_out", END)
 
-    return workflow.compile()
+    return workflow.compile(checkpointer=checkpointer)

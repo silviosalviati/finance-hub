@@ -1,9 +1,8 @@
 # Avaliação profunda — Finance Voice (Finance Auditor)
 
-**Data:** 2026-07-09
 **Escopo:** `src/agents/finance_auditor/*` — só o agente Finance Voice/Finance Auditor. Outros agentes (`query_build`, `query_analyzer`, `document_build`, `schema_graph`) ficam fora deste documento.
 **Dimensões avaliadas:** Segurança · Produtividade/Performance (incluindo eficiência de tokens/custo de LLM) · Assertividade · Boas práticas de mercado (LangGraph).
-**Método:** leitura direta do código atual (não é reaproveitamento de notas antigas). Toda afirmação abaixo tem citação `arquivo:linha`. Dá continuidade às auditorias de 2026-06-13 e 2026-06-28 — desta vez com verificação linha a linha do estado presente.
+**Método:** leitura direta do código atual (não é reaproveitamento de notas antigas). Toda afirmação abaixo tem citação `arquivo:linha`.
 
 ## Changelog de implementação
 
@@ -94,24 +93,6 @@ Nenhum achado em aberto nesta rodada — todos implementados, ver Changelog no t
 
 ---
 
-## 5. Lista priorizada de correções
-
-Ordenada por uma lógica de **medir → cachear → limitar → deduplicar → tiering → arquitetura**: primeiro os itens que dão visibilidade de custo e fecham o maior ralo de tokens (baratos, altíssimo retorno), depois os itens estruturais que já estavam na lista anterior.
-
-**Nota de portabilidade (2026-07-09):** este projeto local usa Vertex AI (`SUPPORTED_LLM_PROVIDERS = {"vertexai"}`, `config.py:125`) como único provider. A versão da empresa no GitLab usa um **gateway próprio multi-LLM** (Meta, Google e Anthropic). A maioria dos itens abaixo é independente de provider (lógica de aplicação/LangGraph). Exceções marcadas com ⚠️:
-- **Item 1** é uma API específica do Vertex/Gemini (`cachedContents`) — implementado aqui como está, mas precisa ser reavaliado contra o que o gateway da empresa realmente expõe (Anthropic tem `cache_control`, um gateway proprietário pode ou não repassar cache de contexto) antes de portar.
-- **Itens 3 e 4** devem funcionar sem mudança se o gateway seguir convenção OpenAI-compatible para streaming/tool-calling (comum em gateways multi-provider), mas vale confirmar na hora de portar.
-
-| # | Item | Dimensão | Esforço | Por quê primeiro/depois |
-|---|---|---|---|---|
-| 1 | ⚠️ Ativar Vertex AI Context Caching no prompt do planner (2.7) | Produtividade / Custo | Médio | Maior alavanca de economia isolada localmente — ~3,7k tokens estáticos reenviados em toda chamada. Específico do Vertex, ver nota de portabilidade. Agora dá pra medir o ganho real via `token_usage.by_node.planner` |
-| 2 | Compilar o grafo do Finance Auditor com `checkpointer=` nativo do LangGraph (4.1) | Boas práticas | Alto | Habilita resume real de execução parcial e alinha com os agentes irmãos (query_build/query_analyzer já usam) |
-| 3 | ⚠️ Avaliar streaming real (token-a-token) para o Finance Auditor (2.6) | Produtividade / UX | Médio-Alto | Não é bug, é expectativa de mercado para chat com LLM. Ver nota de portabilidade |
-| 4 | ⚠️ Migrar capabilities para `bind_tools`/`ToolNode` nativo, ou documentar deliberadamente por que o dispatcher próprio foi escolhido (4.2) | Boas práticas | Alto | Mudança arquitetural grande, mas independente dos outros itens — pode ser feita a qualquer momento. Ver nota de portabilidade |
-| 5 | Adicionar reducers (`Annotated[...]`) nos campos de lista do `SupervisorState` mesmo sem paralelismo de nós hoje, como blindagem futura (4.3) | Boas práticas | Baixo-Médio | Baixo risco imediato, mas barato de corrigir agora vs. caro de depurar depois |
-
----
-
 ## Nota final
 
-Este documento é atualizado conforme itens da lista são implementados: cada correção aplicada sai da análise/priorização e vira uma entrada no "Changelog de implementação" no topo do arquivo, com os arquivos alterados. A lista priorizada atual reflete só o que ainda está genuinamente em aberto — itens já implementados ou com decisão final tomada (fix ou não-fix) saem do corpo do relatório. A decisão de quais atacar em seguida, e em que sprint, continua com o usuário.
+Este documento é atualizado conforme itens são implementados: cada correção aplicada sai da análise e vira uma entrada no "Changelog de implementação" no topo do arquivo, com os arquivos alterados. Itens já implementados ou com decisão final tomada (fix ou não-fix) saem do corpo do relatório. A decisão de quais achados atacar em seguida, e em que sprint, continua com o usuário.

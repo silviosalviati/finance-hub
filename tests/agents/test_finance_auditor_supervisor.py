@@ -816,7 +816,7 @@ class TestAgentUserProfilePropagation:
 
         captured = {}
 
-        def fake_stream(initial_state, stream_mode="values"):
+        def fake_stream(initial_state, *args, **kwargs):
             captured["initial_state"] = initial_state
             return iter([{"final_answer": "ok", "persona": "diretor"}])
 
@@ -839,7 +839,7 @@ class TestAgentUserProfilePropagation:
 
         captured = {}
 
-        def fake_stream(initial_state, stream_mode="values"):
+        def fake_stream(initial_state, *args, **kwargs):
             captured["initial_state"] = initial_state
             return iter([{"final_answer": "ok"}])
 

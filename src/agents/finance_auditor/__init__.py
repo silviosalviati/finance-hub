@@ -143,6 +143,7 @@ class FinanceAuditorAgent(BaseAgent):
                 "markdown_report": "",
                 "warnings": [],
                 "token_usage": token_usage,
+                "thread_id": tid,
             }
 
         if final_state.get("error"):
@@ -152,6 +153,7 @@ class FinanceAuditorAgent(BaseAgent):
                 "markdown_report": final_state.get("final_answer", ""),
                 "warnings": final_state.get("warnings", []),
                 "token_usage": token_usage,
+                "thread_id": tid,
             }
 
         return {
@@ -176,6 +178,7 @@ class FinanceAuditorAgent(BaseAgent):
             "pii": final_state.get("pii", {}),
             "audit_id": final_state.get("audit_id"),
             "token_usage": token_usage,
+            "thread_id": tid,
         }
 
     @staticmethod

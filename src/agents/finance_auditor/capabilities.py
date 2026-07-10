@@ -1860,6 +1860,29 @@ def _format_validation_error(exc: ValidationError) -> str:
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
+#
+# Decisão arquitetural (avaliada e mantida deliberadamente — não é um "ainda
+# não migramos", é a escolha certa pro que este agente faz): as capabilities
+# NÃO são expostas como tools nativas do LangChain (`bind_tools`/`ToolNode`).
+# São um dispatcher nome→função dirigido por um plano completo que o Planner
+# gera de uma vez via structured output (`PlanResponse`), não um loop ReAct
+# de tool-calling passo-a-passo.
+#
+# Motivo: o Planner projeta um plano com várias etapas de uma vez, incluindo
+# dependências entre elas (`${step_N.path}`, ver `_resolve_placeholders`), e
+# `node_router` executa esse plano em ONDAS PARALELAS — etapas sem
+# dependência pendente rodam ao mesmo tempo via `ThreadPoolExecutor`. Um loop
+# ReAct clássico (`bind_tools` + `ToolNode`) é inerentemente sequencial: uma
+# tool call por vez, decidida a cada volta do loop. Migrar pra esse padrão
+# native perderia o paralelismo por ondas que existe hoje — trocaria uma
+# capacidade real por "pureza" arquitetural, sem ganho líquido pro caso de
+# uso deste agente.
+#
+# O trade-off aceito: perde-se validação automática de schema de tool-call
+# nativa do LangChain (mitigado pelos schemas Pydantic em `_ARG_SCHEMAS`,
+# validados centralmente em `execute_capability`) e o tracing de tool-use no
+# LangSmith fica menos estruturado (o LLM nunca emite um `tool_calls` nativo
+# — a "tool call" é só um dict dentro do JSON do plano).
 
 CAPABILITY_REGISTRY: dict[str, Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]] = {
     CAPABILITY_BQ_LIST_DATASETS: cap_bq_list_datasets,

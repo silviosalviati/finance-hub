@@ -97,6 +97,28 @@ def scrub_value(value: Any) -> Any:
     return value
 
 
+def _artifact_chart_values(art: dict[str, Any]) -> list[Any]:
+    """Linhas embutidas em artefatos vega_lite (`spec.data.values`) — cap_viz_spec
+    coloca os dados reais aí, não em `rows`, então o guard precisa olhar também."""
+    if art.get("type") != "vega_lite":
+        return []
+    values = (((art.get("spec") or {}).get("data") or {}).get("values"))
+    return values if isinstance(values, list) else []
+
+
+def _artifact_stats_top_values(art: dict[str, Any]) -> list[Any]:
+    """Valores mais frequentes por coluna em artefatos `stats` (cap_stats_describe) —
+    `columns[col]["top"][i]["value"]` pode ser o valor bruto de uma coluna categórica
+    (ex.: nome/e-mail), fora do alcance de `rows`/`sql`/`text`."""
+    if art.get("type") != "stats":
+        return []
+    out: list[Any] = []
+    for col_stats in (art.get("columns") or {}).values():
+        for entry in (col_stats or {}).get("top") or []:
+            out.append(entry.get("value"))
+    return out
+
+
 def apply_guard(
     final_answer: str,
     artifacts: list[dict[str, Any]] | None,
@@ -138,6 +160,10 @@ def apply_guard(
                 _merge(scan(str(v)))
             _merge(scan(str(art.get("sql") or "")))
             _merge(scan(str(art.get("text") or "")))
+            for v in _artifact_chart_values(art):
+                _merge(scan(str(v)))
+            for v in _artifact_stats_top_values(art):
+                _merge(scan(str(v)))
         if counts_total:
             return {
                 "mode": mode,
@@ -164,6 +190,8 @@ def apply_guard(
     for art in artifacts:
         new = dict(art)
         if "rows" in new and isinstance(new["rows"], list):
+            for v in new["rows"]:
+                _merge(scan(str(v)))
             new["rows"] = scrub_value(new["rows"])
         if "sql" in new and isinstance(new["sql"], str):
             scrubbed, c = scrub_text(new["sql"])
@@ -173,6 +201,32 @@ def apply_guard(
             scrubbed, c = scrub_text(new["text"])
             new["text"] = scrubbed
             _merge(c)
+        if new.get("type") == "vega_lite" and isinstance(new.get("spec"), dict):
+            spec = dict(new["spec"])
+            data = dict(spec.get("data") or {})
+            if isinstance(data.get("values"), list):
+                for v in data["values"]:
+                    _merge(scan(str(v)))
+                data["values"] = scrub_value(data["values"])
+                spec["data"] = data
+                new["spec"] = spec
+        if new.get("type") == "stats" and isinstance(new.get("columns"), dict):
+            new_columns: dict[str, Any] = {}
+            for col, col_stats in new["columns"].items():
+                col_stats = dict(col_stats or {})
+                top = col_stats.get("top")
+                if isinstance(top, list):
+                    new_top = []
+                    for entry in top:
+                        entry = dict(entry)
+                        if isinstance(entry.get("value"), str):
+                            scrubbed, c = scrub_text(entry["value"])
+                            entry["value"] = scrubbed
+                            _merge(c)
+                        new_top.append(entry)
+                    col_stats["top"] = new_top
+                new_columns[col] = col_stats
+            new["columns"] = new_columns
         scrubbed_artifacts.append(new)
     return {
         "mode": mode,
@@ -183,7 +237,19 @@ def apply_guard(
     }
 
 
+def scrub_for_storage(value: Any) -> Any:
+    """Aplica scrub de PII para persistência (ex.: audit log), respeitando o
+    modo configurado — só deixa passar sem mudanças quando o guard está
+    desligado (`off`). Diferente de `apply_guard`, não bloqueia nem devolve
+    metadata: é para texto/estruturas que precisam ser gravadas de qualquer
+    forma (auditoria), mas nunca com PII em claro quando o guard está ativo.
+    """
+    if _resolve_mode() == MODE_OFF:
+        return value
+    return scrub_value(value)
+
+
 __all__ = [
     "MODE_MASK", "MODE_BLOCK", "MODE_OFF",
-    "scan", "scrub_text", "scrub_value", "apply_guard",
+    "scan", "scrub_text", "scrub_value", "scrub_for_storage", "apply_guard",
 ]

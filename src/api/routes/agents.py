@@ -447,14 +447,14 @@ def _build_finance_chat_response(answer: str, warnings: list[str] | None = None)
 
 
 @router.get("/api/runtime-llm")
-async def runtime_llm_info():
+async def runtime_llm_info(_session: dict[str, Any] = Depends(get_current_user)):
     registry = get_registry()
     agent = registry.get("query_analyzer")
     return agent.runtime_info()
 
 
 @router.get("/api/agents")
-async def list_agents():
+async def list_agents(_session: dict[str, Any] = Depends(get_current_user)):
     registry = get_registry()
     return {"agents": registry.list_ids()}
 

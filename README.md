@@ -420,13 +420,13 @@ Públicos:
 - `GET /health`
 - `GET /favicon.ico`
 - `POST /api/login`
-- `GET /api/runtime-llm`
 
 Protegidos por sessão:
 
 - `POST /api/logout`
 - `GET /api/me`
 - `GET /api/agents`
+- `GET /api/runtime-llm`
 - `POST /api/agents/{agent_id}/analyze`
 - `POST /api/agents/query_build/suggestions`
 - `POST /api/agents/query_build/validate-dataset`

@@ -8072,13 +8072,33 @@ function neoExportPng() {
 // ─────────────────────────────────────
 let _adminEditingUsername = null;
 
+function _aclHasFullAccess(acl) {
+  return !!(acl && Array.isArray(acl.allowed_datasets) && acl.allowed_datasets.includes("*"));
+}
+
+async function _fetchAclMap() {
+  try {
+    const res = await fetch("/admin/finance/acl", { headers: authHeaders() });
+    if (!res.ok) return {};
+    const data = await res.json();
+    const map = {};
+    for (const acl of data.acl || []) map[acl.user_id] = acl;
+    return map;
+  } catch (_) {
+    return {};
+  }
+}
+
 async function adminLoadUsers() {
   const tbody = document.getElementById("admin-users-tbody");
   if (!tbody) return;
-  tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;color:var(--ink3)'>Carregando...</td></tr>";
+  tbody.innerHTML = "<tr><td colspan='7' style='text-align:center;color:var(--ink3)'>Carregando...</td></tr>";
 
   try {
-    const res = await fetch("/admin/users", { headers: authHeaders() });
+    const [res, aclMap] = await Promise.all([
+      fetch("/admin/users", { headers: authHeaders() }),
+      _fetchAclMap(),
+    ]);
     if (!res.ok) throw new Error((await res.json()).detail || "Erro");
     const users = await res.json();
 
@@ -8088,6 +8108,7 @@ async function adminLoadUsers() {
         <td>${u.name}</td>
         <td><span class="admin-badge ${u.is_admin ? 'badge-admin' : 'badge-user'}">${u.is_admin ? 'Admin' : 'Usuário'}</span></td>
         <td style="font-size:11px;color:var(--ink3)">${u.gerencia || '—'}</td>
+        <td>${_aclHasFullAccess(aclMap[u.username]) ? '<span class="admin-badge badge-full-access">Total</span>' : '<span style="font-size:11px;color:var(--ink3)">—</span>'}</td>
         <td style="font-size:11px;color:var(--ink3)">${u.created_at ? u.created_at.slice(0, 10) : '—'}</td>
         <td class="admin-actions">
           <button class="btn-table-edit" onclick="adminOpenUserModal('${u.username}')">Editar</button>
@@ -8096,9 +8117,9 @@ async function adminLoadUsers() {
             : ''}
         </td>
       </tr>
-    `).join("") || "<tr><td colspan='6' style='text-align:center'>Nenhum usuário cadastrado.</td></tr>";
+    `).join("") || "<tr><td colspan='7' style='text-align:center'>Nenhum usuário cadastrado.</td></tr>";
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan='6' style='color:#c0392b'>${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan='7' style='color:#c0392b'>${e.message}</td></tr>`;
   }
 }
 
@@ -8169,6 +8190,7 @@ async function adminOpenUserModal(username = null) {
   document.getElementById("modal-name").value = "";
   document.getElementById("modal-password").value = "";
   document.getElementById("modal-is-admin").checked = false;
+  document.getElementById("modal-full-access").checked = false;
   document.getElementById("modal-username").disabled = false;
 
   await _loadGerenciasIntoSelect();
@@ -8177,7 +8199,10 @@ async function adminOpenUserModal(username = null) {
     if (title) title.textContent = "Editar Usuário";
     if (passLabel) passLabel.textContent = "Nova senha (deixe em branco para não alterar)";
     try {
-      const res = await fetch("/admin/users", { headers: authHeaders() });
+      const [res, aclRes] = await Promise.all([
+        fetch("/admin/users", { headers: authHeaders() }),
+        fetch(`/admin/finance/acl/${username}`, { headers: authHeaders() }),
+      ]);
       const users = await res.json();
       const u = users.find(x => x.username === username);
       if (u) {
@@ -8188,6 +8213,10 @@ async function adminOpenUserModal(username = null) {
         const gerVal = u.gerencia || "";
         document.getElementById("modal-gerencia").value = gerVal;
         _syncGerenciaPickerUI(gerVal);
+      }
+      if (aclRes.ok) {
+        const acl = await aclRes.json();
+        document.getElementById("modal-full-access").checked = _aclHasFullAccess(acl);
       }
     } catch (_) {}
   } else {
@@ -8209,6 +8238,7 @@ async function adminSaveUser() {
   const name = document.getElementById("modal-name").value.trim();
   const password = document.getElementById("modal-password").value;
   const is_admin = document.getElementById("modal-is-admin").checked;
+  const full_access = document.getElementById("modal-full-access").checked;
   const gerencia = document.getElementById("modal-gerencia").value;
   const errEl = document.getElementById("admin-modal-error");
   const saveBtn = document.getElementById("admin-modal-save");
@@ -8245,6 +8275,19 @@ async function adminSaveUser() {
     }
 
     if (!res.ok) throw new Error((await res.json()).detail || "Erro ao salvar");
+
+    // Acesso total = ACL "*" (todas as gerências/datasets); desmarcado limpa
+    // a ACL de volta ao padrão (permissivo ou bloqueado conforme RBAC strict).
+    await fetch(`/admin/finance/acl/${username}`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        allowed_datasets: full_access ? ["*"] : [],
+        allowed_metrics: full_access ? ["*"] : [],
+        denied_datasets: [],
+      }),
+    });
+
     document.getElementById("admin-user-modal").style.display = "none";
     _adminEditingUsername = null;
     adminLoadUsers();

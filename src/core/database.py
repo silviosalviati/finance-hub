@@ -49,7 +49,7 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
         "mask", "Modo do PII Guard: mask | block | off"
     ),
     "FINANCE_AUDITOR_RBAC_STRICT": (
-        "0", "RBAC strict: '1' bloqueia usuários sem ACL configurada"
+        "1", "RBAC strict: '1' bloqueia usuários sem ACL configurada"
     ),
     "FINANCE_AUDITOR_QUERY_BUDGET_BYTES": (
         "5368709120", "Budget máximo (bytes) por query — 5 GiB"

@@ -2592,6 +2592,7 @@ runbook_operacional</pre
                     <th>Nome</th>
                     <th>Perfil</th>
                     <th>Gerência</th>
+                    <th>Acesso</th>
                     <th>Criado em</th>
                     <th>Ações</th>
                   </tr>
@@ -2662,6 +2663,13 @@ runbook_operacional</pre
                 <input type="checkbox" id="modal-is-admin" />
                 Administrador
               </label>
+            </div>
+            <div class="modal-field modal-field-check">
+              <label>
+                <input type="checkbox" id="modal-full-access" />
+                Acesso total (todas as gerências/datasets)
+              </label>
+              <div class="modal-field-hint">Concede ACL "*" — use para diretores que precisam ver todas as áreas, não só a própria gerência.</div>
             </div>
             <div id="admin-modal-error" class="admin-error" style="display:none"></div>
           </div>

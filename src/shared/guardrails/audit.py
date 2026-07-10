@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.core.database import append_finance_audit
+from src.shared.guardrails import pii_guard
 
 
 def _utcnow_iso() -> str:
@@ -34,7 +35,13 @@ def summarize_costs(tool_results: list[dict[str, Any]] | None) -> dict[str, Any]
 
 
 def record(state: dict[str, Any]) -> int | None:
-    """Persiste uma entrada de auditoria a partir do estado final do Supervisor."""
+    """Persiste uma entrada de auditoria a partir do estado final do Supervisor.
+
+    `request_text`/`plan`/`error` passam pelo PII Guard antes de gravar —
+    são os únicos campos de texto livre nesta tabela, e ficam em claro no
+    SQLite independente do modo do guard usado na resposta ao usuário, a
+    menos que sejam tratados aqui (o guard de saída roda depois deste nó
+    no grafo, então nunca vê o que já foi persistido)."""
     try:
         tool_results = state.get("tool_results") or []
         steps_ok = sum(1 for r in tool_results if r and r.get("ok"))
@@ -44,13 +51,13 @@ def record(state: dict[str, Any]) -> int | None:
             "ts": _utcnow_iso(),
             "user_id": str(state.get("user_id") or ""),
             "persona": str(state.get("persona") or ""),
-            "request_text": str(state.get("request_text") or ""),
-            "plan": plan,
+            "request_text": pii_guard.scrub_for_storage(str(state.get("request_text") or "")),
+            "plan": pii_guard.scrub_for_storage(plan),
             "steps_total": len(tool_results),
             "steps_ok": steps_ok,
             "bytes_processed": costs["bytes_processed"],
             "estimated_cost_usd": costs["estimated_cost_usd"],
-            "error": str(state.get("error") or ""),
+            "error": pii_guard.scrub_for_storage(str(state.get("error") or "")),
         }
         return append_finance_audit(entry)
     except Exception:  # noqa: BLE001

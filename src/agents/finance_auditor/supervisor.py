@@ -32,6 +32,7 @@ from langgraph.graph import END, START, StateGraph
 from src.agents.finance_auditor.capabilities import execute_capability
 from src.shared.guardrails import audit as audit_log
 from src.shared.guardrails import pii_guard
+from src.shared.guardrails.injection import check_injection
 from src.agents.finance_auditor.personas import (
     PERSONA_GERAL,
     VALID_PERSONAS,
@@ -108,8 +109,20 @@ def _resolve_path(root: Any, path: str) -> Any:
     return cursor
 
 
+_MAX_RESOLVED_PLACEHOLDER_LEN = 4000
+
+
 def _resolve_placeholders(value: Any, prior_results: list[dict[str, Any]], project_id: str) -> Any:
-    """Substitui ${PROJECT} e ${step_N.path} dentro de strings dos args."""
+    """Substitui ${PROJECT} e ${step_N.path} dentro de strings dos args.
+
+    Só resolve para valores escalares (str/int/float/bool) — um path que
+    aponte pra uma lista/dict inteiro fica sem resolver (mesmo fallback de
+    "step falhou", placeholder original preservado) em vez de virar
+    `str({...})`/`str([...])` splicado cru no arg, o que não faz sentido
+    pra nenhuma capability downstream (espera um valor escalar) e só serviria
+    pra confundir o LLM/gerador de SQL seguinte. O tamanho também é limitado
+    para não injetar um payload gigante dentro de um único arg.
+    """
     if isinstance(value, str):
         def _sub(match: re.Match[str]) -> str:
             token = match.group(1).strip()
@@ -125,7 +138,9 @@ def _resolve_placeholders(value: Any, prior_results: list[dict[str, Any]], proje
             if not entry.get("ok"):
                 return match.group(0)
             resolved = _resolve_path(entry, m.group(2))
-            return str(resolved) if resolved is not None else match.group(0)
+            if resolved is None or isinstance(resolved, (dict, list)):
+                return match.group(0)
+            return str(resolved)[:_MAX_RESOLVED_PLACEHOLDER_LEN]
 
         return _TPL_RE.sub(_sub, value)
     if isinstance(value, dict):
@@ -169,29 +184,19 @@ def _step_dependencies(raw_args: Any) -> set[int]:
     return deps
 
 
-_INJECTION_MARKERS = (
-    "ignore previous",
-    "ignore as instru",
-    "desconsidere as instru",
-    "system prompt",
-    "</system>",
-)
-
-
 # ---------------------------------------------------------------------------
 # Nó 1 — guardrails_in
 # ---------------------------------------------------------------------------
 
 def node_guardrails_in(state: SupervisorState) -> dict[str, Any]:
-    text = (state.get("request_text") or "").lower()
-    for marker in _INJECTION_MARKERS:
-        if marker in text:
-            return {
-                "guardrail_in_ok": False,
-                "guardrail_in_reason": "Detectada tentativa de prompt injection.",
-                "warnings": ["Entrada bloqueada por guardrail de segurança."],
-                "error": "Solicitação bloqueada por política de segurança.",
-            }
+    safe, reason = check_injection(state.get("request_text") or "")
+    if not safe:
+        return {
+            "guardrail_in_ok": False,
+            "guardrail_in_reason": reason or "Detectada tentativa de prompt injection.",
+            "warnings": ["Entrada bloqueada por guardrail de segurança."],
+            "error": "Solicitação bloqueada por política de segurança.",
+        }
     return {"guardrail_in_ok": True, "guardrail_in_reason": "", "warnings": []}
 
 

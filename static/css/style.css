@@ -6617,6 +6617,7 @@ pre {
 }
 .badge-admin { background: #dbeafe; color: #1e40af; }
 .badge-user  { background: var(--bg-page); color: var(--ink2); }
+.badge-full-access { background: #fef3c7; color: #92400e; }
 
 .admin-actions { display: flex; gap: 6px; }
 
@@ -6859,6 +6860,7 @@ pre {
 .modal-field input:disabled { opacity: 0.6; cursor: not-allowed; }
 .modal-field-check label { flex-direction: row; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--ink); }
 .modal-field-check input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--porto-primary); }
+.modal-field-hint { font-size: 11px; color: var(--ink3); margin-top: 4px; }
 
 /* Seletor de gerência em pill-grid — melhor UX que <select> para 5-6 opções */
 .gerencia-picker {

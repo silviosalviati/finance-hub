@@ -1,9 +1,12 @@
 """RBAC do Finance Voice IA — verificação por dataset e por métrica.
 
-A ACL fica em SQLite (`finance_user_acl`). Sem ACL configurada para um
-usuário, o acesso é PERMITIDO por padrão (modo aberto), exceto se o
-runtime config ``FINANCE_AUDITOR_RBAC_STRICT`` for "1"/"true" — nesse
-caso a ausência de ACL bloqueia tudo, exceto admins.
+A ACL fica em SQLite (`finance_user_acl`). Por padrão (``FINANCE_AUDITOR_RBAC_STRICT``
+"1"/"true"), um usuário sem ACL configurada — ou com ACL sem allowlist — não
+tem acesso a nenhum dataset/métrica. Para conceder acesso a todas as áreas
+(ex.: diretor), configure a ACL do usuário com allowlist ``"*"`` em vez de
+desligar o modo strict globalmente. Só desligue o modo strict (runtime config
+"0"/"false") se quiser voltar ao modo aberto antigo, onde a ausência de ACL
+libera acesso.
 
 Admins (flag `is_admin` na sessão) sempre passam.
 """
@@ -19,7 +22,7 @@ from src.shared.config import get_runtime_config
 
 
 def _strict_mode() -> bool:
-    val = (get_runtime_config("FINANCE_AUDITOR_RBAC_STRICT", "0") or "0").strip().lower()
+    val = (get_runtime_config("FINANCE_AUDITOR_RBAC_STRICT", "1") or "1").strip().lower()
     return val in {"1", "true", "yes", "on"}
 
 

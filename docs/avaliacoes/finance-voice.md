@@ -132,18 +132,23 @@ O Finance Auditor **não tem nenhum ponto de pausa** — o SQL gerado por `text_
 
 Ordenada por uma lógica de **medir → cachear → limitar → deduplicar → tiering → arquitetura**: primeiro os itens que dão visibilidade de custo e fecham o maior ralo de tokens (baratos, altíssimo retorno), depois os itens estruturais que já estavam na lista anterior.
 
+**Nota de portabilidade (2026-07-09):** este projeto local usa Vertex AI (`SUPPORTED_LLM_PROVIDERS = {"vertexai"}`, `config.py:125`) como único provider. A versão da empresa no GitLab usa um **gateway próprio multi-LLM** (Meta, Google e Anthropic). A maioria dos itens abaixo é independente de provider (lógica de aplicação/LangGraph). Exceções marcadas com ⚠️:
+- **Item 2** é uma API específica do Vertex/Gemini (`cachedContents`) — implementado aqui como está, mas precisa ser reavaliado contra o que o gateway da empresa realmente expõe (Anthropic tem `cache_control`, um gateway proprietário pode ou não repassar cache de contexto) antes de portar.
+- **Item 6** fica **mais forte** na empresa, não mais fraco — com 3 fornecedores no mesmo gateway dá pra fazer tiering cross-vendor (ex.: modelo pequeno da Meta/Google pra classificação, Claude/Gemini Pro só pra SQL/relatório).
+- **Itens 9 e 10** devem funcionar sem mudança se o gateway seguir convenção OpenAI-compatible para streaming/tool-calling (comum em gateways multi-provider), mas vale confirmar na hora de portar.
+
 | # | Item | Dimensão | Esforço | Por quê primeiro/depois |
 |---|---|---|---|---|
 | 1 | Persistir `token_usage` no audit log com breakdown por nó (planner/reflect/composer/capabilities) (2.12) | Produtividade / Custo | Baixo | Pré-requisito barato pra medir qualquer otimização seguinte — sem isso, tudo abaixo é chute |
-| 2 | Ativar Vertex AI Context Caching no prompt do planner (2.7) | Produtividade / Custo | Médio | Maior alavanca de economia isolada — ~3,7k tokens estáticos reenviados em toda chamada |
+| 2 | ⚠️ Ativar Vertex AI Context Caching no prompt do planner (2.7) | Produtividade / Custo | Médio | Maior alavanca de economia isolada localmente — ~3,7k tokens estáticos reenviados em toda chamada. Específico do Vertex, ver nota de portabilidade |
 | 3 | Adicionar budget/circuit-breaker de tokens por requisição, espelhando o `FINANCE_AUDITOR_QUERY_BUDGET_BYTES` do BigQuery (2.13) | Segurança / Custo | Médio | Fecha risco de custo descontrolado e superfície de abuso |
 | 4 | Eliminar redundância de contexto: schema duplicado (`bq_get_schema` + `text_to_sql`), `conversation_context` duplicado (planner + composer), cache de `_pick_relevant_tables`/`catalog_search` dentro do turno (2.8, 2.9, 2.10) | Produtividade / Custo | Médio | Vários ganhos pequenos e independentes, seguros de implementar juntos |
 | 5 | Reduzir amplificação de custo em retry — reaproveitar contexto já buscado (schema, tabelas escolhidas) em vez de reconstruir do zero a cada tentativa (2.14) | Produtividade / Custo | Baixo-Médio | Resolve naturalmente junto do item 4 |
-| 6 | Model tiering para chamadas auxiliares simples (`_pick_relevant_tables`, veredito do Reflect) — usar um modelo mais barato/rápido (2.11) | Produtividade / Custo | Médio | Só compensa com dado real do item 1 mostrando o quanto essas chamadas pesam hoje |
-| 7 | Adicionar HITL (approve/skip) antes de rodar SQL gerado por LLM no Finance Auditor (3.1, 4.1) | Assertividade / Arquitetura | Alto | Maior mudança estrutural da lista, mas fecha a maior lacuna de controle humano |
-| 8 | Compilar o grafo do Finance Auditor com `checkpointer=` nativo do LangGraph (4.1) | Boas práticas | Alto | Pré-requisito técnico para o item 7; também habilita resume real de execução parcial |
-| 9 | Avaliar streaming real (token-a-token) para o Finance Auditor (2.6) | Produtividade / UX | Médio-Alto | Não é bug, é expectativa de mercado para chat com LLM |
-| 10 | Migrar capabilities para `bind_tools`/`ToolNode` nativo, ou documentar deliberadamente por que o dispatcher próprio foi escolhido (4.2) | Boas práticas | Alto | Mudança arquitetural grande; só vale se os itens 7-8 (HITL + checkpointer) forem adiante primeiro |
+| 6 | Model tiering para chamadas auxiliares simples (`_pick_relevant_tables`, veredito do Reflect) — usar um modelo mais barato/rápido (2.11) | Produtividade / Custo | Médio | Só compensa com dado real do item 1 mostrando o quanto essas chamadas pesam hoje. Mais forte ainda na empresa (multi-vendor) |
+| 7 | Compilar o grafo do Finance Auditor com `checkpointer=` nativo do LangGraph (4.1) | Boas práticas | Alto | Pré-requisito técnico para o item 8; também habilita resume real de execução parcial |
+| 8 | Adicionar HITL (approve/skip) antes de rodar SQL gerado por LLM no Finance Auditor (3.1, 4.1) | Assertividade / Arquitetura | Alto | Maior mudança estrutural da lista, mas fecha a maior lacuna de controle humano — depende do item 7 |
+| 9 | ⚠️ Avaliar streaming real (token-a-token) para o Finance Auditor (2.6) | Produtividade / UX | Médio-Alto | Não é bug, é expectativa de mercado para chat com LLM. Ver nota de portabilidade |
+| 10 | ⚠️ Migrar capabilities para `bind_tools`/`ToolNode` nativo, ou documentar deliberadamente por que o dispatcher próprio foi escolhido (4.2) | Boas práticas | Alto | Mudança arquitetural grande; só vale se os itens 7-8 (checkpointer + HITL) forem adiante primeiro. Ver nota de portabilidade |
 | 11 | Adicionar reducers (`Annotated[...]`) nos campos de lista do `SupervisorState` mesmo sem paralelismo de nós hoje, como blindagem futura (4.3) | Boas práticas | Baixo-Médio | Baixo risco imediato, mas barato de corrigir agora vs. caro de depurar depois |
 
 ---

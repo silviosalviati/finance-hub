@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from langchain_core.callbacks.usage import get_usage_metadata_callback
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -63,12 +64,55 @@ def create_llm(temperature: float | None = None) -> BaseChatModel:
     )
 
 
+def _record_usage(
+    usage_sink: list[dict[str, Any]] | None,
+    label: str,
+    usage_by_model: dict[str, dict[str, int]] | None,
+) -> None:
+    """Anexa o uso real de tokens (por modelo) de UMA chamada em `usage_sink`,
+    rotulado com `label`. `usage_sink` é uma lista mutável compartilhada
+    (ver `SupervisorState.usage_log`) — múltiplas capabilities podem rodar em
+    threads paralelas (`node_router`'s `ThreadPoolExecutor`) e fazer append
+    concorrente; isso é seguro em CPython porque `list.append` é atômico sob
+    o GIL, sem necessidade de lock explícito.
+    """
+    if usage_sink is None or not usage_by_model:
+        return
+    for model_name, usage in usage_by_model.items():
+        usage_sink.append({
+            "label": label or "unlabeled",
+            "model": model_name,
+            "input_tokens": int(usage.get("input_tokens") or 0),
+            "output_tokens": int(usage.get("output_tokens") or 0),
+            "total_tokens": int(usage.get("total_tokens") or 0),
+        })
+
+
+def summarize_usage_by_label(usage_log: list[dict[str, Any]] | None) -> dict[str, dict[str, int]]:
+    """Agrega `usage_log` (lista de eventos por chamada) em totais por label
+    (nó/capability) — usado pelo audit log para saber onde o custo de LLM
+    está concentrado, algo que o agregado por-modelo do
+    `get_usage_metadata_callback` sozinho não permite responder."""
+    by_label: dict[str, dict[str, int]] = {}
+    for entry in usage_log or []:
+        label = entry.get("label") or "unlabeled"
+        agg = by_label.setdefault(
+            label, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "calls": 0}
+        )
+        agg["input_tokens"] += int(entry.get("input_tokens") or 0)
+        agg["output_tokens"] += int(entry.get("output_tokens") or 0)
+        agg["total_tokens"] += int(entry.get("total_tokens") or 0)
+        agg["calls"] += 1
+    return by_label
+
+
 def invoke_with_retry(
     llm: BaseChatModel,
     messages: list,
     max_attempts: int = 3,
     base_delay: float = 2.0,
     label: str = "",
+    usage_sink: list[dict[str, Any]] | None = None,
 ) -> Any:
     """Retry síncrono — usar apenas em contextos síncronos (nós LangGraph em thread executor).
 
@@ -76,12 +120,19 @@ def invoke_with_retry(
     nos logs de tempo — sem isso não há como saber, em produção, qual etapa
     do pipeline está realmente pesando no tempo de resposta (ver PRD em
     docs/plans/2026-06-21-tempo-resposta-prd.md).
+
+    `usage_sink`, se informado, recebe o uso real de tokens desta chamada
+    (via callback de provider — funciona mesmo com structured output, que
+    devolve o objeto já parseado sem `.usage_metadata` acessível). Permite
+    reconstruir consumo de tokens por nó, não só o agregado por modelo.
     """
     last_exc: BaseException = RuntimeError("Nenhuma tentativa realizada")
     started_at = time.perf_counter()
     for attempt in range(max_attempts):
         try:
-            result = llm.invoke(messages)
+            with get_usage_metadata_callback() as usage_cb:
+                result = llm.invoke(messages)
+            _record_usage(usage_sink, label, usage_cb.usage_metadata)
             elapsed_ms = (time.perf_counter() - started_at) * 1000
             _logger.info(
                 "[llm_timing] label=%s ms=%.0f attempts=%d",
@@ -106,16 +157,19 @@ async def invoke_with_retry_async(
     max_attempts: int = 3,
     base_delay: float = 2.0,
     label: str = "",
+    usage_sink: list[dict[str, Any]] | None = None,
 ) -> Any:
     """Retry assíncrono — não bloqueia o event loop do FastAPI.
 
-    Ver docstring de `invoke_with_retry` sobre `label`.
+    Ver docstring de `invoke_with_retry` sobre `label`/`usage_sink`.
     """
     last_exc: BaseException = RuntimeError("Nenhuma tentativa realizada")
     started_at = time.perf_counter()
     for attempt in range(max_attempts):
         try:
-            result = await llm.ainvoke(messages)
+            with get_usage_metadata_callback() as usage_cb:
+                result = await llm.ainvoke(messages)
+            _record_usage(usage_sink, label, usage_cb.usage_metadata)
             elapsed_ms = (time.perf_counter() - started_at) * 1000
             _logger.info(
                 "[llm_timing] label=%s ms=%.0f attempts=%d",

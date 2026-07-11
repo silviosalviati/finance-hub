@@ -146,10 +146,6 @@ CUSTO
       instrumentacao para enxergar se o cache esta sendo usado ja foi
       adicionada aos logs, mas ainda falta confirmar em uso real se esta
       economizando tokens como esperado.
-    - Estado do grafo sem "reducers": hoje nao causa bug (execucao e
-      sequencial por requisicao), mas se o grafo um dia ganhar ramos
-      paralelos de verdade, alguns campos do estado podem colidir
-      silenciosamente sem essa protecao.
 
 
 --------------------------------------------------------------------------------

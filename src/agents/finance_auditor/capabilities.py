@@ -104,6 +104,10 @@ def _get_cached_catalog_search(
     matches = adaptive_search_catalog(
         project_id, query, llm=context.get("llm"), top_k=top_k,
         usage_sink=context.get("usage_log"),
+        run_config={
+            "run_name": "finance_auditor:catalog_search_rewrite",
+            "tags": ["finance_auditor", "catalog_search"],
+        },
     )
     if cache is not None:
         cache[key] = matches
@@ -1711,6 +1715,10 @@ def cap_attachment_analyze(args: dict[str, Any], context: dict[str, Any]) -> dic
             llm=context.get("llm_creative") or context.get("llm"),
             mime_type=att.get("mime_type") or "image/png",
             usage_sink=context.get("usage_log"),
+            run_config={
+                "run_name": "finance_auditor:attachment_analyze_image",
+                "tags": ["finance_auditor", "attachment_analyze"],
+            },
         )
     except ValueError as exc:
         return _err(f"Falha ao analisar imagem: {exc}")

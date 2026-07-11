@@ -1,0 +1,238 @@
+================================================================================
+FINANCE VOICE (FINANCE AUDITOR) — AVALIACAO E MELHORIAS APLICADAS
+================================================================================
+Escopo: src/agents/finance_auditor/* (Finance Voice / Finance Auditor)
+Metodo: leitura direta do codigo, verificada arquivo por arquivo/linha por
+linha antes de cada mudanca. Documento consolidado a partir de duas rodadas
+de auditoria (seguranca/assertividade/LangGraph e depois cost-safety/
+observabilidade/testes).
+Atualizado em: 2026-07-11
+
+
+--------------------------------------------------------------------------------
+1. MELHORIAS APLICADAS
+--------------------------------------------------------------------------------
+
+SEGURANCA
+    Nenhum achado em aberto — tudo corrigido (guardrails de injecao, RBAC,
+    PII guard na saida e no armazenamento, hardening de SQL).
+
+ASSERTIVIDADE (qualidade e confiabilidade das respostas)
+    Nenhum achado em aberto. Pontos fortes confirmados no codigo:
+    - Loop planner -> reflect -> composer com segunda chance real, sem
+      degenerar em loop infinito (limite de iteracoes e de passos do plano).
+    - Fuzzy-matching recupera dataset/coluna quando o LLM erra o nome exato.
+    - Normalizacao preventiva de erros comuns do planner antes de executar.
+    - Retry de SQL com o erro anterior anexado ao prompt (nao e retry cego).
+    - Erro de capability sempre volta estruturado, nunca vira excecao crua.
+
+CUSTO / COST-SAFETY (LLM)
+    Duas chamadas LLM diretas no codigo furavam o circuit-breaker de custo e
+    ficavam invisiveis no log de uso (nao contavam para o orcamento de
+    tokens configurado):
+    - Reescrita de query do RAG (catalogo semantico com grade baixo).
+    - Analise de imagem anexada pelo usuario.
+    Ambas passaram a rotear pelo helper central de chamada com retry,
+    ganhando: retry automatico, contagem no log de uso por etapa, e
+    bloqueio automatico se o orcamento de tokens da requisicao ja tiver
+    estourado.
+
+CUSTO / COST-SAFETY (BIGQUERY)
+    A execucao real de SQL nao tinha um freio duro de custo — so existia
+    uma estimativa previa (dry-run) que podia ficar desatualizada se o
+    volume da tabela mudasse entre a estimativa e a execucao. Adicionado um
+    teto rigido na execucao real (mesmo orcamento configurado do dry-run),
+    com mensagem de erro clara orientando a refinar os filtros quando
+    acionado.
+
+OBSERVABILIDADE
+    - Todas as chamadas LLM do grafo (planner, reflect, composer) e os dois
+      caminhos de custo acima passaram a carregar identificacao (nome da
+      etapa, tags, projeto, persona) para o LangSmith — quando o tracing
+      esta desligado isso e apenas ignorado, sem nenhuma mudanca de
+      comportamento.
+    - O grafo compilado passou a ter nome proprio, facilitando localizar
+      seus tracos entre os demais agentes do projeto.
+    - Logs de inicializacao do servidor (aquecimento de catalogo, sync de
+      metricas) padronizados em formato campo=valor, mais faceis de filtrar.
+    - Log de tempo de cada chamada LLM passou a mostrar modelo, tokens de
+      entrada/saida e quantos desses tokens vieram do cache do provedor —
+      antes so mostrava tempo e numero de tentativas.
+    - Ruido de bibliotecas de terceiros (chamadas HTTP cruas, aviso fixo do
+      SDK do Gemini) foi silenciado nos logs, sem esconder erros reais.
+
+BOAS PRATICAS LANGGRAPH
+    - Checkpointer nativo do LangGraph implementado (persistencia em disco),
+      resolvendo a lacuna que existia antes (sem isso, uma queda do processo
+      no meio de um plano de varios passos perdia tudo).
+    - Decisao arquitetural documentada e mantida deliberadamente: as
+      capacidades do agente nao usam o mecanismo nativo de "tools" do
+      LangChain porque isso preserva a execucao em paralelo por ondas do
+      plano — trade-off assumido, nao e divida tecnica.
+
+TESTES
+    Primeiro teste de integracao do grafo compilado de verdade (nao mais so
+    funcoes isoladas com LLM mockado) — sobe o grafo real com persistencia
+    real, roda um ciclo completo e confirma o roteamento condicional.
+    Suite completa rodada apos as mudancas: 183 testes passaram; 1 falha
+    pre-existente e nao relacionada (lacuna de migracao do banco de
+    desenvolvimento local, confirmada como anterior a estas mudancas).
+
+
+--------------------------------------------------------------------------------
+2. PONTOS FORTES DO SISTEMA (seguranca, guardrails, custo)
+--------------------------------------------------------------------------------
+
+SEGURANCA
+    - SQL gerado pelo LLM e restrito a somente-leitura antes de qualquer
+      execucao (bloqueia DROP/DELETE/UPDATE/INSERT e qualquer comando fora
+      de SELECT).
+    - Controle de acesso por dataset (RBAC): cada dataset referenciado no
+      SQL gerado e checado contra o que o usuario tem permissao de ver antes
+      da query rodar — nao depende do LLM "respeitar" a regra, e aplicado
+      em codigo.
+    - Deteccao de prompt injection na entrada do usuario, antes de chegar
+      ao planner — pedido bloqueado nao gera plano nem gasta chamada de LLM.
+    - Trilha de auditoria imutavel: toda execucao (pergunta, plano, custo,
+      erro) e persistida, com dado sensivel ja tratado antes de gravar.
+
+GUARDRAILS
+    - PII guard atua em duas pontas: na resposta final ao usuario e no que
+      e persistido no banco — sao guards independentes, entao um dado
+      sensivel que aparece so no armazenamento (nao na resposta) ainda e
+      pego.
+    - Guard tambem cobre artefatos visuais (valores de grafico, top-values
+      de estatisticas), nao so o texto da resposta — superficie de vazamento
+      menor.
+    - Erro de capability nunca escapa como excecao crua para o usuario:
+      sempre volta em formato estruturado, mesmo quando o planner alucina
+      uma capability inexistente.
+    - Loop de auto-correcao (reflect) tem teto rigido de iteracoes — nunca
+      degenera em loop infinito consumindo tokens sem parar.
+
+CUSTO
+    - Circuit-breaker de orcamento de tokens por requisicao: se o total
+      gasto ate o momento ja atingiu o limite configurado, a proxima
+      chamada de LLM e bloqueada antes de gastar mais, em vez de descobrir
+      o estouro so depois.
+    - BigQuery tem dupla protecao: estimativa previa (dry-run) que bloqueia
+      queries acima do orcamento antes de rodar, e agora tambem um teto
+      rigido na execucao real (a propria BigQuery cancela se passar do
+      limite, mesmo que a estimativa previa tenha ficado desatualizada).
+    - Cache por turno de conversa evita recalcular schema, busca semantica
+      de catalogo e selecao de tabelas relevantes quando mais de uma etapa
+      do mesmo plano precisa da mesma informacao.
+    - Escalonamento de modelo: tarefas simples de classificacao podem usar
+      um modelo mais barato/rapido, configuravel, sem exigir mudanca de
+      codigo quando desligado (usa o modelo padrao).
+    - Retry com espera progressiva (backoff) em vez de tentativa unica ou
+      retry imediato — reduz falhas transitorias sem multiplicar custo
+      desnecessariamente.
+    - Consumo de tokens rastreado por etapa do pipeline (planner, reflect,
+      composer, cada capability que usa LLM), nao so o total agregado —
+      permite identificar exatamente onde o custo esta concentrado.
+
+
+--------------------------------------------------------------------------------
+3. PENDENCIAS (nao resolvidas nesta rodada)
+--------------------------------------------------------------------------------
+
+    - Streaming real da resposta final: hoje o efeito de "digitacao" no
+      frontend e sintetico sobre uma resposta ja pronta, nao token a token
+      de verdade. Requer um estudo tecnico previo antes de implementar
+      (maior risco/esforco do que os itens acima); tratado como plano
+      separado.
+    - Confirmacao em producao do cache de contexto do provedor: a
+      instrumentacao para enxergar se o cache esta sendo usado ja foi
+      adicionada aos logs, mas ainda falta confirmar em uso real se esta
+      economizando tokens como esperado.
+    - Estado do grafo sem "reducers": hoje nao causa bug (execucao e
+      sequencial por requisicao), mas se o grafo um dia ganhar ramos
+      paralelos de verdade, alguns campos do estado podem colidir
+      silenciosamente sem essa protecao.
+
+
+--------------------------------------------------------------------------------
+4. ARQUIVOS ALTERADOS
+--------------------------------------------------------------------------------
+
+src/agents/finance_auditor/__init__.py
+    analyze, _get_graph, _summarize_token_usage, _make_checkpointer (novo —
+    checkpointer nativo SqliteSaver)
+
+src/agents/finance_auditor/agentic_retrieval.py
+    transform_query, adaptive_search_catalog (roteados por invoke_with_retry,
+    com contagem de uso e identificacao de trace)
+
+src/agents/finance_auditor/capabilities.py
+    _get_cached_schema (novo), _get_cached_catalog_search (novo),
+    _pick_relevant_tables, cap_text_to_sql, cap_bq_get_schema,
+    cap_catalog_search, cap_attachment_analyze, _validate_and_run_sql (cap
+    duro de custo + mensagem de erro dedicada); schemas Pydantic de
+    argumentos (novos); _format_validation_error (novo); execute_capability
+
+src/agents/finance_auditor/catalog_index.py
+    warmup_catalog_loop (logs padronizados campo=valor)
+
+src/agents/finance_auditor/multimodal.py
+    describe_image_with_llm (roteado por invoke_with_retry, com contagem de
+    uso e identificacao de trace)
+
+src/agents/finance_auditor/supervisor.py
+    node_guardrails_in, _resolve_placeholders, node_planner, node_reflect,
+    node_composer, node_router, node_audit, build_supervisor_graph (nome
+    proprio no compile), _trace_config (novo — identificacao de trace
+    centralizada)
+
+src/agents/finance_auditor/supervisor_state.py
+    SupervisorState (campos usage_log, context_cache)
+
+src/api/main.py
+    lifespan (silencia ruido de bibliotecas de terceiro nos logs)
+
+src/api/routes/agents.py
+    runtime_llm_info, list_agents
+
+src/core/database.py
+    _migrate_audit_log_columns (novo), append_finance_audit, _CONFIG_DEFAULTS
+
+src/shared/guardrails/audit.py
+    record
+
+src/shared/guardrails/injection.py
+    _normalize (novo), check_injection
+
+src/shared/guardrails/pii_guard.py
+    scrub_for_storage (novo), _artifact_chart_values (novo),
+    _artifact_stats_top_values (novo), apply_guard
+
+src/shared/guardrails/rbac.py
+    _strict_mode
+
+src/shared/tools/bigquery.py
+    execute_query_rows (novo parametro: teto rigido de bytes faturados)
+
+src/shared/tools/llm.py
+    _record_usage (novo), summarize_usage_by_label (novo), _usage_log_line
+    (novo), TokenBudgetExceeded (novo), _check_token_budget (novo),
+    create_llm, invoke_with_retry, invoke_with_retry_async (novo parametro:
+    identificacao de trace para o LangSmith)
+
+static/css/style.css
+    .badge-full-access, .modal-field-hint
+
+static/js/scripts.js
+    _fetchAclMap (novo), _aclHasFullAccess (novo), adminLoadUsers,
+    adminOpenUserModal, adminSaveUser
+
+tests/agents/test_finance_auditor_supervisor_integration.py
+    arquivo novo — primeiro teste de integracao do grafo compilado real
+
+README.md, static/index.html
+    sem alteracao de funcoes (ajustes pontuais de conteudo)
+
+
+================================================================================
+Este arquivo substitui finance-voice.md e finance-voice-cost-safety.md, que
+foram removidos apos a consolidacao.
+================================================================================

@@ -52,6 +52,7 @@ def transform_query(
     query: str,
     llm: BaseChatModel,
     usage_sink: list[dict[str, Any]] | None = None,
+    run_config: dict[str, Any] | None = None,
 ) -> list[str]:
     """Gera 2-3 variações de query para melhorar o recall semântico do catálogo.
 
@@ -75,6 +76,7 @@ def transform_query(
             max_attempts=2,
             label="agentic_retrieval_transform_query",
             usage_sink=usage_sink,
+            run_config=run_config,
         )
         raw = str(getattr(resp, "content", resp) or "").strip()
         # Tolerância a markdown fence ocasional do LLM
@@ -97,6 +99,7 @@ def adaptive_search_catalog(
     top_k: int = 5,
     grade_threshold: float = _GRADE_THRESHOLD_DEFAULT,
     usage_sink: list[dict[str, Any]] | None = None,
+    run_config: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Busca semântica com grading e retry automático.
 
@@ -124,7 +127,7 @@ def adaptive_search_catalog(
         return results
 
     # Grade insuficiente — tenta variações de query
-    variations = transform_query(query, llm, usage_sink=usage_sink)
+    variations = transform_query(query, llm, usage_sink=usage_sink, run_config=run_config)
     if not variations:
         return results
 

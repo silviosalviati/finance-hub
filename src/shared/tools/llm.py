@@ -241,10 +241,11 @@ async def invoke_with_retry_async(
     base_delay: float = 2.0,
     label: str = "",
     usage_sink: list[dict[str, Any]] | None = None,
+    run_config: dict[str, Any] | None = None,
 ) -> Any:
     """Retry assíncrono — não bloqueia o event loop do FastAPI.
 
-    Ver docstring de `invoke_with_retry` sobre `label`/`usage_sink`/budget.
+    Ver docstring de `invoke_with_retry` sobre `label`/`usage_sink`/`run_config`/budget.
     """
     _check_token_budget(usage_sink, label)
     last_exc: BaseException = RuntimeError("Nenhuma tentativa realizada")
@@ -252,7 +253,7 @@ async def invoke_with_retry_async(
     for attempt in range(max_attempts):
         try:
             with get_usage_metadata_callback() as usage_cb:
-                result = await llm.ainvoke(messages)
+                result = await llm.ainvoke(messages, config=run_config)
             _record_usage(usage_sink, label, usage_cb.usage_metadata)
             elapsed_ms = (time.perf_counter() - started_at) * 1000
             _logger.info(

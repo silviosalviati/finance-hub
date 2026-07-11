@@ -63,6 +63,7 @@ def describe_image_with_llm(
     llm: Any,
     mime_type: str = "image/png",
     usage_sink: list[dict[str, Any]] | None = None,
+    run_config: dict[str, Any] | None = None,
 ) -> str:
     """Envia a imagem ao LLM (Gemini multimodal) e devolve a descrição/análise."""
     raw = _decode_base64(b64)
@@ -81,7 +82,8 @@ def describe_image_with_llm(
         ]
     )
     response = invoke_with_retry(
-        llm, [message], max_attempts=2, label="attachment_analyze_image", usage_sink=usage_sink,
+        llm, [message], max_attempts=2, label="attachment_analyze_image",
+        usage_sink=usage_sink, run_config=run_config,
     )
     return str(getattr(response, "content", response) or "")
 

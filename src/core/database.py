@@ -66,6 +66,18 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     "FINANCE_AUDITOR_DEFAULT_DATASET": (
         "", "Dataset padrão para bq_list_tables quando não informado"
     ),
+    "FINANCE_AUDITOR_TTS_VOICE": (
+        "pt-BR-Chirp3-HD-Achernar", "Voz padrão do podcast do Finance Voice"
+    ),
+    "FINANCE_AUDITOR_TTS_SPEAKING_RATE": (
+        "1.0", "Velocidade de fala do podcast do Finance Voice"
+    ),
+    "FINANCE_AUDITOR_PODCAST_TTL_HOURS": (
+        "24", "Tempo de vida dos arquivos de podcast em horas"
+    ),
+    "FINANCE_AUDITOR_PODCAST_MAX_BYTES": (
+        "20000000", "Tamanho máximo do áudio do podcast em bytes"
+    ),
     # App
     "SESSION_TTL_HOURS": ("8", "Tempo de vida da sessão em horas"),
     "ALLOWED_ORIGINS": (
@@ -184,6 +196,25 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_finance_audit_log_user_ts
                 ON finance_audit_log (user_id, ts DESC);
 
+            -- Assets de podcast gerados a partir de análises anteriores.
+            CREATE TABLE IF NOT EXISTS finance_podcast_assets (
+                asset_id TEXT PRIMARY KEY,
+                thread_id TEXT NOT NULL DEFAULT '',
+                user_id TEXT NOT NULL DEFAULT '',
+                audit_id INTEGER NOT NULL DEFAULT 0,
+                title TEXT NOT NULL DEFAULT '',
+                mime_type TEXT NOT NULL DEFAULT 'audio/mpeg',
+                audio_path TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_finance_podcast_assets_thread
+                ON finance_podcast_assets (thread_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_finance_podcast_assets_audit
+                ON finance_podcast_assets (audit_id);
+            CREATE INDEX IF NOT EXISTS idx_finance_podcast_assets_expires
+                ON finance_podcast_assets (expires_at);
+
             -- RAG do catálogo: índice semântico de datasets/tabelas/colunas
             -- para o Planner achar dados por significado, não por nome.
             CREATE TABLE IF NOT EXISTS finance_catalog_index (
@@ -219,6 +250,7 @@ def init_db() -> None:
         _migrate_finance_metrics_columns(conn)
         _migrate_user_columns(conn)
         _migrate_audit_log_columns(conn)
+        _migrate_podcast_asset_columns(conn)
 
 
 def _migrate_audit_log_columns(conn: sqlite3.Connection) -> None:
@@ -228,6 +260,29 @@ def _migrate_audit_log_columns(conn: sqlite3.Connection) -> None:
         conn.execute(
             "ALTER TABLE finance_audit_log ADD COLUMN token_usage_json TEXT NOT NULL DEFAULT '{}'"
         )
+
+
+def _migrate_podcast_asset_columns(conn: sqlite3.Connection) -> None:
+    """Garante a tabela de assets de podcast em bancos antigos."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(finance_podcast_assets)")}
+    if not cols:
+        return
+    if "thread_id" not in cols:
+        conn.execute("ALTER TABLE finance_podcast_assets ADD COLUMN thread_id TEXT NOT NULL DEFAULT ''")
+    if "user_id" not in cols:
+        conn.execute("ALTER TABLE finance_podcast_assets ADD COLUMN user_id TEXT NOT NULL DEFAULT ''")
+    if "audit_id" not in cols:
+        conn.execute("ALTER TABLE finance_podcast_assets ADD COLUMN audit_id INTEGER NOT NULL DEFAULT 0")
+    if "title" not in cols:
+        conn.execute("ALTER TABLE finance_podcast_assets ADD COLUMN title TEXT NOT NULL DEFAULT ''")
+    if "mime_type" not in cols:
+        conn.execute("ALTER TABLE finance_podcast_assets ADD COLUMN mime_type TEXT NOT NULL DEFAULT 'audio/mpeg'")
+    if "audio_path" not in cols:
+        conn.execute("ALTER TABLE finance_podcast_assets ADD COLUMN audio_path TEXT NOT NULL DEFAULT ''")
+    if "created_at" not in cols:
+        conn.execute("ALTER TABLE finance_podcast_assets ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
+    if "expires_at" not in cols:
+        conn.execute("ALTER TABLE finance_podcast_assets ADD COLUMN expires_at TEXT NOT NULL DEFAULT ''")
 
 
 def _migrate_user_columns(conn: sqlite3.Connection) -> None:
@@ -817,6 +872,53 @@ def list_finance_audit(limit: int = 50, user_id: str | None = None) -> list[dict
                 (limit,),
             ).fetchall()
     return [dict(r) for r in rows]
+
+
+def upsert_finance_podcast_asset(entry: dict[str, Any]) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO finance_podcast_assets"
+            " (asset_id, thread_id, user_id, audit_id, title, mime_type, audio_path, created_at, expires_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            " ON CONFLICT(asset_id) DO UPDATE SET"
+            "   thread_id = excluded.thread_id,"
+            "   user_id = excluded.user_id,"
+            "   audit_id = excluded.audit_id,"
+            "   title = excluded.title,"
+            "   mime_type = excluded.mime_type,"
+            "   audio_path = excluded.audio_path,"
+            "   created_at = excluded.created_at,"
+            "   expires_at = excluded.expires_at",
+            (
+                str(entry.get("asset_id") or ""),
+                str(entry.get("thread_id") or ""),
+                str(entry.get("user_id") or ""),
+                int(entry.get("audit_id") or 0),
+                str(entry.get("title") or ""),
+                str(entry.get("mime_type") or "audio/mpeg"),
+                str(entry.get("audio_path") or ""),
+                str(entry.get("created_at") or _utcnow()),
+                str(entry.get("expires_at") or _utcnow()),
+            ),
+        )
+
+
+def get_finance_podcast_asset(asset_id: str) -> dict[str, Any] | None:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM finance_podcast_assets WHERE asset_id = ?",
+            (asset_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def delete_expired_finance_podcast_assets(now_iso: str) -> int:
+    with get_db() as conn:
+        cur = conn.execute(
+            "DELETE FROM finance_podcast_assets WHERE expires_at < ?",
+            (now_iso,),
+        )
+        return int(cur.rowcount or 0)
 
 
 # ── Finance Voice IA — RAG do catálogo (datasets/tabelas/colunas) ───────────

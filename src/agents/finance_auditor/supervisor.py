@@ -67,6 +67,21 @@ _MAX_PLAN_STEPS = 6
 _MAX_ITERATIONS = 2  # router pode rodar até 2x (1 plano original + 1 retry pós-reflect)
 _MAX_PODCAST_SCRIPT_CHARS = 3500
 
+
+def _trace_config(label: str, state: SupervisorState) -> dict[str, Any]:
+    """Monta `run_config` para `invoke_with_retry(...)` — vira `run_name`/`tags`
+    no LangSmith quando o tracing está ativo (`src/shared/tracing.py`); sem
+    tracing configurado é apenas ignorado pelo `RunnableConfig`, sem efeito.
+    Centralizado aqui para não duplicar a mesma construção em cada nó."""
+    return {
+        "run_name": f"finance_auditor:{label}",
+        "tags": ["finance_auditor", label],
+        "metadata": {
+            "project_id": state.get("project_id", ""),
+            "persona": state.get("persona", ""),
+        },
+    }
+
 # Capabilities consideradas "produtoras de resposta" — um plano sem nenhuma
 # dessas é considerado incompleto pelo reflect.
 _ANSWER_PRODUCING = {
@@ -338,6 +353,7 @@ def node_planner(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
             max_attempts=2,
             label="planner",
             usage_sink=state.get("usage_log"),
+            run_config=_trace_config("planner", state),
         )
     except Exception as exc:  # noqa: BLE001
         return {
@@ -568,6 +584,7 @@ def node_reflect(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
             max_attempts=2,
             label="reflect",
             usage_sink=state.get("usage_log"),
+            run_config=_trace_config("reflect", state),
         )
     except Exception as exc:  # noqa: BLE001
         return {
@@ -765,6 +782,7 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
             max_attempts=2,
             label="composer",
             usage_sink=state.get("usage_log"),
+            run_config=_trace_config("composer", state),
         )
         text = str(getattr(response, "content", response) or "").strip()
         if text:

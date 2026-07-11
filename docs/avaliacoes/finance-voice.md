@@ -11,17 +11,19 @@ Atualizado a cada item resolvido. Serve como checklist para portar manualmente p
 | Arquivo | Funções |
 |---|---|
 | `README.md` | — |
-| `src/agents/finance_auditor/__init__.py` | `analyze`, `_get_graph` |
+| `src/agents/finance_auditor/__init__.py` | `analyze`, `_get_graph`, `_summarize_token_usage`, `_make_checkpointer` 🆕 (checkpointer nativo `SqliteSaver`, resolve 4.1 antigo) |
+| `src/agents/finance_auditor/catalog_index.py` | `warmup_catalog_loop` (logs `[catalog_warmup]`/`[gold_metric_sync]` em `key=value`) |
 | `src/agents/finance_auditor/capabilities.py` | `_get_cached_schema` 🆕, `_get_cached_catalog_search` 🆕, `_pick_relevant_tables`, `cap_text_to_sql`, `cap_bq_get_schema`, `cap_catalog_search`; 15 schemas Pydantic de args (`_BqGetSchemaArgs`, `_VizSpecArgs` etc.) 🆕, `_format_validation_error` 🆕, `execute_capability` |
 | `src/agents/finance_auditor/supervisor.py` | `node_guardrails_in`, `_resolve_placeholders`, `node_planner`, `node_reflect`, `node_composer`, `node_router`, `node_audit`, `build_supervisor_graph` |
 | `src/agents/finance_auditor/supervisor_state.py` | `SupervisorState` (campos `usage_log`, `context_cache`) |
+| `src/api/main.py` | `lifespan` (silencia `httpx`/`httpcore`/`google_genai.models` em `WARNING`) |
 | `src/api/routes/agents.py` | `runtime_llm_info`, `list_agents` |
 | `src/core/database.py` | `_migrate_audit_log_columns` 🆕, `append_finance_audit`, `_CONFIG_DEFAULTS` |
 | `src/shared/guardrails/audit.py` | `record` |
 | `src/shared/guardrails/injection.py` | `_normalize` 🆕, `check_injection` |
 | `src/shared/guardrails/pii_guard.py` | `scrub_for_storage` 🆕, `_artifact_chart_values` 🆕, `_artifact_stats_top_values` 🆕, `apply_guard` |
 | `src/shared/guardrails/rbac.py` | `_strict_mode` |
-| `src/shared/tools/llm.py` | `_record_usage` 🆕, `summarize_usage_by_label` 🆕, `TokenBudgetExceeded` 🆕, `_check_token_budget` 🆕, `create_llm`, `invoke_with_retry`, `invoke_with_retry_async` |
+| `src/shared/tools/llm.py` | `_record_usage` 🆕, `summarize_usage_by_label` 🆕, `_usage_log_line` 🆕, `TokenBudgetExceeded` 🆕, `_check_token_budget` 🆕, `create_llm`, `invoke_with_retry`, `invoke_with_retry_async` |
 | `static/css/style.css` | `.badge-full-access`, `.modal-field-hint` |
 | `static/index.html` | — |
 | `static/js/scripts.js` | `_fetchAclMap` 🆕, `_aclHasFullAccess` 🆕, `adminLoadUsers`, `adminOpenUserModal`, `adminSaveUser` |
@@ -39,7 +41,7 @@ Atualizado a cada item resolvido. Serve como checklist para portar manualmente p
 | **Segurança** | ✅ Nenhum achado em aberto — tudo corrigido nesta auditoria (ver Changelog). |
 | **Produtividade/Performance** | ⚠️ Pendências: prompt do planner sem cache de contexto (específico do Vertex), streaming real. |
 | **Assertividade** | ✅ Nenhum achado em aberto — tudo corrigido ou decidido (ver Changelog). |
-| **Boas práticas LangGraph** | ⚠️ Grafo sem checkpointer nativo (perde resume/interrupt) e capabilities fora do padrão `bind_tools`/`ToolNode`. |
+| **Boas práticas LangGraph** | ⚠️ Capabilities fora do padrão `bind_tools`/`ToolNode` (decisão deliberada) e estado sem reducers. Checkpointer nativo já resolvido (ver Changelog). |
 
 ---
 
@@ -60,6 +62,8 @@ Nenhum achado em aberto nesta rodada — todos implementados, ver Changelog no t
 
 **2.7 — Prompt do planner sem cache de contexto: ~3,7k tokens estáticos reenviados em toda chamada**
 `PLANNER_PROMPT` (`supervisor_prompts.py:7-281`) tem 14.653 caracteres (~3.700 tokens) — embute o catálogo completo das 14 capabilities com args e exemplos, mesmo quando o plano final usa só 1-2 delas. Esse bloco é praticamente idêntico entre chamadas (só a data muda, `supervisor.py:283-285`), mas é reenviado e retokenizado do zero em toda invocação do planner, inclusive para follow-ups triviais ("obrigado", "e no mês passado?"). Não há uso de Vertex AI Context Caching em lugar nenhum do projeto (`grep` por `cached_content`/`context_cach`/`CachedContent`/`cache_control`/`prompt_caching` em `src/` não encontra nada). Essa é a maior alavanca de economia disponível: um turno típico já gasta ~4,5k tokens só de entrada no planner.
+
+> **Progresso (2026-07-11):** o modelo default (`gemini-2.5-flash`, `llm.py:55`) tem limiar baixo de cache (~2k tokens) e o prompt já está estruturado do jeito ideal pro cache implícito do Vertex (bloco estático como `SystemMessage`, antes do conteúdo variável — `supervisor.py:283-325`; `__DATE_BLOCK__` muda só 1x/dia, então o prompt fica byte-idêntico entre chamadas do mesmo dia). Faltava visibilidade: `response.usage_metadata.cached_content_token_count` já vinha da lib mas era descartado. Instrumentado agora (`_record_usage`/`_usage_log_line` em `llm.py`, `_summarize_token_usage` em `__init__.py`) — `cache_read_tokens` passa a aparecer no log `[llm_timing]` e no `token_usage_json` do audit. **Ainda não confirmado em produção se o cache está de fato ativo** — item continua aberto até essa confirmação (ou até implementar cache explícito via `cached_content=`, se o implícito não pegar).
 
 ---
 
@@ -82,13 +86,10 @@ Nenhum achado em aberto nesta rodada — todos implementados, ver Changelog no t
 
 ### 🟠 Divergências da idiomática LangGraph (dívida arquitetural)
 
-**4.1 — Grafo compilado sem checkpointer nativo**
-`build_supervisor_graph(...).compile()` (`supervisor.py:856`) não recebe `checkpointer=`. Persistência é reimplementada à mão (`FileCheckpointer`, JSON por chave em disco) só na camada de API, salvando a *resposta final* e o *histórico de chat* — não um snapshot do estado do grafo. Consequência prática: **não há resume real de execução parcial** (se o processo cair no meio de um plano de 6 passos, tudo se perde) e **não há suporte a interrupt nativo** para eventuais gates condicionais futuros (ex.: pausa só em queries de risco, como o `query_build` já faz via score de qualidade).
-
-**4.2 — Capabilities não são tools LangChain (`bind_tools`/`ToolNode`)**
+**4.1 — Capabilities não são tools LangChain (`bind_tools`/`ToolNode`)**
 `CAPABILITY_REGISTRY` (`capabilities.py:1679-1695`) é um dicionário nome→função, dirigido por um plano gerado via structured output — não pelo mecanismo nativo de tool-calling do LangChain (o LLM nunca vê um schema JSON de tool, só uma descrição em texto livre no prompt, `supervisor_prompts.py:15-273`). Essa é uma escolha de arquitetura deliberada (plan-and-execute com DAG e paralelismo interno via `ThreadPoolExecutor`, em vez de ReAct passo-a-passo) e **não é "errada"** — mas diverge do padrão que o próprio ecossistema LangGraph documenta como recomendado, perdendo validação automática de schema de tool-call e compatibilidade com tooling que espera `tool_calls` nativos (ex.: tracing de tool-use no LangSmith fica menos estruturado).
 
-**4.3 — Estado 100% monolítico, sem reducers**
+**4.2 — Estado 100% monolítico, sem reducers**
 `SupervisorState` (`supervisor_state.py:8-52`) é um único `TypedDict(total=False)` plano, sem nenhum `Annotated[..., reducer]` — nem `add_messages`, nem reducer customizado. Hoje isso não causa bug porque a execução é single-threaded por invocação (o paralelismo do `node_router` é interno via `ThreadPoolExecutor`, não paralelismo de nós do grafo). Mas é o anti-padrão "estado gigante monolítico" citado pela própria skill de LangGraph — se o grafo algum dia ganhar branches paralelos de verdade, campos tipo `tool_results`/`warnings`/`plan` (hoje sobrescritos inteiros a cada nó) vão colidir silenciosamente sem um reducer.
 
 ---

@@ -41,7 +41,7 @@ Atualizado a cada item resolvido. Serve como checklist para portar manualmente p
 | **Segurança** | ✅ Nenhum achado em aberto — tudo corrigido nesta auditoria (ver Changelog). |
 | **Produtividade/Performance** | ⚠️ Pendências: prompt do planner sem cache de contexto (específico do Vertex), streaming real. |
 | **Assertividade** | ✅ Nenhum achado em aberto — tudo corrigido ou decidido (ver Changelog). |
-| **Boas práticas LangGraph** | ⚠️ Capabilities fora do padrão `bind_tools`/`ToolNode` (decisão deliberada) e estado sem reducers. Checkpointer nativo já resolvido (ver Changelog). |
+| **Boas práticas LangGraph** | ⚠️ Pendência real: estado sem reducers. `bind_tools`/`ToolNode` é decisão deliberada (não-fix). Checkpointer nativo já resolvido (ver Changelog). |
 
 ---
 
@@ -84,12 +84,12 @@ Nenhum achado em aberto nesta rodada — todos implementados, ver Changelog no t
 - **Guarda de max-iterations correta** — evita exatamente o anti-padrão "loop infinito sem saída" que a própria documentação de LangGraph adverte. `_reflect_router` sempre converge para `"composer"`.
 - **Uso de state para fluxo de dados** — nenhum nó depende de estado externo escondido; tudo passa pelo `SupervisorState`, seguindo o padrão recomendado (evita o anti-padrão "nós sem estado").
 
+### ✅ Decisão tomada (não-fix)
+- **Capabilities não são tools LangChain (`bind_tools`/`ToolNode`)** — `CAPABILITY_REGISTRY` (`capabilities.py:1679-1695`) é um dicionário nome→função, dirigido por um plano gerado via structured output, não pelo tool-calling nativo do LangChain. Decisão arquitetural deliberada e documentada no próprio código (`capabilities.py:1864-1877`): preserva o paralelismo por ondas do plan-and-execute (`ThreadPoolExecutor`), que um loop ReAct clássico (`bind_tools`+`ToolNode`, inerentemente sequencial) perderia. Mantido como está — não é dívida, é trade-off assumido.
+
 ### 🟠 Divergências da idiomática LangGraph (dívida arquitetural)
 
-**4.1 — Capabilities não são tools LangChain (`bind_tools`/`ToolNode`)**
-`CAPABILITY_REGISTRY` (`capabilities.py:1679-1695`) é um dicionário nome→função, dirigido por um plano gerado via structured output — não pelo mecanismo nativo de tool-calling do LangChain (o LLM nunca vê um schema JSON de tool, só uma descrição em texto livre no prompt, `supervisor_prompts.py:15-273`). Essa é uma escolha de arquitetura deliberada (plan-and-execute com DAG e paralelismo interno via `ThreadPoolExecutor`, em vez de ReAct passo-a-passo) e **não é "errada"** — mas diverge do padrão que o próprio ecossistema LangGraph documenta como recomendado, perdendo validação automática de schema de tool-call e compatibilidade com tooling que espera `tool_calls` nativos (ex.: tracing de tool-use no LangSmith fica menos estruturado).
-
-**4.2 — Estado 100% monolítico, sem reducers**
+**4.1 — Estado 100% monolítico, sem reducers**
 `SupervisorState` (`supervisor_state.py:8-52`) é um único `TypedDict(total=False)` plano, sem nenhum `Annotated[..., reducer]` — nem `add_messages`, nem reducer customizado. Hoje isso não causa bug porque a execução é single-threaded por invocação (o paralelismo do `node_router` é interno via `ThreadPoolExecutor`, não paralelismo de nós do grafo). Mas é o anti-padrão "estado gigante monolítico" citado pela própria skill de LangGraph — se o grafo algum dia ganhar branches paralelos de verdade, campos tipo `tool_results`/`warnings`/`plan` (hoje sobrescritos inteiros a cada nó) vão colidir silenciosamente sem um reducer.
 
 ---

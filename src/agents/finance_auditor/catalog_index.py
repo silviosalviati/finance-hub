@@ -303,20 +303,20 @@ async def warmup_catalog_loop(project_ids: list[str]) -> None:
                 result = await asyncio.to_thread(reindex_catalog, project_id, False)
                 if result.get("reindexed"):
                     _logger.info(
-                        "Catálogo pré-aquecido: %s (%s tabelas)",
+                        "[catalog_warmup] project=%s tables_indexed=%s",
                         project_id, result.get("tables_indexed"),
                     )
             except Exception:  # noqa: BLE001 — warmup nunca deve derrubar o processo
-                _logger.exception("Falha ao pré-aquecer catálogo de %s", project_id)
+                _logger.exception("[catalog_warmup] project=%s status=failed", project_id)
             try:
                 metric_result = await asyncio.to_thread(sync_gold_metric_catalog, project_id)
                 if metric_result.get("synced"):
                     _logger.info(
-                        "Gold Metric Catalog sincronizado: %s (%s métricas, %s dataset(s) com catálogo)",
+                        "[gold_metric_sync] project=%s metrics=%s datasets_with_catalog=%s",
                         project_id, metric_result.get("synced"), metric_result.get("datasets_with_catalog"),
                     )
             except Exception:  # noqa: BLE001 — warmup nunca deve derrubar o processo
-                _logger.exception("Falha ao sincronizar Gold Metric Catalog de %s", project_id)
+                _logger.exception("[gold_metric_sync] project=%s status=failed", project_id)
         await asyncio.sleep(interval_hours * 3600)
 
 

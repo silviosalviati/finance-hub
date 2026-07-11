@@ -41,28 +41,16 @@ def _portal_html_path() -> Path:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Sem isso, todo _logger.info(...) do projeto (incluindo o "[llm_timing]"
-    # usado pra medir tempo de resposta por etapa — ver docs/plans/
-    # 2026-06-21-tempo-resposta-prd.md) é descartado em silêncio: o nível
-    # padrão da root logger é WARNING, e nada no projeto configurava isso.
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
-    # Essas libs logam em INFO cada chamada HTTP crua ("POST .../generateContent
-    # 200 OK") e o aviso fixo "AFC is enabled..." do SDK do Gemini — não agrega
-    # nada que o nosso "[llm_timing]" (label, tempo, tokens, cache_read) já não
-    # mostre de forma mais legível. Sobe pra WARNING só essas, sem esconder erro
-    # real (4xx/5xx/exceções continuam aparecendo).
     for _noisy_logger in ("httpx", "httpcore", "google_genai.models"):
         logging.getLogger(_noisy_logger).setLevel(logging.WARNING)
     init_db()
     configure_tracing()
     _validate_startup_config()
     print(f"ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")
-
-    # Mantém o índice do catálogo do Finance Voice IA sempre quente, fora do
-    # request de algum usuário (ver warmup_catalog_loop).
     warmup_task = asyncio.create_task(warmup_catalog_loop(get_gcp_project_ids()))
     try:
         yield

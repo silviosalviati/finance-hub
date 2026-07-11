@@ -49,6 +49,13 @@ async def lifespan(app: FastAPI):
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    # Essas libs logam em INFO cada chamada HTTP crua ("POST .../generateContent
+    # 200 OK") e o aviso fixo "AFC is enabled..." do SDK do Gemini — não agrega
+    # nada que o nosso "[llm_timing]" (label, tempo, tokens, cache_read) já não
+    # mostre de forma mais legível. Sobe pra WARNING só essas, sem esconder erro
+    # real (4xx/5xx/exceções continuam aparecendo).
+    for _noisy_logger in ("httpx", "httpcore", "google_genai.models"):
+        logging.getLogger(_noisy_logger).setLevel(logging.WARNING)
     init_db()
     configure_tracing()
     _validate_startup_config()

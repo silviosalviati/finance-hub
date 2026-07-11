@@ -636,6 +636,7 @@ def execute_query_rows(
     query: str,
     project_id: str | None,
     max_rows: int = 1000,
+    maximum_bytes_billed: int | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """Executa uma query BigQuery e retorna as linhas como lista de dicionários.
 
@@ -652,16 +653,28 @@ def execute_query_rows(
         query: SQL completo a ser executado.
         project_id: Projeto GCP de faturamento.
         max_rows: Limite de linhas retornadas (padrão: 1000).
+        maximum_bytes_billed: Freio duro do BigQuery no job real — sem isso,
+            só a estimativa de dry-run (feita antes, em outro lugar) protege
+            contra custo, e ela pode ficar desatualizada se o volume da
+            tabela mudar entre a estimativa e esta execução. `None` (default)
+            preserva o comportamento atual para callers que não orçam custo
+            (ex. sync interno do catálogo).
 
     Returns:
         Tupla (linhas, bytes_billed) — bytes_billed é 0 em cache hit.
 
     Raises:
-        RuntimeError: Se a execução no BigQuery falhar.
+        RuntimeError: Se a execução no BigQuery falhar (inclui o job ter sido
+            cancelado por exceder `maximum_bytes_billed`).
     """
     try:
         client = _get_client(project_id)
-        job = client.query(query)
+        job_config = (
+            bigquery.QueryJobConfig(maximum_bytes_billed=maximum_bytes_billed)
+            if maximum_bytes_billed
+            else None
+        )
+        job = client.query(query, job_config=job_config)
         result = job.result(max_results=max_rows)
         rows = [_json_safe_row(dict(row.items())) for row in result]
         bytes_billed = job.total_bytes_billed or 0

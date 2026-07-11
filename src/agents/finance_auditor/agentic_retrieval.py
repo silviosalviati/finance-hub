@@ -18,6 +18,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.agents.finance_auditor.catalog_index import search_catalog
+from src.shared.tools.llm import invoke_with_retry
 
 _logger = logging.getLogger(__name__)
 
@@ -47,7 +48,11 @@ def grade_catalog_results(results: list[dict[str, Any]]) -> float:
     return sum(r.get("score", 0.0) for r in top) / len(top)
 
 
-def transform_query(query: str, llm: BaseChatModel) -> list[str]:
+def transform_query(
+    query: str,
+    llm: BaseChatModel,
+    usage_sink: list[dict[str, Any]] | None = None,
+) -> list[str]:
     """Gera 2-3 variações de query para melhorar o recall semântico do catálogo.
 
     Exemplo:
@@ -56,13 +61,21 @@ def transform_query(query: str, llm: BaseChatModel) -> list[str]:
          'títulos vencidos data vencimento contas receber',
          'overdue accounts receivable payment due date']
 
-    Retorna lista vazia em caso de falha (degradação graceful).
+    Retorna lista vazia em caso de falha (degradação graceful) — inclusive se
+    o orçamento de tokens da requisição já tiver sido excedido
+    (`TokenBudgetExceeded`), capturado pelo `except Exception` abaixo.
     """
     try:
-        resp = llm.invoke([
-            SystemMessage(content=_TRANSFORM_SYSTEM),
-            HumanMessage(content=f"Pergunta original: {query}"),
-        ])
+        resp = invoke_with_retry(
+            llm,
+            [
+                SystemMessage(content=_TRANSFORM_SYSTEM),
+                HumanMessage(content=f"Pergunta original: {query}"),
+            ],
+            max_attempts=2,
+            label="agentic_retrieval_transform_query",
+            usage_sink=usage_sink,
+        )
         raw = str(getattr(resp, "content", resp) or "").strip()
         # Tolerância a markdown fence ocasional do LLM
         if "```" in raw:
@@ -83,6 +96,7 @@ def adaptive_search_catalog(
     llm: BaseChatModel | None = None,
     top_k: int = 5,
     grade_threshold: float = _GRADE_THRESHOLD_DEFAULT,
+    usage_sink: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Busca semântica com grading e retry automático.
 
@@ -110,7 +124,7 @@ def adaptive_search_catalog(
         return results
 
     # Grade insuficiente — tenta variações de query
-    variations = transform_query(query, llm)
+    variations = transform_query(query, llm, usage_sink=usage_sink)
     if not variations:
         return results
 

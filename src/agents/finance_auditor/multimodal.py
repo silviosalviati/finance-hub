@@ -8,6 +8,10 @@ import csv
 import io
 from typing import Any
 
+from langchain_core.messages import HumanMessage
+
+from src.shared.tools.llm import invoke_with_retry
+
 
 KIND_CSV = "csv"
 KIND_IMAGE = "image"
@@ -58,6 +62,7 @@ def describe_image_with_llm(
     prompt: str,
     llm: Any,
     mime_type: str = "image/png",
+    usage_sink: list[dict[str, Any]] | None = None,
 ) -> str:
     """Envia a imagem ao LLM (Gemini multimodal) e devolve a descrição/análise."""
     raw = _decode_base64(b64)
@@ -65,7 +70,6 @@ def describe_image_with_llm(
         raise ValueError(f"Imagem excede limite de {_MAX_IMAGE_BYTES} bytes.")
     if llm is None:
         raise ValueError("LLM indisponível para análise multimodal.")
-    from langchain_core.messages import HumanMessage
 
     message = HumanMessage(
         content=[
@@ -76,7 +80,9 @@ def describe_image_with_llm(
             },
         ]
     )
-    response = llm.invoke([message])
+    response = invoke_with_retry(
+        llm, [message], max_attempts=2, label="attachment_analyze_image", usage_sink=usage_sink,
+    )
     return str(getattr(response, "content", response) or "")
 
 

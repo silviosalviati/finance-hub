@@ -101,7 +101,10 @@ def _get_cached_catalog_search(
     key = f"catalog_search:{project_id}:{query}:{top_k}"
     if cache is not None and key in cache:
         return cache[key]
-    matches = adaptive_search_catalog(project_id, query, llm=context.get("llm"), top_k=top_k)
+    matches = adaptive_search_catalog(
+        project_id, query, llm=context.get("llm"), top_k=top_k,
+        usage_sink=context.get("usage_log"),
+    )
     if cache is not None:
         cache[key] = matches
     return matches
@@ -468,8 +471,17 @@ def _validate_and_run_sql(
         )
 
     try:
-        rows, real_bytes_billed = execute_query_rows(sql, project_id, max_rows=max_rows)
+        rows, real_bytes_billed = execute_query_rows(
+            sql, project_id, max_rows=max_rows, maximum_bytes_billed=budget,
+        )
     except Exception as exc:  # noqa: BLE001
+        if "bytes billed" in str(exc).lower():
+            gb_budget = budget / (1024 ** 3)
+            return _err(
+                f"Query cancelada: o volume real de dados escaneados excedeu o "
+                f"budget de {gb_budget:.2f} GiB no momento da execução (a "
+                f"estimativa do dry-run pode ter ficado desatualizada). Refine os filtros."
+            )
         return _err(f"Falha na execução: {exc}")
 
     # Custo real pós-execução, não a estimativa do dry-run: a execução real
@@ -1698,6 +1710,7 @@ def cap_attachment_analyze(args: dict[str, Any], context: dict[str, Any]) -> dic
             prompt=prompt,
             llm=context.get("llm_creative") or context.get("llm"),
             mime_type=att.get("mime_type") or "image/png",
+            usage_sink=context.get("usage_log"),
         )
     except ValueError as exc:
         return _err(f"Falha ao analisar imagem: {exc}")

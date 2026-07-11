@@ -184,6 +184,7 @@ def invoke_with_retry(
     base_delay: float = 2.0,
     label: str = "",
     usage_sink: list[dict[str, Any]] | None = None,
+    run_config: dict[str, Any] | None = None,
 ) -> Any:
     """Retry síncrono — usar apenas em contextos síncronos (nós LangGraph em thread executor).
 
@@ -199,6 +200,12 @@ def invoke_with_retry(
     Também serve de circuit-breaker: se o orçamento da requisição (soma de
     `usage_sink`) já foi atingido, levanta `TokenBudgetExceeded` sem gastar
     mais tokens.
+
+    `run_config`, se informado (ex.: `{"run_name": ..., "tags": [...],
+    "metadata": {...}}`), é repassado a `llm.invoke(..., config=...)` — vira
+    metadado de trace no LangSmith quando o tracing está ativo (ver
+    `src/shared/tracing.py`). Sem tracing configurado, é apenas ignorado pelo
+    `RunnableConfig` do LangChain — nenhuma mudança de comportamento.
     """
     _check_token_budget(usage_sink, label)
     last_exc: BaseException = RuntimeError("Nenhuma tentativa realizada")
@@ -206,7 +213,7 @@ def invoke_with_retry(
     for attempt in range(max_attempts):
         try:
             with get_usage_metadata_callback() as usage_cb:
-                result = llm.invoke(messages)
+                result = llm.invoke(messages, config=run_config)
             _record_usage(usage_sink, label, usage_cb.usage_metadata)
             elapsed_ms = (time.perf_counter() - started_at) * 1000
             _logger.info(

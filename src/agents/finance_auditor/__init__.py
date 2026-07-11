@@ -186,14 +186,21 @@ class FinanceAuditorAgent(BaseAgent):
         total_tokens = 0
         input_tokens = 0
         output_tokens = 0
+        cache_read_tokens = 0
         for usage in (usage_by_model or {}).values():
             total_tokens += int(usage.get("total_tokens") or 0)
             input_tokens += int(usage.get("input_tokens") or 0)
             output_tokens += int(usage.get("output_tokens") or 0)
+            details = usage.get("input_token_details") or {}
+            cache_read_tokens += int(details.get("cache_read") or 0)
         return {
             "total_tokens": total_tokens,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
+            # Tokens do input servidos do cache do Vertex (implícito ou
+            # explícito) em vez de reprocessados do zero — 0 enquanto não
+            # confirmado que o cache está ativo (ver finance-voice.md, 2.7).
+            "cache_read_tokens": cache_read_tokens,
             "by_model": usage_by_model or {},
         }
 

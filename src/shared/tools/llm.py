@@ -84,12 +84,21 @@ def _record_usage(
     if usage_sink is None or not usage_by_model:
         return
     for model_name, usage in usage_by_model.items():
+        details = usage.get("input_token_details") or {}
         usage_sink.append({
             "label": label or "unlabeled",
             "model": model_name,
             "input_tokens": int(usage.get("input_tokens") or 0),
             "output_tokens": int(usage.get("output_tokens") or 0),
             "total_tokens": int(usage.get("total_tokens") or 0),
+            # Tokens servidos do cache implícito/explícito do Vertex (Gemini
+            # 2.5+) em vez de reprocessados — 0 quando o provider não
+            # populou `input_token_details.cache_read` (cache não usado ou
+            # provider sem suporte). Investigação em
+            # docs/avaliacoes/finance-voice.md (2.7): confirma se o prompt
+            # estático do planner (~6-7k tokens, idêntico entre chamadas do
+            # mesmo dia) está de fato sendo cacheado pelo Vertex.
+            "cache_read_tokens": int(details.get("cache_read") or 0),
         })
 
 
@@ -101,6 +110,25 @@ class TokenBudgetExceeded(RuntimeError):
 
 def _current_token_total(usage_sink: list[dict[str, Any]] | None) -> int:
     return sum(int(e.get("total_tokens") or 0) for e in (usage_sink or []))
+
+
+def _usage_log_line(usage_by_model: dict[str, dict[str, Any]] | None) -> str:
+    """Resume modelo/tokens/cache de uma chamada para o log `[llm_timing]` —
+    sem isso, a linha só dizia label/tempo/tentativas, e pra saber quanto
+    aquela chamada custou (e se o cache do Vertex está de fato sendo usado,
+    ver docs/avaliacoes/finance-voice.md item 2.7) era preciso ir atrás do
+    audit em outro lugar. Formato: `model=... in=N out=N cache_read=N`."""
+    if not usage_by_model:
+        return "model=? in=0 out=0 cache_read=0"
+    parts = []
+    for model_name, usage in usage_by_model.items():
+        details = usage.get("input_token_details") or {}
+        parts.append(
+            f"model={model_name} in={int(usage.get('input_tokens') or 0)} "
+            f"out={int(usage.get('output_tokens') or 0)} "
+            f"cache_read={int(details.get('cache_read') or 0)}"
+        )
+    return " ".join(parts)
 
 
 def _check_token_budget(usage_sink: list[dict[str, Any]] | None, label: str) -> None:
@@ -132,11 +160,19 @@ def summarize_usage_by_label(usage_log: list[dict[str, Any]] | None) -> dict[str
     for entry in usage_log or []:
         label = entry.get("label") or "unlabeled"
         agg = by_label.setdefault(
-            label, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "calls": 0}
+            label,
+            {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "cache_read_tokens": 0,
+                "calls": 0,
+            },
         )
         agg["input_tokens"] += int(entry.get("input_tokens") or 0)
         agg["output_tokens"] += int(entry.get("output_tokens") or 0)
         agg["total_tokens"] += int(entry.get("total_tokens") or 0)
+        agg["cache_read_tokens"] += int(entry.get("cache_read_tokens") or 0)
         agg["calls"] += 1
     return by_label
 
@@ -174,8 +210,9 @@ def invoke_with_retry(
             _record_usage(usage_sink, label, usage_cb.usage_metadata)
             elapsed_ms = (time.perf_counter() - started_at) * 1000
             _logger.info(
-                "[llm_timing] label=%s ms=%.0f attempts=%d",
+                "[llm_timing] label=%s ms=%.0f attempts=%d %s",
                 label or "unlabeled", elapsed_ms, attempt + 1,
+                _usage_log_line(usage_cb.usage_metadata),
             )
             return result
         except Exception as exc:
@@ -212,8 +249,9 @@ async def invoke_with_retry_async(
             _record_usage(usage_sink, label, usage_cb.usage_metadata)
             elapsed_ms = (time.perf_counter() - started_at) * 1000
             _logger.info(
-                "[llm_timing] label=%s ms=%.0f attempts=%d",
+                "[llm_timing] label=%s ms=%.0f attempts=%d %s",
                 label or "unlabeled", elapsed_ms, attempt + 1,
+                _usage_log_line(usage_cb.usage_metadata),
             )
             return result
         except Exception as exc:

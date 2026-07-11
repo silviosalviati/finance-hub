@@ -7813,6 +7813,34 @@ pre.fa-sql .com {
   max-height: 180px;
 }
 
+.fa-audio-player {
+  width: 100%;
+  margin: 2px 0 8px;
+}
+
+.fa-audio-transcript {
+  margin: 8px 0 0;
+}
+
+.fa-audio-transcript summary {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink2);
+}
+
+.fa-audio-transcript pre {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  max-height: 180px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 /* Tooltip nativo do Vega (vega-tooltip) — por padrão vem com o tema cru da
    lib (borda preta, sans-serif genérica); aqui alinhamos à identidade visual
    do produto (cores, raio, sombra, tipografia). Seletor de ID porque é

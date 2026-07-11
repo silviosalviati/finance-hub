@@ -216,6 +216,7 @@ def _is_analytics_query(query: str) -> bool:
 
     q = _normalize_text(query)
     analytics_terms = (
+        "podcast", "audio", "áudio", "narração", "narracao", "locução", "locucao",
         "analise", "análise", "relatorio", "relatório",
         "dado", "dados", "tabela", "tabelas", "dataset", "datasets",
         "query", "sql", "consulta", "consultas",
@@ -232,6 +233,28 @@ def _is_analytics_query(query: str) -> bool:
         "contas a receber", "ecommerce", "e-commerce",
     )
     return any(term in q for term in analytics_terms)
+
+
+def _find_last_analysis_markdown(turns: list[dict[str, Any]]) -> str:
+    """Última resposta analítica útil da sessão (ignora turnos de podcast)."""
+    for turn in reversed(turns):
+        if turn.get("mode") != "analysis":
+            continue
+        response = turn.get("response")
+        if not isinstance(response, dict):
+            continue
+        artifacts = response.get("artifacts") or []
+        if any(
+            isinstance(a, dict)
+            and a.get("type") == "audio"
+            and a.get("kind") == "analysis_podcast"
+            for a in artifacts
+        ):
+            continue
+        text = str(response.get("markdown_report") or turn.get("answer_text") or "").strip()
+        if text:
+            return text
+    return ""
 
 
 def _extract_user_name(query: str) -> str | None:
@@ -538,6 +561,7 @@ async def analyze_by_agent(
                     project_id=project_id,
                     dataset_hint=req.dataset_hint or profile.get("pinned_dataset_ref"),
                     conversation_context=_build_conversation_context(turns),
+                    last_analysis_markdown=_find_last_analysis_markdown(turns),
                     user_profile=profile,
                     user=session,
                     attachments=req.attachments or [],

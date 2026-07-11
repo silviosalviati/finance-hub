@@ -61,9 +61,11 @@ from src.agents.finance_auditor.supervisor_schemas import (
 )
 from src.agents.finance_auditor.supervisor_state import SupervisorState
 from src.shared.tools.llm import invoke_with_retry, summarize_usage_by_label
+from src.shared.tools.tts import synthesize_ptbr_mp3
 
 _MAX_PLAN_STEPS = 6
 _MAX_ITERATIONS = 2  # router pode rodar até 2x (1 plano original + 1 retry pós-reflect)
+_MAX_PODCAST_SCRIPT_CHARS = 3500
 
 # Capabilities consideradas "produtoras de resposta" — um plano sem nenhuma
 # dessas é considerado incompleto pelo reflect.
@@ -80,6 +82,14 @@ _ANSWER_PRODUCING = {
 
 # Late binding: substitui ${PROJECT} e ${step_N.payload.path[.path...]} nos args.
 _TPL_RE = re.compile(r"\$\{([^}]+)\}")
+_PODCAST_INTENT_RE = re.compile(
+    r"\b(podcast|áudio|audio|narra(?:ç|c)(?:a|ã)o|locu(?:ç|c)(?:a|ã)o)\b",
+    re.IGNORECASE,
+)
+
+
+def _wants_podcast(request_text: str) -> bool:
+    return bool(_PODCAST_INTENT_RE.search(request_text or ""))
 
 
 def _resolve_path(root: Any, path: str) -> Any:
@@ -771,6 +781,65 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Nó 5c — podcast_builder (gera áudio da última análise sob demanda)
+# ---------------------------------------------------------------------------
+
+def node_podcast_builder(state: SupervisorState) -> dict[str, Any]:
+    request_text = str(state.get("request_text") or "")
+    if not _wants_podcast(request_text):
+        return {"podcast_requested": False}
+
+    warnings = list(state.get("warnings") or [])
+    artifacts = list(state.get("artifacts") or [])
+    source = str(state.get("last_analysis_markdown") or "").strip()
+
+    if not source:
+        warnings.append(
+            "Pedido de podcast detectado, mas não há análise anterior na sessão para narrar."
+        )
+        return {
+            "podcast_requested": True,
+            "warnings": warnings,
+            "final_answer": (
+                "Ainda não encontrei uma análise anterior nesta sessão para transformar em podcast. "
+                "Peça uma análise primeiro e depois solicite o áudio."
+            ),
+        }
+
+    tts = synthesize_ptbr_mp3(source[:_MAX_PODCAST_SCRIPT_CHARS])
+    if not tts.get("ok"):
+        warnings.append(f"Podcast indisponível no momento: {tts.get('error') or 'falha no TTS'}")
+        return {
+            "podcast_requested": True,
+            "warnings": warnings,
+            "final_answer": (
+                "Identifiquei seu pedido de podcast da última análise, mas não consegui gerar o áudio agora. "
+                "Tente novamente em instantes."
+            ),
+        }
+
+    artifacts.append(
+        {
+            "type": "audio",
+            "kind": "analysis_podcast",
+            "title": "Podcast da última análise",
+            "mime_type": tts.get("mime_type") or "audio/mpeg",
+            "audio_base64": tts.get("audio_base64") or "",
+            "text": tts.get("script") or "",
+            "voice": tts.get("voice") or "",
+        }
+    )
+    return {
+        "podcast_requested": True,
+        "artifacts": artifacts,
+        "final_answer": (
+            "Preparei o podcast em áudio com base na sua última análise da sessão. "
+            "Use o player abaixo para ouvir."
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Nó 5b — audit (persiste auditoria antes do guard de saída)
 # ---------------------------------------------------------------------------
 
@@ -863,6 +932,7 @@ def build_supervisor_graph(
     workflow.add_node("reflect", lambda s: node_reflect(s, llm=_lite_llm))
     workflow.add_node("apply_reflect_plan", node_apply_reflect_plan)
     workflow.add_node("composer", lambda s: node_composer(s, llm=_composer_llm))
+    workflow.add_node("podcast_builder", node_podcast_builder)
     workflow.add_node("audit", node_audit)
     workflow.add_node("guardrails_out", node_guardrails_out)
 
@@ -878,7 +948,8 @@ def build_supervisor_graph(
         {"router": "apply_reflect_plan", "composer": "composer"},
     )
     workflow.add_edge("apply_reflect_plan", "router")
-    workflow.add_edge("composer", "audit")
+    workflow.add_edge("composer", "podcast_builder")
+    workflow.add_edge("podcast_builder", "audit")
     workflow.add_edge("audit", "guardrails_out")
     workflow.add_edge("guardrails_out", END)
 

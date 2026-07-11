@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.api.routes.agents import (
+    _find_last_analysis_markdown,
     _extract_user_name,
     _find_repeated_response,
     _is_analytics_query,
@@ -31,8 +32,29 @@ def test_analytics_query_classifier():
         "quero saber quais sao os maiores clientes que realizam pagamento via pix no meu ecommerce saude"
     ) is True
     assert _is_analytics_query("contas a pagar em atraso") is True
+    assert _is_analytics_query("gere um podcast da ultima analise") is True
     assert _is_analytics_query("qual meu nome") is False
     assert _is_analytics_query("oi tudo bem?") is False
+
+
+def test_find_last_analysis_markdown_ignora_turno_de_podcast():
+    turns = [
+        {
+            "mode": "analysis",
+            "answer_text": "analise completa A",
+            "response": {"markdown_report": "analise completa A", "artifacts": []},
+        },
+        {
+            "mode": "analysis",
+            "answer_text": "podcast pronto",
+            "response": {
+                "markdown_report": "podcast pronto",
+                "artifacts": [{"type": "audio", "kind": "analysis_podcast"}],
+            },
+        },
+    ]
+
+    assert _find_last_analysis_markdown(turns) == "analise completa A"
 
 
 def test_repeated_response_reuses_previous_payload():

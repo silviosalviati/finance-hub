@@ -806,6 +806,48 @@ class TestCapabilityDispatch:
         assert cap_chat_answer({}, {})["ok"] is True
 
 
+class TestPodcastBuilder:
+    def test_ignora_quando_nao_ha_intencao_de_podcast(self):
+        from src.agents.finance_auditor.supervisor import node_podcast_builder
+
+        out = node_podcast_builder({"request_text": "quais os principais riscos?"})
+        assert out["podcast_requested"] is False
+
+    def test_retorna_erro_amigavel_sem_analise_previa(self):
+        from src.agents.finance_auditor.supervisor import node_podcast_builder
+
+        out = node_podcast_builder({"request_text": "gera um podcast disso"})
+        assert out["podcast_requested"] is True
+        assert "não encontrei" in out["final_answer"].lower()
+
+    def test_gera_artefato_de_audio(self):
+        from src.agents.finance_auditor import supervisor
+
+        with patch.object(
+            supervisor,
+            "synthesize_ptbr_mp3",
+            return_value={
+                "ok": True,
+                "mime_type": "audio/mpeg",
+                "audio_base64": "AAAA",
+                "script": "Resumo da análise",
+                "voice": "pt-BR-Test",
+            },
+        ):
+            out = supervisor.node_podcast_builder(
+                {
+                    "request_text": "quero um podcast da ultima analise",
+                    "last_analysis_markdown": "## Resumo\nTexto",
+                    "artifacts": [],
+                }
+            )
+
+        assert out["podcast_requested"] is True
+        assert out["artifacts"]
+        assert out["artifacts"][0]["type"] == "audio"
+        assert out["artifacts"][0]["kind"] == "analysis_podcast"
+
+
 # ---------------------------------------------------------------------------
 # Agente: propagação de user_profile
 # ---------------------------------------------------------------------------

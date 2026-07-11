@@ -6250,6 +6250,7 @@ function _faDetailsHtml(data) {
   if (artifacts.length === 0) return "";
 
   const answerArtifacts = artifacts.filter((a) => {
+    if (a && a.type === "audio") return true;
     const stepIdx = typeof a.step_index === "number" ? a.step_index : -1;
     if (stepIdx < 0 || stepIdx >= toolResults.length) return false;
     const cap = (toolResults[stepIdx] || {}).capability;
@@ -6438,6 +6439,25 @@ function _faRenderArtifact(a, index = 0) {
           `.catch(function(e){el.innerHTML=_faChartErrorHtml(e&&e.message?e.message:String(e),s);});}` +
           `else{el.innerHTML=_faChartErrorHtml('Biblioteca de gráficos não carregada.',s);}}` +
           `catch(e){el.innerHTML=_faChartErrorHtml(e&&e.message?e.message:String(e),null);}})();<\/script>`,
+      });
+    }
+    case "audio": {
+      const b64 = String(a.audio_base64 || "").trim();
+      if (!b64) return "";
+      const mime = String(a.mime_type || "audio/mpeg");
+      const src = `data:${mime};base64,${b64}`;
+      const transcript = String(a.text || "").trim();
+      const transcriptHtml = transcript
+        ? `<details class="fa-audio-transcript"><summary>Ver roteiro</summary><pre><code>${_escFA(transcript)}</code></pre></details>`
+        : "";
+      return _faArtCard(index, {
+        icon: _faIcon("volume-2", 13),
+        title: a.title || "Podcast",
+        padded: true,
+        bodyHtml:
+          `<audio class="fa-audio-player" controls preload="none" src="${src}"></audio>` +
+          `<div class="fa-art-more-note">Se preferir, use o menu do player para baixar o áudio.</div>` +
+          transcriptHtml,
       });
     }
     default:

@@ -86,6 +86,7 @@ class FinanceAuditorAgent(BaseAgent):
         project_id: str,
         dataset_hint: str | None = None,
         conversation_context: str = "",
+        last_analysis_markdown: str = "",
         user_profile: dict[str, Any] | None = None,
         user: dict[str, Any] | None = None,
         attachments: list[dict[str, Any]] | None = None,
@@ -116,6 +117,7 @@ class FinanceAuditorAgent(BaseAgent):
             "project_id": project_id,
             "dataset_hint": dataset_hint,
             "conversation_context": conversation_context,
+            "last_analysis_markdown": last_analysis_markdown,
             "user_profile": user_profile or {},
             "user_id": str(u.get("username") or u.get("user_id") or ""),
             "user": u,
@@ -210,7 +212,7 @@ class FinanceAuditorAgent(BaseAgent):
             "display_name": self.display_name,
             "supervisor_nodes": (
                 "guardrails_in,persona_resolver,response_mode_resolver,planner,"
-                "router,composer,audit,guardrails_out"
+                "router,composer,podcast_builder,audit,guardrails_out"
             ),
             "capabilities": (
                 "bq_list_datasets,bq_list_tables,bq_get_schema,bq_query,"

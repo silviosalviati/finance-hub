@@ -13,6 +13,7 @@ class SupervisorState(TypedDict, total=False):
     project_id: str
     dataset_hint: str | None
     conversation_context: str  # últimos turnos da sessão (query+resposta), p/ follow-ups
+    last_analysis_markdown: str  # última análise concluída na sessão (base do podcast)
     user_profile: dict[str, Any]  # vindo da sessão de chat (profile)
     user_id: str                  # username/id do dono da sessão (RBAC + audit)
     user: dict[str, Any]          # sessão completa (passada às capabilities)
@@ -65,6 +66,7 @@ class SupervisorState(TypedDict, total=False):
     attachments: list[dict[str, Any]]   # anexos enviados (CSV/imagem)
     iteration: int                       # nº de execuções do router (1-based)
     reflect: dict[str, Any]              # último verdict do nó reflect
+    podcast_requested: bool               # pedido explícito de podcast/áudio
 
     # --- Controle ---
     warnings: list[str]

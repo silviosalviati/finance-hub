@@ -69,6 +69,18 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     "FINANCE_AUDITOR_TTS_VOICE": (
         "pt-BR-Chirp3-HD-Achernar", "Voz padrão do podcast do Finance Voice"
     ),
+    "FINANCE_AUDITOR_TTS_VOICE_COORDENADOR": (
+        "", "Voz do podcast para persona coordenador (vazio = padrão)"
+    ),
+    "FINANCE_AUDITOR_TTS_VOICE_GERENTE": (
+        "", "Voz do podcast para persona gerente (vazio = padrão)"
+    ),
+    "FINANCE_AUDITOR_TTS_VOICE_DIRETOR": (
+        "", "Voz do podcast para persona diretor (vazio = padrão)"
+    ),
+    "FINANCE_AUDITOR_TTS_VOICE_GERAL": (
+        "", "Voz do podcast para persona geral (vazio = padrão)"
+    ),
     "FINANCE_AUDITOR_TTS_SPEAKING_RATE": (
         "1.0", "Velocidade de fala do podcast do Finance Voice"
     ),
@@ -908,6 +920,15 @@ def get_finance_podcast_asset(asset_id: str) -> dict[str, Any] | None:
         row = conn.execute(
             "SELECT * FROM finance_podcast_assets WHERE asset_id = ?",
             (asset_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def get_finance_podcast_asset_by_audit_id(audit_id: int) -> dict[str, Any] | None:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM finance_podcast_assets WHERE audit_id = ? ORDER BY created_at DESC LIMIT 1",
+            (int(audit_id),),
         ).fetchone()
     return dict(row) if row else None
 

@@ -5,6 +5,7 @@ import contextlib
 import logging
 import sys
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -25,6 +26,7 @@ from src.api.routes.auth import router as auth_router
 from src.api.routes.finance_governance import router as finance_governance_router
 from src.api.routes.schema_explorer import router as schema_explorer_router
 from src.core.database import init_db
+from src.core.database import delete_expired_finance_podcast_assets
 from src.shared.config import ALLOWED_ORIGINS, get_gcp_project_ids, validate_runtime_config
 from src.shared.tracing import configure_tracing
 
@@ -48,6 +50,7 @@ async def lifespan(app: FastAPI):
     for _noisy_logger in ("httpx", "httpcore", "google_genai.models"):
         logging.getLogger(_noisy_logger).setLevel(logging.WARNING)
     init_db()
+    delete_expired_finance_podcast_assets(datetime.now(timezone.utc).isoformat())
     configure_tracing()
     _validate_startup_config()
     print(f"ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")

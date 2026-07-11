@@ -21,8 +21,9 @@ from __future__ import annotations
 
 import json
 import re
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -51,6 +52,7 @@ from src.agents.finance_auditor.supervisor_prompts import (
     REFLECT_PROMPT,
 )
 from src.shared.guardrails.temporal import get_date_block, get_planner_date_block
+from src.core.database import delete_expired_finance_podcast_assets, upsert_finance_podcast_asset
 from src.agents.finance_auditor.supervisor_schemas import (
     CAPABILITY_METRIC_EXECUTE,
     CAPABILITY_METRIC_LOOKUP,
@@ -59,6 +61,7 @@ from src.agents.finance_auditor.supervisor_schemas import (
     PlanStep,
     ReflectVerdict,
 )
+from src.shared.config import get_runtime_config
 from src.agents.finance_auditor.supervisor_state import SupervisorState
 from src.shared.tools.llm import invoke_with_retry, summarize_usage_by_label
 from src.shared.tools.tts import synthesize_ptbr_mp3
@@ -810,6 +813,7 @@ def node_podcast_builder(state: SupervisorState) -> dict[str, Any]:
     warnings = list(state.get("warnings") or [])
     artifacts = list(state.get("artifacts") or [])
     source = str(state.get("last_analysis_markdown") or "").strip()
+    thread_id = str(state.get("thread_id") or "")
 
     if not source:
         warnings.append(
@@ -824,7 +828,12 @@ def node_podcast_builder(state: SupervisorState) -> dict[str, Any]:
             ),
         }
 
-    tts = synthesize_ptbr_mp3(source[:_MAX_PODCAST_SCRIPT_CHARS])
+    asset_id = uuid.uuid4().hex
+    tts = synthesize_ptbr_mp3(
+        source[:_MAX_PODCAST_SCRIPT_CHARS],
+        asset_id=asset_id,
+        persona=str(state.get("persona") or ""),
+    )
     if not tts.get("ok"):
         warnings.append(f"Podcast indisponível no momento: {tts.get('error') or 'falha no TTS'}")
         return {
@@ -836,13 +845,33 @@ def node_podcast_builder(state: SupervisorState) -> dict[str, Any]:
             ),
         }
 
+    ttl_hours = int(get_runtime_config("FINANCE_AUDITOR_PODCAST_TTL_HOURS", "24"))
+    now = datetime.now(timezone.utc)
+    created_at = now.isoformat()
+    expires_at = (now + timedelta(hours=max(ttl_hours, 1))).isoformat()
+    upsert_finance_podcast_asset(
+        {
+            "asset_id": asset_id,
+            "thread_id": thread_id,
+            "user_id": str(state.get("user_id") or ""),
+            "audit_id": int(state.get("audit_id") or 0),
+            "title": "Podcast da última análise",
+            "mime_type": tts.get("mime_type") or "audio/mpeg",
+            "audio_path": tts.get("audio_path") or "",
+            "created_at": created_at,
+            "expires_at": expires_at,
+        }
+    )
+    delete_expired_finance_podcast_assets(created_at)
     artifacts.append(
         {
             "type": "audio",
             "kind": "analysis_podcast",
             "title": "Podcast da última análise",
             "mime_type": tts.get("mime_type") or "audio/mpeg",
-            "audio_base64": tts.get("audio_base64") or "",
+            "audio_asset_id": asset_id,
+            "audio_path": tts.get("audio_path") or "",
+            "audio_size_bytes": tts.get("audio_size_bytes") or 0,
             "text": tts.get("script") or "",
             "voice": tts.get("voice") or "",
         }
@@ -966,9 +995,9 @@ def build_supervisor_graph(
         {"router": "apply_reflect_plan", "composer": "composer"},
     )
     workflow.add_edge("apply_reflect_plan", "router")
-    workflow.add_edge("composer", "podcast_builder")
-    workflow.add_edge("podcast_builder", "audit")
-    workflow.add_edge("audit", "guardrails_out")
+    workflow.add_edge("composer", "audit")
+    workflow.add_edge("audit", "podcast_builder")
+    workflow.add_edge("podcast_builder", "guardrails_out")
     workflow.add_edge("guardrails_out", END)
 
-    return workflow.compile(checkpointer=checkpointer)
+    return workflow.compile(checkpointer=checkpointer, name="finance_auditor_supervisor")

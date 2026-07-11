@@ -6,10 +6,11 @@ import logging
 import re
 import traceback
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
@@ -18,6 +19,11 @@ from src.agents.finance_auditor.capabilities import resolve_dataset_by_gerencia
 from src.shared.guardrails import rbac as finance_rbac
 from src.api.dependencies import get_checkpointer, get_current_user, get_registry
 from src.shared.config import get_default_gcp_project, get_runtime_config
+from src.core.database import (
+    delete_expired_finance_podcast_assets,
+    get_finance_podcast_asset,
+    get_finance_podcast_asset_by_audit_id,
+)
 from src.shared.tools.bigquery import (
     get_dataset_tables_metadata,
     get_dataset_tables_schema,
@@ -28,6 +34,10 @@ from src.shared.tools.llm import create_llm, invoke_with_retry, invoke_with_retr
 from src.shared.tools.schemas import SuggestionsResponse
 
 router = APIRouter(tags=["agents"])
+
+
+def _finance_podcast_owner(session: dict[str, Any]) -> str:
+    return str(session.get("username") or session.get("user_id") or "")
 
 
 class AnalyzeRequest(BaseModel):
@@ -255,6 +265,49 @@ def _find_last_analysis_markdown(turns: list[dict[str, Any]]) -> str:
         if text:
             return text
     return ""
+
+
+@router.get("/api/agents/finance_auditor/podcast/{asset_id}")
+async def download_finance_podcast_asset(
+    asset_id: str,
+    session: dict[str, Any] = Depends(get_current_user),
+):
+    delete_expired_finance_podcast_assets(datetime.now(timezone.utc).isoformat())
+    asset = get_finance_podcast_asset(asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Podcast nao encontrado.")
+
+    owner = str(asset.get("user_id") or "")
+    if owner and owner != _finance_podcast_owner(session) and not session.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Acesso negado ao podcast solicitado.")
+
+    audio_path = Path(str(asset.get("audio_path") or ""))
+    if not audio_path.exists():
+        raise HTTPException(status_code=404, detail="Arquivo de audio nao encontrado.")
+
+    return FileResponse(audio_path, media_type=str(asset.get("mime_type") or "audio/mpeg"), filename=f"{asset_id}.mp3")
+
+
+@router.get("/api/agents/finance_auditor/podcast/by-audit/{audit_id}")
+async def download_finance_podcast_by_audit(
+    audit_id: int,
+    session: dict[str, Any] = Depends(get_current_user),
+):
+    delete_expired_finance_podcast_assets(datetime.now(timezone.utc).isoformat())
+    asset = get_finance_podcast_asset_by_audit_id(audit_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Podcast nao encontrado para este audit_id.")
+
+    owner = str(asset.get("user_id") or "")
+    if owner and owner != _finance_podcast_owner(session) and not session.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Acesso negado ao podcast solicitado.")
+
+    audio_path = Path(str(asset.get("audio_path") or ""))
+    if not audio_path.exists():
+        raise HTTPException(status_code=404, detail="Arquivo de audio nao encontrado.")
+
+    asset_id = str(asset.get("asset_id") or audit_id)
+    return FileResponse(audio_path, media_type=str(asset.get("mime_type") or "audio/mpeg"), filename=f"{asset_id}.mp3")
 
 
 def _extract_user_name(query: str) -> str | None:

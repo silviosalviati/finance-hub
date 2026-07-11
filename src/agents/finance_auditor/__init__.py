@@ -114,6 +114,7 @@ class FinanceAuditorAgent(BaseAgent):
         context_cache: dict[str, Any] = {}
         initial_state = {
             "request_text": query,
+            "thread_id": tid,
             "project_id": project_id,
             "dataset_hint": dataset_hint,
             "conversation_context": conversation_context,

@@ -6442,10 +6442,9 @@ function _faRenderArtifact(a, index = 0) {
       });
     }
     case "audio": {
-      const b64 = String(a.audio_base64 || "").trim();
-      if (!b64) return "";
-      const mime = String(a.mime_type || "audio/mpeg");
-      const src = `data:${mime};base64,${b64}`;
+      const assetId = String(a.audio_asset_id || "").trim();
+      if (!assetId) return "";
+      const domId = `fa-audio-${faMsgCounter}-${Math.random().toString(36).slice(2, 8)}`;
       const transcript = String(a.text || "").trim();
       const transcriptHtml = transcript
         ? `<details class="fa-audio-transcript"><summary>Ver roteiro</summary><pre><code>${_escFA(transcript)}</code></pre></details>`
@@ -6455,9 +6454,10 @@ function _faRenderArtifact(a, index = 0) {
         title: a.title || "Podcast",
         padded: true,
         bodyHtml:
-          `<audio class="fa-audio-player" controls preload="none" src="${src}"></audio>` +
+          `<audio id="${domId}" class="fa-audio-player" controls preload="none"></audio>` +
           `<div class="fa-art-more-note">Se preferir, use o menu do player para baixar o áudio.</div>` +
-          transcriptHtml,
+          transcriptHtml +
+          `<script>(async function(){try{var el=document.getElementById('${domId}');if(!el)return;var resp=await fetch('/api/agents/finance_auditor/podcast/${encodeURIComponent(assetId)}',{headers:authHeaders()});if(!resp.ok)throw new Error('HTTP '+resp.status);var blob=await resp.blob();var url=URL.createObjectURL(blob);el.src=url;el.addEventListener('ended',function(){setTimeout(function(){URL.revokeObjectURL(url);},15000);},{once:true});}catch(e){var el=document.getElementById('${domId}');if(el){el.insertAdjacentHTML('afterend','<div class="data-warn-banner">Não foi possível carregar o áudio do podcast.</div>');}}})();<\/script>`,
       });
     }
     default:

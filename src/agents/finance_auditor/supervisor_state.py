@@ -10,6 +10,7 @@ class SupervisorState(TypedDict, total=False):
 
     # --- Entrada ---
     request_text: str
+    thread_id: str
     project_id: str
     dataset_hint: str | None
     conversation_context: str  # últimos turnos da sessão (query+resposta), p/ follow-ups

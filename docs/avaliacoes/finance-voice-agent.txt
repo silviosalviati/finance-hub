@@ -6,8 +6,6 @@ Metodo: leitura direta do codigo, verificada arquivo por arquivo/linha por
 linha antes de cada mudanca. Documento consolidado a partir de duas rodadas
 de auditoria (seguranca/assertividade/LangGraph e depois cost-safety/
 observabilidade/testes).
-Atualizado em: 2026-07-11
-
 
 --------------------------------------------------------------------------------
 1. MELHORIAS APLICADAS
@@ -132,24 +130,8 @@ CUSTO
       composer, cada capability que usa LLM), nao so o total agregado —
       permite identificar exatamente onde o custo esta concentrado.
 
-
 --------------------------------------------------------------------------------
-3. PENDENCIAS (nao resolvidas nesta rodada)
---------------------------------------------------------------------------------
-
-    - Streaming real da resposta final: hoje o efeito de "digitacao" no
-      frontend e sintetico sobre uma resposta ja pronta, nao token a token
-      de verdade. Requer um estudo tecnico previo antes de implementar
-      (maior risco/esforco do que os itens acima); tratado como plano
-      separado.
-    - Confirmacao em producao do cache de contexto do provedor: a
-      instrumentacao para enxergar se o cache esta sendo usado ja foi
-      adicionada aos logs, mas ainda falta confirmar em uso real se esta
-      economizando tokens como esperado.
-
-
---------------------------------------------------------------------------------
-4. ARQUIVOS ALTERADOS
+3. ARQUIVOS ALTERADOS
 --------------------------------------------------------------------------------
 
 src/agents/finance_auditor/__init__.py
@@ -226,9 +208,3 @@ tests/agents/test_finance_auditor_supervisor_integration.py
 
 README.md, static/index.html
     sem alteracao de funcoes (ajustes pontuais de conteudo)
-
-
-================================================================================
-Este arquivo substitui finance-voice.md e finance-voice-cost-safety.md, que
-foram removidos apos a consolidacao.
-================================================================================

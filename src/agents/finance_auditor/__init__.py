@@ -17,8 +17,9 @@ from typing import Any
 
 from langchain_core.callbacks.usage import get_usage_metadata_callback
 from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.types import Command
 
-from src.agents.finance_auditor.supervisor import build_supervisor_graph
+from src.agents.finance_auditor.supervisor import PODCAST_CONFIRM_MESSAGE, build_supervisor_graph
 from src.core.base_agent import BaseAgent
 from src.shared.config import get_runtime_config
 from src.shared.tools.llm import create_llm as _create_llm
@@ -139,6 +140,49 @@ class FinanceAuditorAgent(BaseAgent):
             token_usage = self._summarize_token_usage(usage_cb.usage_metadata)
             token_usage["by_node"] = summarize_usage_by_label(usage_log)
 
+        # `podcast_builder` pode pausar o grafo via interrupt() aguardando
+        # confirmação humana antes de gastar a chamada de TTS — `snapshot.next`
+        # não-vazio indica que o grafo parou no meio (composer/audit já
+        # rodaram, então final_state já traz a análise completa do turno).
+        snapshot = graph.get_state(config)
+        if snapshot.next:
+            response = self._build_response(final_state, tid, token_usage)
+            response["status"] = "awaiting_approval"
+            response["message"] = PODCAST_CONFIRM_MESSAGE
+            return response
+
+        return self._build_response(final_state, tid, token_usage)
+
+    def resume(self, thread_id: str, human_decision: str) -> dict[str, Any]:
+        """Retoma o grafo pausado em `node_podcast_builder` após a decisão
+        humana sobre gerar (ou não) o podcast — ver `interrupt()` no nó.
+        """
+        graph = self._get_graph()
+        config = {"configurable": {"thread_id": thread_id}}
+
+        snapshot = graph.get_state(config)
+        if not snapshot.values:
+            raise RuntimeError(
+                "Sessão de análise expirou ou não foi encontrada. Faça a pergunta novamente."
+            )
+
+        final_state: dict[str, Any] | None = None
+        with get_usage_metadata_callback() as usage_cb:
+            for event in graph.stream(
+                Command(resume=human_decision), config=config, stream_mode="values"
+            ):
+                final_state = event
+            token_usage = self._summarize_token_usage(usage_cb.usage_metadata)
+            token_usage["by_node"] = summarize_usage_by_label(
+                (final_state or {}).get("usage_log") or []
+            )
+
+        return self._build_response(final_state, thread_id, token_usage)
+
+    @staticmethod
+    def _build_response(
+        final_state: dict[str, Any] | None, tid: str, token_usage: dict[str, Any]
+    ) -> dict[str, Any]:
         if not final_state:
             return {
                 "status": "error",

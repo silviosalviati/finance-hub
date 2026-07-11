@@ -821,18 +821,29 @@ class TestPodcastBuilder:
         assert "não encontrei" in out["final_answer"].lower()
 
     def test_gera_artefato_de_audio(self):
+        """`interrupt()` pausaria o grafo de verdade em uma execução real —
+        aqui mockamos a decisão humana como já aprovada ("approve") pra testar
+        isoladamente o restante do nó, sem precisar subir o grafo completo
+        (ver TestPodcastHITL em test_finance_auditor_supervisor_integration.py
+        para o ciclo real de interrupt/resume via checkpointer)."""
         from src.agents.finance_auditor import supervisor
 
-        with patch.object(
-            supervisor,
-            "synthesize_ptbr_mp3",
-            return_value={
-                "ok": True,
-                "mime_type": "audio/mpeg",
-                "audio_base64": "AAAA",
-                "script": "Resumo da análise",
-                "voice": "pt-BR-Test",
-            },
+        with (
+            patch.object(supervisor, "interrupt", return_value="approve"),
+            patch.object(
+                supervisor,
+                "synthesize_ptbr_mp3",
+                return_value={
+                    "ok": True,
+                    "mime_type": "audio/mpeg",
+                    "audio_path": "/tmp/fake.mp3",
+                    "audio_size_bytes": 10,
+                    "script": "Resumo da análise",
+                    "voice": "pt-BR-Test",
+                },
+            ),
+            patch.object(supervisor, "upsert_finance_podcast_asset"),
+            patch.object(supervisor, "delete_expired_finance_podcast_assets"),
         ):
             out = supervisor.node_podcast_builder(
                 {
@@ -846,6 +857,26 @@ class TestPodcastBuilder:
         assert out["artifacts"]
         assert out["artifacts"][0]["type"] == "audio"
         assert out["artifacts"][0]["kind"] == "analysis_podcast"
+
+    def test_nao_gera_audio_quando_decisao_humana_e_skip(self):
+        from src.agents.finance_auditor import supervisor
+
+        with (
+            patch.object(supervisor, "interrupt", return_value="skip"),
+            patch.object(supervisor, "synthesize_ptbr_mp3") as fake_tts,
+        ):
+            out = supervisor.node_podcast_builder(
+                {
+                    "request_text": "quero um podcast da ultima analise",
+                    "last_analysis_markdown": "## Resumo\nTexto",
+                    "artifacts": [],
+                }
+            )
+
+        fake_tts.assert_not_called()
+        assert out["podcast_requested"] is True
+        assert "artifacts" not in out
+        assert any("não vou gerar o podcast" in w for w in out.get("warnings") or [])
 
 
 # ---------------------------------------------------------------------------

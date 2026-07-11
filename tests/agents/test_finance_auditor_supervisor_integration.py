@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 
 from langchain_core.messages import AIMessage
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.types import Command
 
 from src.agents.finance_auditor.supervisor import build_supervisor_graph
 from src.agents.finance_auditor.supervisor_schemas import PlanResponse, PlanStep
@@ -119,3 +120,105 @@ class TestSupervisorGraphIntegration:
         assert final_state.get("plan_rationale") == "bloqueado por guardrail"
         # Planner nunca deve gerar um plano real quando o guardrail de entrada bloqueia.
         fake_planner_llm.with_structured_output.return_value.invoke.assert_not_called()
+
+
+class TestPodcastHITL:
+    """`node_podcast_builder` pausa o grafo via `interrupt()` antes de gastar
+    a chamada de TTS — só gera o áudio depois que `resume()` (ou, no teste,
+    `Command(resume=...)` direto) recebe a decisão humana."""
+
+    def _build_graph(self):
+        checkpointer = MemorySaver()
+        graph = build_supervisor_graph(
+            llm=_build_fake_planner_llm(),
+            llm_creative=_build_fake_composer_llm(),
+            llm_lite=_build_fake_planner_llm(),
+            checkpointer=checkpointer,
+        )
+        return graph
+
+    def _run_until_interrupt(self, graph, thread_id: str):
+        config = {"configurable": {"thread_id": thread_id}}
+        with patch("src.agents.finance_auditor.supervisor.audit_log.record", return_value=123):
+            final_state = None
+            for event in graph.stream(
+                {
+                    "request_text": "gera um podcast dessa análise",
+                    "project_id": "proj-teste",
+                    "last_analysis_markdown": "## Resumo executivo\nAnálise anterior de teste.",
+                    "user_profile": {},
+                    "user_id": "test-user",
+                    "user": {},
+                    "usage_log": [],
+                    "context_cache": {},
+                },
+                config=config,
+                stream_mode="values",
+            ):
+                final_state = event
+        return config, final_state
+
+    def test_podcast_request_interrompe_o_grafo_antes_do_tts(self):
+        graph = self._build_graph()
+        with patch("src.agents.finance_auditor.supervisor.synthesize_ptbr_mp3") as fake_tts:
+            config, final_state = self._run_until_interrupt(graph, "test-podcast-interrupt")
+            fake_tts.assert_not_called()
+
+        snapshot = graph.get_state(config)
+        assert snapshot.next  # grafo pausado, aguardando decisão humana
+        # Composer/audit já rodaram antes do interrupt — a análise do turno
+        # já está disponível mesmo com o podcast pendente de confirmação.
+        assert final_state.get("audit_id") == 123
+        assert "Resumo" in final_state.get("final_answer", "")
+
+    def test_resume_approve_gera_o_podcast(self):
+        graph = self._build_graph()
+        with patch("src.agents.finance_auditor.supervisor.synthesize_ptbr_mp3"):
+            config, _ = self._run_until_interrupt(graph, "test-podcast-approve")
+
+        fake_tts_result = {
+            "ok": True,
+            "mime_type": "audio/mpeg",
+            "audio_path": "/tmp/fake.mp3",
+            "audio_size_bytes": 123,
+            "script": "roteiro de teste",
+            "voice": "pt-BR-teste",
+        }
+        with (
+            patch(
+                "src.agents.finance_auditor.supervisor.synthesize_ptbr_mp3",
+                return_value=fake_tts_result,
+            ) as fake_tts,
+            patch("src.agents.finance_auditor.supervisor.upsert_finance_podcast_asset"),
+            patch("src.agents.finance_auditor.supervisor.delete_expired_finance_podcast_assets"),
+            patch("src.agents.finance_auditor.supervisor.audit_log.record", return_value=123),
+        ):
+            final_state = None
+            for event in graph.stream(Command(resume="approve"), config=config, stream_mode="values"):
+                final_state = event
+            fake_tts.assert_called_once()
+
+        snapshot = graph.get_state(config)
+        assert not snapshot.next  # grafo concluído, sem novo interrupt pendente
+        artifacts = final_state.get("artifacts") or []
+        audio = [a for a in artifacts if a.get("type") == "audio" and a.get("kind") == "analysis_podcast"]
+        assert len(audio) == 1
+        assert audio[0]["mime_type"] == "audio/mpeg"
+
+    def test_resume_skip_nao_gera_o_podcast(self):
+        graph = self._build_graph()
+        with patch("src.agents.finance_auditor.supervisor.synthesize_ptbr_mp3"):
+            config, _ = self._run_until_interrupt(graph, "test-podcast-skip")
+
+        with (
+            patch("src.agents.finance_auditor.supervisor.synthesize_ptbr_mp3") as fake_tts,
+            patch("src.agents.finance_auditor.supervisor.audit_log.record", return_value=123),
+        ):
+            final_state = None
+            for event in graph.stream(Command(resume="skip"), config=config, stream_mode="values"):
+                final_state = event
+            fake_tts.assert_not_called()
+
+        artifacts = final_state.get("artifacts") or []
+        assert not [a for a in artifacts if a.get("type") == "audio"]
+        assert any("não vou gerar o podcast" in w for w in final_state.get("warnings") or [])

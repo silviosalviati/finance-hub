@@ -6159,7 +6159,7 @@ async function appendFABotMessage(data) {
 
   if (isFailed) {
     _faRenderQuickSuggestions([]);
-    return;
+    return id;
   }
 
   const artifactsHtml = _faDetailsHtml(data);
@@ -6186,6 +6186,7 @@ async function appendFABotMessage(data) {
     ? extractedSuggestions
     : _faSuggestedFollowups(data.original_query || data.query || "", persona);
   _faRenderQuickSuggestions(suggestions);
+  return id;
 }
 
 // Legenda discreta de volume/custo/tokens sob o hor\u00e1rio \u2014 s\u00f3 aparece quando
@@ -6707,6 +6708,9 @@ async function sendFAMessage() {
       appendFAErrorMessage(
         data.error || "Não foi possível realizar a análise.",
       );
+    } else if (data.status === "awaiting_approval") {
+      const msgId = await appendFABotMessage(data);
+      _faAppendPodcastConfirm(msgId, data.thread_id, data.message);
     } else if (data.response_mode === "chat") {
       await appendFAChatTextMessage(
         data.chat_answer ||
@@ -6739,6 +6743,98 @@ async function sendFAMessage() {
       loading: false,
     });
     input?.focus();
+  }
+}
+
+// Bloco de confirmação humana (HITL) antes de gerar o podcast — o grafo do
+// Finance Voice pausa em node_podcast_builder via interrupt() aguardando
+// essa decisão, então nada de TTS é gasto até o usuário clicar.
+function _faAppendPodcastConfirm(msgId, threadId, message) {
+  const msgEl = document.getElementById(msgId);
+  const slot = msgEl?.querySelector(".fa-art-slot");
+  if (!slot || !threadId) return;
+
+  const confirmId = `${msgId}-podcast-confirm`;
+  slot.insertAdjacentHTML(
+    "beforeend",
+    `<div class="fa-podcast-confirm" id="${confirmId}">` +
+      `<span class="fa-podcast-confirm-msg">${_escFA(message || "Deseja gerar um podcast desta análise?")}</span>` +
+      `<div class="fa-podcast-confirm-actions">` +
+      `<button type="button" class="fa-podcast-confirm-btn fa-podcast-confirm-btn--primary" data-decision="approve">Gerar podcast</button>` +
+      `<button type="button" class="fa-podcast-confirm-btn fa-podcast-confirm-btn--ghost" data-decision="skip">Agora não</button>` +
+      `</div></div>`,
+  );
+
+  document.getElementById(confirmId)
+    ?.querySelectorAll("[data-decision]")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        _faResumePodcast(threadId, btn.getAttribute("data-decision"), msgId);
+      });
+    });
+
+  _faFollowGrowingAnswer();
+}
+
+async function _faResumePodcast(threadId, decision, msgId) {
+  const confirmId = `${msgId}-podcast-confirm`;
+  const block = document.getElementById(confirmId);
+  const buttons = block ? Array.from(block.querySelectorAll("[data-decision]")) : [];
+  const primaryBtn = block?.querySelector('[data-decision="approve"]');
+  const primaryLabel = primaryBtn?.textContent;
+
+  buttons.forEach((btn) => { btn.disabled = true; });
+  if (decision === "approve" && primaryBtn) primaryBtn.textContent = "Gerando podcast...";
+
+  try {
+    const res = await fetch("/api/agents/finance_auditor/resume", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ thread_id: threadId, decision }),
+    });
+
+    if (res.status === 401) {
+      doLogout();
+      return;
+    }
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Erro ao processar o pedido de podcast.");
+
+    block?.remove();
+
+    const artSlot = document.getElementById(msgId)?.querySelector(".fa-art-slot");
+    if (!artSlot) return;
+
+    if (decision === "approve") {
+      const audioArtifact = (Array.isArray(data.artifacts) ? data.artifacts : []).find(
+        (a) => a && a.type === "audio" && a.kind === "analysis_podcast",
+      );
+      if (audioArtifact) {
+        artSlot.insertAdjacentHTML("beforeend", _faRenderArtifact(audioArtifact));
+        _faExecuteInlineScripts(artSlot);
+      } else {
+        const warning = (data.warnings || [])[0] || "Não foi possível gerar o podcast agora.";
+        artSlot.insertAdjacentHTML("beforeend", `<div class="fa-art-more-note">${_escFA(warning)}</div>`);
+      }
+    } else {
+      artSlot.insertAdjacentHTML(
+        "beforeend",
+        `<div class="fa-art-more-note">Ok, não vou gerar o podcast desta análise.</div>`,
+      );
+    }
+    _faFollowGrowingAnswer();
+  } catch (e) {
+    buttons.forEach((btn) => { btn.disabled = false; });
+    if (primaryBtn && primaryLabel) primaryBtn.textContent = primaryLabel;
+    if (block) {
+      let errEl = block.querySelector(".fa-podcast-confirm-error");
+      if (!errEl) {
+        block.insertAdjacentHTML("beforeend", `<div class="fa-podcast-confirm-error"></div>`);
+        errEl = block.querySelector(".fa-podcast-confirm-error");
+      }
+      if (errEl) errEl.textContent = prettifyErrorMessage(e.message);
+    }
   }
 }
 

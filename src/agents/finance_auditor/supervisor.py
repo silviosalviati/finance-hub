@@ -29,6 +29,7 @@ from typing import Any
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import interrupt
 
 from src.agents.finance_auditor.capabilities import execute_capability
 from src.shared.guardrails import audit as audit_log
@@ -69,6 +70,13 @@ from src.shared.tools.tts import synthesize_ptbr_mp3
 _MAX_PLAN_STEPS = 6
 _MAX_ITERATIONS = 2  # router pode rodar até 2x (1 plano original + 1 retry pós-reflect)
 _MAX_PODCAST_SCRIPT_CHARS = 3500
+# Reaproveitada por FinanceAuditorAgent (__init__.py) na resposta
+# "awaiting_approval" — mesmo texto no nó que interrompe o grafo e na API,
+# pra não ter duas cópias divergindo.
+PODCAST_CONFIRM_MESSAGE = (
+    "Deseja que eu gere um podcast em áudio com esta análise? "
+    "A geração usa um serviço de conversão de texto em fala."
+)
 
 
 def _trace_config(label: str, state: SupervisorState) -> dict[str, Any]:
@@ -827,6 +835,11 @@ def node_podcast_builder(state: SupervisorState) -> dict[str, Any]:
                 "Peça uma análise primeiro e depois solicite o áudio."
             ),
         }
+
+    decision = interrupt({"kind": "podcast_confirmation", "message": PODCAST_CONFIRM_MESSAGE})
+    if decision != "approve":
+        warnings.append("Ok, não vou gerar o podcast desta análise.")
+        return {"podcast_requested": True, "warnings": warnings}
 
     asset_id = uuid.uuid4().hex
     tts = synthesize_ptbr_mp3(

@@ -1155,6 +1155,39 @@ async def resume_query_build(
         )
 
 
+@router.post("/api/agents/finance_auditor/resume")
+async def resume_finance_auditor(
+    req: ResumeAnalyzerRequest,
+    session: dict[str, Any] = Depends(get_current_user),
+):
+    """Retoma o Finance Voice após a decisão humana sobre gerar o podcast.
+
+    Envie `decision: "approve"` para gerar o áudio ou `decision: "skip"`
+    para seguir sem gerar (nenhuma chamada de TTS é feita nesse caso).
+    """
+    registry = get_registry()
+    try:
+        agent = registry.get("finance_auditor")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    try:
+        result = await asyncio.to_thread(
+            agent.resume, thread_id=req.thread_id, human_decision=req.decision
+        )
+        checkpointer = get_checkpointer()
+        checkpointer.save(f"{session['token']}-finance_auditor", result)
+        return result
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        logging.error("Erro no resume do finance_auditor: %s\n%s", exc, traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail="Erro interno ao retomar a análise. Tente novamente em instantes.",
+        )
+
+
 _SAFE_ID = re.compile(r"^[a-zA-Z0-9_\-]+$")
 
 

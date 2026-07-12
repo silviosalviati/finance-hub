@@ -321,3 +321,52 @@ Exemplo 2 — Persona Diretor
 Exemplo 3 — Persona Gerente
     "Apresente uma analise comparativa da TAXA_INADIMPLENCIA dos ultimos
     12 meses, identificando tendencias e periodos criticos."
+
+--------------------------------------------------------------------------------
+5. TABELAS UTILIZADAS NAS ANALISES — GERENCIA DE COBRANCA
+--------------------------------------------------------------------------------
+
+IMPORTANTE: nao existe, no codigo, um nome fixo de dataset/tabela para
+"cobranca" ou "inadimplencia". Essa e uma decisao de arquitetura, nao uma
+lacuna de documentacao — o sistema foi desenhado justamente para nao
+depender de hardcode, ja que cada gerencia mantem o seu proprio dataset no
+BigQuery e o nome desse dataset pode nao ter nenhuma relacao com o nome da
+gerencia.
+
+COMO O DATASET DA GERENCIA E RESOLVIDO (em tempo real, nao configurado)
+    resolve_dataset_by_gerencia() em
+    src/agents/finance_auditor/capabilities.py:255-287
+    - Lista todos os datasets do projeto no BigQuery com suas labels
+      (list_datasets_with_labels, src/shared/tools/bigquery.py:333).
+    - Le a label configurada em FINANCE_AUDITOR_GERENCIA_LABEL_KEY
+      (default "gerencia").
+    - Faz fuzzy-match do termo pedido pelo usuario (ex.: "cobranca") contra
+      os VALORES dessa label e devolve o dataset que estiver marcado com
+      esse valor no momento da pergunta.
+    - Se nenhum dataset do projeto estiver rotulado "gerencia: cobranca"
+      naquele momento, a resposta e None (nao ha fallback para um nome
+      fixo) — ver teste test_sem_match_retorna_none em
+      tests/agents/test_finance_auditor_gerencia.py:60-70.
+
+COMO A METRICA TAXA_INADIMPLENCIA E RESOLVIDA (tambem nao e fixa)
+    sync_gold_metric_catalog() em
+    src/agents/finance_auditor/catalog_index.py:148-209
+    - Para cada dataset do projeto, verifica se existe uma tabela chamada
+      GOLD_METRIC_CATALOG (convencao de nome, nao um caminho fixo de
+      projeto.dataset.tabela).
+    - Se existir, le as linhas (METRIC_NAME, DOMINIO, FORMULA_SQL,
+      SQL_TEMPLATE, SOURCE_TABLE, entre outras colunas) e grava em
+      finance_semantic_metrics (SQLite local), namespaced por
+      "{project}.{dataset}.{metric_slug}" — para duas gerencias poderem
+      ter cada uma a sua propria metrica "TAXA_INADIMPLENCIA" sem colidir.
+    - Ou seja: TAXA_INADIMPLENCIA so existe de fato quando alguem popula um
+      GOLD_METRIC_CATALOG no dataset rotulado "gerencia: cobranca" —
+      nao e uma metrica predefinida no codigo do agente.
+
+RESUMO PRATICO
+    O agente descobre em tempo real, a cada pergunta, qual dataset/tabela
+    responder de acordo com as labels do BigQuery vigentes naquele
+    momento — nao ha uma lista fixa de tabelas de cobranca para documentar
+    aqui. Para obter os nomes reais e atuais, e preciso consultar
+    diretamente o BigQuery (INFORMATION_SCHEMA ou labels dos datasets) do
+    projeto em producao no momento da consulta.

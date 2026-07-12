@@ -6762,10 +6762,24 @@ function _faCapitalize(value) {
   return str ? str.charAt(0).toUpperCase() + str.slice(1) : str;
 }
 
-// Bloco de confirmação humana (HITL) antes de gerar o podcast — o grafo do
-// Finance Voice pausa em node_podcast_builder via interrupt() aguardando
-// gênero de voz + tom escolhidos, então nada de TTS é gasto até o usuário
-// clicar em "Gerar podcast".
+// Ícone e frase de exemplo por tom — o tom não muda a voz (só a voz muda o
+// áudio de verdade), então a "prévia" dele é textual, não sonora. Frases
+// alinhadas ao estilo real de cada persona (ver PERSONA_PROMPTS em
+// src/agents/finance_auditor/personas.py).
+const _FA_TONE_ICONS = { coordenador: "check-circle", gerente: "bar-chart", diretor: "target", geral: "sparkle" };
+const _FA_TONE_EXAMPLES = {
+  coordenador: "3 contas da carteira Sudeste vencem em 48h — priorize a cobrança hoje.",
+  gerente: "Inadimplência em 5,96%, alta de 0,8 p.p. vs. mês anterior — provável reflexo do pico de vencimentos em julho.",
+  diretor: "Inadimplência estável em 5,96% da carteira — R$ 12 milhões em risco; recomendo priorizar a segmentação por causa raiz.",
+  geral: "A inadimplência da carteira ficou em 5,96% nos últimos 12 meses, com pico pontual em julho.",
+};
+
+// "Estúdio de narração" — bloco de confirmação humana (HITL) antes de gerar
+// o podcast: ícones de voz (com prévia de áudio cacheada, ver
+// _faPlayVoicePreview) e ícones de tom (com prévia textual em tooltip), no
+// lugar dos <select> antigos. O grafo do Finance Voice pausa em
+// node_podcast_builder via interrupt() aguardando essa escolha — nada de
+// TTS de verdade é gasto até o usuário clicar em "Gerar podcast".
 function _faAppendPodcastConfirm(msgId, threadId, message, voiceOptions, toneOptions, defaultTone) {
   const msgEl = document.getElementById(msgId);
   const slot = msgEl?.querySelector(".fa-art-slot");
@@ -6774,29 +6788,46 @@ function _faAppendPodcastConfirm(msgId, threadId, message, voiceOptions, toneOpt
   const voices = Array.isArray(voiceOptions) && voiceOptions.length ? voiceOptions : ["feminina", "masculina"];
   const tones = Array.isArray(toneOptions) && toneOptions.length ? toneOptions : ["geral"];
   const defaultToneValue = tones.includes(defaultTone) ? defaultTone : tones[0];
+  const defaultVoiceValue = voices[0];
 
   const confirmId = `${msgId}-podcast-confirm`;
-  const voiceOptionsHtml = voices
-    .map((v) => `<option value="${_escFA(v)}">${_escFA(_faCapitalize(v))}</option>`)
-    .join("");
-  const toneOptionsHtml = tones
+
+  const voiceIconsHtml = voices
     .map(
-      (t) =>
-        `<option value="${_escFA(t)}"${t === defaultToneValue ? " selected" : ""}>${_escFA(_faCapitalize(t))}</option>`,
+      (v) =>
+        `<button type="button" class="fa-voice-icon${v === defaultVoiceValue ? " is-active" : ""}" ` +
+        `data-voice="${_escFA(v)}" title="Ouvir a voz ${_escFA(_faCapitalize(v))}">` +
+        `<span class="fa-voice-icon-glyph">${_faIcon("mic", 18)}<span class="fa-voice-icon-play">${_faIcon("play", 9)}</span></span>` +
+        `<span class="fa-voice-icon-label">${_escFA(_faCapitalize(v))}</span>` +
+        `</button>`,
     )
+    .join("");
+
+  const toneIconsHtml = tones
+    .map((t) => {
+      const icon = _FA_TONE_ICONS[t] || "sparkle";
+      const example = _FA_TONE_EXAMPLES[t] || "";
+      return (
+        `<button type="button" class="fa-tone-icon${t === defaultToneValue ? " is-active" : ""}" ` +
+        `data-tone="${_escFA(t)}" data-example="${_escFA(example)}" title="${_escFA(_faCapitalize(t))}">` +
+        `<span class="fa-tone-icon-glyph">${_faIcon(icon, 14)}</span>` +
+        `<span class="fa-tone-icon-label">${_escFA(_faCapitalize(t))}</span>` +
+        `</button>`
+      );
+    })
     .join("");
 
   slot.insertAdjacentHTML(
     "beforeend",
-    `<div class="fa-podcast-confirm" id="${confirmId}">` +
+    `<div class="fa-podcast-confirm" id="${confirmId}" data-selected-voice="${_escFA(defaultVoiceValue)}" data-selected-tone="${_escFA(defaultToneValue)}">` +
       `<span class="fa-podcast-confirm-msg">${_escFA(message || "Deseja gerar um podcast desta análise?")}</span>` +
-      `<div class="fa-podcast-confirm-fields">` +
-      `<label class="fa-podcast-confirm-field">Voz` +
-      `<select class="fa-podcast-confirm-select" data-field="voice_gender">${voiceOptionsHtml}</select>` +
-      `</label>` +
-      `<label class="fa-podcast-confirm-field">Tom` +
-      `<select class="fa-podcast-confirm-select" data-field="tone">${toneOptionsHtml}</select>` +
-      `</label>` +
+      `<div class="fa-podcast-confirm-group">` +
+      `<span class="fa-podcast-confirm-label">Voz <em>(toque para ouvir)</em></span>` +
+      `<div class="fa-voice-icon-row">${voiceIconsHtml}</div>` +
+      `</div>` +
+      `<div class="fa-podcast-confirm-group">` +
+      `<span class="fa-podcast-confirm-label">Tom <em>(toque para ver um exemplo)</em></span>` +
+      `<div class="fa-tone-icon-row">${toneIconsHtml}</div>` +
       `</div>` +
       `<div class="fa-podcast-confirm-actions">` +
       `<button type="button" class="fa-podcast-confirm-btn fa-podcast-confirm-btn--primary" data-decision="approve">Gerar podcast</button>` +
@@ -6805,28 +6836,73 @@ function _faAppendPodcastConfirm(msgId, threadId, message, voiceOptions, toneOpt
   );
 
   const block = document.getElementById(confirmId);
-  block?.querySelectorAll("[data-decision]").forEach((btn) => {
+  if (!block) return;
+
+  block.querySelectorAll(".fa-voice-icon").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      block.querySelectorAll(".fa-voice-icon").forEach((b) => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+      block.dataset.selectedVoice = btn.getAttribute("data-voice") || "";
+      _faPlayVoicePreview(btn);
+    });
+  });
+
+  block.querySelectorAll(".fa-tone-icon").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      block.querySelectorAll(".fa-tone-icon").forEach((b) => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+      block.dataset.selectedTone = btn.getAttribute("data-tone") || "";
+    });
+  });
+
+  block.querySelectorAll("[data-decision]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const decision = btn.getAttribute("data-decision");
-      const voiceGender = block.querySelector('[data-field="voice_gender"]')?.value;
-      const tone = block.querySelector('[data-field="tone"]')?.value;
-      _faResumePodcast(threadId, decision, msgId, voiceGender, tone);
+      _faResumePodcast(threadId, decision, msgId, block.dataset.selectedVoice, block.dataset.selectedTone);
     });
   });
 
   _faFollowGrowingAnswer();
 }
 
+// Toca a amostra cacheada da voz (ver rota /podcast/preview/{gender}) — só
+// gera de verdade no servidor na primeira vez que QUALQUER usuário pedir
+// aquele gênero; toda vez depois disso só serve o arquivo já pronto.
+async function _faPlayVoicePreview(btn) {
+  const gender = btn.getAttribute("data-voice");
+  if (!gender) return;
+
+  btn.classList.add("is-playing");
+  try {
+    const res = await fetch(`/api/agents/finance_auditor/podcast/preview/${encodeURIComponent(gender)}`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error("Prévia de voz indisponível.");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    const cleanup = () => {
+      btn.classList.remove("is-playing");
+      URL.revokeObjectURL(url);
+    };
+    audio.addEventListener("ended", cleanup, { once: true });
+    audio.addEventListener("error", cleanup, { once: true });
+    await audio.play();
+  } catch (e) {
+    btn.classList.remove("is-playing");
+  }
+}
+
 async function _faResumePodcast(threadId, decision, msgId, voiceGender, tone) {
   const confirmId = `${msgId}-podcast-confirm`;
   const block = document.getElementById(confirmId);
   const buttons = block ? Array.from(block.querySelectorAll("[data-decision]")) : [];
-  const selects = block ? Array.from(block.querySelectorAll("select")) : [];
+  const iconButtons = block ? Array.from(block.querySelectorAll(".fa-voice-icon, .fa-tone-icon")) : [];
   const primaryBtn = block?.querySelector('[data-decision="approve"]');
   const primaryLabel = primaryBtn?.textContent;
 
   buttons.forEach((btn) => { btn.disabled = true; });
-  selects.forEach((sel) => { sel.disabled = true; });
+  iconButtons.forEach((btn) => { btn.disabled = true; });
   if (decision === "approve" && primaryBtn) primaryBtn.textContent = "Gerando podcast...";
 
   try {
@@ -6874,7 +6950,7 @@ async function _faResumePodcast(threadId, decision, msgId, voiceGender, tone) {
     _faFollowGrowingAnswer();
   } catch (e) {
     buttons.forEach((btn) => { btn.disabled = false; });
-    selects.forEach((sel) => { sel.disabled = false; });
+    iconButtons.forEach((btn) => { btn.disabled = false; });
     if (primaryBtn && primaryLabel) primaryBtn.textContent = primaryLabel;
     if (block) {
       let errEl = block.querySelector(".fa-podcast-confirm-error");

@@ -3,6 +3,42 @@ from unittest.mock import patch
 from src.shared.tools import tts
 
 
+def test_get_or_create_voice_preview_genero_invalido():
+    result = tts.get_or_create_voice_preview("neutra")
+    assert result["ok"] is False
+    assert "inválido" in result["error"]
+
+
+def test_get_or_create_voice_preview_reusa_cache_existente(tmp_path):
+    cached = tmp_path / "preview_feminina.mp3"
+    cached.write_bytes(b"fake-mp3")
+
+    with (
+        patch.object(tts, "_PODCAST_ROOT", tmp_path),
+        patch.object(tts, "synthesize_ptbr_mp3") as fake_synth,
+    ):
+        result = tts.get_or_create_voice_preview("feminina")
+
+    fake_synth.assert_not_called()
+    assert result == {"ok": True, "mime_type": "audio/mpeg", "audio_path": str(cached)}
+
+
+def test_get_or_create_voice_preview_gera_quando_nao_ha_cache(tmp_path):
+    with (
+        patch.object(tts, "_PODCAST_ROOT", tmp_path),
+        patch.object(
+            tts, "synthesize_ptbr_mp3", return_value={"ok": True, "mime_type": "audio/mpeg"}
+        ) as fake_synth,
+    ):
+        result = tts.get_or_create_voice_preview("masculina")
+
+    fake_synth.assert_called_once()
+    assert fake_synth.call_args.args[0] == tts._PREVIEW_TEXT
+    assert fake_synth.call_args.kwargs["asset_id"] == "preview_masculina"
+    assert fake_synth.call_args.kwargs["gender"] == "masculina"
+    assert result["ok"] is True
+
+
 def test_resolve_voice_name_usa_voz_configurada_por_genero():
     config = {
         "FINANCE_AUDITOR_TTS_VOICE": "pt-BR-Chirp3-HD-Achernar",

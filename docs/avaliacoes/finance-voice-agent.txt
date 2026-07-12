@@ -76,6 +76,62 @@ TESTES
     pre-existente e nao relacionada (lacuna de migracao do banco de
     desenvolvimento local, confirmada como anterior a estas mudancas).
 
+HITL / GOVERNANCA DE CUSTO — GERACAO DE PODCAST
+    Antes, qualquer pedido de podcast detectado por regex disparava a
+    chamada de TTS na hora, sem nenhuma confirmacao humana e sem escolha de
+    voz ou tom. Agora:
+    - `interrupt()` nativo do LangGraph pausa o grafo ANTES da chamada de
+      TTS — nada e gasto ate o usuario confirmar. Mesmo padrao ja usado pelo
+      Query Builder pra aprovacao de qualidade de SQL, agora tambem no
+      Finance Voice.
+    - Usuario escolhe genero de voz (2 vozes reais configraveis no admin —
+      masculina/feminina) e tom (reaproveita as 4 personas ja existentes no
+      produto: coordenador/gerente/diretor/geral). O tom NAO troca a voz —
+      reescreve o roteiro via LLM antes de narrar (mantendo numeros e fatos
+      intactos, so a linguagem muda); quem troca a voz de verdade e o
+      genero.
+    - `FinanceAuditorAgent.resume()` exposto (thread_id + decisao humana +
+      genero/tom), nova rota `POST /api/agents/finance_auditor/resume`.
+    - Composer ganhou consciencia do fluxo: antes, ao ser chamado com um
+      pedido so de podcast, inventava um roteiro de podcast completo como
+      resposta de texto (as vezes ate afirmando, errado, que "nao consigo
+      gerar audio") — agora da so uma confirmacao curta, deixando a geracao
+      de verdade pro node dedicado.
+
+UX — "ESTUDIO DE NARRACAO" (selecao de voz/tom no chat)
+    Selecao trocou de 2 `<select>` por icones, direto na bolha de resposta:
+    - 2 icones de microfone (voz) tocam uma amostra de audio real ao
+      clicar — cacheada em disco, sintetizada uma unica vez por genero (o
+      primeiro clique de qualquer usuario gera; todo clique seguinte so
+      reproduz o arquivo pronto, sem custo adicional de TTS). Nova rota
+      `GET /api/agents/finance_auditor/podcast/preview/{gender}`.
+    - 4 chips de tom com tooltip mostrando uma frase de exemplo de como
+      aquele tom soa por escrito — como o tom nao muda o audio, a previa e
+      textual, nao sonora.
+
+FIX PONTUAL — DEPENDENCIA FALTANTE
+    `google-cloud-texttospeech` estava declarado no `requirements.txt` mas
+    nunca tinha sido instalado no venv (dependencia adicionada e o pacote
+    nunca reinstalado) — causava falha silenciosa de import na primeira
+    geracao de podcast. Instalado e confirmado.
+
+ADMIN — PARAMETROS DO SISTEMA (ajuda contextual)
+    Cada parametro no painel ganhou um botao de ajuda ("?") que abre um
+    popup com explicacao em linguagem simples (sem jargao tecnico tipo
+    "RBAC"/"budget bytes"/"LangSmith"), substituindo a leitura puramente
+    tecnica que ja existia. Texto guardado no backend (`help_text`), com
+    migracao de coluna + backfill automatico pra quem ja tinha o banco
+    rodando antes desta mudanca. As 4 chaves de voz por persona (nunca
+    configuradas de verdade por nenhum usuario) foram removidas e
+    substituidas pelas 2 chaves por genero, com limpeza automatica das
+    linhas orfas no banco de quem ja tinha rodado o server no meio-tempo.
+
+    Suite completa apos todas as mudancas desta rodada: 257 testes
+    passaram (era 183). Os unicos testes que falham sao 6 casos de eval
+    pre-existentes e nao relacionados — dependem de credenciais/LLM real
+    neste ambiente de dev, confirmados como anteriores a estas mudancas
+    (rodei a mesma suite antes de qualquer alteracao pra isolar).
+
 
 --------------------------------------------------------------------------------
 2. PONTOS FORTES DO SISTEMA (seguranca, guardrails, custo)
@@ -129,6 +185,9 @@ CUSTO
     - Consumo de tokens rastreado por etapa do pipeline (planner, reflect,
       composer, cada capability que usa LLM), nao so o total agregado —
       permite identificar exatamente onde o custo esta concentrado.
+    - Previa de voz cacheada em disco (sintetiza 1x por genero, reusa pra
+      sempre) — evita gastar TTS repetidamente so pra deixar o usuario
+      experimentar as vozes disponiveis antes de confirmar o podcast.
 
 --------------------------------------------------------------------------------
 3. ARQUIVOS ALTERADOS
@@ -136,7 +195,9 @@ CUSTO
 
 src/agents/finance_auditor/__init__.py
     analyze, _get_graph, _summarize_token_usage, _make_checkpointer (novo —
-    checkpointer nativo SqliteSaver)
+    checkpointer nativo SqliteSaver); resume (novo — retoma o HITL do
+    podcast com Command(resume=...)); _build_response (novo — extraido de
+    analyze pra ser reusado por resume tambem)
 
 src/agents/finance_auditor/agentic_retrieval.py
     transform_query, adaptive_search_catalog (roteados por invoke_with_retry,
@@ -160,7 +221,11 @@ src/agents/finance_auditor/supervisor.py
     node_guardrails_in, _resolve_placeholders, node_planner, node_reflect,
     node_composer, node_router, node_audit, build_supervisor_graph (nome
     proprio no compile), _trace_config (novo — identificacao de trace
-    centralizada)
+    centralizada); node_podcast_builder (agora com interrupt() nativo antes
+    do TTS, escolha de genero/tom); _rewrite_podcast_script_tone (novo —
+    reescreve o roteiro no tom escolhido via LLM); node_composer (ganhou
+    aviso condicional pra nao inventar roteiro de podcast quando o pedido e
+    so de audio); PODCAST_CONFIRM_MESSAGE, PODCAST_VOICE_OPTIONS (novos)
 
 src/agents/finance_auditor/supervisor_state.py
     SupervisorState (campos usage_log, context_cache)
@@ -169,10 +234,19 @@ src/api/main.py
     lifespan (silencia ruido de bibliotecas de terceiro nos logs)
 
 src/api/routes/agents.py
-    runtime_llm_info, list_agents
+    runtime_llm_info, list_agents; resume_finance_auditor (novo — POST
+    /resume do HITL do podcast); get_finance_podcast_voice_preview (novo —
+    GET /podcast/preview/{gender}, previa cacheada de voz);
+    ResumeFinanceAuditorRequest (novo schema — thread_id/decision/
+    voice_gender/tone)
 
 src/core/database.py
     _migrate_audit_log_columns (novo), append_finance_audit, _CONFIG_DEFAULTS
+    (agora 3-tupla com help_text amigavel por parametro; 4 chaves de voz por
+    persona trocadas por 2 chaves por genero); _migrate_config_help_text_column
+    (novo — coluna help_text + backfill); _prune_stale_config_keys (novo —
+    limpa as chaves de voz por persona removidas); get_config_all,
+    _seed_config_defaults, _ensure_config_keys (passam a gravar help_text)
 
 src/shared/guardrails/audit.py
     record
@@ -196,15 +270,41 @@ src/shared/tools/llm.py
     create_llm, invoke_with_retry, invoke_with_retry_async (novo parametro:
     identificacao de trace para o LangSmith)
 
+src/shared/tools/tts.py
+    _resolve_voice_name (agora resolve por genero, nao mais por persona);
+    get_or_create_voice_preview (novo — previa cacheada em disco, 1 sintese
+    por genero, reusada pra sempre)
+
 static/css/style.css
-    .badge-full-access, .modal-field-hint
+    .badge-full-access, .modal-field-hint; bloco .fa-podcast-confirm* (novo
+    — "estudio de narracao": icones de voz/tom, previa de audio, tooltip de
+    exemplo de tom); .acp-help-btn, .admin-config-help-text (novos — ajuda
+    contextual dos parametros do sistema)
 
 static/js/scripts.js
     _fetchAclMap (novo), _aclHasFullAccess (novo), adminLoadUsers,
-    adminOpenUserModal, adminSaveUser
+    adminOpenUserModal, adminSaveUser; _faAppendPodcastConfirm,
+    _faResumePodcast (reescritos — icones em vez de <select>, com estado de
+    selecao via data-attributes); _faPlayVoicePreview (novo — toca a previa
+    cacheada de voz); appendFABotMessage (passa a retornar o id da
+    mensagem); sendFAMessage (novo ramo pro status "awaiting_approval");
+    adminLoadConfig (botao de ajuda por parametro); adminShowConfigHelp,
+    adminCloseConfigHelp (novos — popup de ajuda contextual)
+
+static/index.html
+    modal #admin-config-help-modal (novo — popup de ajuda dos parametros)
 
 tests/agents/test_finance_auditor_supervisor_integration.py
-    arquivo novo — primeiro teste de integracao do grafo compilado real
+    arquivo novo — primeiro teste de integracao do grafo compilado real;
+    TestPodcastHITL (novo — interrupt/resume real via checkpointer, com
+    genero/tom)
 
-README.md, static/index.html
+tests/agents/test_finance_auditor_supervisor.py
+    TestPodcastBuilder (atualizado pro novo formato de interrupt() —
+    decisao + genero + tom); TestComposerPodcastAwareness (novo)
+
+tests/shared/test_tts.py
+    arquivo novo — resolucao de voz por genero, cache de previa
+
+README.md
     sem alteracao de funcoes (ajustes pontuais de conteudo)

@@ -6739,8 +6739,34 @@ pre {
   background: var(--porto-sky);
   border-radius: 4px;
   padding: 2px 7px;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   letter-spacing: 0.2px;
+}
+
+.acp-help-btn {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--porto-sky2);
+  background: var(--white);
+  color: var(--porto);
+  font-family: var(--font-sans, inherit);
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.acp-help-btn:hover {
+  background: var(--porto);
+  color: #fff;
 }
 
 .acp-card-desc {
@@ -6844,6 +6870,7 @@ pre {
 }
 .modal-close:hover { background: var(--bg-page); color: var(--ink); }
 .modal-body { padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+.admin-config-help-text { margin: 0; font-size: 13px; color: var(--ink2); line-height: 1.55; }
 .modal-field { display: flex; flex-direction: column; gap: 6px; }
 .modal-field label { font-size: 12px; font-weight: 600; color: var(--ink2); }
 .modal-field input[type="text"],

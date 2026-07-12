@@ -13,82 +13,198 @@ import bcrypt
 
 _DB_PATH = Path(".sixth") / "app.db"
 
-_CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
+_CONFIG_DEFAULTS: dict[str, tuple[str, str, str]] = {
     # LLM / Vertex AI
-    "LLM_PROVIDER": ("vertexai", "Provedor LLM (vertexai)"),
-    "VERTEXAI_PROJECT": ("", "Projeto Vertex AI (vazio = descobre a partir das credenciais)"),
-    "VERTEXAI_LOCATION": ("us-central1", "Região Vertex AI"),
-    "VERTEXAI_MODEL": ("gemini-2.5-flash", "Modelo Vertex AI / Gemini"),
-    "VERTEXAI_MAX_OUTPUT_TOKENS": ("8192", "Máximo de tokens de saída do LLM"),
-    "VERTEXAI_MAX_RETRIES": ("1", "Tentativas de retry do Vertex AI SDK"),
-    "VERTEXAI_TEMPERATURE": ("0.05", "Temperatura analítica do LLM — análise e otimização (0.0 – 1.0)"),
-    "VERTEXAI_TEMPERATURE_CREATIVE": ("0.3", "Temperatura criativa do LLM — relatórios e temas (0.0 – 1.0)"),
+    "LLM_PROVIDER": (
+        "vertexai", "Provedor LLM (vertexai)",
+        "Qual serviço de inteligência artificial o sistema usa para gerar "
+        "respostas, SQL e análises. Hoje só há suporte a um provedor "
+        "(Vertex AI, do Google) — não altere a menos que a equipe técnica peça.",
+    ),
+    "VERTEXAI_PROJECT": (
+        "", "Projeto Vertex AI (vazio = descobre a partir das credenciais)",
+        "Em qual projeto do Google Cloud a IA roda. Deixe em branco para o "
+        "sistema descobrir automaticamente pelas credenciais já configuradas.",
+    ),
+    "VERTEXAI_LOCATION": (
+        "us-central1", "Região Vertex AI",
+        "Região do Google Cloud onde os modelos de IA são executados. Só "
+        "altere se a equipe técnica orientar — mudar pode deixar a IA mais "
+        "lenta ou indisponível.",
+    ),
+    "VERTEXAI_MODEL": (
+        "gemini-2.5-flash", "Modelo Vertex AI / Gemini",
+        "Qual versão do modelo de IA (Gemini) é usada para gerar respostas. "
+        "Modelos mais novos tendem a responder melhor, mas podem custar mais "
+        "ou responder mais devagar.",
+    ),
+    "VERTEXAI_MAX_OUTPUT_TOKENS": (
+        "8192", "Máximo de tokens de saída do LLM",
+        "Tamanho máximo que uma resposta da IA pode ter. Se as respostas "
+        "estiverem sendo cortadas no meio, aumente este valor; para "
+        "respostas mais curtas e mais baratas, diminua.",
+    ),
+    "VERTEXAI_MAX_RETRIES": (
+        "1", "Tentativas de retry do Vertex AI SDK",
+        "Quantas vezes o sistema tenta de novo, automaticamente, quando a IA "
+        "falha por instabilidade momentânea, antes de desistir e mostrar erro.",
+    ),
+    "VERTEXAI_TEMPERATURE": (
+        "0.05", "Temperatura analítica do LLM — análise e otimização (0.0 – 1.0)",
+        "Controla o quanto a IA pode 'variar' nas respostas de análise "
+        "(números, SQL). Valores baixos (perto de 0) deixam a IA mais "
+        "precisa e previsível — o recomendado para números e consultas.",
+    ),
+    "VERTEXAI_TEMPERATURE_CREATIVE": (
+        "0.3", "Temperatura criativa do LLM — relatórios e temas (0.0 – 1.0)",
+        "Mesma ideia do parâmetro de temperatura acima, mas usada quando a "
+        "IA escreve textos e relatórios (não números). Valores um pouco mais "
+        "altos deixam o texto mais natural e menos repetitivo.",
+    ),
     "FINANCE_AUDITOR_LITE_MODEL": (
         "",
         "Modelo mais barato/rápido para tarefas simples do Finance Auditor "
         "(seleção de tabelas, veredito do Reflect) — vazio = usa o mesmo "
         "modelo de tudo (VERTEXAI_MODEL), sem tiering. Ex.: gemini-2.5-flash-lite",
+        "Permite usar um modelo de IA mais barato e rápido só para tarefas "
+        "simples de bastidor (como escolher qual tabela consultar), "
+        "economizando custo. Deixe em branco para usar sempre o modelo principal.",
     ),
     # GCP / BigQuery
-    "GCP_PROJECT_ID": ("", "IDs de projetos GCP permitidos, separados por vírgula (vazio = descobre a partir das credenciais)"),
+    "GCP_PROJECT_ID": (
+        "", "IDs de projetos GCP permitidos, separados por vírgula (vazio = descobre a partir das credenciais)",
+        "Quais projetos do Google Cloud (BigQuery) o sistema pode consultar, "
+        "separados por vírgula. Deixe em branco para descobrir automaticamente "
+        "pelas credenciais.",
+    ),
     "GOOGLE_APPLICATION_CREDENTIALS": (
         "secrets/credentials.json",
         "Caminho do arquivo de credenciais GCP (relativo à raiz do projeto)",
+        "Onde fica o arquivo de credenciais que dá ao sistema acesso ao "
+        "Google Cloud. Só altere se a equipe técnica tiver movido esse "
+        "arquivo de lugar.",
     ),
-    "BQ_COST_PER_TB_USD": ("5.0", "Custo por TB processado no BigQuery (USD)"),
-    "BYTES_WARNING_THRESHOLD": ("10737418240", "Limite de alerta de bytes (10 GB)"),
-    "BYTES_CRITICAL_THRESHOLD": ("107374182400", "Limite crítico de bytes (100 GB)"),
+    "BQ_COST_PER_TB_USD": (
+        "5.0", "Custo por TB processado no BigQuery (USD)",
+        "Quanto custa, em dólares, cada terabyte de dados consultado no "
+        "BigQuery — usado só para estimar e mostrar o custo de cada consulta "
+        "ao usuário.",
+    ),
+    "BYTES_WARNING_THRESHOLD": (
+        "10737418240", "Limite de alerta de bytes (10 GB)",
+        "A partir de qual volume de dados processados o sistema mostra um "
+        "aviso de 'consulta pesada' ao usuário, antes de rodar.",
+    ),
+    "BYTES_CRITICAL_THRESHOLD": (
+        "107374182400", "Limite crítico de bytes (100 GB)",
+        "A partir de qual volume de dados processados o sistema considera a "
+        "consulta arriscada/muito cara e reforça o alerta ao usuário.",
+    ),
     # Observabilidade / LangSmith
-    "LANGCHAIN_API_KEY": ("", "API key do LangSmith para tracing (vazio = desativado)"),
-    "LANGCHAIN_PROJECT": ("finance-hub", "Nome do projeto no LangSmith"),
+    "LANGCHAIN_API_KEY": (
+        "", "API key do LangSmith para tracing (vazio = desativado)",
+        "Chave de acesso para registrar, em uma ferramenta de monitoramento "
+        "(LangSmith), o passo a passo interno de cada resposta da IA — útil "
+        "para investigar problemas. Deixe em branco para desativar esse registro.",
+    ),
+    "LANGCHAIN_PROJECT": (
+        "finance-hub", "Nome do projeto no LangSmith",
+        "Nome usado para agrupar os registros de monitoramento da IA (ver "
+        "parâmetro acima) em um só lugar.",
+    ),
     # Query Analyzer
-    "QA_MAX_ITERATIONS": ("2", "Número máximo de iterações de otimização do Query Analyzer"),
+    "QA_MAX_ITERATIONS": (
+        "2", "Número máximo de iterações de otimização do Query Analyzer",
+        "Quantas vezes o Query Analyzer tenta melhorar automaticamente uma "
+        "consulta antes de parar e mostrar o resultado como está.",
+    ),
     # Query Builder
     "QUERY_BUILD_BUDGET_BYTES": (
-        "5368709120", "Budget máximo (bytes) por query gerada pelo Query Builder — 5 GiB"
+        "5368709120", "Budget máximo (bytes) por query gerada pelo Query Builder — 5 GiB",
+        "Volume máximo de dados que uma consulta gerada pelo Query Builder "
+        "pode processar. Consultas que ultrapassariam esse limite são "
+        "bloqueadas antes de rodar, para evitar custo alto.",
     ),
     "QUERY_BUILD_MIN_QUALITY_SCORE": (
-        "80", "Nota mínima (0-100) de boas práticas antes de pedir aprovação humana"
+        "80", "Nota mínima (0-100) de boas práticas antes de pedir aprovação humana",
+        "Nota mínima (de 0 a 100) que uma consulta gerada precisa ter, nas "
+        "checagens automáticas de qualidade, antes de rodar sem perguntar "
+        "nada. Abaixo dessa nota, o sistema pede confirmação ao usuário.",
     ),
     # Finance Voice IA — governança (Fase 3)
     "FINANCE_AUDITOR_PII_MODE": (
-        "mask", "Modo do PII Guard: mask | block | off"
+        "mask", "Modo do PII Guard: mask | block | off",
+        "Como o sistema trata dados pessoais sensíveis (CPF, e-mail, "
+        "telefone etc.) nas respostas do Finance Voice. 'mask' oculta "
+        "parcialmente esses dados, 'block' impede a resposta de sair, 'off' "
+        "desativa essa proteção (não recomendado).",
     ),
     "FINANCE_AUDITOR_RBAC_STRICT": (
-        "1", "RBAC strict: '1' bloqueia usuários sem ACL configurada"
+        "1", "RBAC strict: '1' bloqueia usuários sem ACL configurada",
+        "Controla o que acontece quando um usuário novo ainda não tem "
+        "permissões de acesso configuradas. Ligado (1): esse usuário não vê "
+        "nenhum dado até você liberar manualmente (mais seguro). Desligado "
+        "(0): esse usuário vê tudo por padrão até você restringir.",
     ),
     "FINANCE_AUDITOR_QUERY_BUDGET_BYTES": (
-        "5368709120", "Budget máximo (bytes) por query — 5 GiB"
+        "5368709120", "Budget máximo (bytes) por query — 5 GiB",
+        "Volume máximo de dados que o Finance Voice pode processar em uma "
+        "única consulta ao BigQuery, para evitar consultas muito caras.",
     ),
     "FINANCE_AUDITOR_TOKEN_BUDGET": (
-        "80000", "Budget máximo de tokens de LLM (entrada+saída) por requisição — corta chamadas adicionais além disso"
+        "80000", "Budget máximo de tokens de LLM (entrada+saída) por requisição — corta chamadas adicionais além disso",
+        "Quanto de 'capacidade de IA' (tokens) o Finance Voice pode gastar "
+        "respondendo uma única pergunta. Ao atingir esse limite, novas "
+        "chamadas de IA naquela resposta são bloqueadas para não gerar "
+        "custo além do esperado.",
     ),
     "FINANCE_AUDITOR_DEFAULT_DATASET": (
-        "", "Dataset padrão para bq_list_tables quando não informado"
+        "", "Dataset padrão para bq_list_tables quando não informado",
+        "Qual conjunto de dados (dataset) o sistema assume por padrão "
+        "quando o usuário não especifica um, ao listar tabelas.",
     ),
     "FINANCE_AUDITOR_TTS_VOICE": (
-        "pt-BR-Chirp3-HD-Achernar", "Voz padrão do podcast do Finance Voice"
+        "pt-BR-Chirp3-HD-Achernar", "Voz padrão do podcast do Finance Voice",
+        "Voz usada para narrar os podcasts do Finance Voice quando nenhuma "
+        "voz de gênero específica (parâmetros abaixo) estiver configurada.",
     ),
     "FINANCE_AUDITOR_TTS_VOICE_MASCULINA": (
-        "", "Voz do podcast para gênero masculino (vazio = padrão)"
+        "", "Voz do podcast para gênero masculino (vazio = padrão)",
+        "Voz usada quando o usuário escolhe narração masculina para o "
+        "podcast. Vazio = usa a voz padrão acima.",
     ),
     "FINANCE_AUDITOR_TTS_VOICE_FEMININA": (
-        "", "Voz do podcast para gênero feminino (vazio = padrão)"
+        "", "Voz do podcast para gênero feminino (vazio = padrão)",
+        "Voz usada quando o usuário escolhe narração feminina para o "
+        "podcast. Vazio = usa a voz padrão acima.",
     ),
     "FINANCE_AUDITOR_TTS_SPEAKING_RATE": (
-        "1.0", "Velocidade de fala do podcast do Finance Voice"
+        "1.0", "Velocidade de fala do podcast do Finance Voice",
+        "Velocidade da narração dos podcasts. 1.0 é o ritmo normal; valores "
+        "menores deixam a fala mais lenta, valores maiores deixam mais rápida.",
     ),
     "FINANCE_AUDITOR_PODCAST_TTL_HOURS": (
-        "24", "Tempo de vida dos arquivos de podcast em horas"
+        "24", "Tempo de vida dos arquivos de podcast em horas",
+        "Por quantas horas o áudio de um podcast gerado fica disponível "
+        "para download antes de ser apagado automaticamente.",
     ),
     "FINANCE_AUDITOR_PODCAST_MAX_BYTES": (
-        "20000000", "Tamanho máximo do áudio do podcast em bytes"
+        "20000000", "Tamanho máximo do áudio do podcast em bytes",
+        "Tamanho máximo que um arquivo de áudio de podcast pode ter. Áudios "
+        "maiores que isso são recusados.",
     ),
     # App
-    "SESSION_TTL_HOURS": ("8", "Tempo de vida da sessão em horas"),
+    "SESSION_TTL_HOURS": (
+        "8", "Tempo de vida da sessão em horas",
+        "Por quantas horas um usuário permanece conectado sem precisar "
+        "fazer login de novo.",
+    ),
     "ALLOWED_ORIGINS": (
         "http://localhost:8000,http://127.0.0.1:8000",
         "Origens CORS permitidas (separadas por vírgula)",
+        "Quais endereços (URLs) têm permissão de acessar o sistema pelo "
+        "navegador. Só altere se orientado pela equipe técnica — configurar "
+        "errado pode travar o acesso de todo mundo.",
     ),
 }
 
@@ -136,6 +252,7 @@ def init_db() -> None:
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
+                help_text TEXT NOT NULL DEFAULT '',
                 updated_at TEXT NOT NULL,
                 updated_by TEXT NOT NULL DEFAULT 'system'
             );
@@ -251,6 +368,7 @@ def init_db() -> None:
                 ON sessions (expires_at);
         """)
 
+        _migrate_config_help_text_column(conn)
         _seed_if_empty(conn)
         _ensure_config_keys(conn)
         _prune_stale_config_keys(conn)
@@ -290,6 +408,21 @@ def _migrate_podcast_asset_columns(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE finance_podcast_assets ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
     if "expires_at" not in cols:
         conn.execute("ALTER TABLE finance_podcast_assets ADD COLUMN expires_at TEXT NOT NULL DEFAULT ''")
+
+
+def _migrate_config_help_text_column(conn: sqlite3.Connection) -> None:
+    """Adiciona `help_text` em `app_config` (bancos antigos) e faz o backfill
+    a partir de `_CONFIG_DEFAULTS` para linhas já seedadas antes desta coluna
+    existir — `_ensure_config_keys` usa INSERT OR IGNORE, então não atualiza
+    linhas já existentes."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(app_config)")}
+    if "help_text" not in cols:
+        conn.execute("ALTER TABLE app_config ADD COLUMN help_text TEXT NOT NULL DEFAULT ''")
+
+    conn.executemany(
+        "UPDATE app_config SET help_text = ? WHERE key = ? AND (help_text IS NULL OR help_text = '')",
+        [(help_text, key) for key, (_default, _description, help_text) in _CONFIG_DEFAULTS.items()],
+    )
 
 
 def _migrate_user_columns(conn: sqlite3.Connection) -> None:
@@ -354,11 +487,11 @@ def _seed_if_empty(conn: sqlite3.Connection) -> None:
 def _ensure_config_keys(conn: sqlite3.Connection) -> None:
     """Add any new config keys added to _CONFIG_DEFAULTS that don't exist yet."""
     now = _utcnow()
-    for key, (default, description) in _CONFIG_DEFAULTS.items():
+    for key, (default, description, help_text) in _CONFIG_DEFAULTS.items():
         conn.execute(
-            "INSERT OR IGNORE INTO app_config (key, value, description, updated_at, updated_by)"
-            " VALUES (?, ?, ?, ?, 'system')",
-            (key, default, description, now),
+            "INSERT OR IGNORE INTO app_config (key, value, description, help_text, updated_at, updated_by)"
+            " VALUES (?, ?, ?, ?, ?, 'system')",
+            (key, default, description, help_text, now),
         )
 
 
@@ -380,11 +513,11 @@ def _seed_users_default(conn: sqlite3.Connection) -> None:
 
 def _seed_config_defaults(conn: sqlite3.Connection) -> None:
     now = _utcnow()
-    for key, (default, description) in _CONFIG_DEFAULTS.items():
+    for key, (default, description, help_text) in _CONFIG_DEFAULTS.items():
         conn.execute(
-            "INSERT OR IGNORE INTO app_config (key, value, description, updated_at, updated_by)"
-            " VALUES (?, ?, ?, ?, 'system')",
-            (key, default, description, now),
+            "INSERT OR IGNORE INTO app_config (key, value, description, help_text, updated_at, updated_by)"
+            " VALUES (?, ?, ?, ?, ?, 'system')",
+            (key, default, description, help_text, now),
         )
 
 
@@ -515,7 +648,7 @@ def delete_user(username: str) -> bool:
 def get_config_all() -> list[dict[str, Any]]:
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT key, value, description, updated_at, updated_by FROM app_config ORDER BY key"
+            "SELECT key, value, description, help_text, updated_at, updated_by FROM app_config ORDER BY key"
         ).fetchall()
     return [dict(r) for r in rows]
 

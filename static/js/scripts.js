@@ -8476,6 +8476,10 @@ async function adminDeleteUser(username) {
 // ─────────────────────────────────────
 // Admin — Config
 // ─────────────────────────────────────
+// Preenchido a cada adminLoadConfig() — evita reescapar/guardar o texto de
+// ajuda (às vezes longo) em atributos data-* no HTML.
+let _adminConfigHelpByKey = {};
+
 async function adminLoadConfig() {
   const grid = document.getElementById("admin-config-grid");
   if (!grid) return;
@@ -8491,9 +8495,23 @@ async function adminLoadConfig() {
       return;
     }
 
+    _adminConfigHelpByKey = {};
+    configs.forEach((c) => {
+      _adminConfigHelpByKey[c.key] = c.help_text || c.description || "Sem explicação disponível para este parâmetro.";
+    });
+
     grid.innerHTML = configs.map(c => `
       <div class="acp-card">
-        <span class="acp-card-key">${escapeHtml(c.key)}</span>
+        <span class="acp-card-key">
+          ${escapeHtml(c.key)}
+          <button
+            type="button"
+            class="acp-help-btn"
+            title="O que é este parâmetro?"
+            aria-label="O que é este parâmetro?"
+            onclick="adminShowConfigHelp('${escapeHtml(c.key)}')"
+          >?</button>
+        </span>
         <div class="acp-card-desc">${escapeHtml(c.description || "—")}</div>
         <div class="acp-card-row">
           <input
@@ -8510,6 +8528,23 @@ async function adminLoadConfig() {
   } catch (e) {
     grid.innerHTML = `<div class="acp-loading" style="color:#c0392b">${e.message}</div>`;
   }
+}
+
+function adminShowConfigHelp(key) {
+  const modal = document.getElementById("admin-config-help-modal");
+  const title = document.getElementById("admin-config-help-title");
+  const text = document.getElementById("admin-config-help-text");
+  if (!modal || !title || !text) return;
+
+  title.textContent = key;
+  text.textContent = _adminConfigHelpByKey[key] || "Sem explicação disponível para este parâmetro.";
+  modal.style.display = "flex";
+}
+
+function adminCloseConfigHelp(event) {
+  if (event && event.target && event.target.id !== "admin-config-help-modal") return;
+  const modal = document.getElementById("admin-config-help-modal");
+  if (modal) modal.style.display = "none";
 }
 
 async function adminSaveConfig(key) {

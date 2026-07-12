@@ -2680,6 +2680,22 @@ runbook_operacional</pre
         </div>
       </div>
 
+      <!-- ADMIN: Parâmetro — popup de ajuda -->
+      <div id="admin-config-help-modal" class="modal-overlay" style="display:none" onclick="adminCloseConfigHelp(event)">
+        <div class="modal-card" onclick="event.stopPropagation()">
+          <div class="modal-header">
+            <div class="modal-title" id="admin-config-help-title">Parâmetro</div>
+            <button class="modal-close" onclick="adminCloseConfigHelp()">✕</button>
+          </div>
+          <div class="modal-body">
+            <p class="admin-config-help-text" id="admin-config-help-text"></p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-primary" onclick="adminCloseConfigHelp()">Entendi</button>
+          </div>
+        </div>
+      </div>
+
       <footer>
         <strong>Finance Hub IA</strong> · Porto Seguro Holding — Gerência de
         Dados

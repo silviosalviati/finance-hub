@@ -109,12 +109,6 @@ UX — "ESTUDIO DE NARRACAO" (selecao de voz/tom no chat)
       aquele tom soa por escrito — como o tom nao muda o audio, a previa e
       textual, nao sonora.
 
-FIX PONTUAL — DEPENDENCIA FALTANTE
-    `google-cloud-texttospeech` estava declarado no `requirements.txt` mas
-    nunca tinha sido instalado no venv (dependencia adicionada e o pacote
-    nunca reinstalado) — causava falha silenciosa de import na primeira
-    geracao de podcast. Instalado e confirmado.
-
 ADMIN — PARAMETROS DO SISTEMA (ajuda contextual)
     Cada parametro no painel ganhou um botao de ajuda ("?") que abre um
     popup com explicacao em linguagem simples (sem jargao tecnico tipo
@@ -308,3 +302,22 @@ tests/shared/test_tts.py
 
 README.md
     sem alteracao de funcoes (ajustes pontuais de conteudo)
+
+--------------------------------------------------------------------------------
+4. EXEMPLOS DE PERGUNTAS — GERENCIA DE COBRANCA
+--------------------------------------------------------------------------------
+
+Exemplo 1 — Persona Diretor
+    "Como diretor financeiro, apresente uma visao executiva da
+    inadimplencia dos ultimos 12 meses. Utilize apenas indicadores
+    oficiais, identifique tendencias, causas raiz, riscos financeiros e
+    oportunidades de recuperacao."
+
+Exemplo 2 — Persona Diretor
+    "Projete a inadimplencia para os proximos 90 dias utilizando o
+    historico disponivel e apresente os riscos esperados para o fluxo de
+    caixa."
+
+Exemplo 3 — Persona Gerente
+    "Apresente uma analise comparativa da TAXA_INADIMPLENCIA dos ultimos
+    12 meses, identificando tendencias e periodos criticos."

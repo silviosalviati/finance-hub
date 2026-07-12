@@ -19,7 +19,12 @@ from langchain_core.callbacks.usage import get_usage_metadata_callback
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 
-from src.agents.finance_auditor.supervisor import PODCAST_CONFIRM_MESSAGE, build_supervisor_graph
+from src.agents.finance_auditor.supervisor import (
+    PODCAST_CONFIRM_MESSAGE,
+    PODCAST_VOICE_OPTIONS,
+    build_supervisor_graph,
+)
+from src.agents.finance_auditor.personas import VALID_PERSONAS
 from src.core.base_agent import BaseAgent
 from src.shared.config import get_runtime_config
 from src.shared.tools.llm import create_llm as _create_llm
@@ -149,13 +154,22 @@ class FinanceAuditorAgent(BaseAgent):
             response = self._build_response(final_state, tid, token_usage)
             response["status"] = "awaiting_approval"
             response["message"] = PODCAST_CONFIRM_MESSAGE
+            response["voice_options"] = list(PODCAST_VOICE_OPTIONS)
+            response["tone_options"] = list(VALID_PERSONAS)
             return response
 
         return self._build_response(final_state, tid, token_usage)
 
-    def resume(self, thread_id: str, human_decision: str) -> dict[str, Any]:
+    def resume(
+        self,
+        thread_id: str,
+        human_decision: str,
+        voice_gender: str | None = None,
+        tone: str | None = None,
+    ) -> dict[str, Any]:
         """Retoma o grafo pausado em `node_podcast_builder` após a decisão
         humana sobre gerar (ou não) o podcast — ver `interrupt()` no nó.
+        `voice_gender`/`tone` só importam quando `human_decision == "approve"`.
         """
         graph = self._get_graph()
         config = {"configurable": {"thread_id": thread_id}}
@@ -166,10 +180,15 @@ class FinanceAuditorAgent(BaseAgent):
                 "Sessão de análise expirou ou não foi encontrada. Faça a pergunta novamente."
             )
 
+        resume_payload = {
+            "decision": human_decision,
+            "voice_gender": voice_gender,
+            "tone": tone,
+        }
         final_state: dict[str, Any] | None = None
         with get_usage_metadata_callback() as usage_cb:
             for event in graph.stream(
-                Command(resume=human_decision), config=config, stream_mode="values"
+                Command(resume=resume_payload), config=config, stream_mode="values"
             ):
                 final_state = event
             token_usage = self._summarize_token_usage(usage_cb.usage_metadata)

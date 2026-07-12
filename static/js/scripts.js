@@ -6710,7 +6710,14 @@ async function sendFAMessage() {
       );
     } else if (data.status === "awaiting_approval") {
       const msgId = await appendFABotMessage(data);
-      _faAppendPodcastConfirm(msgId, data.thread_id, data.message);
+      _faAppendPodcastConfirm(
+        msgId,
+        data.thread_id,
+        data.message,
+        data.voice_options,
+        data.tone_options,
+        data.persona,
+      );
     } else if (data.response_mode === "chat") {
       await appendFAChatTextMessage(
         data.chat_answer ||
@@ -6746,51 +6753,88 @@ async function sendFAMessage() {
   }
 }
 
+function _faCapitalize(value) {
+  const str = String(value || "");
+  return str ? str.charAt(0).toUpperCase() + str.slice(1) : str;
+}
+
 // Bloco de confirmação humana (HITL) antes de gerar o podcast — o grafo do
 // Finance Voice pausa em node_podcast_builder via interrupt() aguardando
-// essa decisão, então nada de TTS é gasto até o usuário clicar.
-function _faAppendPodcastConfirm(msgId, threadId, message) {
+// gênero de voz + tom escolhidos, então nada de TTS é gasto até o usuário
+// clicar em "Gerar podcast".
+function _faAppendPodcastConfirm(msgId, threadId, message, voiceOptions, toneOptions, defaultTone) {
   const msgEl = document.getElementById(msgId);
   const slot = msgEl?.querySelector(".fa-art-slot");
   if (!slot || !threadId) return;
 
+  const voices = Array.isArray(voiceOptions) && voiceOptions.length ? voiceOptions : ["feminina", "masculina"];
+  const tones = Array.isArray(toneOptions) && toneOptions.length ? toneOptions : ["geral"];
+  const defaultToneValue = tones.includes(defaultTone) ? defaultTone : tones[0];
+
   const confirmId = `${msgId}-podcast-confirm`;
+  const voiceOptionsHtml = voices
+    .map((v) => `<option value="${_escFA(v)}">${_escFA(_faCapitalize(v))}</option>`)
+    .join("");
+  const toneOptionsHtml = tones
+    .map(
+      (t) =>
+        `<option value="${_escFA(t)}"${t === defaultToneValue ? " selected" : ""}>${_escFA(_faCapitalize(t))}</option>`,
+    )
+    .join("");
+
   slot.insertAdjacentHTML(
     "beforeend",
     `<div class="fa-podcast-confirm" id="${confirmId}">` +
       `<span class="fa-podcast-confirm-msg">${_escFA(message || "Deseja gerar um podcast desta análise?")}</span>` +
+      `<div class="fa-podcast-confirm-fields">` +
+      `<label class="fa-podcast-confirm-field">Voz` +
+      `<select class="fa-podcast-confirm-select" data-field="voice_gender">${voiceOptionsHtml}</select>` +
+      `</label>` +
+      `<label class="fa-podcast-confirm-field">Tom` +
+      `<select class="fa-podcast-confirm-select" data-field="tone">${toneOptionsHtml}</select>` +
+      `</label>` +
+      `</div>` +
       `<div class="fa-podcast-confirm-actions">` +
       `<button type="button" class="fa-podcast-confirm-btn fa-podcast-confirm-btn--primary" data-decision="approve">Gerar podcast</button>` +
       `<button type="button" class="fa-podcast-confirm-btn fa-podcast-confirm-btn--ghost" data-decision="skip">Agora não</button>` +
       `</div></div>`,
   );
 
-  document.getElementById(confirmId)
-    ?.querySelectorAll("[data-decision]")
-    .forEach((btn) => {
-      btn.addEventListener("click", () => {
-        _faResumePodcast(threadId, btn.getAttribute("data-decision"), msgId);
-      });
+  const block = document.getElementById(confirmId);
+  block?.querySelectorAll("[data-decision]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const decision = btn.getAttribute("data-decision");
+      const voiceGender = block.querySelector('[data-field="voice_gender"]')?.value;
+      const tone = block.querySelector('[data-field="tone"]')?.value;
+      _faResumePodcast(threadId, decision, msgId, voiceGender, tone);
     });
+  });
 
   _faFollowGrowingAnswer();
 }
 
-async function _faResumePodcast(threadId, decision, msgId) {
+async function _faResumePodcast(threadId, decision, msgId, voiceGender, tone) {
   const confirmId = `${msgId}-podcast-confirm`;
   const block = document.getElementById(confirmId);
   const buttons = block ? Array.from(block.querySelectorAll("[data-decision]")) : [];
+  const selects = block ? Array.from(block.querySelectorAll("select")) : [];
   const primaryBtn = block?.querySelector('[data-decision="approve"]');
   const primaryLabel = primaryBtn?.textContent;
 
   buttons.forEach((btn) => { btn.disabled = true; });
+  selects.forEach((sel) => { sel.disabled = true; });
   if (decision === "approve" && primaryBtn) primaryBtn.textContent = "Gerando podcast...";
 
   try {
     const res = await fetch("/api/agents/finance_auditor/resume", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ thread_id: threadId, decision }),
+      body: JSON.stringify({
+        thread_id: threadId,
+        decision,
+        voice_gender: decision === "approve" ? voiceGender : null,
+        tone: decision === "approve" ? tone : null,
+      }),
     });
 
     if (res.status === 401) {
@@ -6826,6 +6870,7 @@ async function _faResumePodcast(threadId, decision, msgId) {
     _faFollowGrowingAnswer();
   } catch (e) {
     buttons.forEach((btn) => { btn.disabled = false; });
+    selects.forEach((sel) => { sel.disabled = false; });
     if (primaryBtn && primaryLabel) primaryBtn.textContent = primaryLabel;
     if (block) {
       let errEl = block.querySelector(".fa-podcast-confirm-error");

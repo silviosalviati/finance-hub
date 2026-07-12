@@ -194,9 +194,14 @@ class TestPodcastHITL:
             patch("src.agents.finance_auditor.supervisor.audit_log.record", return_value=123),
         ):
             final_state = None
-            for event in graph.stream(Command(resume="approve"), config=config, stream_mode="values"):
+            for event in graph.stream(
+                Command(resume={"decision": "approve", "voice_gender": "masculina", "tone": "diretor"}),
+                config=config,
+                stream_mode="values",
+            ):
                 final_state = event
             fake_tts.assert_called_once()
+            assert fake_tts.call_args.kwargs["gender"] == "masculina"
 
         snapshot = graph.get_state(config)
         assert not snapshot.next  # grafo concluído, sem novo interrupt pendente
@@ -215,7 +220,9 @@ class TestPodcastHITL:
             patch("src.agents.finance_auditor.supervisor.audit_log.record", return_value=123),
         ):
             final_state = None
-            for event in graph.stream(Command(resume="skip"), config=config, stream_mode="values"):
+            for event in graph.stream(
+                Command(resume={"decision": "skip"}), config=config, stream_mode="values"
+            ):
                 final_state = event
             fake_tts.assert_not_called()
 

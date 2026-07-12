@@ -810,26 +810,35 @@ class TestPodcastBuilder:
     def test_ignora_quando_nao_ha_intencao_de_podcast(self):
         from src.agents.finance_auditor.supervisor import node_podcast_builder
 
-        out = node_podcast_builder({"request_text": "quais os principais riscos?"})
+        out = node_podcast_builder({"request_text": "quais os principais riscos?"}, llm=MagicMock())
         assert out["podcast_requested"] is False
 
     def test_retorna_erro_amigavel_sem_analise_previa(self):
         from src.agents.finance_auditor.supervisor import node_podcast_builder
 
-        out = node_podcast_builder({"request_text": "gera um podcast disso"})
+        out = node_podcast_builder({"request_text": "gera um podcast disso"}, llm=MagicMock())
         assert out["podcast_requested"] is True
         assert "não encontrei" in out["final_answer"].lower()
 
     def test_gera_artefato_de_audio(self):
         """`interrupt()` pausaria o grafo de verdade em uma execução real —
-        aqui mockamos a decisão humana como já aprovada ("approve") pra testar
-        isoladamente o restante do nó, sem precisar subir o grafo completo
-        (ver TestPodcastHITL em test_finance_auditor_supervisor_integration.py
-        para o ciclo real de interrupt/resume via checkpointer)."""
+        aqui mockamos a decisão humana já aprovada (gênero+tom incluídos) pra
+        testar isoladamente o restante do nó, sem precisar subir o grafo
+        completo (ver TestPodcastHITL em
+        test_finance_auditor_supervisor_integration.py para o ciclo real de
+        interrupt/resume via checkpointer)."""
+        from langchain_core.messages import AIMessage
         from src.agents.finance_auditor import supervisor
 
+        fake_llm = MagicMock()
+        fake_llm.invoke.return_value = AIMessage(content="Roteiro reescrito no tom escolhido.")
+
         with (
-            patch.object(supervisor, "interrupt", return_value="approve"),
+            patch.object(
+                supervisor,
+                "interrupt",
+                return_value={"decision": "approve", "voice_gender": "masculina", "tone": "diretor"},
+            ),
             patch.object(
                 supervisor,
                 "synthesize_ptbr_mp3",
@@ -841,7 +850,7 @@ class TestPodcastBuilder:
                     "script": "Resumo da análise",
                     "voice": "pt-BR-Test",
                 },
-            ),
+            ) as fake_tts,
             patch.object(supervisor, "upsert_finance_podcast_asset"),
             patch.object(supervisor, "delete_expired_finance_podcast_assets"),
         ):
@@ -850,19 +859,23 @@ class TestPodcastBuilder:
                     "request_text": "quero um podcast da ultima analise",
                     "last_analysis_markdown": "## Resumo\nTexto",
                     "artifacts": [],
-                }
+                },
+                llm=fake_llm,
             )
 
         assert out["podcast_requested"] is True
         assert out["artifacts"]
         assert out["artifacts"][0]["type"] == "audio"
         assert out["artifacts"][0]["kind"] == "analysis_podcast"
+        # script mandado pro TTS já deve ser o reescrito, não o original
+        assert fake_tts.call_args.args[0] == "Roteiro reescrito no tom escolhido."
+        assert fake_tts.call_args.kwargs["gender"] == "masculina"
 
     def test_nao_gera_audio_quando_decisao_humana_e_skip(self):
         from src.agents.finance_auditor import supervisor
 
         with (
-            patch.object(supervisor, "interrupt", return_value="skip"),
+            patch.object(supervisor, "interrupt", return_value={"decision": "skip"}),
             patch.object(supervisor, "synthesize_ptbr_mp3") as fake_tts,
         ):
             out = supervisor.node_podcast_builder(
@@ -870,7 +883,8 @@ class TestPodcastBuilder:
                     "request_text": "quero um podcast da ultima analise",
                     "last_analysis_markdown": "## Resumo\nTexto",
                     "artifacts": [],
-                }
+                },
+                llm=MagicMock(),
             )
 
         fake_tts.assert_not_called()

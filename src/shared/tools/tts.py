@@ -60,23 +60,21 @@ def build_podcast_script(text: str, max_chars: int = 3500) -> str:
     return script
 
 
-def _resolve_voice_name(persona: str | None) -> str:
-    persona_key = str(persona or "").strip().lower()
-    persona_map = {
-        "coordenador": "FINANCE_AUDITOR_TTS_VOICE_COORDENADOR",
-        "gerente": "FINANCE_AUDITOR_TTS_VOICE_GERENTE",
-        "diretor": "FINANCE_AUDITOR_TTS_VOICE_DIRETOR",
-        "geral": "FINANCE_AUDITOR_TTS_VOICE_GERAL",
+def _resolve_voice_name(gender: str | None) -> str:
+    gender_key = str(gender or "").strip().lower()
+    gender_map = {
+        "masculina": "FINANCE_AUDITOR_TTS_VOICE_MASCULINA",
+        "feminina": "FINANCE_AUDITOR_TTS_VOICE_FEMININA",
     }
     fallback = get_runtime_config("FINANCE_AUDITOR_TTS_VOICE", "pt-BR-Chirp3-HD-Achernar")
-    key = persona_map.get(persona_key)
+    key = gender_map.get(gender_key)
     if not key:
         return fallback
     candidate = get_runtime_config(key, "").strip()
     return candidate or fallback
 
 
-def synthesize_ptbr_mp3(text: str, asset_id: str | None = None, persona: str | None = None) -> dict[str, Any]:
+def synthesize_ptbr_mp3(text: str, asset_id: str | None = None, gender: str | None = None) -> dict[str, Any]:
     script = build_podcast_script(text)
     if not script:
         return {"ok": False, "error": "Texto vazio para sintetizar audio."}
@@ -100,7 +98,7 @@ def synthesize_ptbr_mp3(text: str, asset_id: str | None = None, persona: str | N
         creds = _get_credentials(credentials_path)
         client = texttospeech.TextToSpeechClient(credentials=creds)
 
-        voice_name = _resolve_voice_name(persona)
+        voice_name = _resolve_voice_name(gender)
         speaking_rate = float(get_runtime_config("FINANCE_AUDITOR_TTS_SPEAKING_RATE", "1.0"))
         max_bytes = int(get_runtime_config("FINANCE_AUDITOR_PODCAST_MAX_BYTES", "20000000"))
         resolved_asset_id = (asset_id or uuid.uuid4().hex).strip() or uuid.uuid4().hex

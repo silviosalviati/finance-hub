@@ -7725,6 +7725,41 @@ button:focus:not(:focus-visible) {
   line-height: 1.4;
 }
 
+.fa-podcast-confirm-fields {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fa-podcast-confirm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink3);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.fa-podcast-confirm-select {
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--ink2);
+  background: var(--white);
+  cursor: pointer;
+}
+
+.fa-podcast-confirm-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .fa-podcast-confirm-actions {
   display: flex;
   gap: 8px;

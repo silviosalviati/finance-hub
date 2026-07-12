@@ -55,6 +55,13 @@ class ResumeAnalyzerRequest(BaseModel):
     decision: str = Field(..., min_length=1, max_length=2048)  # "approve" | "skip"
 
 
+class ResumeFinanceAuditorRequest(BaseModel):
+    thread_id: str = Field(..., min_length=1, max_length=128)
+    decision: str = Field(..., min_length=1, max_length=32)  # "approve" | "skip"
+    voice_gender: str | None = Field(default=None, max_length=32)  # "masculina" | "feminina"
+    tone: str | None = Field(default=None, max_length=32)  # coordenador|gerente|diretor|geral
+
+
 class ValidateDatasetRequest(BaseModel):
     project_id: str = Field(..., min_length=1, max_length=256)
     dataset_hint: str = Field(..., min_length=1, max_length=256)
@@ -1157,13 +1164,14 @@ async def resume_query_build(
 
 @router.post("/api/agents/finance_auditor/resume")
 async def resume_finance_auditor(
-    req: ResumeAnalyzerRequest,
+    req: ResumeFinanceAuditorRequest,
     session: dict[str, Any] = Depends(get_current_user),
 ):
     """Retoma o Finance Voice após a decisão humana sobre gerar o podcast.
 
-    Envie `decision: "approve"` para gerar o áudio ou `decision: "skip"`
-    para seguir sem gerar (nenhuma chamada de TTS é feita nesse caso).
+    Envie `decision: "approve"` (com `voice_gender`/`tone`) para gerar o
+    áudio ou `decision: "skip"` para seguir sem gerar (nenhuma chamada de
+    TTS é feita nesse caso).
     """
     registry = get_registry()
     try:
@@ -1173,7 +1181,11 @@ async def resume_finance_auditor(
 
     try:
         result = await asyncio.to_thread(
-            agent.resume, thread_id=req.thread_id, human_decision=req.decision
+            agent.resume,
+            thread_id=req.thread_id,
+            human_decision=req.decision,
+            voice_gender=req.voice_gender,
+            tone=req.tone,
         )
         checkpointer = get_checkpointer()
         checkpointer.save(f"{session['token']}-finance_auditor", result)

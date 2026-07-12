@@ -77,6 +77,10 @@ PODCAST_CONFIRM_MESSAGE = (
     "Deseja que eu gere um podcast em áudio com esta análise? "
     "A geração usa um serviço de conversão de texto em fala."
 )
+# Gêneros de voz disponíveis pro TTS — só 2 vozes reais configráveis no admin
+# (FINANCE_AUDITOR_TTS_VOICE_MASCULINA/FEMININA); o tom (VALID_PERSONAS) não
+# troca a voz, só reescreve o roteiro (ver _rewrite_podcast_script_tone).
+PODCAST_VOICE_OPTIONS = ("feminina", "masculina")
 
 
 def _trace_config(label: str, state: SupervisorState) -> dict[str, Any]:
@@ -831,7 +835,35 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
 # Nó 5c — podcast_builder (gera áudio da última análise sob demanda)
 # ---------------------------------------------------------------------------
 
-def node_podcast_builder(state: SupervisorState) -> dict[str, Any]:
+def _rewrite_podcast_script_tone(
+    llm: BaseChatModel, source_text: str, tone: str, state: SupervisorState
+) -> str:
+    """Reescreve o roteiro no tom escolhido pelo usuário (uma das 4 personas
+    do produto) antes de narrar — mantém números e fatos, muda só a
+    linguagem. Nunca falha o podcast: em erro, devolve o texto original."""
+    system_prompt = (
+        "Você reescreve um texto de análise financeira para ser NARRADO em "
+        "áudio (podcast), ajustando somente linguagem e ritmo ao tom abaixo — "
+        "mantenha TODOS os números, percentuais e fatos exatamente iguais ao "
+        "original. Responda só com o texto reescrito, sem comentários.\n\n"
+        + get_persona_prompt(tone)
+    )
+    try:
+        response = invoke_with_retry(
+            llm,
+            [SystemMessage(content=system_prompt), HumanMessage(content=source_text)],
+            max_attempts=2,
+            label="podcast_script_rewrite",
+            usage_sink=state.get("usage_log"),
+            run_config=_trace_config("podcast_script_rewrite", state),
+        )
+        text = str(getattr(response, "content", response) or "").strip()
+        return text or source_text
+    except Exception:  # noqa: BLE001
+        return source_text
+
+
+def node_podcast_builder(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     request_text = str(state.get("request_text") or "")
     if not _wants_podcast(request_text):
         return {"podcast_requested": False}
@@ -854,17 +886,32 @@ def node_podcast_builder(state: SupervisorState) -> dict[str, Any]:
             ),
         }
 
-    decision = interrupt({"kind": "podcast_confirmation", "message": PODCAST_CONFIRM_MESSAGE})
+    human_response = interrupt(
+        {
+            "kind": "podcast_confirmation",
+            "message": PODCAST_CONFIRM_MESSAGE,
+            "voice_options": list(PODCAST_VOICE_OPTIONS),
+            "tone_options": list(VALID_PERSONAS),
+        }
+    )
+    decision = human_response.get("decision") if isinstance(human_response, dict) else None
     if decision != "approve":
         warnings.append("Ok, não vou gerar o podcast desta análise.")
         return {"podcast_requested": True, "warnings": warnings}
 
-    asset_id = uuid.uuid4().hex
-    tts = synthesize_ptbr_mp3(
-        source[:_MAX_PODCAST_SCRIPT_CHARS],
-        asset_id=asset_id,
-        persona=str(state.get("persona") or ""),
+    voice_gender = str((human_response or {}).get("voice_gender") or "").strip().lower()
+    if voice_gender not in PODCAST_VOICE_OPTIONS:
+        voice_gender = PODCAST_VOICE_OPTIONS[0]
+    tone = str((human_response or {}).get("tone") or "").strip().lower()
+    if tone not in VALID_PERSONAS:
+        tone = state.get("persona") or PERSONA_GERAL
+
+    script_text = _rewrite_podcast_script_tone(
+        llm, source[:_MAX_PODCAST_SCRIPT_CHARS], tone, state
     )
+
+    asset_id = uuid.uuid4().hex
+    tts = synthesize_ptbr_mp3(script_text, asset_id=asset_id, gender=voice_gender)
     if not tts.get("ok"):
         warnings.append(f"Podcast indisponível no momento: {tts.get('error') or 'falha no TTS'}")
         return {
@@ -1010,7 +1057,7 @@ def build_supervisor_graph(
     workflow.add_node("reflect", lambda s: node_reflect(s, llm=_lite_llm))
     workflow.add_node("apply_reflect_plan", node_apply_reflect_plan)
     workflow.add_node("composer", lambda s: node_composer(s, llm=_composer_llm))
-    workflow.add_node("podcast_builder", node_podcast_builder)
+    workflow.add_node("podcast_builder", lambda s: node_podcast_builder(s, llm=_composer_llm))
     workflow.add_node("audit", node_audit)
     workflow.add_node("guardrails_out", node_guardrails_out)
 

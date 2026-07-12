@@ -69,17 +69,11 @@ _CONFIG_DEFAULTS: dict[str, tuple[str, str]] = {
     "FINANCE_AUDITOR_TTS_VOICE": (
         "pt-BR-Chirp3-HD-Achernar", "Voz padrão do podcast do Finance Voice"
     ),
-    "FINANCE_AUDITOR_TTS_VOICE_COORDENADOR": (
-        "", "Voz do podcast para persona coordenador (vazio = padrão)"
+    "FINANCE_AUDITOR_TTS_VOICE_MASCULINA": (
+        "", "Voz do podcast para gênero masculino (vazio = padrão)"
     ),
-    "FINANCE_AUDITOR_TTS_VOICE_GERENTE": (
-        "", "Voz do podcast para persona gerente (vazio = padrão)"
-    ),
-    "FINANCE_AUDITOR_TTS_VOICE_DIRETOR": (
-        "", "Voz do podcast para persona diretor (vazio = padrão)"
-    ),
-    "FINANCE_AUDITOR_TTS_VOICE_GERAL": (
-        "", "Voz do podcast para persona geral (vazio = padrão)"
+    "FINANCE_AUDITOR_TTS_VOICE_FEMININA": (
+        "", "Voz do podcast para gênero feminino (vazio = padrão)"
     ),
     "FINANCE_AUDITOR_TTS_SPEAKING_RATE": (
         "1.0", "Velocidade de fala do podcast do Finance Voice"
@@ -259,6 +253,7 @@ def init_db() -> None:
 
         _seed_if_empty(conn)
         _ensure_config_keys(conn)
+        _prune_stale_config_keys(conn)
         _migrate_finance_metrics_columns(conn)
         _migrate_user_columns(conn)
         _migrate_audit_log_columns(conn)
@@ -325,6 +320,24 @@ def _migrate_finance_metrics_columns(conn: sqlite3.Connection) -> None:
             "ALTER TABLE finance_semantic_metrics ADD COLUMN"
             " is_official INTEGER NOT NULL DEFAULT 0"
         )
+
+
+# Chaves seedadas no mesmo dia em que a feature de podcast foi introduzida,
+# nunca configuradas por um usuário real — substituídas pelo esquema de
+# gênero (FINANCE_AUDITOR_TTS_VOICE_MASCULINA/FEMININA) antes de qualquer
+# instalação chegar a usá-las de verdade.
+_STALE_CONFIG_KEYS = (
+    "FINANCE_AUDITOR_TTS_VOICE_COORDENADOR",
+    "FINANCE_AUDITOR_TTS_VOICE_GERENTE",
+    "FINANCE_AUDITOR_TTS_VOICE_DIRETOR",
+    "FINANCE_AUDITOR_TTS_VOICE_GERAL",
+)
+
+
+def _prune_stale_config_keys(conn: sqlite3.Connection) -> None:
+    conn.executemany(
+        "DELETE FROM app_config WHERE key = ?", [(key,) for key in _STALE_CONFIG_KEYS]
+    )
 
 
 def _seed_if_empty(conn: sqlite3.Connection) -> None:

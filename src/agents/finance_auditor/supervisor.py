@@ -843,9 +843,23 @@ def _rewrite_podcast_script_tone(
     linguagem. Nunca falha o podcast: em erro, devolve o texto original."""
     system_prompt = (
         "Você reescreve um texto de análise financeira para ser NARRADO em "
-        "áudio (podcast), ajustando somente linguagem e ritmo ao tom abaixo — "
+        "áudio (podcast), ajustando linguagem, ritmo e estrutura ao tom abaixo — "
         "mantenha TODOS os números, percentuais e fatos exatamente iguais ao "
-        "original. Responda só com o texto reescrito, sem comentários.\n\n"
+        "original.\n\n"
+        "Regras de narração (a voz usada não suporta marcação de ênfase "
+        "manual, então o destaque precisa vir da estrutura do próprio "
+        "texto):\n"
+        "- Números e percentuais importantes vão em frases curtas e "
+        "isoladas, nunca no meio de uma oração longa.\n"
+        "- Antes do dado mais crítico da análise, use uma frase curta de "
+        "destaque (ex.: 'Atenção para este número:', 'Aqui está o ponto "
+        "central:').\n"
+        "- Separe o roteiro em parágrafos (uma linha em branco entre eles) "
+        "por ideia — abertura, achado principal, recomendação — pois cada "
+        "parágrafo gera uma pausa real na narração.\n"
+        "- Prefira frases curtas e diretas; evite orações longas com "
+        "múltiplas vírgulas.\n\n"
+        "Responda só com o texto reescrito, sem comentários.\n\n"
         + get_persona_prompt(tone)
     )
     try:

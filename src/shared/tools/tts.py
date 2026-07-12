@@ -4,6 +4,7 @@ import uuid
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from xml.sax.saxutils import escape as _xml_escape
 
 from google.oauth2 import service_account
 
@@ -42,11 +43,20 @@ def _clean_markdown_for_speech(text: str) -> str:
     cleaned = cleaned.replace("(", "")
     cleaned = cleaned.replace(")", "")
 
-    lines = []
+    # Linhas em branco viram separadores de paragrafo (preservados como uma
+    # unica linha vazia) em vez de descartadas — o SSML usa isso para dar
+    # pausas reais entre ideias (ver _build_ssml).
+    lines: list[str] = []
+    blank_pending = False
     for line in cleaned.split("\n"):
         s = line.strip()
         if not s:
+            if lines:
+                blank_pending = True
             continue
+        if blank_pending:
+            lines.append("")
+            blank_pending = False
         if s.startswith("-"):
             s = s[1:].strip()
         lines.append(s)
@@ -58,6 +68,23 @@ def build_podcast_script(text: str, max_chars: int = 3500) -> str:
     if len(script) > max_chars:
         return script[:max_chars].rstrip() + "..."
     return script
+
+
+def _build_ssml(script: str) -> str:
+    """Converte o roteiro em SSML com pausas reais de paragrafo/frase.
+
+    Chirp3-HD (voz usada aqui) nao suporta as tags <emphasis>/<break> — so
+    <p>, <s>, <sub>, <say-as> e <phoneme>. Por isso a enfase vem da propria
+    estrutura do texto (ver prompt de reescrita) e o unico controle de pausa
+    real disponivel e agrupar linhas em paragrafos (<p>) e frases (<s>).
+    """
+    paragraphs = [block for block in script.split("\n\n") if block.strip()]
+    rendered = []
+    for block in paragraphs:
+        sentences = [line.strip() for line in block.split("\n") if line.strip()]
+        inner = "".join(f"<s>{_xml_escape(sentence)}</s>" for sentence in sentences)
+        rendered.append(f"<p>{inner}</p>")
+    return f"<speak>{''.join(rendered)}</speak>"
 
 
 def _resolve_voice_name(gender: str | None) -> str:
@@ -131,7 +158,7 @@ def synthesize_ptbr_mp3(text: str, asset_id: str | None = None, gender: str | No
 
         response = client.synthesize_speech(
             request={
-                "input": texttospeech.SynthesisInput(text=script),
+                "input": texttospeech.SynthesisInput(ssml=_build_ssml(script)),
                 "voice": texttospeech.VoiceSelectionParams(
                     language_code="pt-BR",
                     name=voice_name,

@@ -879,6 +879,57 @@ class TestPodcastBuilder:
         assert any("não vou gerar o podcast" in w for w in out.get("warnings") or [])
 
 
+class TestComposerPodcastAwareness:
+    """O Composer roda antes de `node_podcast_builder` e não conhece esse nó —
+    sem aviso, ele "ajuda" escrevendo um roteiro de podcast inventado (ou diz,
+    errado, que não consegue gerar áudio) quando o pedido é só de podcast."""
+
+    def test_inclui_nota_quando_pedido_e_podcast_com_analise_anterior(self):
+        from langchain_core.messages import AIMessage
+        from src.agents.finance_auditor.supervisor import node_composer
+
+        fake_llm = MagicMock()
+        fake_llm.invoke.return_value = AIMessage(content="## Resumo executivo\nOk.")
+
+        node_composer(
+            {
+                "request_text": "gera um podcast desta ultima analise",
+                "last_analysis_markdown": "## Resumo\nAnálise anterior.",
+                "tool_results": [],
+                "warnings": [],
+                "persona": "diretor",
+                "usage_log": [],
+            },
+            llm=fake_llm,
+        )
+
+        human_msg = fake_llm.invoke.call_args[0][0][1]
+        assert "NOTA IMPORTANTE" in human_msg.content
+        assert "roteiro de podcast" in human_msg.content
+
+    def test_nao_inclui_nota_quando_nao_e_pedido_de_podcast(self):
+        from langchain_core.messages import AIMessage
+        from src.agents.finance_auditor.supervisor import node_composer
+
+        fake_llm = MagicMock()
+        fake_llm.invoke.return_value = AIMessage(content="## Resumo executivo\nOk.")
+
+        node_composer(
+            {
+                "request_text": "qual a inadimplência média?",
+                "last_analysis_markdown": "## Resumo\nAnálise anterior.",
+                "tool_results": [],
+                "warnings": [],
+                "persona": "diretor",
+                "usage_log": [],
+            },
+            llm=fake_llm,
+        )
+
+        human_msg = fake_llm.invoke.call_args[0][0][1]
+        assert "NOTA IMPORTANTE" not in human_msg.content
+
+
 # ---------------------------------------------------------------------------
 # Agente: propagação de user_profile
 # ---------------------------------------------------------------------------

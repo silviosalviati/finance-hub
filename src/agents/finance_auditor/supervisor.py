@@ -769,9 +769,26 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
     warnings = state.get("warnings") or []
     answer_succeeded = _has_answer(tool_results)
     conversation_context = str(state.get("conversation_context") or "").strip()
+    request_text = str(state.get("request_text") or "")
+
+    # `node_podcast_builder` roda logo depois do Composer e já lida com o
+    # pedido de áudio (com confirmação humana antes de narrar de verdade a
+    # análise anterior) — sem este aviso, o Composer não sabe disso e tenta
+    # "ajudar" escrevendo um roteiro de podcast inventado como resposta, ou
+    # afirma (errado) que não consegue gerar áudio.
+    podcast_note = (
+        "\n\nNOTA IMPORTANTE: o usuário pediu um podcast/áudio da análise "
+        "anterior. Um passo separado do sistema, fora do seu controle, vai "
+        "perguntar ao usuário se confirma a geração do áudio e, se sim, narra "
+        "a análise anterior de verdade. NÃO escreva um roteiro de podcast "
+        "nem diga que não consegue gerar áudio — apenas confirme em 1-2 "
+        "frases que entendeu o pedido."
+        if _wants_podcast(request_text) and str(state.get("last_analysis_markdown") or "").strip()
+        else ""
+    )
 
     user_content = (
-        f"Pergunta original do usuário:\n{state.get('request_text', '')}\n\n"
+        f"Pergunta original do usuário:\n{request_text}\n\n"
         + (
             f"Contexto da conversa (turno(s) anterior(es) desta sessão — use para "
             f"resolver referências e, se a capability escolhida foi `chat_answer` "
@@ -782,8 +799,9 @@ def node_composer(state: SupervisorState, llm: BaseChatModel) -> dict[str, Any]:
         )
         + f"Resultados das capabilities (JSON):\n{_summarize_tool_results_for_llm(tool_results)}\n\n"
         f"Avisos (warnings): {json.dumps(warnings, ensure_ascii=False)}\n\n"
-        f"Persona detectada: {persona}\n\n"
-        "Redija a resposta final em Markdown."
+        f"Persona detectada: {persona}"
+        + podcast_note
+        + "\n\nRedija a resposta final em Markdown."
     )
 
     try:

@@ -32,6 +32,7 @@ from src.shared.tools.bigquery import (
 )
 from src.shared.tools.llm import create_llm, invoke_with_retry, invoke_with_retry_async
 from src.shared.tools.schemas import SuggestionsResponse
+from src.shared.tools.tts import get_or_create_voice_preview
 
 router = APIRouter(tags=["agents"])
 
@@ -315,6 +316,30 @@ async def download_finance_podcast_by_audit(
 
     asset_id = str(asset.get("asset_id") or audit_id)
     return FileResponse(audio_path, media_type=str(asset.get("mime_type") or "audio/mpeg"), filename=f"{asset_id}.mp3")
+
+
+@router.get("/api/agents/finance_auditor/podcast/preview/{gender}")
+async def get_finance_podcast_voice_preview(
+    gender: str,
+    _session: dict[str, Any] = Depends(get_current_user),
+):
+    """Amostra curta e cacheada de uma voz (masculina/feminina), pro usuário
+    ouvir antes de confirmar a geração do podcast de verdade — ver
+    `get_or_create_voice_preview`. Gera na primeira vez que qualquer usuário
+    pedir aquele gênero; todo pedido seguinte só serve o arquivo já pronto.
+    """
+    if gender not in ("masculina", "feminina"):
+        raise HTTPException(status_code=400, detail="Gênero de voz inválido.")
+
+    result = await asyncio.to_thread(get_or_create_voice_preview, gender)
+    if not result.get("ok"):
+        raise HTTPException(status_code=502, detail=result.get("error") or "Não foi possível gerar a prévia de voz.")
+
+    audio_path = Path(str(result.get("audio_path") or ""))
+    if not audio_path.exists():
+        raise HTTPException(status_code=404, detail="Arquivo de prévia não encontrado.")
+
+    return FileResponse(audio_path, media_type=result.get("mime_type") or "audio/mpeg", filename=f"preview_{gender}.mp3")
 
 
 def _extract_user_name(query: str) -> str | None:

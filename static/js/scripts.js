@@ -4981,6 +4981,10 @@ const _FA_ICON_PATHS = {
   "chevron-down": '<polyline points="4 7 9 12 14 7"/>',
   "chevron-up": '<polyline points="4 11 9 6 14 11"/>',
   "arrow-right": '<line x1="3" y1="9" x2="14" y2="9"/><polyline points="9.5 4 14.5 9 9.5 14"/>',
+  mic:
+    '<rect x="7" y="2" width="4" height="8" rx="2"/><path d="M4 8.5a5 5 0 0 0 10 0"/>' +
+    '<line x1="9" y1="13.5" x2="9" y2="16.5"/><line x1="6" y1="16.5" x2="12" y2="16.5"/>',
+  play: '<path d="M6 3.5 L15 9 L6 14.5 Z" fill="currentColor" stroke="none"/>',
 };
 
 function _faIcon(name, size = 14) {

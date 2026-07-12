@@ -74,6 +74,32 @@ def _resolve_voice_name(gender: str | None) -> str:
     return candidate or fallback
 
 
+# Frase curta e genérica (não depende de nenhuma análise) usada só pra dar
+# ao usuário uma amostra de como cada voz soa antes de gerar o podcast de
+# verdade — ver get_or_create_voice_preview.
+_PREVIEW_TEXT = "Olá! Esta é a narração do Finance Voice para o seu podcast."
+
+
+def get_or_create_voice_preview(gender: str) -> dict[str, Any]:
+    """Amostra curta e cacheada de uma voz, pra prévia no HITL do podcast.
+
+    Sintetiza a MESMA frase fixa uma única vez por gênero (asset_id
+    determinístico = mesmo caminho em disco sempre) — qualquer clique
+    seguinte, de qualquer usuário, só reproduz o arquivo já gerado, sem
+    gastar TTS de novo.
+    """
+    gender_key = str(gender or "").strip().lower()
+    if gender_key not in ("masculina", "feminina"):
+        return {"ok": False, "error": f"Gênero de voz inválido: {gender!r}."}
+
+    asset_id = f"preview_{gender_key}"
+    cached_path = _PODCAST_ROOT / f"{asset_id}.mp3"
+    if cached_path.exists():
+        return {"ok": True, "mime_type": "audio/mpeg", "audio_path": str(cached_path)}
+
+    return synthesize_ptbr_mp3(_PREVIEW_TEXT, asset_id=asset_id, gender=gender_key)
+
+
 def synthesize_ptbr_mp3(text: str, asset_id: str | None = None, gender: str | None = None) -> dict[str, Any]:
     script = build_podcast_script(text)
     if not script:

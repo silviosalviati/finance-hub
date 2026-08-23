@@ -201,3 +201,55 @@ def test_analyze_request_dataset_hint_tem_prioridade_sobre_pin():
 
     assert res.status_code == 200
     assert captured.get("dataset_hint") == "silviosalviati.outro_dataset"
+
+
+def test_analyze_sem_project_id_usa_default_gcp_project():
+    client = _build_client()
+    checkpointer = _DummyCheckpointer()
+
+    captured: dict[str, object] = {}
+
+    class _FakeAgent:
+        def analyze(self, **kwargs):
+            captured.update(kwargs)
+            return {"status": "ok", "markdown_report": "ok", "chat_answer": "ok"}
+
+    class _FakeRegistry:
+        def get(self, _agent_id):
+            return _FakeAgent()
+
+    with patch.object(agents_module, "get_registry", return_value=_FakeRegistry()), \
+         patch.object(agents_module, "get_checkpointer", return_value=checkpointer), \
+         patch.object(agents_module, "get_default_gcp_project", return_value="proj-padrao"):
+        res = client.post(
+            "/api/agents/finance_auditor/analyze",
+            json={"query": "quanto vendemos no total?"},
+        )
+
+    assert res.status_code == 200
+    assert captured.get("project_id") == "proj-padrao"
+
+
+def test_resolve_query_build_gerencia_sem_project_id_usa_default_gcp_project():
+    client = _build_client()
+
+    captured: dict[str, object] = {}
+
+    def _fake_resolve(project_id: str, gerencia: str):
+        captured["project_id"] = project_id
+        captured["gerencia"] = gerencia
+        return {"dataset_id": "ecommerce_saude", "gerencia": gerencia, "label_key": "gerencia"}
+
+    with patch.object(agents_module, "get_default_gcp_project", return_value="proj-padrao"), \
+         patch.object(agents_module, "resolve_dataset_by_gerencia", side_effect=_fake_resolve), \
+         patch.object(agents_module.finance_rbac, "check_dataset", return_value=(True, "")):
+        res = client.post(
+            "/api/agents/query_build/resolve-gerencia",
+            json={"gerencia": "experiencia_cliente"},
+        )
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["valid"] is True
+    assert body["project_id"] == "proj-padrao"
+    assert captured["project_id"] == "proj-padrao"

@@ -4619,9 +4619,6 @@ function renderBotGrid() {
           }
         </div>
         <div class="bfoot">
-          <div class="btags">
-            ${(a.badge_tags || []).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}
-          </div>
           <button class="btn-open">Acessar ${ACCESS_ICON}</button>
         </div>
       </article>`;

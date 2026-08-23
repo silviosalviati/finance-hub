@@ -1435,29 +1435,10 @@ textarea {
 .bfoot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding-top: 12px;
   border-top: 1px solid var(--border);
   margin-top: auto;
-}
-
-.btags {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.tag {
-  font-family: var(--body);
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  padding: 3px 7px;
-  border-radius: 4px;
-  background: var(--bg);
-  color: var(--ink3);
-  border: 1px solid var(--border);
 }
 
 .btn-open {

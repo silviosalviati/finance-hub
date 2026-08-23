@@ -4583,6 +4583,8 @@ async function loadAccessibleAgents() {
   renderBotGrid();
   renderShowcase();
   startShowcaseAutoplay();
+  const badge = document.getElementById("nav-home-badge");
+  if (badge) badge.textContent = String(accessibleAgents.length);
 }
 
 function renderBotGrid() {

@@ -17,12 +17,18 @@ from pydantic import BaseModel, Field
 
 from src.agents.finance_auditor.capabilities import resolve_dataset_by_gerencia
 from src.shared.guardrails import rbac as finance_rbac
+from src.shared.guardrails.agent_access import user_can_access_agent
 from src.api.dependencies import get_checkpointer, get_current_user, get_registry
 from src.shared.config import get_default_gcp_project, get_runtime_config
+from src.core.agent_catalog import get_agent_meta
 from src.core.database import (
     delete_expired_finance_podcast_assets,
+    get_agent_tags,
     get_finance_podcast_asset,
     get_finance_podcast_asset_by_audit_id,
+    get_user,
+    list_agent_tag_assignments,
+    split_csv,
 )
 from src.shared.tools.bigquery import (
     get_dataset_tables_metadata,
@@ -562,9 +568,33 @@ async def runtime_llm_info(_session: dict[str, Any] = Depends(get_current_user))
 
 
 @router.get("/api/agents")
-async def list_agents(_session: dict[str, Any] = Depends(get_current_user)):
+async def list_agents(session: dict[str, Any] = Depends(get_current_user)):
     registry = get_registry()
-    return {"agents": registry.list_ids()}
+    assignments = list_agent_tag_assignments()
+
+    is_admin = bool(session.get("is_admin"))
+    user_tags: set[str] = set()
+    if not is_admin:
+        user_row = get_user(session["username"])
+        user_tags = set(split_csv(user_row.get("agent_tags", ""))) if user_row else set()
+
+    out: list[dict[str, Any]] = []
+    for agent_id in registry.list_ids():
+        agent_category_tags = assignments.get(agent_id, [])
+        if not is_admin and not user_can_access_agent(agent_category_tags, user_tags):
+            continue
+        meta = get_agent_meta(agent_id)
+        out.append({
+            "agent_id": agent_id,
+            "display_name": meta.get("display_name", agent_id),
+            "description": meta.get("description", ""),
+            "view": meta.get("view", agent_id),
+            "icon_token": meta.get("icon_token", ""),
+            "color_token": meta.get("color_token", ""),
+            "badge_tags": [t for t in meta.get("default_tags", "").split(",") if t],
+            "category_tags": agent_category_tags,
+        })
+    return {"agents": out}
 
 
 @router.post("/api/agents/{agent_id}/analyze")
@@ -591,6 +621,13 @@ async def analyze_by_agent(
         agent = registry.get(agent_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    if not session.get("is_admin"):
+        agent_category_tags = get_agent_tags(agent_id)
+        user_row = get_user(session["username"])
+        user_tags = set(split_csv(user_row.get("agent_tags", ""))) if user_row else set()
+        if not user_can_access_agent(agent_category_tags, user_tags):
+            raise HTTPException(status_code=403, detail="Você não tem acesso a este agente.")
 
     try:
         checkpointer = get_checkpointer()

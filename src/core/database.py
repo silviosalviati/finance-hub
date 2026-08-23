@@ -244,6 +244,7 @@ def init_db() -> None:
                 name TEXT NOT NULL,
                 is_admin INTEGER NOT NULL DEFAULT 0,
                 gerencia TEXT NOT NULL DEFAULT '',
+                agent_tags TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -298,6 +299,13 @@ def init_db() -> None:
                 allowed_datasets TEXT NOT NULL DEFAULT '',
                 allowed_metrics TEXT NOT NULL DEFAULT '',
                 denied_datasets TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL
+            );
+
+            -- Controle de acesso a agentes por tag de categoria.
+            CREATE TABLE IF NOT EXISTS agent_tag_assignments (
+                agent_id TEXT PRIMARY KEY,
+                tags TEXT NOT NULL DEFAULT '',
                 updated_at TEXT NOT NULL
             );
 
@@ -426,10 +434,12 @@ def _migrate_config_help_text_column(conn: sqlite3.Connection) -> None:
 
 
 def _migrate_user_columns(conn: sqlite3.Connection) -> None:
-    """Adiciona a coluna gerencia em users/sessions quando ausente (bancos antigos)."""
+    """Adiciona colunas novas em users/sessions quando ausentes (bancos antigos)."""
     user_cols = {r[1] for r in conn.execute("PRAGMA table_info(users)")}
     if "gerencia" not in user_cols:
         conn.execute("ALTER TABLE users ADD COLUMN gerencia TEXT NOT NULL DEFAULT ''")
+    if "agent_tags" not in user_cols:
+        conn.execute("ALTER TABLE users ADD COLUMN agent_tags TEXT NOT NULL DEFAULT ''")
 
     session_cols = {r[1] for r in conn.execute("PRAGMA table_info(sessions)")}
     if "gerencia" not in session_cols:
@@ -575,7 +585,8 @@ def count_sessions() -> int:
 def list_users() -> list[dict[str, Any]]:
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT id, username, name, is_admin, gerencia, created_at, updated_at FROM users ORDER BY id"
+            "SELECT id, username, name, is_admin, gerencia, agent_tags, created_at, updated_at"
+            " FROM users ORDER BY id"
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -583,7 +594,8 @@ def list_users() -> list[dict[str, Any]]:
 def get_user(username: str) -> dict[str, Any] | None:
     with get_db() as conn:
         row = conn.execute(
-            "SELECT id, username, password_hash, name, is_admin, gerencia, created_at, updated_at"
+            "SELECT id, username, password_hash, name, is_admin, gerencia, agent_tags,"
+            " created_at, updated_at"
             " FROM users WHERE username = ?",
             (username,),
         ).fetchone()
@@ -591,17 +603,29 @@ def get_user(username: str) -> dict[str, Any] | None:
 
 
 def create_user(
-    username: str, password: str, name: str, is_admin: bool, gerencia: str = ""
+    username: str,
+    password: str,
+    name: str,
+    is_admin: bool,
+    gerencia: str = "",
+    agent_tags: str = "",
 ) -> dict[str, Any]:
     now = _utcnow()
     password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO users (username, password_hash, name, is_admin, gerencia, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (username, password_hash, name, 1 if is_admin else 0, gerencia, now, now),
+            "INSERT INTO users"
+            " (username, password_hash, name, is_admin, gerencia, agent_tags, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (username, password_hash, name, 1 if is_admin else 0, gerencia, agent_tags, now, now),
         )
-    return {"username": username, "name": name, "is_admin": is_admin, "gerencia": gerencia}
+    return {
+        "username": username,
+        "name": name,
+        "is_admin": is_admin,
+        "gerencia": gerencia,
+        "agent_tags": agent_tags,
+    }
 
 
 def update_user(
@@ -611,6 +635,7 @@ def update_user(
     password: str | None = None,
     is_admin: bool | None = None,
     gerencia: str | None = None,
+    agent_tags: str | None = None,
 ) -> bool:
     now = _utcnow()
     sets: list[str] = ["updated_at = ?"]
@@ -628,6 +653,9 @@ def update_user(
     if gerencia is not None:
         sets.append("gerencia = ?")
         params.append(gerencia)
+    if agent_tags is not None:
+        sets.append("agent_tags = ?")
+        params.append(agent_tags)
 
     params.append(username)
     with get_db() as conn:
@@ -914,12 +942,17 @@ def delete_finance_metric(key: str) -> bool:
 
 # ── Finance Voice IA — Fase 3: RBAC ─────────────────────────────────────────
 
-def _split_csv(value: str) -> list[str]:
+def split_csv(value: str) -> list[str]:
     return [v.strip() for v in (value or "").split(",") if v.strip()]
 
 
-def _join_csv(items: list[str]) -> str:
+def join_csv(items: list[str]) -> str:
     return ",".join(sorted({v.strip() for v in items if v and v.strip()}))
+
+
+# Aliases internos (compatibilidade com o nome usado antes neste módulo).
+_split_csv = split_csv
+_join_csv = join_csv
 
 
 def get_finance_acl(user_id: str) -> dict[str, Any] | None:
@@ -987,6 +1020,56 @@ def list_finance_acl() -> list[dict[str, Any]]:
         d["denied_datasets"] = _split_csv(d["denied_datasets"])
         out.append(d)
     return out
+
+
+# ── Controle de acesso a agentes por tag de categoria ───────────────────────
+
+def get_agent_tags(agent_id: str) -> list[str]:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT tags FROM agent_tag_assignments WHERE agent_id = ?", (agent_id,)
+        ).fetchone()
+    return split_csv(row["tags"]) if row else []
+
+
+def list_agent_tag_assignments() -> dict[str, list[str]]:
+    with get_db() as conn:
+        rows = conn.execute("SELECT agent_id, tags FROM agent_tag_assignments").fetchall()
+    return {r["agent_id"]: split_csv(r["tags"]) for r in rows}
+
+
+def upsert_agent_tags(agent_id: str, tags: list[str]) -> dict[str, Any]:
+    now = _utcnow()
+    csv_tags = join_csv(tags)
+    with get_db() as conn:
+        existing = conn.execute(
+            "SELECT 1 FROM agent_tag_assignments WHERE agent_id = ?", (agent_id,)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE agent_tag_assignments SET tags=?, updated_at=? WHERE agent_id=?",
+                (csv_tags, now, agent_id),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO agent_tag_assignments (agent_id, tags, updated_at) VALUES (?, ?, ?)",
+                (agent_id, csv_tags, now),
+            )
+    return {"agent_id": agent_id, "tags": split_csv(csv_tags), "updated_at": now}
+
+
+def list_distinct_tags() -> list[str]:
+    """União das tags em uso em agentes + usuários, para autocomplete consistente
+    entre a tela de classificação de agentes e o seletor de tags do usuário."""
+    with get_db() as conn:
+        agent_rows = conn.execute("SELECT tags FROM agent_tag_assignments").fetchall()
+        user_rows = conn.execute("SELECT agent_tags FROM users").fetchall()
+    tags: set[str] = set()
+    for r in agent_rows:
+        tags.update(split_csv(r["tags"]))
+    for r in user_rows:
+        tags.update(split_csv(r["agent_tags"]))
+    return sorted(tags)
 
 
 # ── Finance Voice IA — Fase 3: Audit log ────────────────────────────────────

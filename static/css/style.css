@@ -1217,7 +1217,7 @@ textarea {
 /* BOT GRID */
 .bot-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 18px;
 }
 
@@ -1250,6 +1250,7 @@ textarea {
   border-radius: 16px 16px 0 0;
   opacity: 0.65;
   transition: opacity 0.2s;
+  background: var(--porto);
 }
 
 .bot-card:hover {
@@ -1275,24 +1276,42 @@ textarea {
   border-color: var(--border);
 }
 
-.bc-qa::before {
+/* Acento de cor por agente — data-color no lugar de classes fixas por card,
+   já que os cards agora são gerados dinamicamente a partir de GET /api/agents. */
+.bot-card[data-color="porto"]::before {
   background: var(--porto);
 }
 
-.bc-doc::before {
+.bot-card[data-color="teal"]::before {
   background: var(--teal);
 }
 
-.bc-qb::before {
+.bot-card[data-color="violet"]::before {
   background: var(--violet);
 }
 
-.bc-audit::before {
-  background: var(--porto);
+.bot-card[data-color="emerald"]::before {
+  background: var(--emerald);
 }
 
-.bc-er::before {
-  background: var(--violet);
+.bot-card[data-color="porto"]:hover {
+  border-color: var(--porto-sky2);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0, 70, 145, 0.12);
+}
+
+.bot-card[data-color="teal"]:hover {
+  border-color: color-mix(in srgb, var(--teal) 35%, var(--border));
+  box-shadow: var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--teal) 22%, transparent);
+}
+
+.bot-card[data-color="violet"]:hover {
+  border-color: color-mix(in srgb, var(--violet) 35%, var(--border));
+  box-shadow: var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--violet) 22%, transparent);
+}
+
+.bot-card[data-color="emerald"]:hover {
+  border-color: color-mix(in srgb, var(--emerald) 35%, var(--border));
+  box-shadow: var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--emerald) 22%, transparent);
 }
 
 .bhead {
@@ -1302,35 +1321,44 @@ textarea {
 }
 
 .biw {
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
+  width: 50px;
+  height: 50px;
+  border-radius: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bot-card:hover .biw {
+  transform: scale(1.05);
 }
 
 .biw svg {
-  width: 21px;
-  height: 21px;
+  width: 22px;
+  height: 22px;
 }
 
 .bi-porto {
-  background: var(--porto-sky);
+  background: radial-gradient(circle at 30% 25%, var(--porto-sky2), var(--porto-sky));
+  color: var(--porto);
 }
 
 .bi-teal {
-  background: var(--teal-bg);
+  background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--teal) 18%, white), var(--teal-bg));
+  color: var(--teal);
 }
 
 .bi-violet {
-  background: var(--violet-bg);
+  background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--violet) 16%, white), var(--violet-bg));
+  color: var(--violet);
 }
 
 .bi-emerald {
-  background: var(--emerald-bg);
+  background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--emerald) 16%, white), var(--emerald-bg));
+  color: var(--emerald);
 }
 
 .bstatus {
@@ -1355,20 +1383,53 @@ textarea {
 }
 
 .bname {
-  margin-bottom: 4px;
+  margin-bottom: 5px;
   font-family: var(--display);
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 16.5px;
+  font-weight: 800;
   color: var(--ink);
   line-height: 1.2;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
 }
 
 .bdesc {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--ink3);
   line-height: 1.6;
   flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bcategory {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.category-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--body);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 20px;
+  background: var(--porto-sky);
+  color: var(--porto);
+}
+
+.category-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
 }
 
 .bfoot {
@@ -1422,9 +1483,68 @@ textarea {
   box-shadow: 0 2px 8px rgba(0, 70, 145, 0.12);
 }
 
+.btn-open:active {
+  transform: scale(0.96);
+}
+
 .btn-open svg {
   width: 10px;
   height: 10px;
+}
+
+/* Estado vazio: usuário sem nenhum agente acessível */
+.bot-grid-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 56px 24px;
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  background: var(--bg);
+  text-align: center;
+}
+
+.bot-grid-empty-title {
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink2);
+}
+
+.bot-grid-empty-desc {
+  font-size: 12.5px;
+  color: var(--ink3);
+  max-width: 340px;
+}
+
+/* Skeleton de carregamento enquanto GET /api/agents resolve */
+.bot-card.skeleton {
+  cursor: default;
+  min-height: 190px;
+  background: linear-gradient(
+    100deg,
+    var(--bg2) 30%,
+    var(--bg-white) 50%,
+    var(--bg2) 70%
+  );
+  background-size: 240% 100%;
+  animation: bot-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.bot-card.skeleton::before {
+  display: none;
+}
+
+@keyframes bot-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -40% 0;
+  }
 }
 
 .btn-soon-label {
@@ -6942,6 +7062,72 @@ pre {
 }
 .gerencia-pill-none.selected::before {
   background: var(--ink3);
+}
+
+/* Tag picker genérico (multi-seleção + criação de tag) — tela "Classificar
+   Agentes" e campo de tags de acesso do modal de usuário. */
+.tag-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tag-pill {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-page);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink2);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  user-select: none;
+}
+.tag-pill:hover {
+  border-color: var(--border2);
+  background: var(--white);
+  color: var(--ink);
+}
+.tag-pill.selected {
+  border-color: var(--porto-vivid);
+  background: var(--porto-sky);
+  color: var(--porto);
+  font-weight: 600;
+}
+.tag-pill-add {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.tag-pill-input {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  background: var(--bg-page);
+  color: var(--ink);
+}
+.tag-pill-input:focus {
+  outline: none;
+  border-color: var(--porto-vivid);
+  box-shadow: 0 0 0 3px rgba(0, 161, 228, 0.1);
+  background: var(--white);
+}
+.tag-pill-add-btn {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1.5px solid var(--porto-sky2);
+  background: var(--porto-sky);
+  color: var(--porto);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.tag-pill-add-btn:hover {
+  background: var(--porto-sky2);
 }
 
 .modal-footer {

@@ -3,6 +3,7 @@
 // ─────────────────────────────────────
 let token = null;
 let currentUser = null;
+let accessibleAgents = [];
 let qaDatasetValidationTimer = null;
 let qaIsLoading = false;
 let qaAnalyzeInFlight = false;
@@ -812,6 +813,7 @@ async function doLogin() {
     if (adminNav) adminNav.style.display = currentUser.is_admin ? "" : "none";
     showScreen("screen-portal");
     navTo("home");
+    await loadAccessibleAgents();
   } catch (e) {
     showLoginError(e.message);
   } finally {
@@ -861,7 +863,16 @@ async function doLogout() {
 // ─────────────────────────────────────
 // Navigation
 // ─────────────────────────────────────
+const AGENT_VIEWS = ["qa", "db", "qb", "er", "audit"];
+
 function navTo(view) {
+  if (AGENT_VIEWS.includes(view) && !currentUser?.is_admin) {
+    const allowed = accessibleAgents.some((a) => a.view === view);
+    if (!allowed) {
+      view = "home";
+    }
+  }
+
   document.querySelectorAll(".view").forEach((v) => {
     v.classList.remove("active");
   });
@@ -885,6 +896,7 @@ function navTo(view) {
     hist: "view-hist",
     "admin-users": "view-admin-users",
     "admin-config": "view-admin-config",
+    "admin-agents": "view-admin-agents",
   };
 
   const el = document.getElementById(mapping[view] || "view-home");
@@ -932,6 +944,9 @@ function navTo(view) {
   } else if (view === "admin-config") {
     document.getElementById("nav-admin-config")?.classList.add("active");
     adminLoadConfig();
+  } else if (view === "admin-agents") {
+    document.getElementById("nav-admin-agents")?.classList.add("active");
+    adminLoadAgentTags();
   }
 }
 
@@ -4528,48 +4543,94 @@ window.addEventListener("load", function init() {
   }
 });
 
-const showcaseBots = [
-  {
-    name: "SQL Review",
-    description:
-      "Reduza custo e tempo de execução com revisão automática de anti-padrões e SQL otimizada.",
-    tags: ["BigQuery", "SQL", "Performance"],
-    status: "Disponível",
-    action: () => navTo("qa"),
-  },
-  {
-    name: "Document Builder",
-    description:
-      "Gere documentação que o negócio entende e a engenharia confia: schema real, governança e exportação pronta.",
-    tags: ["Docs", "Pipeline", "DataOps"],
-    status: "Disponível",
-    action: () => navTo("db"),
-  },
-  {
-    name: "Query Builder",
-    description:
-      "Da pergunta ao SQL em minutos, com contexto real para análises de receita, margem e risco.",
-    tags: ["NL2SQL", "BigQuery", "IA"],
-    status: "Disponível",
-    action: () => navTo("qb"),
-  },
-  {
-    name: "Finance Voice IA",
-    description:
-      "Converse com os dados da Diretoria Financeira — contas a pagar, contas a receber, cobrança e experiência do cliente em linguagem natural.",
-    tags: ["Financeiro", "Cobrança", "IA"],
-    status: "Disponível",
-    action: () => navTo("audit"),
-  },
-  {
-    name: "Schema Explorer",
-    description:
-      "Visualize o diagrama ER de datasets BigQuery com relacionamentos e navegação interativa.",
-    tags: ["Schema Explorer", "BigQuery", "DataOps"],
-    status: "Disponível",
-    action: () => navTo("er"),
-  },
-];
+// ─────────────────────────────────────
+// Bot grid (home) — dado dinâmico via GET /api/agents, filtrado por tag de
+// acesso no backend (usuário só recebe os agentes que pode ver).
+// ─────────────────────────────────────
+const AGENT_ICONS = {
+  search:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><path d="M8 11h6M11 8v6"/></svg>',
+  file:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+  branch:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+  diagram:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="8" height="6" rx="1"/><rect x="14" y="3" width="8" height="6" rx="1"/><rect x="2" y="15" width="8" height="6" rx="1"/><rect x="14" y="15" width="8" height="6" rx="1"/><line x1="10" y1="6" x2="14" y2="6"/><line x1="10" y1="18" x2="14" y2="18"/><line x1="6" y1="9" x2="6" y2="15"/><line x1="18" y1="9" x2="18" y2="15"/></svg>',
+  shield:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>',
+};
+
+const ACCESS_ICON =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+
+async function loadAccessibleAgents() {
+  const grid = document.getElementById("bot-grid");
+  if (grid) {
+    grid.innerHTML = Array.from({ length: 3 })
+      .map(() => '<div class="bot-card skeleton"></div>')
+      .join("");
+  }
+  try {
+    const res = await fetch("/api/agents", { headers: authHeaders() });
+    if (!res.ok) throw new Error((await res.json()).detail || "Erro ao carregar agentes");
+    const data = await res.json();
+    accessibleAgents = data.agents || [];
+  } catch (e) {
+    console.error("Erro ao carregar agentes:", e);
+    accessibleAgents = [];
+  }
+  showcaseIndex = 0;
+  renderBotGrid();
+  renderShowcase();
+  startShowcaseAutoplay();
+}
+
+function renderBotGrid() {
+  const grid = document.getElementById("bot-grid");
+  if (!grid) return;
+
+  if (!accessibleAgents.length) {
+    grid.innerHTML = `
+      <div class="bot-grid-empty">
+        <div class="bot-grid-empty-title">Nenhum agente disponível</div>
+        <div class="bot-grid-empty-desc">Fale com um administrador para liberar acesso a um agente.</div>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = accessibleAgents
+    .map((a) => {
+      const categoryTags = a.category_tags || [];
+      return `
+      <article class="bot-card" data-color="${a.color_token || "porto"}" onclick="navTo('${a.view}')">
+        <div class="bhead">
+          <div class="biw bi-${a.color_token || "porto"}">${AGENT_ICONS[a.icon_token] || ""}</div>
+          <span class="bstatus st-live">DISPONÍVEL</span>
+        </div>
+        <div>
+          <div class="bname">${escapeHtml(a.display_name)}</div>
+          <div class="bdesc">${escapeHtml(a.description)}</div>
+          ${
+            categoryTags.length
+              ? `<div class="bcategory">${categoryTags.map((t) => `<span class="category-tag"><span class="category-dot"></span>${escapeHtml(t)}</span>`).join("")}</div>`
+              : ""
+          }
+        </div>
+        <div class="bfoot">
+          <div class="btags">
+            ${(a.badge_tags || []).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}
+          </div>
+          <button class="btn-open">Acessar ${ACCESS_ICON}</button>
+        </div>
+      </article>`;
+    })
+    .join("");
+}
+
+// showcaseBots era uma lista hardcoded e duplicada dos cards do grid — agora
+// tanto o showcase quanto o grid leem de `accessibleAgents` (ver
+// loadAccessibleAgents/renderBotGrid), que já vem filtrado por tag de acesso
+// do backend (GET /api/agents).
 
 let showcaseIndex = 0;
 let showcaseTimer = null;
@@ -4581,31 +4642,45 @@ function renderShowcase() {
   const statusEl = document.getElementById("showcase-status");
   const dotsEl = document.getElementById("showcase-dots");
   const mainEl = document.querySelector(".bot-showcase-main");
+  const sectionEl = document.querySelector(".bot-showcase");
 
   if (!titleEl || !descEl || !tagsEl || !statusEl || !dotsEl || !mainEl) return;
+
+  if (!accessibleAgents.length) {
+    if (sectionEl) sectionEl.style.display = "none";
+    stopShowcaseAutoplay();
+    return;
+  }
+  if (sectionEl) sectionEl.style.display = "";
+
+  if (showcaseIndex >= accessibleAgents.length) showcaseIndex = 0;
 
   // Fade out
   mainEl.style.opacity = "0";
 
   setTimeout(() => {
-    const bot = showcaseBots[showcaseIndex];
+    const bot = accessibleAgents[showcaseIndex];
+    if (!bot) return;
 
-    titleEl.textContent = bot.name;
+    titleEl.textContent = bot.display_name;
     descEl.textContent = bot.description;
 
-    tagsEl.innerHTML = bot.tags
-      .map((tag) => `<span class="bot-showcase-tag">${tag}</span>`)
+    tagsEl.innerHTML = (bot.badge_tags || [])
+      .map((tag) => `<span class="bot-showcase-tag">${escapeHtml(tag)}</span>`)
       .join("");
 
-    statusEl.textContent = String(bot.status || "").toUpperCase();
-    statusEl.className = `bot-showcase-badge ${bot.status.toLowerCase().replace(/\s+/g, "-")}`;
+    statusEl.textContent = "DISPONÍVEL";
+    statusEl.className = "bot-showcase-badge disponivel";
 
-    dotsEl.innerHTML = showcaseBots
-      .map(
-        (_, i) =>
-          `<button class="bot-showcase-dot ${i === showcaseIndex ? "active" : ""}" aria-label="Ir para bot ${i + 1}" onclick="goToShowcase(${i})"></button>`,
-      )
-      .join("");
+    dotsEl.innerHTML =
+      accessibleAgents.length > 1
+        ? accessibleAgents
+            .map(
+              (_, i) =>
+                `<button class="bot-showcase-dot ${i === showcaseIndex ? "active" : ""}" aria-label="Ir para bot ${i + 1}" onclick="goToShowcase(${i})"></button>`,
+            )
+            .join("")
+        : "";
 
     // Fade in
     mainEl.style.opacity = "1";
@@ -4613,13 +4688,15 @@ function renderShowcase() {
 }
 
 function nextShowcase() {
-  showcaseIndex = (showcaseIndex + 1) % showcaseBots.length;
+  if (!accessibleAgents.length) return;
+  showcaseIndex = (showcaseIndex + 1) % accessibleAgents.length;
   renderShowcase();
 }
 
 function prevShowcase() {
+  if (!accessibleAgents.length) return;
   showcaseIndex =
-    (showcaseIndex - 1 + showcaseBots.length) % showcaseBots.length;
+    (showcaseIndex - 1 + accessibleAgents.length) % accessibleAgents.length;
   renderShowcase();
 }
 
@@ -4631,6 +4708,7 @@ function goToShowcase(index) {
 
 function startShowcaseAutoplay() {
   stopShowcaseAutoplay();
+  if (accessibleAgents.length < 2) return;
   showcaseTimer = setInterval(() => {
     nextShowcase();
   }, 4500);
@@ -8333,7 +8411,7 @@ async function _fetchAclMap() {
 async function adminLoadUsers() {
   const tbody = document.getElementById("admin-users-tbody");
   if (!tbody) return;
-  tbody.innerHTML = "<tr><td colspan='7' style='text-align:center;color:var(--ink3)'>Carregando...</td></tr>";
+  tbody.innerHTML = "<tr><td colspan='8' style='text-align:center;color:var(--ink3)'>Carregando...</td></tr>";
 
   try {
     const [res, aclMap] = await Promise.all([
@@ -8349,6 +8427,7 @@ async function adminLoadUsers() {
         <td>${u.name}</td>
         <td><span class="admin-badge ${u.is_admin ? 'badge-admin' : 'badge-user'}">${u.is_admin ? 'Admin' : 'Usuário'}</span></td>
         <td style="font-size:11px;color:var(--ink3)">${u.gerencia || '—'}</td>
+        <td style="font-size:11px;color:var(--ink3)">${u.agent_tags || '—'}</td>
         <td>${_aclHasFullAccess(aclMap[u.username]) ? '<span class="admin-badge badge-full-access">Total</span>' : '<span style="font-size:11px;color:var(--ink3)">—</span>'}</td>
         <td style="font-size:11px;color:var(--ink3)">${u.created_at ? u.created_at.slice(0, 10) : '—'}</td>
         <td class="admin-actions">
@@ -8358,9 +8437,9 @@ async function adminLoadUsers() {
             : ''}
         </td>
       </tr>
-    `).join("") || "<tr><td colspan='7' style='text-align:center'>Nenhum usuário cadastrado.</td></tr>";
+    `).join("") || "<tr><td colspan='8' style='text-align:center'>Nenhum usuário cadastrado.</td></tr>";
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan='7' style='color:#c0392b'>${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan='8' style='color:#c0392b'>${e.message}</td></tr>`;
   }
 }
 
@@ -8407,6 +8486,115 @@ function _syncGerenciaPickerUI(value) {
   });
 }
 
+// ─────────────────────────────────────
+// Tag picker genérico (multi-seleção + criação de tag nova) — usado tanto na
+// tela "Classificar Agentes" quanto no campo de tags de acesso do modal de
+// usuário. Diferente do picker de gerência (single-select, opções fixas),
+// aqui o vocabulário de tags é aberto.
+// ─────────────────────────────────────
+function renderTagPicker(containerId, options, selected, onChange) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const sel = new Set(selected || []);
+  const allOptions = Array.from(new Set([...(options || []), ...sel]));
+
+  el.innerHTML = `
+    <div class="tag-pill-list">
+      ${allOptions
+        .map(
+          (t) =>
+            `<button type="button" class="tag-pill${sel.has(t) ? " selected" : ""}" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</button>`,
+        )
+        .join("")}
+    </div>
+    <div class="tag-pill-add">
+      <input type="text" class="tag-pill-input" placeholder="Nova tag..." />
+      <button type="button" class="tag-pill-add-btn">+ Adicionar</button>
+    </div>`;
+
+  el.querySelectorAll(".tag-pill").forEach((pill) => {
+    pill.addEventListener("click", () => {
+      const t = pill.dataset.tag;
+      if (sel.has(t)) sel.delete(t);
+      else sel.add(t);
+      pill.classList.toggle("selected");
+      onChange(Array.from(sel));
+    });
+  });
+
+  const addBtn = el.querySelector(".tag-pill-add-btn");
+  const input = el.querySelector(".tag-pill-input");
+  const addNew = () => {
+    const v = input.value.trim();
+    if (!v || sel.has(v)) return;
+    sel.add(v);
+    renderTagPicker(containerId, Array.from(new Set([...(options || []), v])), Array.from(sel), onChange);
+    onChange(Array.from(sel));
+  };
+  addBtn?.addEventListener("click", addNew);
+  input?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addNew();
+    }
+  });
+}
+
+// ─────────────────────────────────────
+// Admin — Classificar Agentes
+// ─────────────────────────────────────
+let _agentTagSaveTimers = {};
+
+async function adminLoadAgentTags() {
+  const grid = document.getElementById("admin-agents-grid");
+  if (!grid) return;
+  grid.innerHTML = '<div class="acp-loading">Carregando agentes...</div>';
+  try {
+    const [res, tagsRes] = await Promise.all([
+      fetch("/admin/agents", { headers: authHeaders() }),
+      fetch("/admin/agent-tags", { headers: authHeaders() }),
+    ]);
+    if (!res.ok) throw new Error((await res.json()).detail || "Erro ao carregar agentes");
+    const agents = await res.json();
+    const knownTags = tagsRes.ok ? await tagsRes.json() : [];
+
+    grid.innerHTML = agents
+      .map(
+        (a) => `
+      <div class="acp-card">
+        <div class="acp-card-key">${escapeHtml(a.display_name)}</div>
+        <div class="acp-card-desc">Tags de categoria (vazio = visível para todos)</div>
+        <div id="agent-tag-picker-${escapeHtml(a.agent_id)}"></div>
+      </div>`,
+      )
+      .join("");
+
+    agents.forEach((a) => {
+      renderTagPicker(`agent-tag-picker-${a.agent_id}`, knownTags, a.tags, (newTags) =>
+        adminSaveAgentTags(a.agent_id, newTags),
+      );
+    });
+  } catch (e) {
+    grid.innerHTML = `<div class="acp-loading" style="color:#c0392b">${e.message}</div>`;
+  }
+}
+
+function adminSaveAgentTags(agentId, tags) {
+  clearTimeout(_agentTagSaveTimers[agentId]);
+  _agentTagSaveTimers[agentId] = setTimeout(async () => {
+    try {
+      const res = await fetch(`/admin/agents/${agentId}/tags`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({ tags }),
+      });
+      if (!res.ok) throw new Error((await res.json()).detail || "Erro ao salvar");
+    } catch (e) {
+      alert("Erro ao salvar tags do agente: " + e.message);
+    }
+  }, 400);
+}
+
 async function _loadGerenciasIntoSelect() {
   let backendVals = [];
   try {
@@ -8419,6 +8607,8 @@ async function _loadGerenciasIntoSelect() {
   if (hidden) hidden.value = "";
   _syncGerenciaPickerUI("");
 }
+
+let _modalSelectedAgentTags = [];
 
 async function adminOpenUserModal(username = null) {
   _adminEditingUsername = username;
@@ -8433,8 +8623,15 @@ async function adminOpenUserModal(username = null) {
   document.getElementById("modal-is-admin").checked = false;
   document.getElementById("modal-full-access").checked = false;
   document.getElementById("modal-username").disabled = false;
+  _modalSelectedAgentTags = [];
 
   await _loadGerenciasIntoSelect();
+
+  let knownAgentTags = [];
+  try {
+    const tagsRes = await fetch("/admin/agent-tags", { headers: authHeaders() });
+    if (tagsRes.ok) knownAgentTags = await tagsRes.json();
+  } catch (_) {}
 
   if (username) {
     if (title) title.textContent = "Editar Usuário";
@@ -8454,6 +8651,7 @@ async function adminOpenUserModal(username = null) {
         const gerVal = u.gerencia || "";
         document.getElementById("modal-gerencia").value = gerVal;
         _syncGerenciaPickerUI(gerVal);
+        _modalSelectedAgentTags = (u.agent_tags || "").split(",").map((s) => s.trim()).filter(Boolean);
       }
       if (aclRes.ok) {
         const acl = await aclRes.json();
@@ -8464,6 +8662,10 @@ async function adminOpenUserModal(username = null) {
     if (title) title.textContent = "Novo Usuário";
     if (passLabel) passLabel.textContent = "Senha";
   }
+
+  renderTagPicker("user-agent-tags-picker", knownAgentTags, _modalSelectedAgentTags, (tags) => {
+    _modalSelectedAgentTags = tags;
+  });
 
   document.getElementById("admin-user-modal").style.display = "flex";
 }
@@ -8500,7 +8702,7 @@ async function adminSaveUser() {
   try {
     let res;
     if (_adminEditingUsername) {
-      const body = { name, is_admin, gerencia };
+      const body = { name, is_admin, gerencia, agent_tags: _modalSelectedAgentTags };
       if (password) body.password = password;
       res = await fetch(`/admin/users/${_adminEditingUsername}`, {
         method: "PUT",
@@ -8511,7 +8713,14 @@ async function adminSaveUser() {
       res = await fetch("/admin/users", {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ username, name, password, is_admin, gerencia }),
+        body: JSON.stringify({
+          username,
+          name,
+          password,
+          is_admin,
+          gerencia,
+          agent_tags: _modalSelectedAgentTags,
+        }),
       });
     }
 

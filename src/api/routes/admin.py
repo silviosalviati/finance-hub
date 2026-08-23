@@ -5,15 +5,20 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from src.api.dependencies import get_admin_user
+from src.api.dependencies import get_admin_user, get_registry
+from src.core.agent_catalog import get_agent_meta
 from src.core.database import (
     create_user,
     delete_user,
     get_config_all,
     get_user,
+    join_csv,
+    list_agent_tag_assignments,
+    list_distinct_tags,
     list_users,
     set_config_value,
     update_user,
+    upsert_agent_tags,
 )
 from src.shared.config import get_default_gcp_project, invalidate_config_cache
 
@@ -26,6 +31,7 @@ class CreateUserRequest(BaseModel):
     password: str = Field(min_length=4, max_length=256)
     is_admin: bool = False
     gerencia: str = Field(default="", max_length=200)
+    agent_tags: list[str] = Field(default_factory=list)
 
 
 class UpdateUserRequest(BaseModel):
@@ -33,6 +39,11 @@ class UpdateUserRequest(BaseModel):
     password: str | None = Field(default=None, min_length=4, max_length=256)
     is_admin: bool | None = None
     gerencia: str | None = Field(default=None, max_length=200)
+    agent_tags: list[str] | None = None
+
+
+class AgentTagsUpsertRequest(BaseModel):
+    tags: list[str] = Field(default_factory=list)
 
 
 class UpdateConfigRequest(BaseModel):
@@ -69,6 +80,7 @@ async def admin_create_user(
         name=req.name,
         is_admin=req.is_admin,
         gerencia=req.gerencia,
+        agent_tags=join_csv(req.agent_tags),
     )
 
 
@@ -91,6 +103,7 @@ async def admin_update_user(
         password=req.password,
         is_admin=req.is_admin,
         gerencia=req.gerencia,
+        agent_tags=join_csv(req.agent_tags) if req.agent_tags is not None else None,
     )
     if not updated:
         raise HTTPException(status_code=500, detail="Falha ao atualizar usuário.")
@@ -130,3 +143,42 @@ async def admin_update_config(
         raise HTTPException(status_code=404, detail="Parâmetro não encontrado.")
     invalidate_config_cache(key)
     return {"ok": True}
+
+
+@router.get("/agents")
+async def admin_list_agents(
+    _admin: dict[str, Any] = Depends(get_admin_user),
+) -> list[dict[str, Any]]:
+    registry = get_registry()
+    assignments = list_agent_tag_assignments()
+    return [
+        {
+            "agent_id": agent_id,
+            "display_name": get_agent_meta(agent_id).get("display_name", agent_id),
+            "icon_token": get_agent_meta(agent_id).get("icon_token", ""),
+            "color_token": get_agent_meta(agent_id).get("color_token", ""),
+            "tags": assignments.get(agent_id, []),
+        }
+        for agent_id in registry.list_ids()
+    ]
+
+
+@router.put("/agents/{agent_id}/tags")
+async def admin_update_agent_tags(
+    agent_id: str,
+    req: AgentTagsUpsertRequest,
+    _admin: dict[str, Any] = Depends(get_admin_user),
+) -> dict[str, Any]:
+    registry = get_registry()
+    try:
+        registry.get(agent_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return upsert_agent_tags(agent_id, req.tags)
+
+
+@router.get("/agent-tags")
+async def admin_list_distinct_agent_tags(
+    _admin: dict[str, Any] = Depends(get_admin_user),
+) -> list[str]:
+    return list_distinct_tags()

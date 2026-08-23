@@ -229,6 +229,16 @@
               </div>
               Parâmetros
             </div>
+
+            <div class="nitem" id="nav-admin-agents" onclick="navTo('admin-agents')">
+              <div class="nicon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20.59 13.41L11 3.83A2 2 0 0 0 9.59 3.17L4 3a1 1 0 0 0-1 1l.17 5.59a2 2 0 0 0 .66 1.41l9.58 9.58a2 2 0 0 0 2.82 0l4.36-4.36a2 2 0 0 0 0-2.82z"/>
+                  <circle cx="7.5" cy="7.5" r="1.5"/>
+                </svg>
+              </div>
+              Classificar Agentes
+            </div>
           </div>
 
           <div class="suser">
@@ -301,268 +311,8 @@
 
               </div>
             </section>
-            <div class="bot-grid">
-              <!-- SQL Review -->
-              <article class="bot-card bc-qa" onclick="navTo('qa')">
-                <div class="bhead">
-                  <div class="biw bi-porto">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="var(--porto)"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <circle cx="11" cy="11" r="8" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                      <path d="M8 11h6M11 8v6" />
-                    </svg>
-                  </div>
-                  <span class="bstatus st-live">DISPONÍVEL</span>
-                </div>
-
-                <div>
-                  <div class="bname">SQL Review</div>
-                  <div class="bdesc">
-                    Revise custo e performance da SQL em segundos, com
-                    otimização pronta para produção.
-                  </div>
-                </div>
-
-                <div class="bfoot">
-                  <div class="btags">
-                    <span class="tag">BigQuery</span>
-                    <span class="tag">SQL</span>
-                    <span class="tag">Performance</span>
-                  </div>
-
-                  <button class="btn-open">
-                    Acessar
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-              </article>
-
-              <!-- Document Build -->
-              <article class="bot-card bc-doc" onclick="navTo('db')">
-                <div class="bhead">
-                  <div class="biw bi-teal">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="var(--teal)"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path
-                        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
-                      />
-                      <polyline points="14 2 14 8 20 8" />
-                      <line x1="16" y1="13" x2="8" y2="13" />
-                      <line x1="16" y1="17" x2="8" y2="17" />
-                    </svg>
-                  </div>
-                  <span class="bstatus st-live">DISPONÍVEL</span>
-                </div>
-
-                <div>
-                  <div class="bname">Document Builder</div>
-                  <div class="bdesc">
-                    Converta schema e regras da tabela em documentação de alto
-                    impacto para negócio e engenharia: Markdown, HTML e
-                    Confluence.
-                  </div>
-                </div>
-
-                <div class="bfoot">
-                  <div class="btags">
-                    <span class="tag">Docs</span>
-                    <span class="tag">Pipeline</span>
-                    <span class="tag">DataOps</span>
-                  </div>
-
-                  <button class="btn-open">
-                    Acessar
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-              </article>
-              <!-- Query Build -->
-              <article class="bot-card bc-qb" onclick="navTo('qb')">
-                <div class="bhead">
-                  <div class="biw bi-violet">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="var(--violet)"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <polyline points="16 18 22 12 16 6" />
-                      <polyline points="8 6 2 12 8 18" />
-                    </svg>
-                  </div>
-                  <span class="bstatus st-live">DISPONÍVEL</span>
-                </div>
-
-                <div>
-                  <div class="bname">Query Builder</div>
-                  <div class="bdesc">
-                    Transforme perguntas de negócio em SQL BigQuery confiável e
-                    acelere decisões com dados.
-                  </div>
-                </div>
-
-                <div class="bfoot">
-                  <div class="btags">
-                    <span class="tag">NL2SQL</span>
-                    <span class="tag">BigQuery</span>
-                    <span class="tag">IA</span>
-                  </div>
-
-                  <button class="btn-open">
-                    Acessar
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-              </article>
-
-              <!-- ER Diagram Explorer -->
-              <article
-                class="bot-card bc-er"
-                onclick="navTo('er')"
-              >
-                <div class="bhead">
-                  <div class="biw bi-violet">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="var(--violet)"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <rect x="2" y="3" width="8" height="6" rx="1" />
-                      <rect x="14" y="3" width="8" height="6" rx="1" />
-                      <rect x="2" y="15" width="8" height="6" rx="1" />
-                      <rect x="14" y="15" width="8" height="6" rx="1" />
-                      <line x1="10" y1="6" x2="14" y2="6" />
-                      <line x1="10" y1="18" x2="14" y2="18" />
-                      <line x1="6" y1="9" x2="6" y2="15" />
-                      <line x1="18" y1="9" x2="18" y2="15" />
-                    </svg>
-                  </div>
-                  <span class="bstatus st-live">DISPONÍVEL</span>
-                </div>
-                <div>
-                  <div class="bname">Schema Explorer</div>
-                  <div class="bdesc">
-                    Visualize o diagrama ER de qualquer dataset BigQuery com
-                    relacionamentos inferidos e layout interativo.
-                  </div>
-                </div>
-                <div class="bfoot">
-                  <div class="btags">
-                    <span class="tag">Schema Explorer</span>
-                    <span class="tag">BigQuery</span>
-                    <span class="tag">DataOps</span>
-                  </div>
-                  <button class="btn-open">
-                    Acessar
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-              </article>
-
-              <!-- Finance Voice IA -->
-              <article class="bot-card bc-audit" onclick="navTo('audit')">
-                <div class="bhead">
-                  <div class="biw bi-porto">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="var(--porto)"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                      <polyline points="9 12 11 14 15 10" />
-                    </svg>
-                  </div>
-                  <span class="bstatus st-live">DISPONÍVEL</span>
-                </div>
-
-                <div>
-                  <div class="bname">Finance Voice IA</div>
-                  <div class="bdesc">
-                    Converse com os dados da Diretoria Financeira — contas a
-                    pagar, receber, cobrança e experiência do cliente.
-                  </div>
-                </div>
-
-                <div class="bfoot">
-                  <div class="btags">
-                    <span class="tag">Financeiro</span>
-                    <span class="tag">Cobrança</span>
-                    <span class="tag">Contas</span>
-                    <span class="tag">IA</span>
-                  </div>
-
-                  <button class="btn-open">
-                    Acessar
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-              </article>
+            <div class="bot-grid" id="bot-grid">
+              <!-- populado dinamicamente por renderBotGrid() em scripts.js -->
             </div>
           </section>
 
@@ -2592,6 +2342,7 @@ runbook_operacional</pre
                     <th>Nome</th>
                     <th>Perfil</th>
                     <th>Gerência</th>
+                    <th>Tags de Agentes</th>
                     <th>Acesso</th>
                     <th>Criado em</th>
                     <th>Ações</th>
@@ -2615,6 +2366,19 @@ runbook_operacional</pre
             </div>
             <div class="acp-grid" id="admin-config-grid">
               <div class="acp-loading">Carregando parâmetros...</div>
+            </div>
+          </section>
+
+          <!-- ── ADMIN: CLASSIFICAR AGENTES VIEW ── -->
+          <section class="view" id="view-admin-agents">
+            <div class="view-hd">
+              <div>
+                <div class="view-title">Classificar Agentes</div>
+                <div class="view-sub">Defina as tags de categoria de cada agente — usuários só veem agentes que compartilham ao menos uma tag com o próprio perfil. Agente sem tag fica visível para todos.</div>
+              </div>
+            </div>
+            <div class="acp-grid" id="admin-agents-grid">
+              <div class="acp-loading">Carregando agentes...</div>
             </div>
           </section>
 
@@ -2657,6 +2421,11 @@ runbook_operacional</pre
               <label>Gerência</label>
               <input type="hidden" id="modal-gerencia" value="">
               <div class="gerencia-picker" id="gerencia-picker"></div>
+            </div>
+            <div class="modal-field">
+              <label>Tags de acesso a agentes</label>
+              <div id="user-agent-tags-picker"></div>
+              <div class="modal-field-hint">Sem tag = usuário vê apenas agentes ainda não classificados. Marque as tags para liberar acesso aos agentes correspondentes.</div>
             </div>
             <div class="modal-field modal-field-check">
               <label>

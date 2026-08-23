@@ -159,7 +159,8 @@ def test_analyze_usa_pinned_dataset_ref_quando_request_nao_informa():
             return _FakeAgent()
 
     with patch.object(agents_module, "get_registry", return_value=_FakeRegistry()), \
-         patch.object(agents_module, "get_checkpointer", return_value=checkpointer):
+         patch.object(agents_module, "get_checkpointer", return_value=checkpointer), \
+         patch.object(agents_module, "get_agent_tags", return_value=[]):
         res = client.post(
             "/api/agents/finance_auditor/analyze",
             json={"query": "quanto vendemos no total?", "project_id": "silviosalviati"},
@@ -189,7 +190,8 @@ def test_analyze_request_dataset_hint_tem_prioridade_sobre_pin():
             return _FakeAgent()
 
     with patch.object(agents_module, "get_registry", return_value=_FakeRegistry()), \
-         patch.object(agents_module, "get_checkpointer", return_value=checkpointer):
+         patch.object(agents_module, "get_checkpointer", return_value=checkpointer), \
+         patch.object(agents_module, "get_agent_tags", return_value=[]):
         res = client.post(
             "/api/agents/finance_auditor/analyze",
             json={
@@ -220,7 +222,8 @@ def test_analyze_sem_project_id_usa_default_gcp_project():
 
     with patch.object(agents_module, "get_registry", return_value=_FakeRegistry()), \
          patch.object(agents_module, "get_checkpointer", return_value=checkpointer), \
-         patch.object(agents_module, "get_default_gcp_project", return_value="proj-padrao"):
+         patch.object(agents_module, "get_default_gcp_project", return_value="proj-padrao"), \
+         patch.object(agents_module, "get_agent_tags", return_value=[]):
         res = client.post(
             "/api/agents/finance_auditor/analyze",
             json={"query": "quanto vendemos no total?"},

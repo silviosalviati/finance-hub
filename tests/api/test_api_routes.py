@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -11,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.api.dependencies import get_checkpointer, get_current_user, get_registry
+from src.api.routes import agents as agents_module
 from src.api.routes.agents import router as agents_router
 from src.api.routes.auth import router as auth_router
 
@@ -101,14 +103,15 @@ def test_me_requires_authentication_without_bearer_header():
 def test_query_analyzer_analyze_and_checkpoint_flow():
     client = _build_test_client_with_overrides()
 
-    analyze_response = client.post(
-        "/api/agents/query_analyzer/analyze",
-        json={
-            "query": "SELECT 1",
-            "project_id": None,
-            "dataset_hint": None,
-        },
-    )
+    with patch.object(agents_module, "get_agent_tags", return_value=[]):
+        analyze_response = client.post(
+            "/api/agents/query_analyzer/analyze",
+            json={
+                "query": "SELECT 1",
+                "project_id": None,
+                "dataset_hint": None,
+            },
+        )
     assert analyze_response.status_code == 200
 
     checkpoint_response = client.get("/api/agents/query_analyzer/checkpoint")

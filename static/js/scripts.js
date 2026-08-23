@@ -8408,7 +8408,7 @@ function renderTagPicker(containerId, options, selected, onChange) {
       ${allOptions
         .map(
           (t) =>
-            `<button type="button" class="tag-pill${sel.has(t) ? " selected" : ""}" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</button>`,
+            `<button type="button" class="tag-pill${sel.has(t) ? " selected" : ""}" data-tag="${escapeHtml(t)}" aria-pressed="${sel.has(t)}"><span class="tag-pill-label">${escapeHtml(t)}</span>${sel.has(t) ? '<span class="tag-pill-remove" aria-hidden="true">×</span>' : ""}</button>`,
         )
         .join("")}
     </div>
@@ -8422,7 +8422,7 @@ function renderTagPicker(containerId, options, selected, onChange) {
       const t = pill.dataset.tag;
       if (sel.has(t)) sel.delete(t);
       else sel.add(t);
-      pill.classList.toggle("selected");
+      renderTagPicker(containerId, options, Array.from(sel), onChange);
       onChange(Array.from(sel));
     });
   });

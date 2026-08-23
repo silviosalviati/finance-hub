@@ -4531,9 +4531,6 @@ window.addEventListener("load", function init() {
   try {
     showScreen("screen-login");
     document.getElementById("inp-user")?.focus();
-    // Remover event listeners dos botões que foram removidos
-    renderShowcase();
-    startShowcaseAutoplay();
     setQADatasetValidationStatus("idle");
     syncQAAnalyzeButtonState();
     syncQBGenerateButtonState();
@@ -4579,12 +4576,16 @@ async function loadAccessibleAgents() {
     console.error("Erro ao carregar agentes:", e);
     accessibleAgents = [];
   }
-  showcaseIndex = 0;
   renderBotGrid();
-  renderShowcase();
-  startShowcaseAutoplay();
+  const count = accessibleAgents.length;
   const badge = document.getElementById("nav-home-badge");
-  if (badge) badge.textContent = String(accessibleAgents.length);
+  if (badge) badge.textContent = String(count);
+  const countEl = document.getElementById("home-agents-count");
+  if (countEl) {
+    countEl.textContent = count
+      ? `· ${count} ${count === 1 ? "agente disponível" : "agentes disponíveis"}`
+      : "";
+  }
 }
 
 function renderBotGrid() {
@@ -4619,109 +4620,14 @@ function renderBotGrid() {
           }
         </div>
         <div class="bfoot">
+          <div class="btags" aria-label="Características do agente">
+            ${(a.badge_tags || []).map((t) => `<span class="tag"><span class="tag-perforation"></span>${escapeHtml(t)}</span>`).join("")}
+          </div>
           <button class="btn-open">Acessar ${ACCESS_ICON}</button>
         </div>
       </article>`;
     })
     .join("");
-}
-
-// showcaseBots era uma lista hardcoded e duplicada dos cards do grid — agora
-// tanto o showcase quanto o grid leem de `accessibleAgents` (ver
-// loadAccessibleAgents/renderBotGrid), que já vem filtrado por tag de acesso
-// do backend (GET /api/agents).
-
-let showcaseIndex = 0;
-let showcaseTimer = null;
-
-function renderShowcase() {
-  const titleEl = document.getElementById("showcase-title");
-  const descEl = document.getElementById("showcase-desc");
-  const tagsEl = document.getElementById("showcase-tags");
-  const statusEl = document.getElementById("showcase-status");
-  const dotsEl = document.getElementById("showcase-dots");
-  const mainEl = document.querySelector(".bot-showcase-main");
-  const sectionEl = document.querySelector(".bot-showcase");
-
-  if (!titleEl || !descEl || !tagsEl || !statusEl || !dotsEl || !mainEl) return;
-
-  if (!accessibleAgents.length) {
-    if (sectionEl) sectionEl.style.display = "none";
-    stopShowcaseAutoplay();
-    return;
-  }
-  if (sectionEl) sectionEl.style.display = "";
-
-  if (showcaseIndex >= accessibleAgents.length) showcaseIndex = 0;
-
-  // Fade out
-  mainEl.style.opacity = "0";
-
-  setTimeout(() => {
-    const bot = accessibleAgents[showcaseIndex];
-    if (!bot) return;
-
-    titleEl.textContent = bot.display_name;
-    descEl.textContent = bot.description;
-
-    tagsEl.innerHTML = (bot.badge_tags || [])
-      .map((tag) => `<span class="bot-showcase-tag">${escapeHtml(tag)}</span>`)
-      .join("");
-
-    statusEl.textContent = "DISPONÍVEL";
-    statusEl.className = "bot-showcase-badge disponivel";
-
-    dotsEl.innerHTML =
-      accessibleAgents.length > 1
-        ? accessibleAgents
-            .map(
-              (_, i) =>
-                `<button class="bot-showcase-dot ${i === showcaseIndex ? "active" : ""}" aria-label="Ir para bot ${i + 1}" onclick="goToShowcase(${i})"></button>`,
-            )
-            .join("")
-        : "";
-
-    // Fade in
-    mainEl.style.opacity = "1";
-  }, 250);
-}
-
-function nextShowcase() {
-  if (!accessibleAgents.length) return;
-  showcaseIndex = (showcaseIndex + 1) % accessibleAgents.length;
-  renderShowcase();
-}
-
-function prevShowcase() {
-  if (!accessibleAgents.length) return;
-  showcaseIndex =
-    (showcaseIndex - 1 + accessibleAgents.length) % accessibleAgents.length;
-  renderShowcase();
-}
-
-function goToShowcase(index) {
-  showcaseIndex = index;
-  renderShowcase();
-  restartShowcaseAutoplay();
-}
-
-function startShowcaseAutoplay() {
-  stopShowcaseAutoplay();
-  if (accessibleAgents.length < 2) return;
-  showcaseTimer = setInterval(() => {
-    nextShowcase();
-  }, 4500);
-}
-
-function stopShowcaseAutoplay() {
-  if (showcaseTimer) {
-    clearInterval(showcaseTimer);
-    showcaseTimer = null;
-  }
-}
-
-function restartShowcaseAutoplay() {
-  startShowcaseAutoplay();
 }
 
 // ─────────────────────────────────────

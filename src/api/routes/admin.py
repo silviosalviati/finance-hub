@@ -9,6 +9,7 @@ from src.api.dependencies import get_admin_user, get_registry
 from src.core.agent_catalog import get_agent_meta
 from src.core.database import (
     create_user,
+    delete_tag_everywhere,
     delete_user,
     get_config_all,
     get_user,
@@ -182,3 +183,11 @@ async def admin_list_distinct_agent_tags(
     _admin: dict[str, Any] = Depends(get_admin_user),
 ) -> list[str]:
     return list_distinct_tags()
+
+
+@router.delete("/agent-tags/{tag}")
+async def admin_delete_agent_tag(
+    tag: str,
+    _admin: dict[str, Any] = Depends(get_admin_user),
+) -> dict[str, Any]:
+    return delete_tag_everywhere(tag)

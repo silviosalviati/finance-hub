@@ -1072,6 +1072,40 @@ def list_distinct_tags() -> list[str]:
     return sorted(tags)
 
 
+def delete_tag_everywhere(tag: str) -> dict[str, int]:
+    """Remove uma tag por completo do sistema: desatribui de todo agente e de
+    todo usuário que a tenha. Diferente de `upsert_agent_tags` (que desatribui
+    só de UM agente) — usada pela ação global "excluir tag" na tela de
+    classificação, já que uma tag não tem tabela própria (só existe como CSV
+    espalhado em `agent_tag_assignments`/`users.agent_tags`)."""
+    now = _utcnow()
+    agents_updated = 0
+    users_updated = 0
+    with get_db() as conn:
+        agent_rows = conn.execute(
+            "SELECT agent_id, tags FROM agent_tag_assignments"
+        ).fetchall()
+        for row in agent_rows:
+            current = split_csv(row["tags"])
+            if tag in current:
+                conn.execute(
+                    "UPDATE agent_tag_assignments SET tags=?, updated_at=? WHERE agent_id=?",
+                    (join_csv([t for t in current if t != tag]), now, row["agent_id"]),
+                )
+                agents_updated += 1
+
+        user_rows = conn.execute("SELECT username, agent_tags FROM users").fetchall()
+        for row in user_rows:
+            current = split_csv(row["agent_tags"])
+            if tag in current:
+                conn.execute(
+                    "UPDATE users SET agent_tags=?, updated_at=? WHERE username=?",
+                    (join_csv([t for t in current if t != tag]), now, row["username"]),
+                )
+                users_updated += 1
+    return {"agents_updated": agents_updated, "users_updated": users_updated}
+
+
 # ── Finance Voice IA — Fase 3: Audit log ────────────────────────────────────
 
 def append_finance_audit(entry: dict[str, Any]) -> int:

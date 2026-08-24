@@ -62,6 +62,26 @@ class TestListDistinctTags:
         assert db.list_distinct_tags() == ["documentacao", "finops"]
 
 
+class TestDeleteTagEverywhere:
+    def test_remove_tag_de_agentes_e_usuarios(self, db):
+        db.upsert_agent_tags("finance_auditor", ["finops", "financeiro"])
+        db.upsert_agent_tags("document_build", ["finops"])
+        db.create_user("u5", "senha123", "Usuário 5", False, agent_tags="finops,documentacao")
+
+        result = db.delete_tag_everywhere("finops")
+
+        assert result == {"agents_updated": 2, "users_updated": 1}
+        assert db.get_agent_tags("finance_auditor") == ["financeiro"]
+        assert db.get_agent_tags("document_build") == []
+        assert db.get_user("u5")["agent_tags"] == "documentacao"
+
+    def test_tag_inexistente_nao_altera_nada(self, db):
+        db.upsert_agent_tags("finance_auditor", ["financeiro"])
+        result = db.delete_tag_everywhere("nao_existe")
+        assert result == {"agents_updated": 0, "users_updated": 0}
+        assert db.get_agent_tags("finance_auditor") == ["financeiro"]
+
+
 class TestUserCanAccessAgent:
     def test_agente_sem_tag_e_visivel_para_todos(self):
         from src.shared.guardrails.agent_access import user_can_access_agent

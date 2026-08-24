@@ -190,3 +190,14 @@ class TestAdminAgentClassificationRoutes:
         res = client.get("/admin/agent-tags")
         assert res.status_code == 200
         assert set(res.json()) == {"finops", "documentacao"}
+
+    def test_delete_agent_tag_remove_de_agentes_e_usuarios(self, db):
+        db.upsert_agent_tags("finance_auditor", ["finops"])
+        db.create_user("u7", "senha123", "U7", False, agent_tags="finops")
+        client = _client_as({"token": "t", "username": "admin", "is_admin": True})
+
+        res = client.delete("/admin/agent-tags/finops")
+        assert res.status_code == 200
+        assert res.json() == {"agents_updated": 1, "users_updated": 1}
+        assert db.get_agent_tags("finance_auditor") == []
+        assert db.get_user("u7")["agent_tags"] == ""

@@ -4603,7 +4603,12 @@ function renderBotGrid() {
 
   grid.innerHTML = accessibleAgents
     .map((a) => {
-      const categoryTags = a.category_tags || [];
+      const categoryChips = (a.category_tags || [])
+        .map((t) => `<span class="tag tag-category">${escapeHtml(t)}</span>`)
+        .join("");
+      const badgeChips = (a.badge_tags || [])
+        .map((t) => `<span class="tag">${escapeHtml(t)}</span>`)
+        .join("");
       return `
       <article class="bot-card" data-color="${a.color_token || "porto"}" onclick="navTo('${a.view}')">
         <div class="bhead">
@@ -4613,15 +4618,10 @@ function renderBotGrid() {
         <div>
           <div class="bname">${escapeHtml(a.display_name)}</div>
           <div class="bdesc">${escapeHtml(a.description)}</div>
-          ${
-            categoryTags.length
-              ? `<div class="bcategory">${categoryTags.map((t) => `<span class="category-tag"><span class="category-dot"></span>${escapeHtml(t)}</span>`).join("")}</div>`
-              : ""
-          }
         </div>
         <div class="bfoot">
           <div class="btags" aria-label="Características do agente">
-            ${(a.badge_tags || []).map((t) => `<span class="tag"><span class="tag-perforation"></span>${escapeHtml(t)}</span>`).join("")}
+            ${categoryChips}${badgeChips}
           </div>
           <button class="btn-open">Acessar ${ACCESS_ICON}</button>
         </div>
@@ -8392,43 +8392,69 @@ function _syncGerenciaPickerUI(value) {
 }
 
 // ─────────────────────────────────────
-// Tag picker genérico (multi-seleção + criação de tag nova) — usado tanto na
-// tela "Classificar Agentes" quanto no campo de tags de acesso do modal de
-// usuário. Diferente do picker de gerência (single-select, opções fixas),
-// aqui o vocabulário de tags é aberto.
+// Tag picker genérico (visual de "ticket" + criação de tag nova) — usado
+// tanto na tela "Classificar Agentes" quanto no campo de tags de acesso do
+// modal de usuário. Diferente do picker de gerência (single-select, opções
+// fixas), aqui o vocabulário de tags é aberto.
+//
+// Mostra só as tags JÁ atribuídas a esta entidade (agente/usuário) como
+// "tickets" removíveis — não a lista inteira de tags conhecidas do sistema
+// misturada num grid único — para deixar claro que cada agente tem seu
+// próprio conjunto de tags. Adicionar uma tag existente ou nova é feito por
+// um campo de texto com autocomplete (datalist) separado dos tickets.
 // ─────────────────────────────────────
+let _tagPickerDatalistSeq = 0;
+
 function renderTagPicker(containerId, options, selected, onChange) {
   const el = document.getElementById(containerId);
   if (!el) return;
   const sel = new Set(selected || []);
-  const allOptions = Array.from(new Set([...(options || []), ...sel]));
+  const datalistId = el.dataset.datalistId || `tagpicker-dl-${++_tagPickerDatalistSeq}`;
+  el.dataset.datalistId = datalistId;
+
+  const ticketsHtml = sel.size
+    ? Array.from(sel)
+        .map(
+          (t) => `
+      <span class="tag-ticket" data-tag="${escapeHtml(t)}">
+        <span class="tag-ticket-label">${escapeHtml(t)}</span>
+        <button type="button" class="tag-ticket-remove" aria-label="Remover tag ${escapeHtml(t)}">×</button>
+      </span>`,
+        )
+        .join("")
+    : `<span class="tag-ticket-empty">Nenhuma tag atribuída</span>`;
 
   el.innerHTML = `
-    <div class="tag-pill-list">
-      ${allOptions
-        .map(
-          (t) =>
-            `<button type="button" class="tag-pill${sel.has(t) ? " selected" : ""}" data-tag="${escapeHtml(t)}" aria-pressed="${sel.has(t)}"><span class="tag-pill-label">${escapeHtml(t)}</span>${sel.has(t) ? '<span class="tag-pill-remove" aria-hidden="true">×</span>' : ""}</button>`,
-        )
-        .join("")}
-    </div>
-    <div class="tag-pill-add">
-      <input type="text" class="tag-pill-input" placeholder="Nova tag..." />
-      <button type="button" class="tag-pill-add-btn">+ Adicionar</button>
+    <div class="tag-ticket-list">${ticketsHtml}</div>
+    <div class="tag-add-row">
+      <input
+        type="text"
+        class="tag-add-input"
+        list="${datalistId}"
+        placeholder="Adicionar tag..."
+        autocomplete="off"
+      />
+      <datalist id="${datalistId}">
+        ${(options || [])
+          .filter((t) => !sel.has(t))
+          .map((t) => `<option value="${escapeHtml(t)}"></option>`)
+          .join("")}
+      </datalist>
+      <button type="button" class="tag-add-btn" aria-label="Adicionar tag">+</button>
     </div>`;
 
-  el.querySelectorAll(".tag-pill").forEach((pill) => {
-    pill.addEventListener("click", () => {
-      const t = pill.dataset.tag;
-      if (sel.has(t)) sel.delete(t);
-      else sel.add(t);
+  el.querySelectorAll(".tag-ticket-remove").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const t = btn.closest(".tag-ticket")?.dataset.tag;
+      if (t == null) return;
+      sel.delete(t);
       renderTagPicker(containerId, options, Array.from(sel), onChange);
       onChange(Array.from(sel));
     });
   });
 
-  const addBtn = el.querySelector(".tag-pill-add-btn");
-  const input = el.querySelector(".tag-pill-input");
+  const addBtn = el.querySelector(".tag-add-btn");
+  const input = el.querySelector(".tag-add-input");
   const addNew = () => {
     const v = input.value.trim();
     if (!v || sel.has(v)) return;
@@ -8452,8 +8478,10 @@ let _agentTagSaveTimers = {};
 
 async function adminLoadAgentTags() {
   const grid = document.getElementById("admin-agents-grid");
+  const libraryList = document.getElementById("tag-library-list");
   if (!grid) return;
   grid.innerHTML = '<div class="acp-loading">Carregando agentes...</div>';
+  if (libraryList) libraryList.innerHTML = '<div class="acp-loading">Carregando...</div>';
   try {
     const [res, tagsRes] = await Promise.all([
       fetch("/admin/agents", { headers: authHeaders() }),
@@ -8462,6 +8490,8 @@ async function adminLoadAgentTags() {
     if (!res.ok) throw new Error((await res.json()).detail || "Erro ao carregar agentes");
     const agents = await res.json();
     const knownTags = tagsRes.ok ? await tagsRes.json() : [];
+
+    renderTagLibrary(knownTags);
 
     grid.innerHTML = agents
       .map(
@@ -8481,6 +8511,54 @@ async function adminLoadAgentTags() {
     });
   } catch (e) {
     grid.innerHTML = `<div class="acp-loading" style="color:#c0392b">${e.message}</div>`;
+  }
+}
+
+function renderTagLibrary(knownTags) {
+  const el = document.getElementById("tag-library-list");
+  if (!el) return;
+  if (!knownTags.length) {
+    el.innerHTML = '<span class="tag-ticket-empty">Nenhuma tag cadastrada ainda</span>';
+    return;
+  }
+  el.innerHTML = knownTags
+    .map(
+      (t) => `
+    <span class="tag-ticket tag-ticket-lib" data-tag="${escapeHtml(t)}">
+      <span class="tag-ticket-label">${escapeHtml(t)}</span>
+      <button type="button" class="tag-ticket-remove" aria-label="Excluir tag ${escapeHtml(t)} de todo o sistema" title="Excluir tag de todo o sistema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
+      </button>
+    </span>`,
+    )
+    .join("");
+
+  el.querySelectorAll(".tag-ticket-lib .tag-ticket-remove").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tag = btn.closest(".tag-ticket")?.dataset.tag;
+      if (tag == null) return;
+      adminDeleteGlobalTag(tag);
+    });
+  });
+}
+
+async function adminDeleteGlobalTag(tag) {
+  if (
+    !confirm(
+      `Excluir a tag "${tag}" de todo o sistema? Ela será removida de todos os agentes e usuários que a usam.`,
+    )
+  ) {
+    return;
+  }
+  try {
+    const res = await fetch(`/admin/agent-tags/${encodeURIComponent(tag)}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || "Erro ao excluir tag");
+    adminLoadAgentTags();
+  } catch (e) {
+    alert("Erro ao excluir tag: " + e.message);
   }
 }
 

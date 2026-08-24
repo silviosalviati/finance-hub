@@ -55,7 +55,7 @@ AGENT_CATALOG: dict[str, dict[str, str]] = {
         ),
         "view": "er",
         "icon_token": "diagram",
-        "color_token": "violet",
+        "color_token": "emerald",
         "default_tags": "Schema Explorer,BigQuery,DataOps",
     },
     "finance_auditor": {
@@ -66,7 +66,7 @@ AGENT_CATALOG: dict[str, dict[str, str]] = {
         ),
         "view": "audit",
         "icon_token": "shield",
-        "color_token": "porto",
+        "color_token": "amber",
         "default_tags": "Financeiro,Cobrança,Contas,IA",
     },
 }

@@ -1334,6 +1334,15 @@ textarea {
   background: var(--emerald);
 }
 
+.bot-card[data-color="amber"] {
+  --tag-accent: var(--amber);
+  --tag-accent-bg: var(--amber-bg);
+  --tag-accent-border: color-mix(in srgb, var(--amber) 30%, white);
+}
+.bot-card[data-color="amber"]::before {
+  background: var(--amber);
+}
+
 .bot-card[data-color="porto"]:hover {
   border-color: var(--porto-sky2);
   box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0, 70, 145, 0.12);
@@ -1354,6 +1363,11 @@ textarea {
   box-shadow: var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--emerald) 22%, transparent);
 }
 
+.bot-card[data-color="amber"]:hover {
+  border-color: color-mix(in srgb, var(--amber) 35%, var(--border));
+  box-shadow: var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--amber) 22%, transparent);
+}
+
 .bhead {
   display: flex;
   align-items: flex-start;
@@ -1361,9 +1375,9 @@ textarea {
 }
 
 .biw {
-  width: 50px;
-  height: 50px;
-  border-radius: 13px;
+  width: 60px;
+  height: 60px;
+  border-radius: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1377,8 +1391,8 @@ textarea {
 }
 
 .biw svg {
-  width: 22px;
-  height: 22px;
+  width: 27px;
+  height: 27px;
 }
 
 .bi-porto {
@@ -1399,6 +1413,11 @@ textarea {
 .bi-emerald {
   background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--emerald) 16%, white), var(--emerald-bg));
   color: var(--emerald);
+}
+
+.bi-amber {
+  background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--amber) 18%, white), var(--amber-bg));
+  color: var(--amber);
 }
 
 .bstatus {
@@ -1423,22 +1442,22 @@ textarea {
 }
 
 .bname {
-  margin-bottom: 5px;
+  margin-bottom: 4px;
   font-family: var(--display);
-  font-size: 16.5px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--ink);
   line-height: 1.2;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
 }
 
 .bdesc {
-  font-size: 12.5px;
+  font-size: 11px;
   color: var(--ink3);
-  line-height: 1.6;
+  line-height: 1.5;
   flex: 1;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1453,56 +1472,53 @@ textarea {
   margin-top: auto;
 }
 
-.btags {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  flex: 1;
-  flex-wrap: wrap;
-}
-
-.tag {
+/* Tag única do card — layout de etiqueta de bagagem (furo + linha de
+   perfuração + rótulo em caps bold), na cor de acento do próprio agente.
+   Um único modelo para todos os cards, sempre à esquerda do botão "Acessar". */
+.tag-badge {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  max-width: 100%;
-  overflow: hidden;
-  font-family: var(--body);
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  line-height: 1;
-  text-transform: uppercase;
-  padding: 5px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--white);
-  color: var(--ink2);
-  box-shadow: 0 1px 2px rgba(10, 22, 40, 0.05);
-  white-space: nowrap;
-}
-
-.tag::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--ink3);
-  flex-shrink: 0;
-}
-
-/* Tag de categoria (classificação de acesso do admin) — usa o acento de cor
-   do próprio card para deixar visualmente clara a ligação com o agente,
-   sempre na mesma linha das demais tags, à esquerda do botão "Acessar". */
-.tag-category {
+  height: 22px;
+  padding: 0 10px 0 20px;
+  border-radius: 3px 8px 8px 3px;
   background: var(--tag-accent-bg, var(--porto-sky));
-  border-color: var(--tag-accent-border, var(--porto-sky2));
+  border: 1.5px solid var(--tag-accent-border, var(--porto-sky2));
   color: var(--tag-accent, var(--porto));
+  box-shadow: 0 1px 2px rgba(10, 22, 40, 0.05);
 }
 
-.tag-category::before {
-  background: var(--tag-accent, var(--porto));
+.tag-badge::before {
+  /* furo, como o passante de cordão de uma etiqueta de bagagem real */
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--white);
+  box-shadow: inset 0 0 0 1.3px var(--tag-accent, var(--porto));
+}
+
+.tag-badge::after {
+  /* linha de perfuração separando o furo do rótulo */
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 3px;
+  bottom: 3px;
+  border-left: 1px dashed var(--tag-accent-border, var(--porto-sky2));
+}
+
+.tag-badge-label {
+  font-family: var(--body);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .btn-open {
@@ -1518,6 +1534,7 @@ textarea {
   border: 1px solid var(--porto-sky2);
   border-radius: 8px;
   padding: 6px 12px;
+  margin-left: auto;
   transition: all 0.15s;
   white-space: nowrap;
 }
@@ -6848,28 +6865,6 @@ pre {
   font-size: 11px;
   color: var(--ink3);
   margin-top: 2px;
-}
-
-.acp-badge {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10px;
-  font-weight: 600;
-  color: #059669;
-  background: #d1fae5;
-  border: 1px solid #a7f3d0;
-  border-radius: 99px;
-  padding: 3px 10px;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-}
-
-.acp-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #059669;
 }
 
 .acp-grid {

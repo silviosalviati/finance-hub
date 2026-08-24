@@ -4603,12 +4603,13 @@ function renderBotGrid() {
 
   grid.innerHTML = accessibleAgents
     .map((a) => {
-      const categoryChips = (a.category_tags || [])
-        .map((t) => `<span class="tag tag-category">${escapeHtml(t)}</span>`)
-        .join("");
-      const badgeChips = (a.badge_tags || [])
-        .map((t) => `<span class="tag">${escapeHtml(t)}</span>`)
-        .join("");
+      // Só uma tag por card — a de categoria (classificação do admin) tem
+      // prioridade por responder "por que vejo este agente"; sem ela, cai
+      // para a primeira tag cosmética do catálogo.
+      const primaryTag = (a.category_tags || [])[0] || (a.badge_tags || [])[0] || "";
+      const tagHtml = primaryTag
+        ? `<span class="tag-badge"><span class="tag-badge-label">${escapeHtml(primaryTag)}</span></span>`
+        : "";
       return `
       <article class="bot-card" data-color="${a.color_token || "porto"}" onclick="navTo('${a.view}')">
         <div class="bhead">
@@ -4620,9 +4621,7 @@ function renderBotGrid() {
           <div class="bdesc">${escapeHtml(a.description)}</div>
         </div>
         <div class="bfoot">
-          <div class="btags" aria-label="Características do agente">
-            ${categoryChips}${badgeChips}
-          </div>
+          ${tagHtml}
           <button class="btn-open">Acessar ${ACCESS_ICON}</button>
         </div>
       </article>`;

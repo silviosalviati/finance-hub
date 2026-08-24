@@ -2111,6 +2111,111 @@ runbook_operacional</pre
               </div>
             </div>
           </section>
+
+          <!-- ── QUERY TRANSFORMER VIEW ── -->
+          <section class="view" id="view-qt" style="padding: 0">
+            <div class="qa-topbar">
+              <button class="btn-back" onclick="navTo('home')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 12H5M12 5l-7 7 7 7" />
+                </svg>
+                Voltar
+              </button>
+              <div class="breadcrumb">
+                <span onclick="navTo('home')" style="cursor: pointer">Painel</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+                <span class="cur">Query Transformer</span>
+              </div>
+            </div>
+
+            <div class="qa-hero">
+              <div class="qa-hero-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="16 3 21 3 21 8" />
+                  <line x1="21" y1="3" x2="10" y2="14" />
+                  <polyline points="8 21 3 21 3 16" />
+                  <line x1="3" y1="21" x2="14" y2="10" />
+                </svg>
+              </div>
+              <div>
+                <div class="qa-hero-title">Query Transformer</div>
+                <div class="qa-hero-desc">
+                  Converta SQL do BigQuery em modelos .sqlx do Dataform, com boas práticas de mercado e sem alterar o resultado da consulta.
+                </div>
+              </div>
+              <div class="qa-hero-right">
+                <span class="qa-hero-tag">Dataform</span>
+                <span class="qa-hero-tag">SQLX</span>
+                <span class="qa-hero-tag">BigQuery</span>
+                <div class="qa-live-badge">
+                  <div class="qa-live-dot"></div>
+                  DISPONÍVEL
+                </div>
+              </div>
+            </div>
+
+            <div class="qa-body">
+              <div class="qa-form">
+                <div class="qfield">
+                  <label for="qt-project">Project ID</label>
+                  <input type="text" id="qt-project" placeholder="ex: meu-projeto-gcp" autocomplete="off" />
+                </div>
+
+                <div class="qfield">
+                  <label for="qt-sql">SQL do BigQuery</label>
+                  <textarea
+                    id="qt-sql"
+                    placeholder="Cole aqui a SQL do BigQuery (SELECT/WITH) que deve virar um modelo .sqlx do Dataform."
+                  ></textarea>
+                  <p class="qhint">
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                      <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2" />
+                      <path d="M6 5.5v3M6 4h.01" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                    </svg>
+                    Ctrl+Enter para converter
+                  </p>
+                </div>
+
+                <div id="qt-error" class="qa-error" role="alert"></div>
+
+                <button class="btn-analyze" id="qt-btn" onclick="runQueryTransformer()">
+                  <div class="spinner" id="qt-spinner"></div>
+                  <span id="qt-btn-text">Converter para SQLX</span>
+                </button>
+              </div>
+
+              <div class="qa-results-wrap">
+                <div class="qa-empty" id="qt-empty">
+                  <h3>Nenhuma conversão ainda</h3>
+                  <p>Cole uma SQL do BigQuery e clique em "Converter para SQLX" para ver o modelo Dataform gerado.</p>
+                </div>
+
+                <div id="qt-hitl-panel" class="hitl-panel" style="position:relative; display:none">
+                  <div class="hitl-header">
+                    <div class="hitl-header-icon">⚠️</div>
+                    <div class="hitl-header-content">
+                      <div class="hitl-title">Aprovação necessária</div>
+                      <div class="hitl-sub" id="qt-hitl-subtitle"></div>
+                    </div>
+                  </div>
+                  <div id="qt-hitl-issues"></div>
+                  <pre id="qt-hitl-sqlx" style="white-space:pre-wrap;font-size:11.5px;background:var(--bg-page);border:1px solid var(--border);border-radius:8px;padding:12px;max-height:220px;overflow:auto"></pre>
+                  <div style="display:flex;gap:8px;margin-top:12px">
+                    <button class="btn-secondary" id="qt-hitl-improve" onclick="qtResumeQuality('melhorar')">Pedir melhoria</button>
+                    <button class="btn-primary" id="qt-hitl-accept" onclick="qtResumeQuality('seguir')">Aceitar assim mesmo</button>
+                  </div>
+                </div>
+
+                <div id="qt-result" style="display:none">
+                  <pre id="qt-sqlx-output" style="white-space:pre-wrap;font-size:11.5px;background:var(--bg-page);border:1px solid var(--border);border-radius:8px;padding:14px;overflow:auto"></pre>
+                  <div id="qt-report" style="margin-top:12px;font-size:12.5px;color:var(--ink2);line-height:1.6"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <!-- ── ER DIAGRAM EXPLORER VIEW ── -->
           <section
             class="view"

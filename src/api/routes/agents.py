@@ -719,6 +719,10 @@ async def analyze_by_agent(
             analyze_kwargs["user"] = session
             if req.thread_id:
                 analyze_kwargs["thread_id"] = req.thread_id
+        if agent_id == "query_transformer":
+            analyze_kwargs["user"] = session
+            if req.thread_id:
+                analyze_kwargs["thread_id"] = req.thread_id
         # Mesmo motivo do finance_auditor acima: síncrono e potencialmente
         # lento (LLM/BigQuery), roda fora do event loop.
         result = await asyncio.to_thread(agent.analyze, **analyze_kwargs)
@@ -1216,6 +1220,39 @@ async def resume_query_build(
         raise HTTPException(
             status_code=500,
             detail="Erro interno ao retomar a geração de SQL. Tente novamente em instantes.",
+        )
+
+
+@router.post("/api/agents/query_transformer/resume")
+async def resume_query_transformer(
+    req: ResumeAnalyzerRequest,
+    session: dict[str, Any] = Depends(get_current_user),
+):
+    """Retoma o pipeline do Query Transformer após decisão humana sobre o
+    score de qualidade ou a validação de equivalência.
+
+    Envie `decision: "seguir"` para aceitar o SQLX como está, ou
+    `decision: "melhorar"` para voltar ao nó de geração com o score/diff de
+    equivalência como contexto de correção.
+    """
+    registry = get_registry()
+    try:
+        agent = registry.get("query_transformer")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    try:
+        result = agent.resume(thread_id=req.thread_id, human_decision=req.decision)
+        checkpointer = get_checkpointer()
+        checkpointer.save(f"{session['token']}-query_transformer", result)
+        return result
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        logging.error("Erro no resume do query_transformer: %s\n%s", exc, traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail="Erro interno ao retomar a conversão. Tente novamente em instantes.",
         )
 
 

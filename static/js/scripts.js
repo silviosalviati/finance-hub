@@ -863,7 +863,7 @@ async function doLogout() {
 // ─────────────────────────────────────
 // Navigation
 // ─────────────────────────────────────
-const AGENT_VIEWS = ["qa", "db", "qb", "er", "audit"];
+const AGENT_VIEWS = ["qa", "db", "qb", "er", "audit", "qt"];
 
 function navTo(view) {
   if (AGENT_VIEWS.includes(view) && !currentUser?.is_admin) {
@@ -891,6 +891,7 @@ function navTo(view) {
     db: "view-db",
     qb: "view-qb",
     audit: "view-fa",
+    qt: "view-qt",
     er: "view-er",
     dev: "view-dev",
     hist: "view-hist",
@@ -4564,10 +4565,167 @@ const AGENT_ICONS = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="8" height="6" rx="1"/><rect x="14" y="3" width="8" height="6" rx="1"/><rect x="2" y="15" width="8" height="6" rx="1"/><rect x="14" y="15" width="8" height="6" rx="1"/><line x1="10" y1="6" x2="14" y2="6"/><line x1="10" y1="18" x2="14" y2="18"/><line x1="6" y1="9" x2="6" y2="15"/><line x1="18" y1="9" x2="18" y2="15"/></svg>',
   shield:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>',
+  swap:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="21" y1="3" x2="10" y2="14"/><polyline points="8 21 3 21 3 16"/><line x1="3" y1="21" x2="14" y2="10"/></svg>',
 };
 
 const ACCESS_ICON =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+
+// ─────────────────────────────────────
+// Query Transformer — BigQuery SQL → Dataform SQLX
+// ─────────────────────────────────────
+let _qtHitlThreadId = null;
+
+function _qtSetLoading(loading) {
+  const btn = document.getElementById("qt-btn");
+  const spinner = document.getElementById("qt-spinner");
+  const btnText = document.getElementById("qt-btn-text");
+  if (btn) btn.disabled = loading;
+  if (spinner) spinner.style.display = loading ? "block" : "none";
+  if (btnText) btnText.textContent = loading ? "Convertendo..." : "Converter para SQLX";
+}
+
+function _qtShowError(message) {
+  const el = document.getElementById("qt-error");
+  if (!el) return;
+  if (!message) {
+    el.style.display = "none";
+    el.textContent = "";
+    return;
+  }
+  el.textContent = "⚠ " + message;
+  el.style.display = "block";
+}
+
+function _qtRenderResult(data) {
+  document.getElementById("qt-empty")?.style.setProperty("display", "none");
+  document.getElementById("qt-hitl-panel")?.style.setProperty("display", "none");
+  const resultEl = document.getElementById("qt-result");
+  if (resultEl) resultEl.style.display = "block";
+
+  const sqlxEl = document.getElementById("qt-sqlx-output");
+  if (sqlxEl) sqlxEl.textContent = data.sqlx_content || "";
+
+  const reportEl = document.getElementById("qt-report");
+  if (reportEl) {
+    reportEl.innerHTML = escapeHtml(data.markdown_report || "")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\n/g, "<br>");
+  }
+}
+
+function _qtRenderHitl(data) {
+  _qtHitlThreadId = data.thread_id;
+  document.getElementById("qt-empty")?.style.setProperty("display", "none");
+  document.getElementById("qt-result")?.style.setProperty("display", "none");
+
+  const panel = document.getElementById("qt-hitl-panel");
+  if (panel) panel.style.display = "block";
+
+  const subtitle = document.getElementById("qt-hitl-subtitle");
+  if (subtitle) {
+    subtitle.textContent = data.equivalence_ok === false
+      ? `Validação de equivalência falhou: ${data.equivalence_diff || "resultado diferente do original"}`
+      : `Nota de qualidade: ${data.quality_score ?? "—"}/100`;
+  }
+
+  const issuesEl = document.getElementById("qt-hitl-issues");
+  if (issuesEl) {
+    issuesEl.innerHTML = (data.quality_issues || [])
+      .map((issue) => `<div style="font-size:11.5px;color:var(--ink3);margin-top:4px">• ${escapeHtml(issue)}</div>`)
+      .join("");
+  }
+
+  const sqlxPreview = document.getElementById("qt-hitl-sqlx");
+  if (sqlxPreview) sqlxPreview.textContent = data.sqlx_content || "";
+}
+
+async function runQueryTransformer() {
+  const projectId = document.getElementById("qt-project")?.value.trim() || "";
+  const sql = document.getElementById("qt-sql")?.value.trim() || "";
+
+  if (!projectId) {
+    _qtShowError("Informe o Project ID.");
+    return;
+  }
+  if (!sql) {
+    _qtShowError("Cole a SQL do BigQuery que deve ser convertida.");
+    return;
+  }
+
+  _qtShowError("");
+  _qtSetLoading(true);
+
+  try {
+    const res = await fetch("/api/agents/query_transformer/analyze", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ query: sql, project_id: projectId }),
+    });
+
+    if (res.status === 401) {
+      doLogout();
+      return;
+    }
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Erro ao converter SQL");
+
+    if (data.status === "awaiting_approval") {
+      _qtRenderHitl(data);
+    } else if (data.status === "error") {
+      _qtShowError(prettifyErrorMessage(data.error || "Erro ao converter SQL"));
+    } else {
+      _qtRenderResult(data);
+    }
+  } catch (e) {
+    _qtShowError(prettifyErrorMessage(e.message));
+  } finally {
+    _qtSetLoading(false);
+  }
+}
+
+async function qtResumeQuality(decision) {
+  if (!_qtHitlThreadId) return;
+  const improveBtn = document.getElementById("qt-hitl-improve");
+  const acceptBtn = document.getElementById("qt-hitl-accept");
+  if (improveBtn) improveBtn.disabled = true;
+  if (acceptBtn) acceptBtn.disabled = true;
+
+  try {
+    const res = await fetch("/api/agents/query_transformer/resume", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ thread_id: _qtHitlThreadId, decision }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Erro ao retomar conversão");
+
+    _qtHitlThreadId = null;
+
+    if (data.status === "awaiting_approval") {
+      _qtRenderHitl(data);
+    } else if (data.status === "error") {
+      document.getElementById("qt-hitl-panel")?.style.setProperty("display", "none");
+      _qtShowError(prettifyErrorMessage(data.error || "Erro ao converter SQL"));
+    } else {
+      _qtRenderResult(data);
+    }
+  } catch (e) {
+    _qtShowError(prettifyErrorMessage(e.message));
+  } finally {
+    if (improveBtn) improveBtn.disabled = false;
+    if (acceptBtn) acceptBtn.disabled = false;
+  }
+}
+
+document.getElementById("qt-sql")?.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.key === "Enter") {
+    runQueryTransformer();
+  }
+});
 
 async function loadAccessibleAgents() {
   const grid = document.getElementById("bot-grid");

@@ -69,6 +69,17 @@ AGENT_CATALOG: dict[str, dict[str, str]] = {
         "color_token": "amber",
         "default_tags": "Financeiro,Cobrança,Contas,IA",
     },
+    "query_transformer": {
+        "display_name": "Query Transformer",
+        "description": (
+            "Converta SQL do BigQuery em modelos .sqlx do Dataform, com boas "
+            "práticas de mercado e sem alterar o resultado da consulta."
+        ),
+        "view": "qt",
+        "icon_token": "swap",
+        "color_token": "indigo",
+        "default_tags": "Dataform,SQLX,BigQuery",
+    },
 }
 
 

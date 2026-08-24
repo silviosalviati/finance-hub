@@ -77,7 +77,7 @@ AGENT_CATALOG: dict[str, dict[str, str]] = {
         ),
         "view": "qt",
         "icon_token": "swap",
-        "color_token": "indigo",
+        "color_token": "violet",
         "default_tags": "Dataform,SQLX,BigQuery",
     },
 }

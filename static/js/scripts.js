@@ -4615,13 +4615,21 @@ function _qtRenderResult(data) {
   }
 }
 
+// Deriva o project_id direto da SQL colada — a primeira referência
+// totalmente qualificada (`projeto.dataset.tabela`) já carrega essa
+// informação, então não faz sentido pedir de novo num campo separado.
+function _qtExtractProjectId(sql) {
+  const match = sql.match(/`?([a-zA-Z0-9_-]+)\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+`?/);
+  return match ? match[1] : "";
+}
+
 function _qtRenderHitl(data) {
   _qtHitlThreadId = data.thread_id;
   document.getElementById("qt-empty")?.style.setProperty("display", "none");
   document.getElementById("qt-result")?.style.setProperty("display", "none");
 
   const panel = document.getElementById("qt-hitl-panel");
-  if (panel) panel.style.display = "block";
+  if (panel) panel.style.display = "flex";
 
   const subtitle = document.getElementById("qt-hitl-subtitle");
   if (subtitle) {
@@ -4642,15 +4650,18 @@ function _qtRenderHitl(data) {
 }
 
 async function runQueryTransformer() {
-  const projectId = document.getElementById("qt-project")?.value.trim() || "";
   const sql = document.getElementById("qt-sql")?.value.trim() || "";
 
-  if (!projectId) {
-    _qtShowError("Informe o Project ID.");
-    return;
-  }
   if (!sql) {
     _qtShowError("Cole a SQL do BigQuery que deve ser convertida.");
+    return;
+  }
+
+  const projectId = _qtExtractProjectId(sql);
+  if (!projectId) {
+    _qtShowError(
+      "Não foi possível detectar o projeto na SQL — use tabelas totalmente qualificadas (projeto.dataset.tabela).",
+    );
     return;
   }
 

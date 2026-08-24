@@ -4469,6 +4469,15 @@ function filterBots(q) {
     card.style.opacity = matched ? "1" : "0.3";
     card.style.transform = matched ? "" : "scale(0.985)";
   });
+
+  // Esconde a seção inteira quando nenhum card do grupo bate com a busca —
+  // evita um cabeçalho de grupo "órfão" sem nenhum card visível abaixo.
+  document.querySelectorAll(".bot-group").forEach((group) => {
+    const hasMatch = Array.from(group.querySelectorAll(".bot-card:not(.soon)")).some(
+      (card) => card.style.opacity !== "0.3",
+    );
+    group.style.display = hasMatch ? "" : "none";
+  });
 }
 
 // ─────────────────────────────────────
@@ -4563,9 +4572,9 @@ const ACCESS_ICON =
 async function loadAccessibleAgents() {
   const grid = document.getElementById("bot-grid");
   if (grid) {
-    grid.innerHTML = Array.from({ length: 3 })
+    grid.innerHTML = `<div class="bot-grid">${Array.from({ length: 3 })
       .map(() => '<div class="bot-card skeleton"></div>')
-      .join("");
+      .join("")}</div>`;
   }
   try {
     const res = await fetch("/api/agents", { headers: authHeaders() });
@@ -4588,29 +4597,21 @@ async function loadAccessibleAgents() {
   }
 }
 
-function renderBotGrid() {
-  const grid = document.getElementById("bot-grid");
-  if (!grid) return;
+// Mesma regra usada no chip do card: tag de categoria (classificação do
+// admin) tem prioridade por responder "por que vejo este agente"; sem ela,
+// cai para a primeira tag cosmética do catálogo. Usada tanto para o chip
+// quanto para decidir em qual seção do grid o agente entra — nunca há
+// agente "sem grupo", e a seção nunca destoa do que está escrito no card.
+function _agentPrimaryTag(a) {
+  return (a.category_tags || [])[0] || (a.badge_tags || [])[0] || "";
+}
 
-  if (!accessibleAgents.length) {
-    grid.innerHTML = `
-      <div class="bot-grid-empty">
-        <div class="bot-grid-empty-title">Nenhum agente disponível</div>
-        <div class="bot-grid-empty-desc">Fale com um administrador para liberar acesso a um agente.</div>
-      </div>`;
-    return;
-  }
-
-  grid.innerHTML = accessibleAgents
-    .map((a) => {
-      // Só uma tag por card — a de categoria (classificação do admin) tem
-      // prioridade por responder "por que vejo este agente"; sem ela, cai
-      // para a primeira tag cosmética do catálogo.
-      const primaryTag = (a.category_tags || [])[0] || (a.badge_tags || [])[0] || "";
-      const tagHtml = primaryTag
-        ? `<span class="tag-badge"><span class="tag-badge-label">${escapeHtml(primaryTag)}</span></span>`
-        : "";
-      return `
+function _renderBotCard(a) {
+  const primaryTag = _agentPrimaryTag(a);
+  const tagHtml = primaryTag
+    ? `<span class="tag-badge"><span class="tag-badge-label">${escapeHtml(primaryTag)}</span></span>`
+    : "";
+  return `
       <article class="bot-card" data-color="${a.color_token || "porto"}" onclick="navTo('${a.view}')">
         <div class="bhead">
           <div class="biw bi-${a.color_token || "porto"}">${AGENT_ICONS[a.icon_token] || ""}</div>
@@ -4625,6 +4626,43 @@ function renderBotGrid() {
           <button class="btn-open">Acessar ${ACCESS_ICON}</button>
         </div>
       </article>`;
+}
+
+function renderBotGrid() {
+  const grid = document.getElementById("bot-grid");
+  if (!grid) return;
+
+  if (!accessibleAgents.length) {
+    grid.innerHTML = `
+      <div class="bot-grid-empty">
+        <div class="bot-grid-empty-title">Nenhum agente disponível</div>
+        <div class="bot-grid-empty-desc">Fale com um administrador para liberar acesso a um agente.</div>
+      </div>`;
+    return;
+  }
+
+  const groups = new Map();
+  accessibleAgents.forEach((a) => {
+    const tag = _agentPrimaryTag(a);
+    if (!groups.has(tag)) groups.set(tag, []);
+    groups.get(tag).push(a);
+  });
+
+  const sortedTags = Array.from(groups.keys()).sort((a, b) =>
+    a.localeCompare(b, "pt-BR", { sensitivity: "base" }),
+  );
+
+  grid.innerHTML = sortedTags
+    .map((tag) => {
+      const agents = groups.get(tag);
+      return `
+      <div class="bot-group" data-group-tag="${escapeHtml(tag)}">
+        <div class="bot-group-hd">
+          <span class="bot-group-label">${escapeHtml(tag)}</span>
+          <span class="bot-group-count">${agents.length}</span>
+        </div>
+        <div class="bot-grid">${agents.map(_renderBotCard).join("")}</div>
+      </div>`;
     })
     .join("");
 }

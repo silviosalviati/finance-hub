@@ -69,7 +69,11 @@ class _ScriptedStructured:
         self.parent = parent
         self.schema = schema
 
-    def invoke(self, messages: Any) -> Any:
+    def invoke(self, messages: Any, config: Any = None, **kwargs: Any) -> Any:
+        # `config`/`**kwargs`: `invoke_with_retry` (src/shared/tools/llm.py)
+        # chama `llm.invoke(messages, config=run_config)` para propagar
+        # metadado de trace ao LangSmith — real `Runnable.invoke` do LangChain
+        # aceita isso, então o mock precisa aceitar (e ignorar) também.
         name = getattr(self.schema, "__name__", "")
         fields = list(getattr(self.schema, "model_fields", {}).keys())
         self.parent.calls.append(
@@ -137,7 +141,8 @@ class ScriptedLLM:
     def with_structured_output(self, schema: Any) -> _ScriptedStructured:
         return _ScriptedStructured(self, schema)
 
-    def invoke(self, messages: Any) -> Any:
+    def invoke(self, messages: Any, config: Any = None, **kwargs: Any) -> Any:
+        # `config`/`**kwargs`: ver nota equivalente em `_ScriptedStructured.invoke`.
         sys_text = _first_system_text(messages)
         self.calls.append(
             {"kind": "invoke_plain", "system_head": _head(sys_text, 200)}
@@ -152,8 +157,8 @@ class ScriptedLLM:
         # multimodal / catch-all
         return MagicMock(content=self.script.get("composer", ""))
 
-    async def ainvoke(self, messages: Any) -> Any:
-        return self.invoke(messages)
+    async def ainvoke(self, messages: Any, config: Any = None, **kwargs: Any) -> Any:
+        return self.invoke(messages, config=config, **kwargs)
 
 
 def _first_system_text(messages: Any) -> str:

@@ -509,12 +509,17 @@ def dry_run_query(
         estimated_cost = estimate_cost_usd(bytes_billed)
 
         referenced_tables = _extract_referenced_tables(job)
+        result_schema = [
+            {"name": field.name, "type": field.field_type}
+            for field in (job.schema or [])
+        ]
 
         return DryRunResult(
             bytes_processed=bytes_processed,
             bytes_billed=bytes_billed,
             estimated_cost_usd=estimated_cost,
             referenced_tables=referenced_tables,
+            result_schema=result_schema,
         )
 
     except GoogleCloudError as exc:

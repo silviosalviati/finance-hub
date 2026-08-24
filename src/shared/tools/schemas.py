@@ -37,6 +37,10 @@ class DryRunResult(BaseModel):
     estimated_cost_usd: float
     slot_ms_estimate: Optional[int] = None
     referenced_tables: list[str] = Field(default_factory=list)
+    # Schema de colunas do RESULTADO da query (nome + tipo), populado a partir
+    # de `job.schema` do dry-run — usado pelo Query Transformer para provar
+    # que a query original e a versão convertida produzem o mesmo resultado.
+    result_schema: list[dict[str, str]] = Field(default_factory=list)
     error: Optional[str] = None
 
     @property

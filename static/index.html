@@ -286,7 +286,7 @@
               </div>
             </div>
 
-            <div class="bot-grid" id="bot-grid">
+            <div class="bot-groups" id="bot-grid">
               <!-- populado dinamicamente por renderBotGrid() em scripts.js -->
             </div>
           </section>
@@ -2303,9 +2303,19 @@ runbook_operacional</pre
           <!-- ── ADMIN: USERS VIEW ── -->
           <section class="view" id="view-admin-users">
             <div class="view-hd">
-              <div>
-                <div class="view-title">Gerenciar Usuários</div>
-                <div class="view-sub">Cadastre, edite e remova usuários da plataforma</div>
+              <div class="view-hd-main">
+                <div class="view-title-icon bi-porto">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="view-title">Gerenciar Usuários</div>
+                  <div class="view-sub">Cadastre, edite e remova usuários da plataforma</div>
+                </div>
               </div>
               <button class="btn-primary" onclick="adminOpenUserModal()">+ Novo Usuário</button>
             </div>
@@ -2330,10 +2340,19 @@ runbook_operacional</pre
 
           <!-- ── ADMIN: CONFIG VIEW ── -->
           <section class="view" id="view-admin-config">
-            <div class="acp-header">
-              <div class="acp-header-left">
-                <div class="acp-title">Parâmetros do Sistema</div>
-                <div class="acp-sub">Configurações da plataforma · banco de dados</div>
+            <div class="view-hd">
+              <div class="view-hd-main">
+                <div class="view-title-icon bi-violet">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+                    <path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="view-title">Parâmetros do Sistema</div>
+                  <div class="view-sub">Configurações da plataforma · banco de dados</div>
+                </div>
               </div>
             </div>
             <div class="acp-grid" id="admin-config-grid">
@@ -2344,9 +2363,17 @@ runbook_operacional</pre
           <!-- ── ADMIN: CLASSIFICAR AGENTES VIEW ── -->
           <section class="view" id="view-admin-agents">
             <div class="view-hd">
-              <div>
-                <div class="view-title">Classificar Agentes</div>
-                <div class="view-sub">Defina as tags de categoria de cada agente — usuários só veem agentes que compartilham ao menos uma tag com o próprio perfil. Agente sem tag fica visível para todos.</div>
+              <div class="view-hd-main">
+                <div class="view-title-icon bi-teal">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.59 13.41L11 3.83A2 2 0 0 0 9.59 3.17L4 3a1 1 0 0 0-1 1l.17 5.59a2 2 0 0 0 .66 1.41l9.58 9.58a2 2 0 0 0 2.82 0l4.36-4.36a2 2 0 0 0 0-2.82z"/>
+                    <circle cx="7.5" cy="7.5" r="1.5"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="view-title">Classificar Agentes</div>
+                  <div class="view-sub">Defina as tags de categoria de cada agente — usuários só veem agentes que compartilham ao menos uma tag com o próprio perfil. Agente sem tag fica visível para todos.</div>
+                </div>
               </div>
             </div>
 

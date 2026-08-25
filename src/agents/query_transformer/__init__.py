@@ -255,6 +255,8 @@ class QueryTransformerAgent(BaseAgent):
             "sqlx_content": final_event.get("sqlx_content") or "",
             "markdown_report": "\n".join(line for line in report_lines if line is not None),
             "materialization_type": final_event.get("materialization_type") or "",
+            "rationale": final_event.get("rationale") or "",
+            "suggested_refs": refs,
             "quality_score": final_event.get("quality_score"),
             "quality_issues": final_event.get("quality_issues") or [],
             "equivalence_ok": final_event.get("equivalence_ok"),

@@ -4759,10 +4759,30 @@ function _qtRenderResult(data) {
 
   const reportEl = document.getElementById("qt-report");
   if (reportEl) {
-    reportEl.innerHTML = escapeHtml(data.markdown_report || "")
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\n/g, "<br>");
+    reportEl.innerHTML = _qtRenderSummary(data);
   }
+}
+
+function _qtRenderSummary(data) {
+  const materialization = escapeHtml(data.materialization_type || "modelo");
+  const rationale = escapeHtml(data.rationale || "A transformação foi concluída com as validações disponíveis.");
+  const refs = Array.isArray(data.suggested_refs) ? data.suggested_refs : [];
+  const refMarkup = refs.length
+    ? `<div class="qt-summary-section"><span class="qt-summary-label">Referências Dataform</span><div class="qt-summary-chips">${refs.map((ref) => `<span class="qt-summary-chip">${escapeHtml(ref)}</span>`).join("")}</div></div>`
+    : "";
+  const equivalent = data.equivalence_ok === true;
+  const quality = data.quality_score == null ? "Não disponível" : `${escapeHtml(data.quality_score)}/100`;
+  return `
+    <div class="qt-summary-hero">
+      <span class="qt-summary-check">✓</span>
+      <div><span class="qt-summary-label">Transformação concluída</span><strong>Modelo ${materialization} pronto para revisão</strong></div>
+    </div>
+    <div class="qt-summary-section qt-summary-rationale"><span class="qt-summary-label">Por que esta estratégia</span><p>${rationale}</p></div>
+    ${refMarkup}
+    <div class="qt-summary-evidence">
+      <div><span>Qualidade</span><strong>${quality}</strong></div>
+      <div><span>Equivalência</span><strong class="${equivalent ? "is-good" : "is-warning"}">${equivalent ? "Compatível" : "Revisar"}</strong></div>
+    </div>`;
 }
 
 function _qtFormatBytes(value) {

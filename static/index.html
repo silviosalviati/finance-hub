@@ -2274,15 +2274,22 @@ runbook_operacional</pre
                   </section>
 
                   <section class="qt-tab-panel" data-qt-panel="original">
-                    <div class="qt-code-panel-head"><span class="qt-results-eyebrow">Fonte da transformação</span><span id="qt-original-project" class="qt-code-meta">Projeto não detectado</span></div>
+                    <div class="qt-code-panel-head">
+                      <div><span class="qt-results-eyebrow">Fonte da transformação</span><strong class="qt-code-title">SQL original</strong></div>
+                      <div class="qt-code-actions"><span id="qt-original-project" class="qt-code-meta">Projeto não detectado</span><button type="button" class="copy-btn qt-copy-btn" onclick="copyQTOriginalSQL()" aria-label="Copiar SQL original"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copiar SQL</button></div>
+                    </div>
                     <pre id="qt-original-sql"></pre>
                   </section>
 
                   <section class="qt-tab-panel" data-qt-panel="validation">
+                    <div class="qt-business-validation">
+                      <span class="qt-business-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16M8 16v-4M12 16V8M16 16v-6"/></svg></span>
+                      <div><span class="qt-results-eyebrow">Leitura para o negócio</span><strong id="qt-validation-business-title">Resultado pronto para avaliação</strong><p id="qt-validation-business-text">Os indicadores abaixo mostram o impacto estimado da transformação.</p></div>
+                    </div>
                     <div class="qt-validation-grid">
-                      <div class="qt-validation-card"><span>Bytes processados</span><strong id="qt-validation-bytes">—</strong><small>Dry-run da SQL original</small></div>
-                      <div class="qt-validation-card"><span>Custo estimado</span><strong id="qt-validation-cost">—</strong><small>Estimativa do BigQuery</small></div>
-                      <div class="qt-validation-card qt-validation-card-wide"><span>Equivalência</span><strong id="qt-validation-equivalence">—</strong><small id="qt-validation-detail">Schema original e gerado serão comparados após a conversão.</small></div>
+                      <div class="qt-validation-card"><span>Esforço de processamento</span><strong id="qt-validation-bytes">—</strong><small>Volume analisado no dry-run</small></div>
+                      <div class="qt-validation-card"><span>Custo estimado</span><strong id="qt-validation-cost">—</strong><small>Referência para operação</small></div>
+                      <div class="qt-validation-card qt-validation-card-wide"><span>Confiabilidade do resultado</span><strong id="qt-validation-equivalence">—</strong><small id="qt-validation-detail">Schema original e gerado serão comparados após a conversão.</small></div>
                     </div>
                   </section>
                 </div>

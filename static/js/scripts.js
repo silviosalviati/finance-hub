@@ -4763,6 +4763,15 @@ function _qtRenderResult(data) {
   if (validationCost) validationCost.textContent = dryRun.estimated_cost_usd == null ? "—" : `US$ ${Number(dryRun.estimated_cost_usd).toFixed(6)}`;
   if (validationEquivalence) validationEquivalence.textContent = data.equivalence_ok ? "Schema compatível" : "Revisão necessária";
   if (validationDetail) validationDetail.textContent = data.equivalence_diff || "Schema original e gerado compatíveis.";
+  const businessTitle = document.getElementById("qt-validation-business-title");
+  const businessText = document.getElementById("qt-validation-business-text");
+  const reduction = Number(data.cost_reduction_pct || 0);
+  if (businessTitle) businessTitle.textContent = data.equivalence_ok ? "Transformação confiável para revisão" : "Transformação precisa de revisão";
+  if (businessText) businessText.textContent = reduction > 0
+    ? `O modelo mantém o schema validado e indica uma redução estimada de ${reduction}% no volume processado.`
+    : reduction < 0
+      ? "O modelo mantém a estrutura, mas o dry-run indica aumento de processamento; revise antes de publicar."
+      : "O modelo mantém o schema validado; consulte a aba SQLX antes de publicar.";
 
   const sqlxEl = document.getElementById("qt-sqlx-output");
   if (sqlxEl) sqlxEl.textContent = data.sqlx_content || "";
@@ -4793,6 +4802,12 @@ function _qtRenderSummary(data) {
       <div><span>Qualidade</span><strong>${quality}</strong></div>
       <div><span>Equivalência</span><strong class="${equivalent ? "is-good" : "is-warning"}">${equivalent ? "Compatível" : "Revisar"}</strong></div>
     </div>`;
+}
+
+function copyQTOriginalSQL() {
+  const content = document.getElementById("qt-original-sql")?.textContent || "";
+  if (!content) return;
+  copyTextWithFallback(content).catch(() => _qtShowError("Não foi possível copiar a SQL original."));
 }
 
 function _qtFormatBytes(value) {

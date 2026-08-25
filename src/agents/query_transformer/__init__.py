@@ -221,6 +221,7 @@ class QueryTransformerAgent(BaseAgent):
         dry = final_event.get("dry_run_generated")
         raw_error = final_event.get("error")
         has_error = bool(raw_error or (dry and dry.error))
+        error_detail = raw_error or (dry.error if dry else "")
 
         report_lines = [
             f"**Tipo de materialização escolhido:** `{final_event.get('materialization_type') or '—'}`",
@@ -256,8 +257,12 @@ class QueryTransformerAgent(BaseAgent):
             ),
             "status": "ok" if final_event.get("sqlx_content") and not has_error else "error",
             "error": (
-                _friendlify_error(raw_error, final_event.get("error_category") or "")
-                if raw_error else None
+                (
+                    f"{_friendlify_error(error_detail, final_event.get('error_category') or '')} "
+                    f"Detalhe: {error_detail}"
+                )
+                if error_detail
+                else None
             ),
         }
 

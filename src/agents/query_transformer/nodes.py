@@ -28,6 +28,7 @@ REF_PLACEHOLDER_PATTERN = r"\$\{\s*ref\(\s*['\"]([^'\"]+)['\"]\s*\)\s*\}"
 SOURCE_PLACEHOLDER_PATTERN = (
     r"\$\{\s*source\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*\)\s*\}"
 )
+FULL_TABLE_REF_PATTERN = r"`?([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)`?"
 SELECT_STAR_PATTERN = r"select\s+\*"
 
 
@@ -212,14 +213,34 @@ Project ID: {state.project_id}
         }
 
 
-def _resolve_refs_to_literal_sql(query_body: str, project_id: str) -> str:
+def _resolve_refs_to_literal_sql(
+    query_body: str,
+    project_id: str,
+    original_sql: str = "",
+) -> str:
     """Substitui `${ref("x")}`/`${source("d","t")}` de volta pelo nome de
     tabela literal, só para poder rodar um dry-run — não há compilador
-    Dataform real disponível (decisão de escopo do design).
+    Dataform real disponível (decisão de escopo do design). Quando a ref de
+    um modelo corresponde a uma tabela totalmente qualificada da SQL original,
+    preserva o dataset original em vez de produzir uma referência de dois
+    níveis inválida para o BigQuery.
     """
+    original_tables = re.findall(FULL_TABLE_REF_PATTERN, original_sql)
+    table_by_name = {
+        table_ref.rsplit(".", 1)[-1].lower(): table_ref
+        for table_ref in original_tables
+    }
+
+    def resolve_ref(match: re.Match[str]) -> str:
+        ref_name = match.group(1).strip()
+        table_ref = table_by_name.get(ref_name.rsplit(".", 1)[-1].lower())
+        if table_ref:
+            return f"`{table_ref}`"
+        return f"`{project_id}.{ref_name}`"
+
     resolved = re.sub(
         REF_PLACEHOLDER_PATTERN,
-        lambda m: f"`{project_id}.{m.group(1)}`",
+        resolve_ref,
         query_body,
     )
     resolved = re.sub(
@@ -234,7 +255,11 @@ def dry_run_generated(state: QueryTransformerState) -> dict[str, Any]:
     if state.error or not state.query_body:
         return {}
 
-    literal_sql = _resolve_refs_to_literal_sql(state.query_body, state.project_id)
+    literal_sql = _resolve_refs_to_literal_sql(
+        state.query_body,
+        state.project_id,
+        state.request_sql,
+    )
 
     try:
         with ThreadPoolExecutor(max_workers=1) as executor:

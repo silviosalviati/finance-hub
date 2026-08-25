@@ -19,6 +19,25 @@ def test_query_transformer_agent_metadata():
     assert agent.display_name == "Query Transformer"
 
 
+def test_format_result_preserves_dry_run_error_detail():
+    agent = QueryTransformerAgent()
+    result = agent._format_result(
+        {
+            "dry_run_generated": DryRunResult(
+                error="Unrecognized name: missing_column at [1:8]",
+                bytes_processed=0,
+                bytes_billed=0,
+                estimated_cost_usd=0.0,
+            ),
+            "error": None,
+            "error_category": "bigquery_syntax",
+        }
+    )
+
+    assert result["status"] == "error"
+    assert "Unrecognized name: missing_column" in result["error"]
+
+
 class TestGuardrailsIn:
     def test_blocks_non_select(self):
         state = QueryTransformerState(
@@ -77,6 +96,11 @@ class TestResolveRefsToLiteralSql:
     def test_no_placeholder_unchanged(self):
         sql = "SELECT * FROM `proj.ds.clientes`"
         assert _resolve_refs_to_literal_sql(sql, "proj") == sql
+
+    def test_ref_preserves_original_dataset(self):
+        sql = 'SELECT id FROM ${ref("clientes")}'
+        original = "SELECT id FROM `proj.ds.clientes`"
+        assert _resolve_refs_to_literal_sql(sql, "proj", original) == "SELECT id FROM `proj.ds.clientes`"
 
 
 class TestValidateEquivalence:

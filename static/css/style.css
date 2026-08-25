@@ -3127,6 +3127,10 @@ textarea {
   border-left: 1px solid color-mix(in srgb, var(--porto-primary) 8%, white);
 }
 
+#view-qb .qa-empty {
+  border-left: none;
+}
+
 .qa-empty-ico {
   width: 48px;
   height: 48px;

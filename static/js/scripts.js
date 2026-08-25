@@ -4605,10 +4605,12 @@ function _qtShowProgress() {
   const empty = document.getElementById("qt-empty");
   const result = document.getElementById("qt-result");
   const hitl = document.getElementById("qt-hitl-panel");
+  const requirements = document.getElementById("qt-requirements-state");
   if (!progress) return;
   if (empty) empty.style.display = "none";
   if (result) result.style.display = "none";
   if (hitl) hitl.style.display = "none";
+  if (requirements) requirements.hidden = true;
   progress.hidden = false;
   _qtSetProgressStep(0);
   if (_qtProgressTimer) clearInterval(_qtProgressTimer);
@@ -4635,6 +4637,7 @@ function _qtRenderRequirements(data) {
   const result = document.getElementById("qt-result");
   const hitl = document.getElementById("qt-hitl-panel");
   if (!requirements) return;
+  _qtHideProgress();
   if (progress) progress.hidden = true;
   if (empty) empty.style.display = "none";
   if (result) result.style.display = "none";
@@ -4677,7 +4680,13 @@ function qtSubmitRequirements() {
   _qtShowError("");
   const button = document.getElementById("qt-requirements-submit");
   if (button) button.disabled = true;
-  qtResume({ answers }).finally(() => {
+  _qtShowProgress();
+  qtResume({ answers }).catch((error) => {
+    _qtHideProgress();
+    const requirements = document.getElementById("qt-requirements-state");
+    if (requirements) requirements.hidden = false;
+    _qtShowError(prettifyErrorMessage(error.message));
+  }).finally(() => {
     if (button) button.disabled = false;
   });
 }
@@ -4723,6 +4732,7 @@ function _qtShowError(message) {
 }
 
 function _qtRenderResult(data) {
+  _qtHideProgress();
   document.getElementById("qt-empty")?.style.setProperty("display", "none");
   document.getElementById("qt-hitl-panel")?.style.setProperty("display", "none");
   const resultEl = document.getElementById("qt-result");
@@ -4817,6 +4827,7 @@ function _qtExtractProjectId(sql) {
 }
 
 function _qtRenderHitl(data) {
+  _qtHideProgress();
   _qtHitlThreadId = data.thread_id;
   document.getElementById("qt-empty")?.style.setProperty("display", "none");
   document.getElementById("qt-result")?.style.setProperty("display", "none");
@@ -4917,6 +4928,7 @@ async function runQueryTransformer() {
       _qtRenderResult(data);
     }
   } catch (e) {
+    _qtHideProgress();
     _qtShowError(prettifyErrorMessage(e.message));
   } finally {
     _qtSetLoading(false);
@@ -4929,6 +4941,7 @@ async function qtResumeQuality(decision) {
   const acceptBtn = document.getElementById("qt-hitl-accept");
   if (improveBtn) improveBtn.disabled = true;
   if (acceptBtn) acceptBtn.disabled = true;
+  _qtShowProgress();
 
   try {
     const data = await (async () => {

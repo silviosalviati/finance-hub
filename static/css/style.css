@@ -3538,13 +3538,13 @@ textarea {
 .qt-overview-grid, .qt-validation-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .qt-metric-card, .qt-validation-card { min-height: 92px; padding: 13px; border: 1px solid var(--border); border-radius: 9px; background: var(--white); }
 .qt-metric-card { display: flex; align-items: flex-start; gap: 10px; }
-.qt-metric-icon { display: grid; place-items: center; width: 29px; height: 29px; flex-shrink: 0; border-radius: 8px; }
-.qt-metric-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.qt-metric-card > .qt-metric-icon { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; border-radius: 8px; }
+.qt-metric-card > .qt-metric-icon svg { display: block; width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .qt-metric-icon.is-green { color: #047857; background: #dcfce9; }
 .qt-metric-icon.is-blue { color: #1261a0; background: #e1efff; }
 .qt-metric-icon.is-amber { color: #b45309; background: #fff1cf; }
 .qt-metric-icon.is-violet { color: var(--violet); background: #eee8ff; }
-.qt-metric-card span, .qt-validation-card span { display: block; font-size: 10px; color: var(--ink3); }
+.qt-metric-card > div > span, .qt-validation-card > span { display: block; font-size: 10px; color: var(--ink3); }
 .qt-metric-card strong, .qt-validation-card strong { display: block; margin-top: 9px; font-family: var(--display); font-size: 17px; color: var(--ink); }
 .qt-metric-card small, .qt-validation-card small { display: block; margin-top: 4px; font-size: 10px; line-height: 1.35; color: var(--ink3); }
 .qt-overview-card { margin-top: 12px; padding: 15px; border: 1px solid var(--border); border-radius: 9px; background: var(--white); }

@@ -4584,6 +4584,8 @@ function _qtSetLoading(loading) {
   if (btn) btn.disabled = loading;
   if (spinner) spinner.style.display = loading ? "block" : "none";
   if (btnText) btnText.textContent = loading ? "Convertendo..." : "Converter para SQLX";
+  const badge = document.getElementById("qt-output-badge");
+  if (badge && loading) badge.textContent = "Processando entrada";
 }
 
 function _qtShowError(message) {
@@ -4603,6 +4605,11 @@ function _qtRenderResult(data) {
   document.getElementById("qt-hitl-panel")?.style.setProperty("display", "none");
   const resultEl = document.getElementById("qt-result");
   if (resultEl) resultEl.style.display = "block";
+  const badge = document.getElementById("qt-output-badge");
+  if (badge) {
+    badge.textContent = "Conversão concluída";
+    badge.classList.add("is-ready");
+  }
 
   const sqlxEl = document.getElementById("qt-sqlx-output");
   if (sqlxEl) sqlxEl.textContent = data.sqlx_content || "";
@@ -4630,6 +4637,8 @@ function _qtRenderHitl(data) {
 
   const panel = document.getElementById("qt-hitl-panel");
   if (panel) panel.style.display = "flex";
+  const badge = document.getElementById("qt-output-badge");
+  if (badge) badge.textContent = "Revisão necessária";
 
   const subtitle = document.getElementById("qt-hitl-subtitle");
   if (subtitle) {
@@ -4647,6 +4656,34 @@ function _qtRenderHitl(data) {
 
   const sqlxPreview = document.getElementById("qt-hitl-sqlx");
   if (sqlxPreview) sqlxPreview.textContent = data.sqlx_content || "";
+}
+
+function copyQTSQLX() {
+  const content = document.getElementById("qt-sqlx-output")?.textContent || "";
+  const button = document.getElementById("qt-copy-btn");
+  if (!content || !button) return;
+
+  copyTextWithFallback(content).then(() => {
+    const original = button.innerHTML;
+    button.classList.add("copied");
+    button.textContent = "Copiado";
+    setTimeout(() => {
+      button.innerHTML = original;
+      button.classList.remove("copied");
+    }, 1800);
+  }).catch(() => _qtShowError("Não foi possível copiar o SQLX automaticamente."));
+}
+
+function _qtUpdateInputMeta() {
+  const sql = document.getElementById("qt-sql")?.value || "";
+  const lines = sql ? sql.split(/\r?\n/).length : 0;
+  const lineCount = document.getElementById("qt-line-count");
+  const statusTitle = document.getElementById("qt-source-status-title");
+  const statusText = document.getElementById("qt-source-status-text");
+  if (lineCount) lineCount.textContent = `${lines} ${lines === 1 ? "linha" : "linhas"}`;
+  const projectId = _qtExtractProjectId(sql);
+  if (statusTitle) statusTitle.textContent = projectId ? `Projeto detectado: ${projectId}` : (sql.trim() ? "Projeto ainda não detectado" : "Aguardando SQL");
+  if (statusText) statusText.textContent = projectId ? "Referências prontas para validação." : (sql.trim() ? "Use tabelas no formato projeto.dataset.tabela." : "Cole uma consulta para validar o contexto.");
 }
 
 async function runQueryTransformer() {
@@ -4737,6 +4774,7 @@ document.getElementById("qt-sql")?.addEventListener("keydown", (e) => {
     runQueryTransformer();
   }
 });
+document.getElementById("qt-sql")?.addEventListener("input", _qtUpdateInputMeta);
 
 async function loadAccessibleAgents() {
   const grid = document.getElementById("bot-grid");

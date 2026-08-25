@@ -3290,6 +3290,7 @@ textarea {
   gap: 16px;
   padding: 22px 20px 24px;
   background: linear-gradient(180deg, #fbfdff 0%, var(--white) 220px);
+  overflow-y: hidden;
 }
 
 .qt-panel-kicker, .qt-results-eyebrow {
@@ -3407,6 +3408,64 @@ textarea {
 
 .qt-results-head h3 { margin-top: 4px; font-family: var(--display); font-size: 16px; color: var(--ink); }
 
+.qt-progress-state {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 24px;
+  text-align: center;
+  color: var(--ink2);
+}
+
+#view-qt .qt-progress-state[hidden] {
+  display: none;
+}
+
+.qt-progress-orbit {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 18px;
+  border: 1px solid #d9ccff;
+  border-radius: 16px;
+  background: #f1edff;
+}
+
+.qt-progress-orbit::before {
+  content: "";
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--violet);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: qt-progress-spin 1s linear infinite;
+}
+
+.qt-progress-orbit span { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: var(--violet); animation: qt-progress-pulse 1.2s ease-in-out infinite; }
+.qt-progress-orbit span:nth-child(1) { top: 10px; }
+.qt-progress-orbit span:nth-child(2) { right: 10px; animation-delay: .2s; }
+.qt-progress-orbit span:nth-child(3) { bottom: 10px; animation-delay: .4s; }
+@keyframes qt-progress-spin { to { transform: rotate(360deg); } }
+@keyframes qt-progress-pulse { 50% { opacity: .25; transform: scale(.7); } }
+
+.qt-progress-state h3 { margin-top: 7px; font-family: var(--display); font-size: 18px; color: var(--ink); }
+.qt-progress-state > p { max-width: 430px; margin-top: 7px; font-size: 12px; line-height: 1.55; color: var(--ink3); }
+.qt-progress-steps { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 8px; width: min(100%, 650px); margin-top: 24px; text-align: left; }
+.qt-progress-step { position: relative; min-height: 78px; padding: 11px 10px 10px 36px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,.65); opacity: .55; transition: opacity .2s, border-color .2s, background .2s; }
+.qt-progress-step > span { position: absolute; top: 10px; left: 10px; color: var(--ink3); font-family: var(--mono); font-size: 9px; font-weight: 700; }
+.qt-progress-step strong, .qt-progress-step small { display: block; }
+.qt-progress-step strong { font-size: 11px; color: var(--ink); }
+.qt-progress-step small { margin-top: 3px; font-size: 10px; line-height: 1.35; color: var(--ink3); }
+.qt-progress-step.is-active { opacity: 1; border-color: var(--violet); background: #faf8ff; box-shadow: 0 0 0 2px rgba(109,40,217,.08); }
+.qt-progress-step.is-active > span { color: var(--violet); }
+.qt-progress-step.is-done { opacity: .9; border-color: #a7f3d0; background: #f5fffa; }
+.qt-progress-step.is-done > span::after { content: " ✓"; color: #059669; }
+
 .qt-output-badge {
   padding: 5px 9px;
   border: 1px solid var(--border);
@@ -3430,16 +3489,36 @@ textarea {
 .qt-flow-steps .qa-empty-step strong { font-size: 11px; color: var(--ink); }
 .qt-flow-steps .qa-empty-step small { margin-top: 2px; font-size: 10px; line-height: 1.35; color: var(--ink3); }
 
-.qt-result-state { flex: 1; min-height: 0; padding: 20px 22px 28px; overflow: auto; }
+.qt-tabs-area { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 0 22px 22px; }
+.qt-tabs-bar { display: flex; align-items: center; gap: 4px; flex-shrink: 0; border-bottom: 1px solid var(--border); }
+.qt-tab { position: relative; padding: 13px 12px 11px; border: 0; background: transparent; color: var(--ink3); font-size: 11px; font-weight: 700; cursor: pointer; }
+.qt-tab::after { content: ""; position: absolute; right: 10px; bottom: -1px; left: 10px; height: 2px; border-radius: 2px 2px 0 0; background: transparent; }
+.qt-tab:hover { color: var(--ink); }
+.qt-tab.is-active { color: var(--violet); }
+.qt-tab.is-active::after { background: var(--violet); }
+.qt-tab-panel { display: none; min-height: 0; overflow: auto; padding: 20px 0 6px; }
+.qt-tab-panel.is-active { display: block; }
 .qt-output-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .qt-file-label { display: flex; align-items: center; gap: 9px; }
 .qt-file-icon { display: grid; place-items: center; width: 34px; height: 30px; border-radius: 6px; background: #e9e2ff; color: var(--violet); font-family: var(--mono); font-size: 9px; font-weight: 800; }
+.qt-file-label strong, .qt-file-label small { display: block; }
 .qt-file-label strong { font-family: var(--mono); font-size: 11px; color: var(--ink); }
 .qt-file-label small { margin-top: 2px; font-size: 10px; color: var(--ink3); }
 .qt-copy-btn { display: inline-flex; align-items: center; gap: 6px; }
 .qt-copy-btn.copied { color: #047857; border-color: #a7f3d0; }
-#qt-sqlx-output { margin: 0; min-height: 260px; padding: 16px; overflow: auto; border: 1px solid #cbd8e8; border-radius: 9px; background: #172033; color: #e4ecf7; font-family: var(--mono); font-size: 11.5px; line-height: 1.7; box-shadow: 0 8px 24px rgba(15,23,42,.1); }
+#qt-sqlx-output { margin: 0; min-height: 300px; padding: 16px; overflow: auto; border: 1px solid #cbd8e8; border-radius: 9px; background: #172033; color: #e4ecf7; font-family: var(--mono); font-size: 11.5px; line-height: 1.7; box-shadow: 0 8px 24px rgba(15,23,42,.1); }
 .qt-report { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 9px; background: var(--white); color: var(--ink2); font-size: 12.5px; line-height: 1.6; }
+.qt-overview-grid, .qt-validation-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.qt-metric-card, .qt-validation-card { min-height: 92px; padding: 13px; border: 1px solid var(--border); border-radius: 9px; background: var(--white); }
+.qt-metric-card span, .qt-validation-card span { display: block; font-size: 10px; color: var(--ink3); }
+.qt-metric-card strong, .qt-validation-card strong { display: block; margin-top: 9px; font-family: var(--display); font-size: 17px; color: var(--ink); }
+.qt-metric-card small, .qt-validation-card small { display: block; margin-top: 4px; font-size: 10px; line-height: 1.35; color: var(--ink3); }
+.qt-overview-card { margin-top: 12px; padding: 15px; border: 1px solid var(--border); border-radius: 9px; background: var(--white); }
+.qt-overview-card-head, .qt-code-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.qt-overview-card .qt-file-icon { width: 30px; height: 25px; }
+.qt-code-meta { font-family: var(--mono); font-size: 10px; color: var(--ink3); }
+#qt-original-sql { margin: 12px 0 0; min-height: 300px; padding: 16px; overflow: auto; border: 1px solid #cbd8e8; border-radius: 9px; background: #f8fafc; color: var(--ink); font-family: var(--mono); font-size: 11.5px; line-height: 1.7; white-space: pre-wrap; }
+.qt-validation-card-wide { grid-column: span 2; }
 
 @media (max-width: 860px) {
   #view-qt .qa-body { grid-template-columns: 1fr; overflow: auto; }
@@ -3448,8 +3527,13 @@ textarea {
   .qt-contract { margin-top: 0; }
   .qt-results-panel { min-height: 520px; }
   .qt-flow-steps { grid-template-columns: 1fr; }
+  .qt-progress-steps { grid-template-columns: 1fr 1fr; }
   .qt-results-head { padding: 14px 16px; }
-  .qt-result-state { padding: 16px; }
+  .qt-tabs-area { padding: 0 16px 16px; }
+  .qt-tabs-bar { overflow-x: auto; }
+  .qt-tab { white-space: nowrap; }
+  .qt-overview-grid, .qt-validation-grid { grid-template-columns: 1fr 1fr; }
+  .qt-validation-card-wide { grid-column: span 2; }
 }
 
 .qa-empty-step {

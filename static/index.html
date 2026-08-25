@@ -2180,19 +2180,6 @@ runbook_operacional</pre
                   </p>
                 </div>
 
-                <div class="qt-source-status" id="qt-source-status">
-                  <span class="qt-source-status-icon">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="9" />
-                      <path d="M12 8v4l2.5 2.5" />
-                    </svg>
-                  </span>
-                  <span>
-                    <strong id="qt-source-status-title">Aguardando SQL</strong>
-                    <small id="qt-source-status-text">Cole uma consulta para validar o contexto.</small>
-                  </span>
-                </div>
-
                 <div id="qt-error" class="qa-error" role="alert"></div>
 
                 <button class="btn-analyze" id="qt-btn" onclick="runQueryTransformer()">
@@ -2200,12 +2187,6 @@ runbook_operacional</pre
                   <span id="qt-btn-text">Converter para SQLX</span>
                 </button>
 
-                <div class="qt-contract">
-                  <div class="qt-contract-title">O que será preservado</div>
-                  <div class="qt-contract-item"><span>01</span>Colunas e tipos do resultado</div>
-                  <div class="qt-contract-item"><span>02</span>Filtros e intenção da consulta</div>
-                  <div class="qt-contract-item"><span>03</span>Validação técnica no BigQuery</div>
-                </div>
               </aside>
 
               <main class="qa-results-wrap qt-results-panel">
@@ -2214,35 +2195,24 @@ runbook_operacional</pre
                     <span class="qt-results-eyebrow">Workspace de saída</span>
                     <h3>Modelo Dataform</h3>
                   </div>
-                  <span class="qt-output-badge" id="qt-output-badge">Aguardando entrada</span>
                 </div>
 
-                <div class="qa-empty qt-empty-state" id="qt-empty" style="height: 100%">
-                  <div class="qa-empty-ico">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="16 3 21 3 21 8" />
-                      <line x1="21" y1="3" x2="10" y2="14" />
-                      <polyline points="8 21 3 21 3 16" />
-                      <line x1="3" y1="21" x2="14" y2="10" />
-                    </svg>
+                <div class="qt-progress-state" id="qt-progress-state" hidden>
+                  <div class="qt-progress-orbit" aria-hidden="true">
+                    <span></span><span></span><span></span>
                   </div>
-                  <h3>Pronto para transformar sua SQL</h3>
-                  <p>O workspace valida a consulta, gera o modelo SQLX e compara o resultado antes de liberar a saída.</p>
-                  <div class="qt-flow-steps">
-                    <div class="qa-empty-step">
-                      <div class="qa-empty-step-n">01</div>
-                      <span><strong>Validar</strong><small>BigQuery e referências</small></span>
-                    </div>
-                    <div class="qa-empty-step">
-                      <div class="qa-empty-step-n">02</div>
-                      <span><strong>Converter</strong><small>Configuração e refs Dataform</small></span>
-                    </div>
-                    <div class="qa-empty-step">
-                      <div class="qa-empty-step-n">03</div>
-                      <span><strong>Revisar</strong><small>Equivalência e qualidade</small></span>
-                    </div>
+                  <span class="qt-results-eyebrow">Pipeline de transformação</span>
+                  <h3 id="qt-progress-title">Validando SQL original</h3>
+                  <p id="qt-progress-subtitle">Conferindo sintaxe, tabelas e contexto no BigQuery.</p>
+                  <div class="qt-progress-steps" id="qt-progress-steps">
+                    <div class="qt-progress-step is-active" data-qt-step="0"><span>01</span><strong>Validar SQL</strong><small>BigQuery e referências</small></div>
+                    <div class="qt-progress-step" data-qt-step="1"><span>02</span><strong>Gerar SQLX</strong><small>Configuração e refs Dataform</small></div>
+                    <div class="qt-progress-step" data-qt-step="2"><span>03</span><strong>Validar saída</strong><small>Dry-run do modelo gerado</small></div>
+                    <div class="qt-progress-step" data-qt-step="3"><span>04</span><strong>Comparar resultado</strong><small>Schema e equivalência</small></div>
                   </div>
                 </div>
+
+                <div id="qt-empty" aria-hidden="true"></div>
 
                 <div id="qt-hitl-panel" class="hitl-panel" style="position:relative">
                   <div class="hitl-header">
@@ -2260,19 +2230,53 @@ runbook_operacional</pre
                   </div>
                 </div>
 
-                <div id="qt-result" class="qt-result-state" style="display:none">
-                  <div class="qt-output-toolbar">
-                    <div class="qt-file-label">
-                      <span class="qt-file-icon">SQLX</span>
-                      <span><strong>modelo.sqlx</strong><small>Saída validada pelo pipeline</small></span>
+                <div id="qt-result" class="qt-tabs-area" style="display:none">
+                  <nav class="qt-tabs-bar" aria-label="Resultado da transformação">
+                    <button type="button" class="qt-tab is-active" data-qt-tab="overview" onclick="switchQTTab('overview')">Visão geral</button>
+                    <button type="button" class="qt-tab" data-qt-tab="sqlx" onclick="switchQTTab('sqlx')">SQLX gerado</button>
+                    <button type="button" class="qt-tab" data-qt-tab="original" onclick="switchQTTab('original')">SQL original</button>
+                    <button type="button" class="qt-tab" data-qt-tab="validation" onclick="switchQTTab('validation')">Validação</button>
+                  </nav>
+
+                  <section class="qt-tab-panel is-active" data-qt-panel="overview">
+                    <div class="qt-overview-grid">
+                      <div class="qt-metric-card"><span>Status</span><strong id="qt-overview-status">Concluída</strong><small>Pipeline finalizado</small></div>
+                      <div class="qt-metric-card"><span>Materialização</span><strong id="qt-overview-materialization">—</strong><small>Tipo escolhido para o modelo</small></div>
+                      <div class="qt-metric-card"><span>Qualidade</span><strong id="qt-overview-quality">—</strong><small>Nota das boas práticas</small></div>
+                      <div class="qt-metric-card"><span>Equivalência</span><strong id="qt-overview-equivalence">—</strong><small>Schema e resultado comparados</small></div>
                     </div>
-                    <button type="button" class="copy-btn qt-copy-btn" id="qt-copy-btn" onclick="copyQTSQLX()" aria-label="Copiar SQLX gerado">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                      Copiar SQLX
-                    </button>
-                  </div>
-                  <pre id="qt-sqlx-output"></pre>
-                  <div class="qt-report" id="qt-report"></div>
+                    <div class="qt-overview-card">
+                      <div class="qt-overview-card-head"><span class="qt-results-eyebrow">Resumo da conversão</span><span class="qt-file-icon">SQLX</span></div>
+                      <div class="qt-report" id="qt-report"></div>
+                    </div>
+                  </section>
+
+                  <section class="qt-tab-panel" data-qt-panel="sqlx">
+                    <div class="qt-output-toolbar">
+                      <div class="qt-file-label">
+                        <span class="qt-file-icon">SQLX</span>
+                        <span><strong>modelo.sqlx</strong><small>Saída validada pelo pipeline</small></span>
+                      </div>
+                      <button type="button" class="copy-btn qt-copy-btn" id="qt-copy-btn" onclick="copyQTSQLX()" aria-label="Copiar SQLX gerado">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        Copiar SQLX
+                      </button>
+                    </div>
+                    <pre id="qt-sqlx-output"></pre>
+                  </section>
+
+                  <section class="qt-tab-panel" data-qt-panel="original">
+                    <div class="qt-code-panel-head"><span class="qt-results-eyebrow">Fonte da transformação</span><span id="qt-original-project" class="qt-code-meta">Projeto não detectado</span></div>
+                    <pre id="qt-original-sql"></pre>
+                  </section>
+
+                  <section class="qt-tab-panel" data-qt-panel="validation">
+                    <div class="qt-validation-grid">
+                      <div class="qt-validation-card"><span>Bytes processados</span><strong id="qt-validation-bytes">—</strong><small>Dry-run da SQL original</small></div>
+                      <div class="qt-validation-card"><span>Custo estimado</span><strong id="qt-validation-cost">—</strong><small>Estimativa do BigQuery</small></div>
+                      <div class="qt-validation-card qt-validation-card-wide"><span>Equivalência</span><strong id="qt-validation-equivalence">—</strong><small id="qt-validation-detail">Schema original e gerado serão comparados após a conversão.</small></div>
+                    </div>
+                  </section>
                 </div>
               </div>
             </div>

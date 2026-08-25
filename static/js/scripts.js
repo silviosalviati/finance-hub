@@ -4576,6 +4576,57 @@ const ACCESS_ICON =
 // Query Transformer — BigQuery SQL → Dataform SQLX
 // ─────────────────────────────────────
 let _qtHitlThreadId = null;
+let _qtProgressTimer = null;
+let _qtProgressStep = 0;
+
+const _QT_PROGRESS_PHASES = [
+  ["Validando SQL original", "Conferindo sintaxe, tabelas e contexto no BigQuery."],
+  ["Gerando modelo SQLX", "Organizando configuração, materialização e referências Dataform."],
+  ["Validando saída gerada", "Executando dry-run do modelo para confirmar a compatibilidade."],
+  ["Comparando resultado", "Conferindo schema e equivalência antes de liberar a saída."],
+];
+
+function _qtSetProgressStep(step) {
+  _qtProgressStep = Math.max(0, Math.min(step, _QT_PROGRESS_PHASES.length - 1));
+  const phase = _QT_PROGRESS_PHASES[_qtProgressStep];
+  const title = document.getElementById("qt-progress-title");
+  const subtitle = document.getElementById("qt-progress-subtitle");
+  if (title) title.textContent = phase[0];
+  if (subtitle) subtitle.textContent = phase[1];
+  document.querySelectorAll(".qt-progress-step").forEach((item) => {
+    const itemStep = Number(item.dataset.qtStep);
+    item.classList.toggle("is-active", itemStep === _qtProgressStep);
+    item.classList.toggle("is-done", itemStep < _qtProgressStep);
+  });
+}
+
+function _qtShowProgress() {
+  const progress = document.getElementById("qt-progress-state");
+  const empty = document.getElementById("qt-empty");
+  const result = document.getElementById("qt-result");
+  const hitl = document.getElementById("qt-hitl-panel");
+  if (!progress) return;
+  if (empty) empty.style.display = "none";
+  if (result) result.style.display = "none";
+  if (hitl) hitl.style.display = "none";
+  progress.hidden = false;
+  _qtSetProgressStep(0);
+  if (_qtProgressTimer) clearInterval(_qtProgressTimer);
+  _qtProgressTimer = setInterval(() => {
+    if (_qtProgressStep < _QT_PROGRESS_PHASES.length - 1) {
+      _qtSetProgressStep(_qtProgressStep + 1);
+    }
+  }, 2200);
+}
+
+function _qtHideProgress() {
+  if (_qtProgressTimer) {
+    clearInterval(_qtProgressTimer);
+    _qtProgressTimer = null;
+  }
+  const progress = document.getElementById("qt-progress-state");
+  if (progress) progress.hidden = true;
+}
 
 function _qtSetLoading(loading) {
   const btn = document.getElementById("qt-btn");
@@ -4586,6 +4637,8 @@ function _qtSetLoading(loading) {
   if (btnText) btnText.textContent = loading ? "Convertendo..." : "Converter para SQLX";
   const badge = document.getElementById("qt-output-badge");
   if (badge && loading) badge.textContent = "Processando entrada";
+  if (loading) _qtShowProgress();
+  else _qtHideProgress();
 }
 
 function _qtShowError(message) {
@@ -4611,6 +4664,27 @@ function _qtRenderResult(data) {
     badge.classList.add("is-ready");
   }
 
+  switchQTTab("overview");
+  const materialization = document.getElementById("qt-overview-materialization");
+  const quality = document.getElementById("qt-overview-quality");
+  const equivalence = document.getElementById("qt-overview-equivalence");
+  const originalSql = document.getElementById("qt-original-sql");
+  const originalProject = document.getElementById("qt-original-project");
+  const validationBytes = document.getElementById("qt-validation-bytes");
+  const validationCost = document.getElementById("qt-validation-cost");
+  const validationEquivalence = document.getElementById("qt-validation-equivalence");
+  const validationDetail = document.getElementById("qt-validation-detail");
+  const dryRun = data.dry_run || {};
+  if (materialization) materialization.textContent = data.materialization_type || "—";
+  if (quality) quality.textContent = data.quality_score == null ? "—" : `${data.quality_score}/100`;
+  if (equivalence) equivalence.textContent = data.equivalence_ok ? "Compatível" : "Revisar";
+  if (originalSql) originalSql.textContent = document.getElementById("qt-sql")?.value || "";
+  if (originalProject) originalProject.textContent = _qtExtractProjectId(originalSql?.textContent || "") || "Projeto não detectado";
+  if (validationBytes) validationBytes.textContent = _qtFormatBytes(dryRun.bytes_processed);
+  if (validationCost) validationCost.textContent = dryRun.estimated_cost_usd == null ? "—" : `US$ ${Number(dryRun.estimated_cost_usd).toFixed(6)}`;
+  if (validationEquivalence) validationEquivalence.textContent = data.equivalence_ok ? "Schema compatível" : "Revisão necessária";
+  if (validationDetail) validationDetail.textContent = data.equivalence_diff || "Schema original e gerado compatíveis.";
+
   const sqlxEl = document.getElementById("qt-sqlx-output");
   if (sqlxEl) sqlxEl.textContent = data.sqlx_content || "";
 
@@ -4620,6 +4694,29 @@ function _qtRenderResult(data) {
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/\n/g, "<br>");
   }
+}
+
+function _qtFormatBytes(value) {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let amount = bytes;
+  let unit = -1;
+  while (amount >= 1024 && unit < units.length - 1) {
+    amount /= 1024;
+    unit++;
+  }
+  return `${amount.toFixed(amount >= 10 ? 1 : 2)} ${units[unit]}`;
+}
+
+function switchQTTab(name) {
+  document.querySelectorAll(".qt-tab").forEach((tab) => {
+    tab.classList.toggle("is-active", tab.dataset.qtTab === name);
+  });
+  document.querySelectorAll(".qt-tab-panel").forEach((panel) => {
+    panel.classList.toggle("is-active", panel.dataset.qtPanel === name);
+  });
 }
 
 // Deriva o project_id direto da SQL colada — a primeira referência

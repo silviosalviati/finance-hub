@@ -4628,6 +4628,75 @@ function _qtHideProgress() {
   if (progress) progress.hidden = true;
 }
 
+function _qtRenderRequirements(data) {
+  const requirements = document.getElementById("qt-requirements-state");
+  const progress = document.getElementById("qt-progress-state");
+  const empty = document.getElementById("qt-empty");
+  const result = document.getElementById("qt-result");
+  const hitl = document.getElementById("qt-hitl-panel");
+  if (!requirements) return;
+  if (progress) progress.hidden = true;
+  if (empty) empty.style.display = "none";
+  if (result) result.style.display = "none";
+  if (hitl) hitl.style.display = "none";
+  requirements.hidden = false;
+  const message = document.getElementById("qt-requirements-message");
+  if (message) message.textContent = data.message || "Confirme os requisitos para escolher a estratégia mais segura.";
+  const recommendation = document.getElementById("qt-recommendation");
+  if (recommendation) {
+    const confidence = Number(data.confidence);
+    recommendation.textContent = data.recommendation
+      ? `Recomendação inicial: ${data.recommendation} (${Number.isFinite(confidence) ? Math.round(confidence * 100) : 0}% de confiança)`
+      : "A entrada exige revisão manual antes da conversão.";
+  }
+  const questions = document.getElementById("qt-questions");
+  if (!questions) return;
+  questions.innerHTML = (data.questions || []).map((question) => {
+    const id = escapeHtml(question.id || "question");
+    const label = escapeHtml(question.label || "Confirme esta informação");
+    if (question.type === "select") {
+      const options = (question.options || []).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("");
+      return `<label class="qt-question" for="qt-question-${id}"><span>${label}${question.required ? " *" : ""}</span><select id="qt-question-${id}" data-qt-question="${id}" ${question.required ? "required" : ""}><option value="">Selecione uma opção</option>${options}</select></label>`;
+    }
+    return `<label class="qt-question" for="qt-question-${id}"><span>${label}${question.required ? " *" : ""}</span><input id="qt-question-${id}" data-qt-question="${id}" placeholder="Informe a resposta" ${question.required ? "required" : ""} /></label>`;
+  }).join("");
+}
+
+function qtSubmitRequirements() {
+  const answers = {};
+  let missing = false;
+  document.querySelectorAll("[data-qt-question]").forEach((field) => {
+    const value = field.value.trim();
+    if (field.required && !value) missing = true;
+    answers[field.dataset.qtQuestion] = value;
+  });
+  if (missing) {
+    _qtShowError("Responda as perguntas obrigatórias antes de confirmar.");
+    return;
+  }
+  _qtShowError("");
+  const button = document.getElementById("qt-requirements-submit");
+  if (button) button.disabled = true;
+  qtResume({ answers }).finally(() => {
+    if (button) button.disabled = false;
+  });
+}
+
+async function qtResume(decision) {
+  if (!_qtHitlThreadId) return;
+  const res = await fetch("/api/agents/query_transformer/resume", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ thread_id: _qtHitlThreadId, decision }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Erro ao retomar conversão");
+  if (data.status === "awaiting_requirements") _qtRenderRequirements(data);
+  else if (data.status === "awaiting_approval") _qtRenderHitl(data);
+  else if (data.status === "error") _qtShowError(prettifyErrorMessage(data.error || "Erro ao converter SQL"));
+  else _qtRenderResult(data);
+}
+
 function _qtSetLoading(loading) {
   const btn = document.getElementById("qt-btn");
   const spinner = document.getElementById("qt-spinner");
@@ -4817,7 +4886,10 @@ async function runQueryTransformer() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Erro ao converter SQL");
 
-    if (data.status === "awaiting_approval") {
+    if (data.status === "awaiting_requirements") {
+      _qtHitlThreadId = data.thread_id;
+      _qtRenderRequirements(data);
+    } else if (data.status === "awaiting_approval") {
       _qtRenderHitl(data);
     } else if (data.status === "error") {
       _qtShowError(prettifyErrorMessage(data.error || "Erro ao converter SQL"));
@@ -4839,18 +4911,22 @@ async function qtResumeQuality(decision) {
   if (acceptBtn) acceptBtn.disabled = true;
 
   try {
-    const res = await fetch("/api/agents/query_transformer/resume", {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({ thread_id: _qtHitlThreadId, decision }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Erro ao retomar conversão");
+    const data = await (async () => {
+      const res = await fetch("/api/agents/query_transformer/resume", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ thread_id: _qtHitlThreadId, decision }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.detail || "Erro ao retomar conversão");
+      return payload;
+    })();
 
     _qtHitlThreadId = null;
 
-    if (data.status === "awaiting_approval") {
+    if (data.status === "awaiting_requirements") {
+      _qtRenderRequirements(data);
+    } else if (data.status === "awaiting_approval") {
       _qtRenderHitl(data);
     } else if (data.status === "error") {
       document.getElementById("qt-hitl-panel")?.style.setProperty("display", "none");

@@ -15,6 +15,7 @@ from src.agents.query_transformer.prompts import (
     _QUALITY_JUDGE_SYSTEM_PROMPT,
 )
 from src.agents.query_transformer.state import QueryTransformerState
+from src.agents.query_transformer.sql_analysis import assess_architecture, analyze_sql
 from src.shared.config import get_runtime_config
 from src.shared.guardrails import rbac
 from src.shared.guardrails.audit import record as record_audit_entry
@@ -30,6 +31,124 @@ SOURCE_PLACEHOLDER_PATTERN = (
 )
 FULL_TABLE_REF_PATTERN = r"`?([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)`?"
 SELECT_STAR_PATTERN = r"select\s+\*"
+
+
+def analyze_input(state: QueryTransformerState) -> dict[str, Any]:
+    """Classifica e inspeciona a SQL antes de acesso, LLM ou dry-run."""
+    analysis = analyze_sql(state.request_sql)
+    findings = [finding.as_dict() for finding in analysis.security_findings]
+    blocking = analysis.blocking_findings
+    if blocking:
+        return {
+            "sql_kind": analysis.sql_kind,
+            "statement_count": analysis.statement_count,
+            "dependencies": analysis.tables,
+            "security_findings": findings,
+            "error": blocking[0].message,
+            "error_category": "security_policy",
+        }
+    if analysis.parse_error:
+        return {
+            "sql_kind": analysis.sql_kind,
+            "security_findings": findings,
+            "error": analysis.parse_error,
+            "error_category": "sql_parse",
+        }
+    architecture = assess_architecture(analysis)
+    return {
+        "sql_kind": analysis.sql_kind,
+        "statement_count": analysis.statement_count,
+        "dependencies": analysis.tables,
+        "security_findings": findings,
+        "required_questions": architecture["required_questions"],
+        "architecture_recommendation": architecture["recommendation"],
+        "architecture_confidence": architecture["confidence"],
+    }
+
+
+def architecture_gate(state: QueryTransformerState) -> dict[str, Any]:
+    """Confirma fatos operacionais antes de escolher materializacao."""
+    if state.error or state.requirements_confirmed or not state.required_questions:
+        return {}
+    decision = interrupt({
+        "type": "architecture_decision",
+        "message": "Antes de gerar o SQLX, precisamos confirmar como os dados sao atualizados.",
+        "recommendation": state.architecture_recommendation,
+        "confidence": state.architecture_confidence,
+        "questions": state.required_questions,
+    })
+    if not isinstance(decision, dict):
+        return {
+            "error": "A confirmacao da estrategia de materializacao e obrigatoria.",
+            "error_category": "architecture_confirmation",
+        }
+    if decision.get("cancel"):
+        return {
+            "error": "Conversao cancelada antes da escolha da estrategia de materializacao.",
+            "error_category": "architecture_confirmation",
+        }
+    answers = decision.get("answers") or decision
+    scope = str(answers.get("conversion_scope") or "").strip().lower()
+    if scope == "nao converter automaticamente":
+        return {
+            "error": "Conversao automatica cancelada conforme a estrategia escolhida.",
+            "error_category": "architecture_confirmation",
+            "user_answers": answers,
+            "requirements_confirmed": True,
+        }
+    if state.sql_kind != "single_select":
+        return {
+            "error": "Essa entrada exige decomposicao manual antes de virar um modelo SQLX seguro.",
+            "error_category": "security_policy",
+            "user_answers": answers,
+            "requirements_confirmed": True,
+        }
+    return {
+        "user_answers": answers,
+        "requirements_confirmed": True,
+    }
+
+
+def validate_sqlx_static(state: QueryTransformerState) -> dict[str, Any]:
+    """Valida a saida da LLM antes de qualquer dry-run do candidato."""
+    if state.error or not state.query_body:
+        return {}
+    literal_sql = _resolve_refs_to_literal_sql(
+        state.query_body,
+        state.project_id,
+        state.request_sql,
+    )
+    analysis = analyze_sql(literal_sql)
+    if analysis.sql_kind != "single_select" or analysis.blocking_findings:
+        return {
+            "error": "O SQLX gerado contém uma operação que não é permitida em um modelo de leitura.",
+            "error_category": "security_policy",
+            "repairable_error": False,
+        }
+    allowed_tables = {
+        item.get("full_name", "").lower()
+        for item in state.dependencies
+        if item.get("full_name")
+    }
+    generated_tables = {
+        item.get("full_name", "").lower()
+        for item in analysis.tables
+        if item.get("full_name")
+    }
+    if allowed_tables and not generated_tables.issubset(allowed_tables):
+        unexpected = sorted(generated_tables - allowed_tables)
+        return {
+            "error": f"O SQLX gerado introduziu referências não presentes na SQL original: {', '.join(unexpected)}.",
+            "error_category": "security_policy",
+            "repairable_error": False,
+        }
+    if state.materialization_type not in {"table", "view", "incremental"}:
+        return {
+            "error": "O tipo de materialização retornado não é suportado pelo Dataform.",
+            "error_category": "llm_api",
+            "repairable_error": False,
+        }
+    return {}
 
 
 class _SqlxOutput(BaseModel):
@@ -48,10 +167,18 @@ def check_access(state: QueryTransformerState) -> dict[str, Any]:
     """RBAC sobre os datasets/tabelas referenciados na SQL de entrada — antes
     de qualquer chamada de LLM, mesmo motivo do `check_access` do Query Build.
     """
-    tables = sorted(set(re.findall(TABLE_REF_PATTERN, state.request_sql)))
-    for table_ref in tables:
-        parts = table_ref.split(".")
-        dataset_hint = parts[1] if len(parts) == 3 else table_ref
+    dependency_items = [item for item in state.dependencies if item.get("full_name")]
+    if dependency_items:
+        tables = [
+            (item["full_name"], item.get("dataset") or item["full_name"])
+            for item in dependency_items
+        ]
+    else:
+        tables = [
+            (table_ref, table_ref.split(".")[1] if len(table_ref.split(".")) == 3 else table_ref)
+            for table_ref in sorted(set(re.findall(TABLE_REF_PATTERN, state.request_sql)))
+        ]
+    for table_ref, dataset_hint in tables:
         allowed, reason = rbac.check_dataset(state.user, dataset_hint)
         if not allowed:
             return {
@@ -111,7 +238,14 @@ def dry_run_original(state: QueryTransformerState) -> dict[str, Any]:
             "error_category": "bigquery_syntax",
         }
 
-    return {"dry_run_original": result}
+    return {
+        "dry_run_original": result,
+        "baseline_analysis": {
+            "bytes_processed": result.bytes_processed,
+            "estimated_cost_usd": result.estimated_cost_usd,
+            "result_schema": result.result_schema,
+        },
+    }
 
 
 def _extract_message_content(response: Any) -> str:
@@ -162,7 +296,9 @@ def generate_sqlx(state: QueryTransformerState, llm: BaseChatModel) -> dict[str,
 
     user_prompt = f"""
 SQL do BigQuery a converter:
+BEGIN_UNTRUSTED_SQL
 {state.request_sql}
+END_UNTRUSTED_SQL
 
 Project ID: {state.project_id}
 {feedback_block}
@@ -318,6 +454,24 @@ def validate_equivalence(state: QueryTransformerState) -> dict[str, Any]:
     return {"equivalence_ok": False, "equivalence_diff": diff}
 
 
+def evaluate_cost_efficiency(state: QueryTransformerState) -> dict[str, Any]:
+    """Mede custo sem aceitar uma transformacao apenas por ser mais barata."""
+    if state.error or not state.dry_run_original or not state.dry_run_generated:
+        return {}
+    original_bytes = state.dry_run_original.bytes_processed or 0
+    generated_bytes = state.dry_run_generated.bytes_processed or 0
+    if original_bytes <= 0:
+        return {"cost_reduction_pct": 0.0}
+    reduction = round((1 - generated_bytes / original_bytes) * 100, 2)
+    warnings = list(state.warnings)
+    if reduction < 0:
+        warnings.append("O SQLX gerado processa mais dados que a SQL original; nenhuma otimizacao foi aceita automaticamente.")
+    return {
+        "cost_reduction_pct": reduction,
+        "warnings": warnings,
+    }
+
+
 def _deterministic_quality_checks(state: QueryTransformerState) -> tuple[int, list[str]]:
     score = 100
     issues: list[str] = []
@@ -427,8 +581,19 @@ def await_quality_approval(state: QueryTransformerState) -> dict[str, Any]:
 
 
 def node_guardrails_out(state: QueryTransformerState) -> dict[str, Any]:
-    # Sem PII em SQL/SQLX (é definição de transformação, não dado de linha) —
-    # nada a mascarar aqui, diferente do Query Build (que devolve sample_rows).
+    if not state.sqlx_content:
+        return {}
+    if len(state.sqlx_content) > 100_000:
+        return {
+            "error": "O SQLX gerado excede o limite de tamanho permitido.",
+            "error_category": "security_policy",
+        }
+    output_analysis = analyze_sql(state.query_body)
+    if output_analysis.blocking_findings or output_analysis.sql_kind != "single_select":
+        return {
+            "error": "A saída final não passou pela política de segurança de modelos de leitura.",
+            "error_category": "security_policy",
+        }
     return {}
 
 

@@ -3466,6 +3466,18 @@ textarea {
 .qt-progress-step.is-done { opacity: .9; border-color: #a7f3d0; background: #f5fffa; }
 .qt-progress-step.is-done > span::after { content: " ✓"; color: #059669; }
 
+.qt-requirements-state { flex: 1; min-height: 0; overflow: auto; padding: 38px 24px; text-align: center; }
+.qt-requirements-state h3 { margin-top: 8px; font-family: var(--display); font-size: 19px; color: var(--ink); }
+.qt-requirements-state > p { max-width: 500px; margin: 8px auto 0; font-size: 12px; line-height: 1.55; color: var(--ink3); }
+.qt-recommendation { width: min(100%, 520px); margin: 18px auto 12px; padding: 10px 12px; border: 1px solid #d9ccff; border-radius: 8px; background: #faf8ff; color: var(--violet); font-size: 11px; font-weight: 700; }
+.qt-questions { display: grid; gap: 10px; width: min(100%, 520px); margin: 0 auto; text-align: left; }
+.qt-question { display: grid; gap: 5px; }
+.qt-question > span { font-size: 11px; font-weight: 700; color: var(--ink2); }
+.qt-question input, .qt-question select { width: 100%; padding: 9px 10px; border: 1px solid var(--border2); border-radius: 7px; background: var(--white); color: var(--ink); font-size: 12px; outline: none; }
+.qt-question input:focus, .qt-question select:focus { border-color: var(--violet); box-shadow: 0 0 0 3px rgba(109,40,217,.1); }
+.qt-requirements-submit { margin-top: 16px; }
+#view-qt .qt-requirements-state[hidden] { display: none; }
+
 .qt-output-badge {
   padding: 5px 9px;
   border: 1px solid var(--border);

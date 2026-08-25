@@ -62,6 +62,11 @@ class ResumeAnalyzerRequest(BaseModel):
     decision: str = Field(..., min_length=1, max_length=2048)  # "approve" | "skip"
 
 
+class ResumeQueryTransformerRequest(BaseModel):
+    thread_id: str = Field(..., min_length=1, max_length=128)
+    decision: str | dict[str, Any]
+
+
 class ResumeFinanceAuditorRequest(BaseModel):
     thread_id: str = Field(..., min_length=1, max_length=128)
     decision: str = Field(..., min_length=1, max_length=32)  # "approve" | "skip"
@@ -1225,14 +1230,15 @@ async def resume_query_build(
 
 @router.post("/api/agents/query_transformer/resume")
 async def resume_query_transformer(
-    req: ResumeAnalyzerRequest,
+    req: ResumeQueryTransformerRequest,
     session: dict[str, Any] = Depends(get_current_user),
 ):
     """Retoma o pipeline do Query Transformer após decisão humana sobre o
-    score de qualidade ou a validação de equivalência.
+    score de qualidade, a validação de equivalência ou as perguntas de arquitetura.
 
-    Envie `decision: "seguir"` para aceitar o SQLX como está, ou
-    `decision: "melhorar"` para voltar ao nó de geração com o score/diff de
+    Envie `decision` como `"seguir"`/`"melhorar"` para a revisão, ou como
+    `{ "answers": { ... } }` para confirmar os requisitos de materialização.
+    A decisão `"melhorar"` volta ao nó de geração com o score/diff de
     equivalência como contexto de correção.
     """
     registry = get_registry()
@@ -1242,6 +1248,10 @@ async def resume_query_transformer(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     try:
+        if isinstance(req.decision, dict):
+            answers = req.decision.get("answers", req.decision)
+            if not isinstance(answers, dict) or len(str(answers)) > 8192:
+                raise HTTPException(status_code=422, detail="Respostas de arquitetura excedem o limite permitido.")
         result = agent.resume(thread_id=req.thread_id, human_decision=req.decision)
         checkpointer = get_checkpointer()
         checkpointer.save(f"{session['token']}-query_transformer", result)

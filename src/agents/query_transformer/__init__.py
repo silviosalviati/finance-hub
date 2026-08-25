@@ -25,6 +25,17 @@ _FRIENDLY_ERRORS: dict[str, str] = {
         "Só é possível converter consultas de leitura (SELECT). "
         "Modelos Dataform não executam comandos de escrita."
     ),
+    "security_policy": (
+        "Essa entrada contém uma operação ou estrutura que não pode ser convertida com segurança. "
+        "Revise a SQL e, se necessário, separe as etapas manualmente."
+    ),
+    "sql_parse": (
+        "Não foi possível interpretar essa SQL no dialeto BigQuery. "
+        "Revise a sintaxe antes de converter."
+    ),
+    "architecture_confirmation": (
+        "A estratégia da transformação precisa ser confirmada antes de gerar o SQLX."
+    ),
     "bigquery_syntax": (
         "A SQL não passou na validação técnica do BigQuery. "
         "Verifique a sintaxe e os nomes de tabela/coluna."
@@ -159,7 +170,7 @@ class QueryTransformerAgent(BaseAgent):
 
         return self._format_result(final_event)
 
-    def resume(self, thread_id: str, human_decision: str) -> dict[str, Any]:
+    def resume(self, thread_id: str, human_decision: str | dict[str, Any]) -> dict[str, Any]:
         with _THREAD_REGISTRY_LOCK:
             thread_known = thread_id in _THREAD_REGISTRY
 
@@ -208,13 +219,17 @@ class QueryTransformerAgent(BaseAgent):
     ) -> dict[str, Any]:
         event = last_event or {}
         return {
-            "status": "awaiting_approval",
+            "status": "awaiting_requirements" if not event.get("requirements_confirmed") and event.get("required_questions") else "awaiting_approval",
             "thread_id": thread_id,
             "sqlx_content": event.get("sqlx_content"),
             "quality_score": event.get("quality_score"),
             "quality_issues": event.get("quality_issues") or [],
             "equivalence_ok": event.get("equivalence_ok"),
             "equivalence_diff": event.get("equivalence_diff"),
+            "recommendation": event.get("architecture_recommendation"),
+            "confidence": event.get("architecture_confidence"),
+            "questions": event.get("required_questions") or [],
+            "user_answers": event.get("user_answers") or {},
         }
 
     def _format_result(self, final_event: dict[str, Any]) -> dict[str, Any]:
@@ -245,6 +260,7 @@ class QueryTransformerAgent(BaseAgent):
             "equivalence_ok": final_event.get("equivalence_ok"),
             "equivalence_diff": final_event.get("equivalence_diff") or "",
             "warnings": final_event.get("warnings") or [],
+            "cost_reduction_pct": final_event.get("cost_reduction_pct", 0.0),
             "dry_run": {
                 "bytes_processed": dry.bytes_processed if dry else None,
                 "estimated_cost_usd": dry.estimated_cost_usd if dry else None,

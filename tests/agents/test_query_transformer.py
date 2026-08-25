@@ -9,6 +9,7 @@ from src.agents.query_transformer.nodes import (
     node_guardrails_in,
     validate_equivalence,
 )
+from src.agents.query_transformer.sql_analysis import analyze_sql, architecture_questions
 from src.agents.query_transformer.state import QueryTransformerState
 from src.shared.tools.schemas import DryRunResult
 
@@ -36,6 +37,31 @@ def test_format_result_preserves_dry_run_error_detail():
 
     assert result["status"] == "error"
     assert "Unrecognized name: missing_column" in result["error"]
+
+
+def test_sql_analysis_extracts_bigquery_dependencies():
+    analysis = analyze_sql("SELECT id FROM `proj.ds.clientes` WHERE updated_at >= '2026-01-01'")
+    assert analysis.sql_kind == "single_select"
+    assert analysis.tables[0]["full_name"] == "proj.ds.clientes"
+    assert "updated_at" in analysis.partition_candidates
+
+
+def test_sql_analysis_blocks_dynamic_sql_and_procedure_scope():
+    analysis = analyze_sql('EXECUTE IMMEDIATE "SELECT 1"')
+    assert analysis.sql_kind == "dynamic_sql"
+    assert any(finding.code == "DYNAMIC_SQL" for finding in analysis.blocking_findings)
+
+    procedure = analyze_sql("CALL `proj.ds.rebuild_daily`()")
+    assert procedure.sql_kind == "procedure_call"
+    assert not procedure.blocking_findings
+    assert any(finding.code == "PROCEDURE" for finding in procedure.security_findings)
+
+
+def test_sql_analysis_requires_architecture_answers_for_aggregations():
+    analysis = analyze_sql("SELECT account_id, SUM(amount) FROM `proj.ds.events` GROUP BY account_id")
+    questions = architecture_questions(analysis)
+    assert any(question["id"] == "refresh_strategy" for question in questions)
+    assert any(question["id"] == "unique_key" for question in questions)
 
 
 class TestGuardrailsIn:

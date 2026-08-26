@@ -18,7 +18,6 @@ Fontes no repositório:
 | `query_analyzer` | SQL Review | `qa` | `search` | `porto` | `QueryAnalyzerAgent` |
 | `document_build` | Document Builder | `db` | `file` | `teal` | `DocumentBuildAgent` |
 | `query_build` | Query Builder | `qb` | `branch` | `violet` | `QueryBuildAgent` |
-| `schema_graph` | Schema Explorer | `er` | `diagram` | `emerald` | `SchemaGraphAgent` |
 | `finance_auditor` | Finance Voice IA | `audit` | `shield` | `amber` | `FinanceAuditorAgent` |
 | `query_transformer` | Query Transformer | `qt` | `swap` | `violet` | `QueryTransformerAgent` |
 
@@ -88,6 +87,11 @@ fluxo HITL para melhorar ou aceitar a query gerada.
 - Backend: `QueryBuildAgent` — [src/agents/query_build/\_\_init\_\_.py](../src/agents/query_build/__init__.py)
 - Grafo: [src/agents/query_build/graph.py](../src/agents/query_build/graph.py)
 - View/rota: `qb` → `#view-qb`
+- Endpoints de apoio (compartilhados, não exclusivos do QB):
+  `GET /api/schema-explorer/projects` e `GET /api/schema-explorer/datasets`
+  ([src/api/routes/gcp_projects.py](../src/api/routes/gcp_projects.py)), consumidos
+  pelas funções JS `_loadProjectsIntoSelect()` / `_loadDatasetsIntoSelect()` para
+  popular `qb-project` / `qb-dataset`.
 
 ### HTML (IDs)
 | ID | Elemento |
@@ -171,31 +175,7 @@ qualidade e nota geral.
 
 ---
 
-## 4. Schema Explorer (`schema_graph`)
-
-**Função:** introspecta o BigQuery e monta um grafo entidade-relacionamento (ER)
-interativo (D3 + Dagre) com os relacionamentos inferidos entre tabelas de um ou mais
-datasets.
-
-- Backend: `SchemaGraphAgent` — [src/agents/schema_graph/\_\_init\_\_.py](../src/agents/schema_graph/__init__.py)
-- Grafo: [src/agents/schema_graph/graph.py](../src/agents/schema_graph/graph.py)
-- View/rota: `er` → `#view-er`
-- Item de menu lateral fixo (não é card do grid): `nav-er` (ícone de "diagram" inline no HTML)
-- Dependências JS externas: `static/js/d3.v7.min.js`, `dagre.min.js` (CDN)
-
-### HTML (IDs)
-- `view-er` (raiz — estrutura interna não detalhada neste levantamento; usa
-  `d3.v7.min.js` para renderizar o SVG do grafo).
-- `nav-er` — item do menu lateral.
-
-### JS
-Usa D3.js (`static/js/d3.v7.min.js`) e Dagre (CDN) para layout/renderização do grafo;
-lógica de app específica dentro de `scripts.js` (funções de fetch/parse do grafo de
-schema, prefixo característico não padronizado como os demais agentes).
-
----
-
-## 5. Finance Voice IA (`finance_auditor`)
+## 4. Finance Voice IA (`finance_auditor`)
 
 **Função:** assistente conversacional (Supervisor + Specialists) sobre os dados
 financeiros — permite perguntas livres, encadeando dinamicamente capabilities
@@ -233,7 +213,7 @@ cartões de métrica, gráfico, voz e tom (chips de capability: `grid`, `code`,
 
 ---
 
-## 6. Query Transformer (`query_transformer`)
+## 5. Query Transformer (`query_transformer`)
 
 **Função:** converte SQL do BigQuery em modelos `.sqlx` do Dataform, seguindo boas
 práticas de mercado, com validação de sintaxe, dry-run do modelo gerado, comparação
@@ -283,9 +263,8 @@ vars: `_qtHitlThreadId`, `_qtProgressTimer`, `_qtProgressStep`.
 
 ## Estrutura comum de navegação (home grid)
 
-Todos os agentes (exceto o Schema Explorer, que tem item fixo no menu) aparecem como
-cartões no grid da home, renderizados por `_renderBotCard(a)` em
-[static/js/scripts.js](../static/js/scripts.js):
+Todos os agentes aparecem como cartões no grid da home, renderizados por
+`_renderBotCard(a)` em [static/js/scripts.js](../static/js/scripts.js):
 
 ```html
 <article class="bot-card" data-color="{color_token}" onclick="navTo('{view}')">
@@ -308,7 +287,7 @@ cartões no grid da home, renderizados por `_renderBotCard(a)` em
 - Cores por `data-color`: `porto`, `teal`, `violet`, `emerald`, `amber`
   (classes CSS: `.bot-card[data-color="..."]`, `.biw.bi-{cor}`)
 - Ícones (`AGENT_ICONS`, mapa `icon_token → SVG` inline): `search`, `file`, `branch`,
-  `diagram`, `shield`, `swap`
+  `shield`, `swap`
 - Função de carregamento: `loadAccessibleAgents()` (chama `GET /api/agents`),
   `renderBotGrid()`, `_agentPrimaryTag(a)`
 - Roteamento central: `navTo(view)` — mapeia `view` → `id` da seção (`.view.active`)
@@ -322,7 +301,6 @@ const mapping = {
   qb: "view-qb",
   audit: "view-fa",
   qt: "view-qt",
-  er: "view-er",
   dev: "view-dev",
   hist: "view-hist",
   "admin-users": "view-admin-users",
@@ -334,7 +312,7 @@ const mapping = {
 ### Convenções de nomenclatura observadas
 - Cada agente usa um **prefixo curto** consistente em IDs/JS: `qa-` (SQL Review),
   `qb-` (Query Builder), `db-` (Document Builder), `qt-` (Query Transformer),
-  `fa-` (Finance Auditor). Schema Explorer (`er`) não segue esse padrão de prefixo.
+  `fa-` (Finance Auditor).
 - Padrão de tela: `<section class="view" id="view-{view}">`.
 - Padrão de item de menu: `<div class="nitem" id="nav-{view}">`.
 - Painéis HITL (Human-in-the-loop) reaproveitam a classe genérica `.hitl-panel`,

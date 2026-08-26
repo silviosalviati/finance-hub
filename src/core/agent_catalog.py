@@ -47,17 +47,6 @@ AGENT_CATALOG: dict[str, dict[str, str]] = {
         "color_token": "violet",
         "default_tags": "NL2SQL,BigQuery,IA",
     },
-    "schema_graph": {
-        "display_name": "Schema Explorer",
-        "description": (
-            "Visualize o diagrama ER de qualquer dataset BigQuery com "
-            "relacionamentos inferidos e layout interativo."
-        ),
-        "view": "er",
-        "icon_token": "diagram",
-        "color_token": "emerald",
-        "default_tags": "Schema Explorer,BigQuery,DataOps",
-    },
     "finance_auditor": {
         "display_name": "Finance Voice IA",
         "description": (

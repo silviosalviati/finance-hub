@@ -24,7 +24,7 @@ from src.api.routes.admin import router as admin_router
 from src.api.routes.agents import router as agents_router
 from src.api.routes.auth import router as auth_router
 from src.api.routes.finance_governance import router as finance_governance_router
-from src.api.routes.schema_explorer import router as schema_explorer_router
+from src.api.routes.gcp_projects import router as gcp_projects_router
 from src.core.database import init_db
 from src.core.database import delete_expired_finance_podcast_assets
 from src.shared.config import ALLOWED_ORIGINS, get_gcp_project_ids, validate_runtime_config
@@ -75,7 +75,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(agents_router)
-app.include_router(schema_explorer_router)
+app.include_router(gcp_projects_router)
 app.include_router(admin_router)
 app.include_router(finance_governance_router)
 

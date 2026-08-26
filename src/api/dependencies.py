@@ -13,7 +13,6 @@ from src.agents.finance_auditor import FinanceAuditorAgent
 from src.agents.query_analyzer import QueryAnalyzerAgent
 from src.agents.query_build import QueryBuildAgent
 from src.agents.query_transformer import QueryTransformerAgent
-from src.agents.schema_graph import SchemaGraphAgent
 from src.core.checkpointer import CheckpointConfig, FileCheckpointer
 from src.core.database import (
     count_sessions,
@@ -39,7 +38,6 @@ def get_registry() -> AgentRegistry:
         registry.register(QueryBuildAgent())
         registry.register(DocumentBuildAgent())
         registry.register(FinanceAuditorAgent())
-        registry.register(SchemaGraphAgent())
         registry.register(QueryTransformerAgent())
         _registry = registry
     return _registry

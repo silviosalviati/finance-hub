@@ -733,9 +733,6 @@ async def analyze_by_agent(
         result = await asyncio.to_thread(agent.analyze, **analyze_kwargs)
         checkpoint_key = f"{session['token']}-{agent_id}"
         checkpointer.save(checkpoint_key, result)
-        # Para schema_graph persiste também com chave de projeto para cache compartilhado
-        if agent_id == "schema_graph" and result.get("status") == "ok":
-            checkpointer.save(f"schema_graph:{project_id}", result)
         return result
     except HTTPException:
         raise
@@ -1302,26 +1299,6 @@ async def resume_finance_auditor(
             status_code=500,
             detail="Erro interno ao retomar a análise. Tente novamente em instantes.",
         )
-
-
-_SAFE_ID = re.compile(r"^[a-zA-Z0-9_\-]+$")
-
-
-@router.get("/api/agents/schema_graph/cached/{project_id}")
-async def get_cached_schema(
-    project_id: str,
-    _session: dict[str, Any] = Depends(get_current_user),
-):
-    """Retorna o último grafo de schema armazenado para um projeto, se disponível."""
-    if not _SAFE_ID.match(project_id):
-        raise HTTPException(status_code=400, detail="Project ID inválido.")
-
-    checkpointer = get_checkpointer()
-    cache_key = f"schema_graph:{project_id}"
-    payload = checkpointer.load(cache_key)
-    if payload is None:
-        raise HTTPException(status_code=404, detail="Nenhum grafo em cache para este projeto.")
-    return {"status": "ok", "cached": True, **payload}
 
 
 @router.get("/api/agents/{agent_id}/checkpoint")
